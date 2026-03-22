@@ -1,0 +1,76 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
+@import "tailwindcss";
+
+@theme {
+  /* Fonts — next/font injects font-family on these same CSS variables */
+  --font-headline: var(--font-headline), "Lexend", sans-serif;
+  --font-body: var(--font-body), "Manrope", sans-serif;
+  --font-label: var(--font-label), "Inter", sans-serif;
+
+  /* MD3 Color Tokens — full set from Stitch prototypes */
+  --color-primary: #000613;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #001f3f;
+  --color-on-primary-container: #6f88ad;
+  --color-primary-fixed: #d4e3ff;
+  --color-primary-fixed-dim: #afc8f0;
+  --color-on-primary-fixed: #001c3a;
+  --color-on-primary-fixed-variant: #2f486a;
+  --color-inverse-primary: #afc8f0;
+
+  --color-secondary: #006e0a;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #69fd5d;
+  --color-on-secondary-container: #00730b;
+  --color-secondary-fixed: #75ff68;
+  --color-secondary-fixed-dim: #4ce346;
+  --color-on-secondary-fixed: #002201;
+  --color-on-secondary-fixed-variant: #005306;
+
+  --color-tertiary: #000700;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #002501;
+  --color-on-tertiary-container: #009c14;
+  --color-tertiary-fixed: #75ff68;
+  --color-tertiary-fixed-dim: #4ce346;
+  --color-on-tertiary-fixed: #002201;
+  --color-on-tertiary-fixed-variant: #005306;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  --color-surface: #faf9fc;
+  --color-on-surface: #1a1c1e;
+  --color-surface-variant: #e3e2e5;
+  --color-on-surface-variant: #43474e;
+  --color-surface-dim: #dbd9dd;
+  --color-surface-bright: #faf9fc;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f4f3f6;
+  --color-surface-container: #efedf0;
+  --color-surface-container-high: #e9e7eb;
+  --color-surface-container-highest: #e3e2e5;
+  --color-surface-tint: #476083;
+
+  --color-outline: #74777f;
+  --color-outline-variant: #c4c6cf;
+
+  --color-inverse-surface: #2f3033;
+  --color-inverse-on-surface: #f2f0f3;
+
+  --color-background: #faf9fc;
+  --color-on-background: #1a1c1e;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+}
