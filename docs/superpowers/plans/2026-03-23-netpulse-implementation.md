@@ -73,19 +73,19 @@ import "./globals.css";
 
 const lexend = Lexend({
   subsets: ["latin"],
-  variable: "--font-lexend",
+  variable: "--font-headline",
   display: "swap",
 });
 
 const manrope = Manrope({
   subsets: ["latin"],
-  variable: "--font-manrope",
+  variable: "--font-body",
   display: "swap",
 });
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-label",
   display: "swap",
 });
 
@@ -124,10 +124,10 @@ Add a `src/app/globals.css` that imports Material Symbols:
 @import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
 
 @theme {
-  /* Fonts */
-  --font-headline: var(--font-lexend), sans-serif;
-  --font-body: var(--font-manrope), sans-serif;
-  --font-label: var(--font-inter), sans-serif;
+  /* Fonts — next/font injects font-family on these same CSS variables */
+  --font-headline: var(--font-headline), "Lexend", sans-serif;
+  --font-body: var(--font-body), "Manrope", sans-serif;
+  --font-label: var(--font-label), "Inter", sans-serif;
 
   /* MD3 Color Tokens — full set from Stitch prototypes */
   --color-primary: #000613;
@@ -278,7 +278,7 @@ Add/update scripts in `package.json`:
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "npx prisma generate && next build",
-    "start": "NODE_ENV=production node server.js",
+    "start": "NODE_ENV=production npx tsx server.ts",
     "lint": "next lint",
     "test": "vitest",
     "test:run": "vitest run",
@@ -701,7 +701,23 @@ npx prisma generate
 # Expected: ✓ Generated Prisma Client
 ```
 
-- [ ] **Step 4: Create the seed script**
+- [ ] **Step 4: Create the Prisma client singleton**
+
+Create `src/lib/db.ts`:
+
+```ts
+import { PrismaClient } from '@prisma/client'
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+```
+
+This prevents multiple Prisma Client instances during hot-reload in development. All application code should import from `@/lib/db`.
+
+- [ ] **Step 5: Create the seed script**
 
 Create `prisma/seed.ts`:
 
@@ -4218,7 +4234,7 @@ Create `src/__tests__/auth/auth.test.ts`:
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Prisma
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/db', () => ({
   prisma: {
     user: {
       findUnique: vi.fn(),
@@ -4269,7 +4285,7 @@ describe('Auth Configuration', () => {
   });
 
   it('credentials provider should reject wrong password', async () => {
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/lib/db');
     const bcrypt = (await import('bcryptjs')).default;
 
     (prisma.user.findUnique as any).mockResolvedValue({
@@ -4291,7 +4307,7 @@ describe('Auth Configuration', () => {
   });
 
   it('credentials provider should return user on valid login', async () => {
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/lib/db');
     const bcrypt = (await import('bcryptjs')).default;
 
     (prisma.user.findUnique as any).mockResolvedValue({
@@ -4331,7 +4347,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
@@ -4771,7 +4787,7 @@ Create `src/app/api/auth/signup/route.ts`:
 ```typescript
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
@@ -4869,7 +4885,37 @@ export function AuthButton() {
 }
 ```
 
-- [ ] **Step 11: Install dependencies, verify build**
+- [ ] **Step 11: Create SessionProvider wrapper**
+
+Create `src/components/providers/Providers.tsx`:
+
+```tsx
+'use client'
+
+import { SessionProvider } from 'next-auth/react'
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <SessionProvider>{children}</SessionProvider>
+}
+```
+
+Then modify `src/app/layout.tsx` to wrap the AppShell with `<Providers>`:
+
+```tsx
+// Add this import alongside existing imports:
+import { Providers } from '@/components/providers/Providers';
+
+// Update the <body> to wrap AppShell:
+<body className="font-body antialiased">
+  <Providers>
+    <AppShell>{children}</AppShell>
+  </Providers>
+</body>
+```
+
+This ensures `useSession()` works in any client component throughout the app.
+
+- [ ] **Step 12: Install dependencies, verify build**
 
 ```bash
 npm install next-auth @auth/prisma-adapter bcryptjs
@@ -4879,7 +4925,7 @@ npx vitest run src/__tests__/auth/
 
 Expect: all auth tests PASS.
 
-- [ ] **Step 12: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
 git add -A && git commit -m "feat: add NextAuth.js authentication with credentials and Google OAuth"
@@ -5139,8 +5185,8 @@ Run: `npx vitest run src/__tests__/hooks/useMatchSocket.test.ts` — expect PASS
 Create `src/components/match/LiveScoreHero.tsx`:
 
 ```tsx
-import { LiveIndicator } from '@/components/shared/LiveIndicator';
-import { TeamBadge } from '@/components/shared/TeamBadge';
+import { LiveIndicator } from '@/components/ui/LiveIndicator';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 import type { Match, Team } from '@prisma/client';
 
 interface LiveScoreHeroProps {
@@ -5461,7 +5507,7 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
 Create `src/app/match/[matchId]/live/page.tsx`:
 
 ```tsx
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { LiveGameClient } from './LiveGameClient';
 
@@ -5811,7 +5857,7 @@ Run: `npx vitest run src/__tests__/components/NetballCourt.test.tsx` — expect 
 Create `src/app/match/[matchId]/court/page.tsx`:
 
 ```tsx
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { CourtClient } from './CourtClient';
 
@@ -5859,7 +5905,7 @@ Create `src/app/match/[matchId]/court/CourtClient.tsx`:
 
 import { useMatchSocket } from '@/hooks/useMatchSocket';
 import { NetballCourt } from '@/components/match/NetballCourt';
-import { LiveIndicator } from '@/components/shared/LiveIndicator';
+import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import type { Match, Team, Player, PlayerMatchStats } from '@prisma/client';
 
 type FullMatch = Match & {
@@ -5999,7 +6045,7 @@ git add -A && git commit -m "feat: add on-court visualizer with SVG court and pl
 - Create: `src/lib/socket-server.ts`
 - Create: `src/lib/worker.ts`
 - Create: `src/lib/match-sync.ts`
-- Modify: `server.js` (integrate Socket.io server and worker)
+- Modify: `server.ts` (integrate Socket.io server and worker)
 - Test: `src/__tests__/lib/match-sync.test.ts`
 - Test: `src/__tests__/lib/worker.test.ts`
 
@@ -6010,7 +6056,7 @@ Create `src/__tests__/lib/match-sync.test.ts`:
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/db', () => ({
   prisma: {
     match: {
       findMany: vi.fn(),
@@ -6034,7 +6080,7 @@ describe('match-sync', () => {
   });
 
   it('should detect score changes and return changed matches', async () => {
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/lib/db');
     const { detectChanges } = await import('@/lib/match-sync');
 
     (prisma.match.findMany as any).mockResolvedValue([
@@ -6065,7 +6111,7 @@ describe('match-sync', () => {
   });
 
   it('should return no changes when scores are the same', async () => {
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/lib/db');
     const { detectChanges } = await import('@/lib/match-sync');
 
     (prisma.match.findMany as any).mockResolvedValue([
@@ -6095,7 +6141,7 @@ describe('match-sync', () => {
   });
 
   it('should detect status change from LIVE to COMPLETED', async () => {
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/lib/db');
     const { detectChanges } = await import('@/lib/match-sync');
 
     (prisma.match.findMany as any).mockResolvedValue([
@@ -6133,7 +6179,7 @@ Run: `npx vitest run src/__tests__/lib/match-sync.test.ts` — expect FAIL.
 Create `src/lib/match-sync.ts`:
 
 ```typescript
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import type { MatchStatus } from '@prisma/client';
 
 interface ChampionDataMatchState {
@@ -6426,7 +6472,7 @@ Run: `npx vitest run src/__tests__/lib/worker.test.ts` — expect FAIL.
 Create `src/lib/worker.ts`:
 
 ```typescript
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { detectChanges, applyChanges } from '@/lib/match-sync';
 import {
   broadcastScoreUpdate,
@@ -6575,14 +6621,14 @@ export function stopWorker(): void {
 
 Run: `npx vitest run src/__tests__/lib/worker.test.ts` — expect PASS.
 
-- [ ] **Step 6: Integrate Socket.io server and worker into server.js**
+- [ ] **Step 6: Integrate Socket.io server and worker into server.ts**
 
-Modify `server.js` — add to the existing custom Express server:
+Modify `server.ts` — add to the existing custom Express server:
 
-```javascript
-// Add these imports at the top of server.js
-const { initSocketServer } = require('./src/lib/socket-server');
-const { startWorker, stopWorker } = require('./src/lib/worker');
+```typescript
+// Add these imports at the top of server.ts
+import { initSocketServer } from './src/lib/socket-server';
+import { startWorker, stopWorker } from './src/lib/worker';
 
 // After creating the HTTP server (after `const server = http.createServer(app);`):
 // Initialize Socket.io
@@ -6631,6 +6677,7 @@ git add -A && git commit -m "feat: add real-time infrastructure with Socket.io s
 
 **Files:**
 - Create: `src/app/settings/page.tsx`
+- Create: `src/app/api/teams/route.ts`
 - Create: `src/app/api/user/teams/route.ts`
 - Create: `src/app/api/user/favorites/route.ts`
 - Create: `src/app/api/user/reminders/route.ts`
@@ -6645,7 +6692,7 @@ Create `src/__tests__/api/user-teams.test.ts`:
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/db', () => ({
   prisma: {
     userTeam: {
       findMany: vi.fn(),
@@ -6679,7 +6726,7 @@ describe('User Teams API', () => {
 
   it('should return user teams when authenticated', async () => {
     const { getServerSession } = await import('next-auth');
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/lib/db');
 
     (getServerSession as any).mockResolvedValue({
       user: { id: 'user-1' },
@@ -6709,7 +6756,7 @@ Create `src/app/api/user/teams/route.ts`:
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -6780,7 +6827,7 @@ Create `src/app/api/user/favorites/route.ts`:
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -6853,7 +6900,7 @@ Create `src/app/api/user/reminders/route.ts`:
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -6918,7 +6965,34 @@ export async function DELETE(request: Request) {
 }
 ```
 
-- [ ] **Step 5: Build settings page**
+- [ ] **Step 5: Create /api/teams route**
+
+Create `src/app/api/teams/route.ts` — returns all teams from the database (used by the settings page to list teams for following):
+
+```typescript
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+
+export async function GET() {
+  try {
+    const teams = await prisma.team.findMany({
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        abbreviation: true,
+        logoUrl: true,
+      },
+    });
+    return NextResponse.json(teams);
+  } catch (error) {
+    console.error('Failed to fetch teams:', error);
+    return NextResponse.json({ error: 'Failed to fetch teams' }, { status: 500 });
+  }
+}
+```
+
+- [ ] **Step 6: Build settings page**
 
 Create `src/app/settings/page.tsx`:
 
@@ -7061,7 +7135,7 @@ export default function SettingsPage() {
 }
 ```
 
-- [ ] **Step 6: Run tests, verify build**
+- [ ] **Step 7: Run tests, verify build**
 
 ```bash
 npx vitest run src/__tests__/api/user-teams.test.ts
@@ -7069,7 +7143,7 @@ npx vitest run src/__tests__/api/user-teams.test.ts
 
 Expect: all tests PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A && git commit -m "feat: add user personalization with follow teams, favorites, and reminders"
@@ -7142,7 +7216,7 @@ services:
     region: sydney
     plan: starter
     buildCommand: npm ci && npx prisma generate && npm run build
-    startCommand: node server.js
+    startCommand: npx tsx server.ts
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -7168,9 +7242,9 @@ Ensure `package.json` contains:
 ```json
 {
   "scripts": {
-    "dev": "node server.js",
+    "dev": "npx tsx watch server.ts",
     "build": "next build",
-    "start": "node server.js",
+    "start": "npx tsx server.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   }
