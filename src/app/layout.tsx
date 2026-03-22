@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Lexend, Manrope, Inter } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
+import { Providers } from "@/components/providers/Providers";
 import "./globals.css";
 
 const lexend = Lexend({
@@ -44,7 +45,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AppShell>{children}</AppShell>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );

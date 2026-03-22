@@ -1,7 +1,8 @@
 import express from "express";
 import { createServer } from "http";
-import { Server as SocketIOServer } from "socket.io";
 import next from "next";
+import { initSocketServer } from "./src/lib/socket-server";
+import { startWorker, stopWorker } from "./src/lib/worker";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "0.0.0.0";
@@ -14,34 +15,16 @@ app.prepare().then(() => {
   const expressApp = express();
   const httpServer = createServer(expressApp);
 
-  const io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: dev ? "http://localhost:3000" : process.env.NEXTAUTH_URL,
-      methods: ["GET", "POST"],
-    },
-  });
-
-  // Socket.io connection handling
-  io.on("connection", (socket) => {
-    console.log(`[socket.io] Client connected: ${socket.id}`);
-
-    socket.on("match:subscribe", ({ matchId }: { matchId: string }) => {
-      socket.join(`match:${matchId}`);
-      console.log(`[socket.io] ${socket.id} joined match:${matchId}`);
-    });
-
-    socket.on("match:unsubscribe", ({ matchId }: { matchId: string }) => {
-      socket.leave(`match:${matchId}`);
-      console.log(`[socket.io] ${socket.id} left match:${matchId}`);
-    });
-
-    socket.on("disconnect", () => {
-      console.log(`[socket.io] Client disconnected: ${socket.id}`);
-    });
-  });
+  // Initialize Socket.io
+  const io = initSocketServer(httpServer);
+  console.log("[Server] Socket.io initialized");
 
   // Make io accessible to API routes via Express app locals
   expressApp.set("io", io);
+
+  // Start background worker
+  startWorker();
+  console.log("[Server] Background worker started");
 
   // Let Next.js handle all other routes
   expressApp.all("/{*path}", (req, res) => {
@@ -51,5 +34,21 @@ app.prepare().then(() => {
   httpServer.listen(port, () => {
     console.log(`> NETPULSE ready on http://${hostname}:${port}`);
     console.log(`> Socket.io server attached`);
+  });
+
+  // Graceful shutdown (for Render deploys)
+  process.on("SIGTERM", () => {
+    console.log("[Server] SIGTERM received, shutting down gracefully");
+    stopWorker();
+    httpServer.close(() => {
+      console.log("[Server] HTTP server closed");
+      process.exit(0);
+    });
+  });
+
+  process.on("SIGINT", () => {
+    console.log("[Server] SIGINT received, shutting down");
+    stopWorker();
+    httpServer.close(() => process.exit(0));
   });
 });
