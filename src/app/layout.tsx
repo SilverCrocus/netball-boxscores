@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Lexend, Manrope, Inter } from "next/font/google";
+import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
 
 const lexend = Lexend({
@@ -21,9 +22,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "NETPULSE — Suncorp Super Netball Scores & Stats",
+  title: "NETPULSE - Suncorp Super Netball",
   description:
-    "Live scores, box scores, standings, and player stats for Suncorp Super Netball.",
+    "Live scores, stats, and fixtures for Suncorp Super Netball",
 };
 
 export default function RootLayout({
@@ -36,8 +37,14 @@ export default function RootLayout({
       lang="en"
       className={`${lexend.variable} ${manrope.variable} ${inter.variable}`}
     >
-      <body className="bg-surface text-on-surface font-body antialiased">
-        {children}
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="font-body antialiased">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
