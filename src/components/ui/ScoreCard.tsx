@@ -18,7 +18,7 @@ interface ScoreCardMatch {
   currentTime?: string | null;
   round?: number;
   venue?: string;
-  scheduledAt?: string;
+  scheduledAt?: string | Date;
 }
 
 interface ScoreCardProps {

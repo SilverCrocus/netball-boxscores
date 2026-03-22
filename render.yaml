@@ -1,0 +1,24 @@
+services:
+  - type: web
+    runtime: node
+    name: netpulse
+    region: sydney
+    plan: starter
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npx tsx server.ts
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CHAMPION_DATA_COMP_ID
+        sync: false

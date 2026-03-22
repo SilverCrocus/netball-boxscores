@@ -7,8 +7,8 @@
     "build": "npx prisma generate && next build",
     "start": "NODE_ENV=production npx tsx server.ts",
     "lint": "next lint",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "npx prisma studio"
