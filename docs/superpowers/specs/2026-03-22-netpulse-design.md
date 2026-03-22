@@ -90,6 +90,7 @@ CC BY-SA licensed historical data for seeding the database with past seasons.
 | `/match/[matchId]/live` | Live Game Center | `live-game-center/` |
 | `/match/[matchId]/court` | On-Court Visualizer | `on-court-visualizer/` |
 | `/standings` | League Standings | `league-standings/` |
+| `/teams` | Team Directory | — (grid of team cards) |
 | `/team/[teamSlug]` | Team Profile | `team-profile-vipers/` |
 | `/auth/signin` | Sign In | — |
 | `/auth/signup` | Sign Up | — |
@@ -101,7 +102,14 @@ CC BY-SA licensed historical data for seeding the database with past seasons.
 
 **Mobile** (<1024px): Bottom navigation bar with 4-5 tabs.
 
-Navigation items: Home (Fixtures), Standings, Teams, Live, Profile/Settings.
+Navigation items (sidebar/bottom nav):
+- **Home** — Fixtures & Scores Hub (`/`)
+- **Live** — Filters to live matches on home page
+- **Standings** — League table (`/standings`)
+- **Teams** — Team directory (`/teams`)
+- **Profile** — Settings, My Teams (`/settings`) — signed-in only
+
+Note: Stitch prototypes show variant sidebar items (Live Ticker, Recent Results, etc.) — these map to sections within pages, not separate routes. The nav above is the canonical site-wide navigation.
 
 ## Shared Components
 
@@ -141,6 +149,21 @@ Connected Clients (join room per match)
 4. Client components receive delta updates and re-render
 5. Pages SSR on initial load, then hydrate with WebSocket for live updates
 
+### Socket.io Event Contract
+
+**Room naming**: `match:{matchId}` — clients join on page load, leave on unmount.
+
+| Event | Direction | Payload |
+|-------|-----------|---------|
+| `score:update` | Server → Client | `{ matchId, homeScore, awayScore, currentQuarter, currentTime }` |
+| `stats:update` | Server → Client | `{ matchId, playerStats: PlayerMatchStats[] }` |
+| `match:status` | Server → Client | `{ matchId, status: "LIVE" \| "COMPLETED", quarter?, time? }` |
+| `scoreflow:add` | Server → Client | `{ matchId, period, scoringTeamId, homeScore, awayScore, periodSeconds }` |
+| `match:subscribe` | Client → Server | `{ matchId }` — joins the match room |
+| `match:unsubscribe` | Client → Server | `{ matchId }` — leaves the match room |
+
+Clients reconnect with exponential backoff (1s, 2s, 4s, max 30s). On reconnect, client fetches full state via REST then resumes WebSocket deltas.
+
 ## Authentication & Personalization
 
 **NextAuth.js** with Prisma adapter storing sessions in Supabase PostgreSQL.
@@ -151,8 +174,16 @@ Providers:
 
 User features:
 - **My Teams**: Follow teams — shown first in fixtures, highlighted in standings
-- **Match Reminders**: "Get Reminded" stores preference, triggers browser push notification
+- **Match Reminders**: "Get Reminded" stores preference. V1: in-app reminder shown when match starts (no push notifications). V2: browser push via Web Push API + service worker.
 - **Favorites**: Bookmark matches for quick access
+
+### Search
+
+V1 scope: client-side filtering on loaded data (filter fixtures by team name, filter player stats table). No server-side search endpoint initially. Server-side search can be added later if needed.
+
+### On-Court Visualizer Data
+
+Champion Data does not provide real-time positional coordinates. The on-court visualizer plots players at their **designated position** (GS, GA, WA, C, WD, GD, GK) on the court thirds, not live movement tracking. Player nodes are static positions with live stat overlays updated via WebSocket.
 
 ## Database Schema
 
@@ -162,35 +193,73 @@ model Competition {
   name             String
   season           Int
   championDataId   Int      @unique
+  seasonStart      DateTime?
+  seasonEnd        DateTime?
   teams            Team[]
   matches          Match[]
+  standings        Standing[]
 }
 
 model Team {
-  id              String   @id @default(cuid())
-  name            String
-  slug            String   @unique
-  abbreviation    String
-  logoUrl         String?
-  bannerUrl       String?
-  primaryColor    String?
-  secondaryColor  String?
+  id                 String   @id @default(cuid())
+  name               String
+  slug               String   @unique
+  abbreviation       String
+  logoUrl            String?
+  bannerUrl          String?
+  primaryColor       String?
+  secondaryColor     String?
+  championDataTeamId Int?     @unique
+  competitionId      String
+  competition        Competition @relation(fields: [competitionId], references: [id])
+  players            Player[]
+  homeMatches        Match[]  @relation("HomeTeam")
+  awayMatches        Match[]  @relation("AwayTeam")
+  followers          UserTeam[]
+  standings          Standing[]
+  scoredFlows        ScoreFlow[] @relation("ScoringTeam")
+}
+
+model Standing {
+  id              String      @id @default(cuid())
   competitionId   String
   competition     Competition @relation(fields: [competitionId], references: [id])
-  players         Player[]
-  homeMatches     Match[]  @relation("HomeTeam")
-  awayMatches     Match[]  @relation("AwayTeam")
-  followers       UserTeam[]
+  teamId          String
+  team            Team        @relation(fields: [teamId], references: [id])
+  rank            Int
+  played          Int         @default(0)
+  wins            Int         @default(0)
+  losses          Int         @default(0)
+  draws           Int         @default(0)
+  goalsFor        Int         @default(0)
+  goalsAgainst    Int         @default(0)
+  goalPercentage  Float       @default(0)
+  points          Int         @default(0)
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([competitionId, teamId])
+  @@index([competitionId, rank])
+}
+
+enum Position {
+  GS
+  GA
+  WA
+  C
+  WD
+  GD
+  GK
 }
 
 model Player {
-  id              String   @id @default(cuid())
-  name            String
-  position        String
-  photoUrl        String?
-  teamId          String
-  team            Team     @relation(fields: [teamId], references: [id])
-  matchStats      PlayerMatchStats[]
+  id                   String   @id @default(cuid())
+  name                 String
+  position             Position
+  photoUrl             String?
+  championDataPlayerId Int?     @unique
+  teamId               String
+  team                 Team     @relation(fields: [teamId], references: [id])
+  matchStats           PlayerMatchStats[]
 }
 
 model Match {
@@ -214,6 +283,7 @@ model Match {
   playerStats         PlayerMatchStats[]
   scoreFlow           ScoreFlow[]
   reminders           UserReminder[]
+  favorites           UserFavorite[]
 }
 
 enum MatchStatus {
@@ -255,14 +325,26 @@ model PlayerMatchStats {
 }
 
 model ScoreFlow {
-  id        String   @id @default(cuid())
-  matchId   String
-  match     Match    @relation(fields: [matchId], references: [id])
-  timestamp DateTime
-  period    Int
-  teamId    String
-  homeScore Int
-  awayScore Int
+  id            String @id @default(cuid())
+  matchId       String
+  match         Match  @relation(fields: [matchId], references: [id])
+  period        Int
+  periodSeconds Int    // seconds elapsed in the period (game clock offset)
+  scoringTeamId String
+  scoringTeam   Team   @relation("ScoringTeam", fields: [scoringTeamId], references: [id])
+  homeScore     Int
+  awayScore     Int
+
+  @@index([matchId, period])
+}
+
+model UserFavorite {
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchId String
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, matchId])
 }
 
 model User {
@@ -275,6 +357,7 @@ model User {
   sessions      Session[]
   teams         UserTeam[]
   reminders     UserReminder[]
+  favorites     UserFavorite[]
 }
 
 model Account {
@@ -284,6 +367,13 @@ model Account {
   type              String
   provider          String
   providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
 
   @@unique([provider, providerAccountId])
 }
@@ -294,6 +384,14 @@ model Session {
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expires      DateTime
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 model UserTeam {
@@ -317,7 +415,7 @@ model UserReminder {
 
 ## Design System
 
-Carried forward from Stitch prototypes. All 6 designs share the same token system.
+Carried forward from Stitch prototypes. All 6 designs share the same token system. The Tailwind config in the Stitch HTML prototypes is the canonical source for the full 40+ MD3 token set — the subset below shows key tokens.
 
 ### Colors (MD3 Tokens)
 
