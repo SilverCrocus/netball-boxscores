@@ -1,0 +1,123 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+
+// Mock the useMatchSocket hook
+vi.mock('@/hooks/useMatchSocket', () => ({
+  useMatchSocket: vi.fn(() => ({
+    score: null,
+    playerStats: null,
+    matchStatus: null,
+    scoreFlow: [],
+    isConnected: false,
+  })),
+}));
+
+import { LiveGameClient } from '@/app/match/[matchId]/live/LiveGameClient';
+
+const mockMatch = {
+  id: 'match-1',
+  round: 5,
+  venue: 'Melbourne Arena',
+  status: 'LIVE',
+  homeScore: 42,
+  awayScore: 38,
+  currentQuarter: 3,
+  currentTime: '12:45',
+  homeTeam: {
+    id: 'team-1',
+    name: 'Viper Hawks',
+    abbreviation: 'VH',
+    logoUrl: null,
+    players: [
+      {
+        id: 'p1',
+        name: 'Sarah Jenkins',
+        position: 'GS',
+        goals: 18,
+        attempts: 20,
+        goalAssists: 0,
+        intercepts: 0,
+        deflections: 0,
+        rebounds: 2,
+        feeds: 0,
+        turnovers: 1,
+      },
+      {
+        id: 'p2',
+        name: 'Jessica Chen',
+        position: 'C',
+        goals: 0,
+        attempts: 0,
+        goalAssists: 5,
+        intercepts: 2,
+        deflections: 1,
+        rebounds: 0,
+        feeds: 18,
+        turnovers: 3,
+      },
+    ],
+  },
+  awayTeam: {
+    id: 'team-2',
+    name: 'Nova Stars',
+    abbreviation: 'NS',
+    logoUrl: null,
+    players: [
+      {
+        id: 'p3',
+        name: 'Linda Blair',
+        position: 'GS',
+        goals: 22,
+        attempts: 24,
+        goalAssists: 0,
+        intercepts: 0,
+        deflections: 0,
+        rebounds: 1,
+        feeds: 0,
+        turnovers: 2,
+      },
+    ],
+  },
+};
+
+describe('LiveGameClient', () => {
+  it('should render both team names', () => {
+    render(<LiveGameClient match={mockMatch} />);
+    expect(screen.getAllByText('Viper Hawks').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Nova Stars').length).toBeGreaterThan(0);
+  });
+
+  it('should render the score', () => {
+    render(<LiveGameClient match={mockMatch} />);
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('38')).toBeInTheDocument();
+  });
+
+  it('should render player names in lineups', () => {
+    render(<LiveGameClient match={mockMatch} />);
+    expect(screen.getByText('Sarah Jenkins')).toBeInTheDocument();
+    expect(screen.getByText('Jessica Chen')).toBeInTheDocument();
+    expect(screen.getByText('Linda Blair')).toBeInTheDocument();
+  });
+
+  it('should render Key Match Stats section', () => {
+    render(<LiveGameClient match={mockMatch} />);
+    expect(screen.getByText('Key Match Stats')).toBeInTheDocument();
+  });
+
+  it('should render Live Feed section', () => {
+    render(<LiveGameClient match={mockMatch} />);
+    expect(screen.getByText('Live Feed')).toBeInTheDocument();
+  });
+
+  it('should render Live Lineups section', () => {
+    render(<LiveGameClient match={mockMatch} />);
+    expect(screen.getByText('Live Lineups')).toBeInTheDocument();
+  });
+
+  it('should render round and venue info', () => {
+    render(<LiveGameClient match={mockMatch} />);
+    const roundText = screen.getByText(/Round 5/);
+    expect(roundText).toBeInTheDocument();
+  });
+});
