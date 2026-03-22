@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;700;800;900&amp;family=Manrope:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .court-bg {
+            background-image: radial-gradient(circle at 50% 50%, #1a1c1e 0%, #000613 100%);
+        }
+        .netball-ring {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #006e0a;
+            border-radius: 50%;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "on-primary": "#ffffff",
+                "secondary": "#006e0a",
+                "on-tertiary": "#ffffff",
+                "primary-fixed": "#d4e3ff",
+                "secondary-fixed-dim": "#4ce346",
+                "inverse-primary": "#afc8f0",
+                "tertiary": "#000700",
+                "inverse-on-surface": "#f2f0f3",
+                "error-container": "#ffdad6",
+                "surface-container-low": "#f4f3f6",
+                "surface-container": "#efedf0",
+                "on-error-container": "#93000a",
+                "on-primary-fixed-variant": "#2f486a",
+                "on-tertiary-fixed-variant": "#005306",
+                "surface-variant": "#e3e2e5",
+                "on-surface-variant": "#43474e",
+                "surface-container-high": "#e9e7eb",
+                "surface": "#faf9fc",
+                "primary-container": "#001f3f",
+                "outline-variant": "#c4c6cf",
+                "on-tertiary-fixed": "#002201",
+                "on-secondary-fixed": "#002201",
+                "outline": "#74777f",
+                "error": "#ba1a1a",
+                "secondary-fixed": "#75ff68",
+                "on-tertiary-container": "#009c14",
+                "primary-fixed-dim": "#afc8f0",
+                "on-secondary": "#ffffff",
+                "secondary-container": "#69fd5d",
+                "surface-container-lowest": "#ffffff",
+                "on-secondary-container": "#00730b",
+                "on-secondary-fixed-variant": "#005306",
+                "tertiary-container": "#002501",
+                "on-error": "#ffffff",
+                "on-surface": "#1a1c1e",
+                "on-primary-fixed": "#001c3a",
+                "surface-container-highest": "#e3e2e5",
+                "surface-bright": "#faf9fc",
+                "background": "#faf9fc",
+                "tertiary-fixed-dim": "#4ce346",
+                "on-primary-container": "#6f88ad",
+                "surface-dim": "#dbd9dd",
+                "on-background": "#1a1c1e",
+                "primary": "#000613",
+                "tertiary-fixed": "#75ff68",
+                "inverse-surface": "#2f3033",
+                "surface-tint": "#476083"
+              },
+              fontFamily: {
+                "headline": ["Lexend"],
+                "body": ["Manrope"],
+                "label": ["Inter"]
+              },
+              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24 lg:pb-0 lg:pl-64">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full flex justify-between items-center px-6 py-4 bg-slate-950/80 backdrop-blur-md z-50 shadow-2xl shadow-black/50">
+<div class="text-2xl font-black italic tracking-tighter text-white uppercase">NETPULSE</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex items-center gap-8">
+<a class="text-xs font-semibold uppercase tracking-widest Inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Fixtures</a>
+<a class="text-xs font-semibold uppercase tracking-widest Inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Live</a>
+<a class="text-xs font-semibold uppercase tracking-widest Inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Stats</a>
+<a class="text-xs font-semibold uppercase tracking-widest Inter text-lime-400 font-bold hover:text-lime-300 transition-colors duration-200" href="#">Visualizer</a>
+<a class="text-xs font-semibold uppercase tracking-widest Inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Standings</a>
+</div>
+<div class="flex items-center gap-4 text-slate-400">
+<span class="material-symbols-outlined hover:text-lime-300 cursor-pointer" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined hover:text-lime-300 cursor-pointer" data-icon="settings">settings</span>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Hidden on Mobile) -->
+<aside class="hidden lg:flex flex-col h-full py-8 bg-slate-900 w-64 fixed left-0 top-0 z-40 shadow-xl">
+<div class="px-8 mb-12 mt-16">
+<h2 class="text-white font-bold text-xl Lexend uppercase tracking-tighter">Live Pulse</h2>
+<p class="text-lime-400 text-xs font-medium uppercase tracking-widest">Active Matches: 4</p>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 text-slate-400 pl-4 py-3 hover:bg-slate-800 transition-all Lexend font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="reorder">reorder</span>
+<span>Live Ticker</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 pl-4 py-3 hover:bg-slate-800 transition-all Lexend font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span>Recent Results</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 pl-4 py-3 hover:bg-slate-800 transition-all Lexend font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="newspaper">newspaper</span>
+<span>League News</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 pl-4 py-3 hover:bg-slate-800 transition-all Lexend font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>My Teams</span>
+</a>
+</nav>
+</aside>
+<!-- Main Canvas -->
+<main class="pt-24 px-4 md:px-8 max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-12 gap-8 mb-12">
+<!-- Header Section -->
+<section class="xl:col-span-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<div class="inline-flex items-center gap-2 bg-secondary/20 text-secondary px-3 py-1 rounded-full mb-4">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
+</span>
+<span class="text-xs font-bold uppercase tracking-widest Lexend">Live Tracking</span>
+</div>
+<h1 class="text-4xl md:text-6xl font-black Lexend tracking-tighter uppercase text-primary-container">Court Visualizer</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-surface-container-highest text-primary px-6 py-3 rounded-xl font-bold Lexend transition-all hover:bg-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-xl" data-icon="videocam">videocam</span>
+                    Switch to Broadcast
+                </button>
+<button class="bg-lime-500 text-slate-950 px-6 py-3 rounded-xl font-bold Lexend shadow-lg shadow-lime-500/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-xl" data-icon="share">share</span>
+                    Replay Key Event
+                </button>
+</div>
+</section>
+<!-- Visualizer Area -->
+<section class="xl:col-span-8 bg-slate-950 rounded-3xl overflow-hidden shadow-2xl relative aspect-[3/4] md:aspect-[16/10] border-4 border-slate-900">
+<!-- Netball Court Schematic -->
+<div class="absolute inset-0 flex flex-col p-8 md:p-12 overflow-hidden">
+<div class="w-full h-full border-2 border-slate-700/50 rounded-xl relative flex flex-col">
+<!-- Thirds Lines -->
+<div class="absolute top-1/3 left-0 w-full h-0 border-t border-slate-700/50"></div>
+<div class="absolute top-2/3 left-0 w-full h-0 border-t border-slate-700/50"></div>
+<!-- Center Circle -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-slate-700/50 rounded-full flex items-center justify-center">
+<div class="w-2 h-2 bg-lime-400 rounded-full blur-[1px]"></div>
+</div>
+<!-- Shooting Circles -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 border-b border-x border-slate-700/50 rounded-b-full"></div>
+<div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-24 border-t border-x border-slate-700/50 rounded-t-full"></div>
+<!-- Rings -->
+<div class="absolute top-4 left-1/2 -translate-x-1/2 w-3 h-3 bg-secondary rounded-full"></div>
+<div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-3 h-3 bg-secondary rounded-full"></div>
+<!-- Players Team A (Blue) -->
+<!-- GS -->
+<div class="absolute top-10 left-1/2 -translate-x-12 flex flex-col items-center">
+<div class="w-8 h-8 md:w-10 md:h-10 bg-primary-container text-white border-2 border-on-primary-container rounded-full flex items-center justify-center font-black Lexend text-xs shadow-lg shadow-primary-container/40">GS</div>
+</div>
+<!-- GA -->
+<div class="absolute top-24 left-1/3 flex flex-col items-center">
+<div class="w-8 h-8 md:w-10 md:h-10 bg-primary-container text-white border-2 border-on-primary-container rounded-full flex items-center justify-center font-black Lexend text-xs shadow-lg shadow-primary-container/40">GA</div>
+</div>
+<!-- WA -->
+<div class="absolute top-[40%] left-1/4 flex flex-col items-center">
+<div class="w-8 h-8 md:w-10 md:h-10 bg-primary-container text-white border-2 border-on-primary-container rounded-full flex items-center justify-center font-black Lexend text-xs shadow-lg shadow-primary-container/40">WA</div>
+</div>
+<!-- C -->
+<div class="absolute top-1/2 left-[55%] -translate-y-1/2 flex flex-col items-center">
+<div class="w-8 h-8 md:w-10 md:h-10 bg-primary-container text-white border-2 border-on-primary-container rounded-full flex items-center justify-center font-black Lexend text-xs shadow-lg shadow-primary-container/40">C</div>
+</div>
+<!-- Players Team B (Lime) -->
+<!-- GK -->
+<div class="absolute top-6 left-[55%] flex flex-col items-center">
+<div class="w-8 h-8 md:w-10 md:h-10 bg-lime-500 text-slate-950 border-2 border-lime-300 rounded-full flex items-center justify-center font-black Lexend text-xs shadow-lg shadow-lime-500/40">GK</div>
+</div>
+<!-- GD -->
+<div class="absolute top-20 left-[60%] flex flex-col items-center">
+<div class="w-8 h-8 md:w-10 md:h-10 bg-lime-500 text-slate-950 border-2 border-lime-300 rounded-full flex items-center justify-center font-black Lexend text-xs shadow-lg shadow-lime-500/40">GD</div>
+</div>
+<!-- WD -->
+<div class="absolute top-[38%] right-1/4 flex flex-col items-center">
+<div class="w-8 h-8 md:w-10 md:h-10 bg-lime-500 text-slate-950 border-2 border-lime-300 rounded-full flex items-center justify-center font-black Lexend text-xs shadow-lg shadow-lime-500/40">WD</div>
+</div>
+<!-- Ball -->
+<div class="absolute top-12 left-[48%] flex flex-col items-center">
+<div class="w-4 h-4 bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce"></div>
+</div>
+</div>
+</div>
+<!-- Court Overlay Info -->
+<div class="absolute bottom-6 left-6 right-6 flex justify-between items-end pointer-events-none">
+<div class="bg-slate-900/60 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-800">
+<p class="text-[10px] uppercase tracking-widest text-slate-400 Lexend font-bold">Current Possession</p>
+<p class="text-white font-bold Lexend">LONDON PULSE</p>
+</div>
+<div class="flex gap-2">
+<div class="h-10 w-10 bg-slate-900/60 backdrop-blur-md rounded-lg flex items-center justify-center border border-slate-800">
+<span class="material-symbols-outlined text-white" data-icon="zoom_in">zoom_in</span>
+</div>
+<div class="h-10 w-10 bg-slate-900/60 backdrop-blur-md rounded-lg flex items-center justify-center border border-slate-800">
+<span class="material-symbols-outlined text-white" data-icon="fullscreen">fullscreen</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Sidebar Widgets -->
+<aside class="xl:col-span-4 flex flex-col gap-6">
+<!-- Scoreboard Widget -->
+<div class="bg-primary-container rounded-3xl p-6 shadow-xl relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full -translate-y-12 translate-x-12 blur-3xl"></div>
+<div class="flex justify-between items-center mb-8 relative">
+<span class="text-xs font-black tracking-widest text-lime-400 uppercase Lexend">Quarter 3 - 04:12</span>
+<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold Lexend animate-pulse">LIVE</span>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6 relative">
+<div class="flex flex-col items-center text-center">
+<div class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-4xl text-on-primary-container" data-icon="stadium">stadium</span>
+</div>
+<p class="text-on-primary-container text-xs font-bold uppercase Lexend tracking-tight">London Pulse</p>
+<p class="text-5xl font-black text-white Lexend mt-1">42</p>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="w-16 h-16 rounded-2xl bg-lime-500/20 flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-4xl text-lime-400" data-icon="sports_handball">sports_handball</span>
+</div>
+<p class="text-on-primary-container text-xs font-bold uppercase Lexend tracking-tight">Team Bath</p>
+<p class="text-5xl font-black text-white Lexend mt-1">39</p>
+</div>
+</div>
+<div class="bg-slate-900/40 rounded-2xl p-4 border border-white/5">
+<div class="flex justify-between text-[10px] font-bold text-on-primary-container Lexend uppercase tracking-widest mb-2">
+<span>Win Probability</span>
+<span>64%</span>
+</div>
+<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+<div class="w-[64%] h-full bg-lime-500"></div>
+</div>
+</div>
+</div>
+<!-- Key Stats Bento -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-lowest rounded-3xl p-5 shadow-sm">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase Lexend tracking-widest mb-1">Pass Accuracy</p>
+<p class="text-2xl font-black text-primary Lexend">91.4%</p>
+<div class="flex items-center gap-1 text-secondary text-xs font-bold mt-2">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+<span>+2.1%</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-3xl p-5 shadow-sm">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase Lexend tracking-widest mb-1">Turnovers</p>
+<p class="text-2xl font-black text-primary Lexend">8</p>
+<div class="flex items-center gap-1 text-error text-xs font-bold mt-2">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span>
+<span>High Risk</span>
+</div>
+</div>
+</div>
+<!-- Top Performers List -->
+<div class="bg-surface-container-lowest rounded-3xl p-6 shadow-sm">
+<h3 class="text-sm font-black Lexend uppercase tracking-tight text-primary mb-4">Player Impact</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<img alt="" class="w-10 h-10 rounded-full object-cover" data-alt="Portrait of a female netball player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPPhTIaDl1hc4Fdc155MPlHPuzYQNyxWnPbnOnD-UuLSwfyBjzgB2ENT5fvtPSQVHPq7GpgqGc5hJwFcumbHMVw9TV_o5_sDZ7FpgUovZGjuoIWynOy-yL0o0__lD8gc0FLadPfWdTg0AmNEgbrhqptqLS1CQHBsnciaSiRwVHnuOhzGgwD0HGqLlRbwtQFC-LhuVSR2oBgVtcQOPTYhJmS-paQRLZ0nDxoWUK_AfwhWe0BgZdfG4fFXAciOlvLOErBB42sjVEAuY"/>
+<div>
+<p class="text-sm font-bold Lexend leading-none">O. Williams</p>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">London Pulse • GS</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-black text-primary Lexend">28/31</p>
+<p class="text-[9px] font-bold text-secondary uppercase">Goals</p>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<img alt="" class="w-10 h-10 rounded-full object-cover" data-alt="Female professional athlete profile picture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTO4fIk39g6-_wIDupDq6ydKpkyVnobKw4ltvNVnoqJnP8jYGMqNmmwap3oiesHf3D6J-kUR1RpMHqFh7hrSO1MeE-PWdlcPkNF4BjqO_783enLFVIiFj6475viouod9FH57ROgn4xS8U1ChJbGIBFWZgx5ipKOoPWIDLiORcs0phR6hd7FWKwSo6njbmSP7YXbmm3MtKukN3I12oIGRoWeiMYocp78reAv8tEYVZriIQ6yxZLXME_qfM-Jccqo4vcYCqpsKoqSV8"/>
+<div>
+<p class="text-sm font-bold Lexend leading-none">A. Carter</p>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Team Bath • GK</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-black text-primary Lexend">6</p>
+<p class="text-[9px] font-bold text-on-surface-variant uppercase">Deflections</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- BottomNavBar (Visible on Mobile) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-slate-950 md:hidden shadow-[0_-8px_24px_rgba(0,0,0,0.6)] rounded-t-2xl">
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4 hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Fixtures</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4 hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="sensors">sensors</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Live</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4 hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-lime-500 text-slate-950 rounded-xl py-1 px-4 scale-105 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="sports_handball">sports_handball</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Visualizer</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4 hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Standings</span>
+</a>
+</nav>
+<!-- Footer -->
+<footer class="w-full flex flex-col md:flex-row justify-between items-center gap-4 mt-20 bg-slate-950 py-12 px-8 border-t border-slate-900">
+<div class="text-slate-400 font-bold Lexend text-[10px] tracking-widest uppercase">© 2024 NETPULSE KINETIC. ALL RIGHTS RESERVED.</div>
+<div class="flex gap-8">
+<a class="text-[10px] font-medium Lexend tracking-widest text-slate-600 hover:text-lime-400" href="#">Privacy Policy</a>
+<a class="text-[10px] font-medium Lexend tracking-widest text-slate-600 hover:text-lime-400" href="#">Terms of Service</a>
+<a class="text-[10px] font-medium Lexend tracking-widest text-slate-600 hover:text-lime-400" href="#">Support</a>
+<a class="text-[10px] font-medium Lexend tracking-widest text-slate-600 hover:text-lime-400" href="#">Contact</a>
+</div>
+</footer>
+</body></html>

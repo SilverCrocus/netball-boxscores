@@ -1,4 +1,4 @@
-import { PrismaClient, Position, MatchStatus } from "../src/generated/prisma";
+import { PrismaClient, Position, MatchStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
 

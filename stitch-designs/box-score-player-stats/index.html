@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NETPULSE - Box Score &amp; Player Stats</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;700;800;900&amp;family=Manrope:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-primary": "#ffffff",
+              "secondary": "#006e0a",
+              "on-tertiary": "#ffffff",
+              "primary-fixed": "#d4e3ff",
+              "secondary-fixed-dim": "#4ce346",
+              "inverse-primary": "#afc8f0",
+              "tertiary": "#000700",
+              "inverse-on-surface": "#f2f0f3",
+              "error-container": "#ffdad6",
+              "surface-container-low": "#f4f3f6",
+              "surface-container": "#efedf0",
+              "on-error-container": "#93000a",
+              "on-primary-fixed-variant": "#2f486a",
+              "on-tertiary-fixed-variant": "#005306",
+              "surface-variant": "#e3e2e5",
+              "on-surface-variant": "#43474e",
+              "surface-container-high": "#e9e7eb",
+              "surface": "#faf9fc",
+              "primary-container": "#001f3f",
+              "outline-variant": "#c4c6cf",
+              "on-tertiary-fixed": "#002201",
+              "on-secondary-fixed": "#002201",
+              "outline": "#74777f",
+              "error": "#ba1a1a",
+              "secondary-fixed": "#75ff68",
+              "on-tertiary-container": "#009c14",
+              "primary-fixed-dim": "#afc8f0",
+              "on-secondary": "#ffffff",
+              "secondary-container": "#69fd5d",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary-container": "#00730b",
+              "on-secondary-fixed-variant": "#005306",
+              "tertiary-container": "#002501",
+              "on-error": "#ffffff",
+              "on-surface": "#1a1c1e",
+              "on-primary-fixed": "#001c3a",
+              "surface-container-highest": "#e3e2e5",
+              "surface-bright": "#faf9fc",
+              "background": "#faf9fc",
+              "tertiary-fixed-dim": "#4ce346",
+              "on-primary-container": "#6f88ad",
+              "surface-dim": "#dbd9dd",
+              "on-background": "#1a1c1e",
+              "primary": "#000613",
+              "tertiary-fixed": "#75ff68",
+              "inverse-surface": "#2f3033",
+              "surface-tint": "#476083"
+            },
+            fontFamily: {
+              "headline": ["Lexend"],
+              "body": ["Manrope"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+        .lexend { font-family: 'Lexend', sans-serif; }
+        .inter { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full flex justify-between items-center px-6 py-4 bg-slate-950/80 backdrop-blur-md z-50 shadow-2xl shadow-black/50">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black italic tracking-tighter text-white uppercase">NETPULSE</span>
+<nav class="hidden md:flex gap-6">
+<a class="text-xs font-semibold uppercase tracking-widest inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Fixtures</a>
+<a class="text-xs font-semibold uppercase tracking-widest inter text-lime-400 font-bold hover:text-lime-300 transition-colors duration-200" href="#">Stats</a>
+<a class="text-xs font-semibold uppercase tracking-widest inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Live</a>
+<a class="text-xs font-semibold uppercase tracking-widest inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Standings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<input class="bg-slate-900 border-none rounded-sm px-4 py-2 text-xs inter tracking-widest text-white focus:ring-1 focus:ring-lime-400 w-64" placeholder="SEARCH PLAYERS..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-2 text-slate-500 text-sm">search</span>
+</div>
+<span class="material-symbols-outlined text-slate-400 cursor-pointer hover:text-lime-400">notifications</span>
+<span class="material-symbols-outlined text-slate-400 cursor-pointer hover:text-lime-400">settings</span>
+</div>
+</header>
+<!-- SideNavBar (Desktop Only) -->
+<aside class="hidden lg:flex flex-col h-full py-8 bg-slate-900 w-64 fixed left-0 top-0 z-40 pt-24 shadow-xl">
+<div class="px-6 mb-8">
+<h2 class="text-white font-bold lexend text-lg uppercase tracking-tight">Live Pulse</h2>
+<p class="text-slate-500 text-xs inter uppercase tracking-widest">Active Matches: 4</p>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-4 py-3 text-slate-400 pl-4 border-l-4 border-transparent hover:bg-slate-800 transition-all lexend font-medium text-sm" href="#">
+<span class="material-symbols-outlined">reorder</span>
+                Live Ticker
+            </a>
+<a class="flex items-center gap-4 py-3 text-lime-400 border-l-4 border-lime-400 pl-4 bg-slate-800/30 transition-all lexend font-medium text-sm" href="#">
+<span class="material-symbols-outlined">history</span>
+                Recent Results
+            </a>
+<a class="flex items-center gap-4 py-3 text-slate-400 pl-4 border-l-4 border-transparent hover:bg-slate-800 transition-all lexend font-medium text-sm" href="#">
+<span class="material-symbols-outlined">newspaper</span>
+                League News
+            </a>
+<a class="flex items-center gap-4 py-3 text-slate-400 pl-4 border-l-4 border-transparent hover:bg-slate-800 transition-all lexend font-medium text-sm" href="#">
+<span class="material-symbols-outlined">group</span>
+                My Teams
+            </a>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="lg:ml-64 pt-24 pb-32 px-4 md:px-8">
+<!-- Hero Header Match Info -->
+<section class="mb-12">
+<div class="flex flex-col md:flex-row justify-between items-end gap-6">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="bg-secondary-container text-on-secondary-container text-[10px] font-bold px-2 py-0.5 rounded-full inter tracking-widest uppercase">Live Match</span>
+<span class="text-on-surface-variant text-xs font-semibold inter tracking-widest uppercase">Round 12 • Stadium Arena</span>
+</div>
+<h1 class="text-4xl md:text-6xl font-black lexend tracking-tighter text-primary-container leading-none">THUNDER vs <span class="text-secondary">LIGHTNING</span></h1>
+</div>
+<div class="flex items-center gap-4 md:gap-8">
+<div class="text-right">
+<p class="text-xs font-bold inter text-on-surface-variant uppercase tracking-widest">Final Score</p>
+<div class="flex items-center gap-3">
+<span class="text-4xl font-black lexend text-primary-container">64</span>
+<span class="text-2xl font-bold text-outline-variant">-</span>
+<span class="text-4xl font-black lexend text-secondary">58</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats Grid Layout -->
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-8">
+<!-- Left Column: Detailed Box Score Table -->
+<div class="xl:col-span-3 space-y-8">
+<!-- Box Score Table Container -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
+<div class="bg-primary-container px-6 py-4 flex justify-between items-center">
+<h3 class="text-white lexend font-bold text-lg tracking-tight">PLAYER PERFORMANCE - THUNDER</h3>
+<div class="flex gap-2">
+<button class="bg-lime-500 text-slate-950 lexend font-bold text-[10px] uppercase px-3 py-1 rounded-md tracking-tighter">Sort by Shooting %</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant/20">
+<th class="px-6 py-4 text-[10px] font-bold inter text-on-surface-variant uppercase tracking-widest">Player Name</th>
+<th class="px-4 py-4 text-[10px] font-bold inter text-on-surface-variant uppercase tracking-widest text-center">POS</th>
+<th class="px-4 py-4 text-[10px] font-bold inter text-on-surface-variant uppercase tracking-widest text-right">Goals</th>
+<th class="px-4 py-4 text-[10px] font-bold inter text-on-surface-variant uppercase tracking-widest text-right">Shots</th>
+<th class="px-4 py-4 text-[10px] font-bold inter text-on-surface-variant uppercase tracking-widest text-right">Shoot %</th>
+<th class="px-4 py-4 text-[10px] font-bold inter text-on-surface-variant uppercase tracking-widest text-right">Inter</th>
+<th class="px-4 py-4 text-[10px] font-bold inter text-on-surface-variant uppercase tracking-widest text-right">Deflect</th>
+<th class="px-4 py-4 text-[10px] font-bold inter text-on-surface-variant uppercase tracking-widest text-right">Reb</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed overflow-hidden">
+<img alt="" class="w-full h-full object-cover" data-alt="Portrait of a female netball player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJNwTwtpXJaDdRZNy1XM3WR0eomTXZ-hsiy_pEinSv_qvAKjn_knK8skLlfa2bHzvAJ1pvmWji8mwQ2o7vZof0IzwXtBFD2mx1qkPG-_Q0RObnAm9lJg64WnRBov2tkogOuUDyNNYSDfos3f_lwRRobo9gp2NSD42PmeGWQvNqvXDiz0I6zBfj18VQo_fA2a5UxNd5Rnl833Z8HN5vo5d7GC2i-EuIvwSsXV1UbVfGn2HHyGRA1ijtaUp3a1Vs8cy1QwAW8taU_zc"/>
+</div>
+<div>
+<p class="font-bold lexend text-primary-container text-sm">Elena Rodriguez</p>
+</div>
+</td>
+<td class="px-4 py-4 text-center"><span class="bg-primary-container text-white text-[10px] font-bold px-1.5 py-0.5 rounded inter">GS</span></td>
+<td class="px-4 py-4 text-right font-black lexend text-primary-container">42</td>
+<td class="px-4 py-4 text-right font-medium text-on-surface-variant">45</td>
+<td class="px-4 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<span class="font-bold text-secondary">93%</span>
+<div class="w-12 bg-surface-container-high h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 93%"></div>
+</div>
+</div>
+</td>
+<td class="px-4 py-4 text-right inter font-semibold">0</td>
+<td class="px-4 py-4 text-right inter font-semibold text-on-surface-variant">1</td>
+<td class="px-4 py-4 text-right inter font-semibold text-secondary">4</td>
+</tr>
+<!-- Row 2 -->
+<tr class="bg-lime-50/30 hover:bg-lime-100/30 transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed overflow-hidden">
+<img alt="" class="w-full h-full object-cover" data-alt="Portrait of an athletic woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAkrmh4_wPUU06jyfmIj3IPJOzXo49hInVkihw6xf9gTCZddAoCoh2DwC_5rLiJDJm2DZ-dhzXwsEnqodd5mrTIpL6owqaZLP3JIhpbkZ2L3l0YyL8X0EHYdrWKnnH52IERPtfLN0WoJ5uUvWMY0dCzX9-rUXxepLVCx5fDzuoXCTVJ13RnPKGCrFSoB98C3jNb_6rsSaAUyVWDpsDv2cxagMp2j9nfSoP_p80lVMpdPh9PJgNa5lOLpRgUnAUOwSGxz4U7vwyP1s"/>
+</div>
+<div>
+<p class="font-bold lexend text-primary-container text-sm">Sarah Jenkins</p>
+</div>
+</td>
+<td class="px-4 py-4 text-center"><span class="bg-primary-container text-white text-[10px] font-bold px-1.5 py-0.5 rounded inter">GA</span></td>
+<td class="px-4 py-4 text-right font-black lexend text-primary-container">22</td>
+<td class="px-4 py-4 text-right font-medium text-on-surface-variant">28</td>
+<td class="px-4 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<span class="font-bold text-secondary">79%</span>
+<div class="w-12 bg-surface-container-high h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 79%"></div>
+</div>
+</div>
+</td>
+<td class="px-4 py-4 text-right inter font-semibold">2</td>
+<td class="px-4 py-4 text-right inter font-semibold text-on-surface-variant">3</td>
+<td class="px-4 py-4 text-right inter font-semibold text-secondary">2</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed overflow-hidden">
+<img alt="" class="w-full h-full object-cover" data-alt="Portrait of a sporty woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3FfDJisejlU_LyMHKiq3UaRsk8xR01yEREtbJ4Mpzl44j120ooIy-1iOaG552aPGQp1n0ZPAKUK7lihs88-m8pt5BbfPruNdovqzcgHzAfHFhcPcXa5GTohOTE6p5h8XVUj3yCFoDGde8Kv0ayuTRoKwuThWYYMW3CaK5cBjhnT-SIENUk_b63WdMVks7pDv6l5TcVExzk0II8NtuPYY3ADyZgoKzMHpv7dTUoxvXDxyxQtrz73hQLxzQja3Fiuq70Bket2KdOl8"/>
+</div>
+<div>
+<p class="font-bold lexend text-primary-container text-sm">Maya Williams</p>
+</div>
+</td>
+<td class="px-4 py-4 text-center"><span class="bg-primary-container text-white text-[10px] font-bold px-1.5 py-0.5 rounded inter">WA</span></td>
+<td class="px-4 py-4 text-right font-black lexend text-primary-container">0</td>
+<td class="px-4 py-4 text-right font-medium text-on-surface-variant">0</td>
+<td class="px-4 py-4 text-right font-bold text-outline">-</td>
+<td class="px-4 py-4 text-right inter font-semibold">1</td>
+<td class="px-4 py-4 text-right inter font-semibold text-on-surface-variant">4</td>
+<td class="px-4 py-4 text-right inter font-semibold text-secondary">0</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed overflow-hidden">
+<img alt="" class="w-full h-full object-cover" data-alt="Female netball athlete profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDChEQ9KSjvn-RG2KzkXJH2DCMA9c3f_LpeBYbJOO8GDY-K_ntr5FeDjg3qJey5elFBkVA9oTtU8eHHkPilAbNEQuOXdeK_4VkOMFNdjxM__94lpAV347s6_3HbsboMhaqsRFJy2XXpyITFZkfOJu2yYM6q_Cmwg7i-t1XOWef9ajLgBt6zaXxokkuyZCRte9ItLl57RrKMVUbgtDRibbOr3p5UC68sRbxcauFvuz0Omi0yqlwEBgPzedIoMTI2rVbGvRt1oVlrJk"/>
+</div>
+<div>
+<p class="font-bold lexend text-primary-container text-sm">Tasha Banks</p>
+</div>
+</td>
+<td class="px-4 py-4 text-center"><span class="bg-primary-container text-white text-[10px] font-bold px-1.5 py-0.5 rounded inter">GK</span></td>
+<td class="px-4 py-4 text-right font-black lexend text-primary-container">0</td>
+<td class="px-4 py-4 text-right font-medium text-on-surface-variant">0</td>
+<td class="px-4 py-4 text-right font-bold text-outline">-</td>
+<td class="px-4 py-4 text-right inter font-semibold text-secondary font-black">8</td>
+<td class="px-4 py-4 text-right inter font-semibold text-on-surface-variant">12</td>
+<td class="px-4 py-4 text-right inter font-semibold text-secondary">9</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Bento Style Secondary Stats -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="bg-surface-container-low rounded-xl p-6 relative overflow-hidden">
+<div class="absolute -right-8 -bottom-8 opacity-10">
+<span class="material-symbols-outlined text-9xl">analytics</span>
+</div>
+<h4 class="text-on-surface-variant text-[10px] font-bold inter uppercase tracking-widest mb-4">Total Team Efficiency</h4>
+<div class="flex items-end gap-2">
+<span class="text-5xl font-black lexend text-primary-container">88.2</span>
+<span class="text-xl font-bold lexend text-secondary mb-2">%</span>
+</div>
+<p class="text-on-surface-variant text-sm mt-2 inter">Highest shooting accuracy in the last 5 rounds.</p>
+</div>
+<div class="bg-primary-container rounded-xl p-6 text-white">
+<h4 class="text-lime-400 text-[10px] font-bold inter uppercase tracking-widest mb-4">Defensive Impact</h4>
+<div class="flex justify-between items-center">
+<div>
+<span class="text-4xl font-black lexend">34</span>
+<p class="text-on-primary-container text-xs inter font-bold uppercase tracking-wider">Turnovers Created</p>
+</div>
+<div class="h-12 w-[1px] bg-on-primary-container/20"></div>
+<div>
+<span class="text-4xl font-black lexend">14</span>
+<p class="text-on-primary-container text-xs inter font-bold uppercase tracking-wider">Clean Intercepts</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Sidebar Stats -->
+<div class="space-y-6">
+<!-- MVP Card -->
+<div class="bg-surface-container-highest rounded-xl p-6 border-l-4 border-secondary">
+<div class="flex justify-between items-start mb-6">
+<span class="bg-secondary text-white text-[10px] font-black px-2 py-1 rounded inter uppercase tracking-tighter">Match MVP</span>
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="w-24 h-24 rounded-full border-4 border-secondary p-1 mb-4 shadow-xl">
+<img alt="" class="w-full h-full object-cover rounded-full" data-alt="Portrait of Elena Rodriguez netball player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAghasKQUmJyv8rd9wynbK-4SjZWA858dFOt-aNG1qidXqz8AYFWk7CbWy2LA8yD8bpcMsOxKKIkt8toFKUjoDzM0HTLV_m1NxRsMO84fVXjuyvGsHdsutG3S3Id8t8mcrnGMrkiOaq8RXUvSt4dt4Vx7xGgNAEKunySW7vQIArRP35Yq3izxWkvoKZQkal8X-_3qS85sG7CRNVq76-XtmRBH6ocUFJ0eWSvvooq4sxtnjNDU8D3fVZbeu7Bj9RY4WPV-ZHKTgfMI"/>
+</div>
+<h3 class="lexend text-xl font-black text-primary-container">ELENA RODRIGUEZ</h3>
+<p class="inter text-xs text-on-surface-variant font-bold uppercase tracking-widest mt-1">Goal Shooter • THUNDER</p>
+<div class="grid grid-cols-2 w-full gap-4 mt-8">
+<div class="bg-white rounded-lg p-3 shadow-sm">
+<span class="block text-[10px] inter font-bold text-on-surface-variant uppercase tracking-widest">Goals</span>
+<span class="text-2xl font-black lexend text-secondary">42</span>
+</div>
+<div class="bg-white rounded-lg p-3 shadow-sm">
+<span class="block text-[10px] inter font-bold text-on-surface-variant uppercase tracking-widest">Reb</span>
+<span class="text-2xl font-black lexend text-primary-container">4</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Match Timeline -->
+<div class="bg-surface-container-low rounded-xl p-6">
+<h4 class="text-primary-container lexend font-bold text-sm uppercase tracking-tight mb-6">Match Momentum</h4>
+<div class="space-y-4">
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-bold inter text-on-surface-variant w-8">Q1</span>
+<div class="flex-1 h-3 flex gap-1">
+<div class="bg-primary-container rounded-sm" style="width: 55%"></div>
+<div class="bg-secondary/40 rounded-sm" style="width: 45%"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-bold inter text-on-surface-variant w-8">Q2</span>
+<div class="flex-1 h-3 flex gap-1">
+<div class="bg-primary-container rounded-sm" style="width: 40%"></div>
+<div class="bg-secondary/40 rounded-sm" style="width: 60%"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-bold inter text-on-surface-variant w-8">Q3</span>
+<div class="flex-1 h-3 flex gap-1">
+<div class="bg-primary-container rounded-sm" style="width: 70%"></div>
+<div class="bg-secondary/40 rounded-sm" style="width: 30%"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-bold inter text-on-surface-variant w-8">Q4</span>
+<div class="flex-1 h-3 flex gap-1">
+<div class="bg-primary-container rounded-sm" style="width: 52%"></div>
+<div class="bg-secondary/40 rounded-sm" style="width: 48%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-slate-950 rounded-t-2xl shadow-[0_-8px_24px_rgba(0,0,0,0.6)] border-t border-slate-800/50">
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-bold lexend text-[10px] tracking-tight uppercase">Fixtures</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4" href="#">
+<span class="material-symbols-outlined">sensors</span>
+<span class="font-bold lexend text-[10px] tracking-tight uppercase">Live</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-lime-500 text-slate-950 rounded-xl py-1 px-4 scale-105" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="font-bold lexend text-[10px] tracking-tight uppercase">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4" href="#">
+<span class="material-symbols-outlined">sports_handball</span>
+<span class="font-bold lexend text-[10px] tracking-tight uppercase">Visualizer</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-bold lexend text-[10px] tracking-tight uppercase">Standings</span>
+</a>
+</nav>
+<!-- Footer -->
+<footer class="w-full flex flex-col md:flex-row justify-between items-center gap-4 mt-20 bg-slate-950 py-12 px-8 border-t border-slate-900">
+<div class="flex flex-col items-center md:items-start">
+<span class="text-slate-400 font-bold lexend uppercase tracking-tighter text-xl">NETPULSE KINETIC</span>
+<p class="text-[10px] font-medium lexend tracking-widest text-slate-500 mt-2">© 2024 NETPULSE KINETIC. ALL RIGHTS RESERVED.</p>
+</div>
+<div class="flex gap-8">
+<a class="text-[10px] font-medium lexend tracking-widest text-slate-600 hover:text-lime-400" href="#">Privacy Policy</a>
+<a class="text-[10px] font-medium lexend tracking-widest text-slate-600 hover:text-lime-400" href="#">Terms of Service</a>
+<a class="text-[10px] font-medium lexend tracking-widest text-slate-600 hover:text-lime-400" href="#">Support</a>
+<a class="text-[10px] font-medium lexend tracking-widest text-slate-600 hover:text-lime-400" href="#">Contact</a>
+</div>
+</footer>
+</body></html>

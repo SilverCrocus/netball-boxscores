@@ -1,0 +1,95 @@
+<h2>Architecture Approaches</h2>
+<p class="subtitle">How should we structure the NETPULSE platform?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Next.js Full-Stack Monolith (Recommended)</h3>
+      <p><strong>Frontend + API in one Next.js app</strong></p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Single codebase, single deployment on Render</li>
+            <li>Next.js API routes handle data fetching, caching, and auth</li>
+            <li>Server Components for SSR with real-time hydration</li>
+            <li>WebSocket support via custom server for live scores</li>
+            <li>Simplest to build and maintain as a personal project</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Scaling frontend and backend independently requires refactoring later</li>
+            <li>WebSocket needs a custom server (not pure serverless)</li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin-top: 12px; padding: 8px 12px; background: rgba(76,227,70,0.1); border-radius: 6px; font-size: 13px;">
+        <strong>Stack:</strong> Next.js 15 + App Router + Server Actions + Prisma ORM + PostgreSQL + NextAuth.js + Socket.io
+      </p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Separate Frontend + Backend API</h3>
+      <p><strong>Next.js frontend + Express/Fastify backend API</strong></p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Clean API boundary — backend could serve mobile app later</li>
+            <li>Independent scaling and deployment</li>
+            <li>Backend handles all data scraping/caching centrally</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Two repos/deployments to maintain (2x Render services)</li>
+            <li>More complex local dev setup</li>
+            <li>CORS, auth token management between services</li>
+            <li>Overkill for a personal project at this stage</li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin-top: 12px; padding: 8px 12px; background: rgba(76,227,70,0.1); border-radius: 6px; font-size: 13px;">
+        <strong>Stack:</strong> Next.js 15 (frontend) + Fastify (API) + PostgreSQL + Passport.js + Socket.io
+      </p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Next.js + Supabase BaaS</h3>
+      <p><strong>Next.js frontend with Supabase for database, auth, and real-time</strong></p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Supabase Realtime handles live score subscriptions out of the box</li>
+            <li>Built-in auth (email, OAuth, magic link)</li>
+            <li>PostgreSQL with auto-generated REST and GraphQL APIs</li>
+            <li>Less backend code to write</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Vendor lock-in to Supabase</li>
+            <li>Still need a background worker for data scraping (can't run in Supabase)</li>
+            <li>Free tier limits may be hit with real-time features</li>
+            <li>Adds Supabase as a dependency alongside Render</li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin-top: 12px; padding: 8px 12px; background: rgba(76,227,70,0.1); border-radius: 6px; font-size: 13px;">
+        <strong>Stack:</strong> Next.js 15 + Supabase (DB + Auth + Realtime) + Render (for scraper/worker)
+      </p>
+    </div>
+  </div>
+</div>

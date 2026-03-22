@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NETPULSE - Live Game Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700;800;900&amp;family=Manrope:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-primary": "#ffffff",
+              "secondary": "#006e0a",
+              "on-tertiary": "#ffffff",
+              "primary-fixed": "#d4e3ff",
+              "secondary-fixed-dim": "#4ce346",
+              "inverse-primary": "#afc8f0",
+              "tertiary": "#000700",
+              "inverse-on-surface": "#f2f0f3",
+              "error-container": "#ffdad6",
+              "surface-container-low": "#f4f3f6",
+              "surface-container": "#efedf0",
+              "on-error-container": "#93000a",
+              "on-primary-fixed-variant": "#2f486a",
+              "on-tertiary-fixed-variant": "#005306",
+              "surface-variant": "#e3e2e5",
+              "on-surface-variant": "#43474e",
+              "surface-container-high": "#e9e7eb",
+              "surface": "#faf9fc",
+              "primary-container": "#001f3f",
+              "outline-variant": "#c4c6cf",
+              "on-tertiary-fixed": "#002201",
+              "on-secondary-fixed": "#002201",
+              "outline": "#74777f",
+              "error": "#ba1a1a",
+              "secondary-fixed": "#75ff68",
+              "on-tertiary-container": "#009c14",
+              "primary-fixed-dim": "#afc8f0",
+              "on-secondary": "#ffffff",
+              "secondary-container": "#69fd5d",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary-container": "#00730b",
+              "on-secondary-fixed-variant": "#005306",
+              "tertiary-container": "#002501",
+              "on-error": "#ffffff",
+              "on-surface": "#1a1c1e",
+              "on-primary-fixed": "#001c3a",
+              "surface-container-highest": "#e3e2e5",
+              "surface-bright": "#faf9fc",
+              "background": "#faf9fc",
+              "tertiary-fixed-dim": "#4ce346",
+              "on-primary-container": "#6f88ad",
+              "surface-dim": "#dbd9dd",
+              "on-background": "#1a1c1e",
+              "primary": "#000613",
+              "tertiary-fixed": "#75ff68",
+              "inverse-surface": "#2f3033",
+              "surface-tint": "#476083"
+            },
+            fontFamily: {
+              "headline": ["Lexend"],
+              "body": ["Manrope"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .pulse-live {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<header class="fixed top-0 w-full flex justify-between items-center px-6 py-4 bg-slate-950/80 backdrop-blur-md z-50 shadow-2xl shadow-black/50">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black italic tracking-tighter text-white uppercase">NETPULSE</span>
+<nav class="hidden md:flex gap-6">
+<a class="text-xs font-semibold uppercase tracking-widest Inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Fixtures</a>
+<a class="text-xs font-semibold uppercase tracking-widest Inter text-lime-400 font-bold hover:text-lime-300 transition-colors duration-200" href="#">Live</a>
+<a class="text-xs font-semibold uppercase tracking-widest Inter text-slate-400 hover:text-lime-300 transition-colors duration-200" href="#">Stats</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-lime-300 transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+<button class="text-slate-400 hover:text-lime-300 transition-colors"><span class="material-symbols-outlined">settings</span></button>
+</div>
+</header>
+<aside class="hidden lg:flex flex-col h-full py-8 bg-slate-900 w-64 fixed left-0 top-0 pt-24 z-40 shadow-xl">
+<div class="px-6 mb-8">
+<h3 class="text-white font-bold Lexend text-lg">Live Pulse</h3>
+<p class="text-slate-400 text-xs uppercase tracking-wider">Active Matches: 4</p>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 py-3 text-lime-400 border-l-4 border-lime-400 pl-4 bg-slate-800/30" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">reorder</span>
+<span class="Lexend font-medium text-sm">Live Ticker</span>
+</a>
+<a class="flex items-center gap-3 py-3 text-slate-400 pl-4 hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="Lexend font-medium text-sm">Recent Results</span>
+</a>
+<a class="flex items-center gap-3 py-3 text-slate-400 pl-4 hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">newspaper</span>
+<span class="Lexend font-medium text-sm">League News</span>
+</a>
+<a class="flex items-center gap-3 py-3 text-slate-400 pl-4 hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="Lexend font-medium text-sm">My Teams</span>
+</a>
+</nav>
+</aside>
+<main class="lg:pl-64 pt-20 pb-24 min-h-screen">
+<section class="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
+<div class="relative overflow-hidden rounded-xl bg-primary-container text-white p-8 md:p-12 shadow-2xl">
+<div class="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-secondary/20 to-transparent pointer-events-none"></div>
+<div class="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+<div class="flex flex-col items-center md:items-start text-center md:text-left gap-4">
+<div class="w-20 h-20 rounded-full bg-white flex items-center justify-center p-2">
+<img alt="Team A Logo" class="w-full h-full object-contain" data-alt="Lightning bolt logo for professional netball team" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaaOrm8hnvxcYnCH0PEzk4MrcVEKh2ug-AMunYxRcvtmyI71sUueH78QgZjs6uAsH2TWLruvlH6bbtaFgU-f0SlUWB4x13o3eyCelTkaswj29sLNR5krprxI70ZaxRCjUZ9jrDRpixjI1_ZcfeRVLZBkBbMfZxZHYB9JXJvcehfxewzJ-MCluK1iuYl3lNPAqVXRkR_R9QFym9q-CbKptO4gwU2FVrIUGZfVj0roPi2BEztHZODumtY5k2hcoTNq9gMtKNaQ4HbXY"/>
+</div>
+<div>
+<h2 class="font-headline text-3xl font-extrabold tracking-tighter uppercase italic">Viper Hawks</h2>
+<p class="text-on-primary-container font-label text-xs tracking-widest uppercase">Home Team</p>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="bg-secondary px-3 py-1 rounded-full flex items-center gap-2 mb-4">
+<span class="w-2 h-2 rounded-full bg-white pulse-live"></span>
+<span class="font-label text-[10px] font-bold uppercase tracking-tighter text-on-secondary">LIVE Q3 • 12:45</span>
+</div>
+<div class="flex items-center gap-8">
+<span class="font-headline text-7xl md:text-9xl font-black tracking-tighter">42</span>
+<span class="font-headline text-2xl font-light text-on-primary-container">—</span>
+<span class="font-headline text-7xl md:text-9xl font-black tracking-tighter">38</span>
+</div>
+<p class="font-label text-xs uppercase tracking-widest text-secondary-fixed font-bold mt-4">Premier League Final</p>
+</div>
+<div class="flex flex-col items-center md:items-end text-center md:text-right gap-4">
+<div class="w-20 h-20 rounded-full bg-white flex items-center justify-center p-2">
+<img alt="Team B Logo" class="w-full h-full object-contain" data-alt="Fire logo for professional netball team" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHxEKk_RANO9eJ7DWShqP0Vi6hHdGV10nqSw0qAjVVBe12ppJk13r8-D1bnGDApptW0D-Vi8CVJKhD1Q7WgxarPG9GxQu3Q3vQXHEIq_zcQS5dK1bH5GdUCNjsL4zkRzuCy2D72rVemO_Sv0EihLjZL4VIGQykjYchhaLTz69mdfodKyNt-Rwo5zhn6B3fAjzRGjtC7aJV0gzM83ix4uw-3p4kprPiNjJuqeEBapKzHtIHtGpT0KwloPoujj7OeiBXnPBLO1aC7D0"/>
+</div>
+<div>
+<h2 class="font-headline text-3xl font-extrabold tracking-tighter uppercase italic">Nova Stars</h2>
+<p class="text-on-primary-container font-label text-xs tracking-widest uppercase">Away Team</p>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2 space-y-8">
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/15">
+<h3 class="font-headline text-xl font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">groups</span>
+                            Live Lineups
+                        </h3>
+<div class="grid grid-cols-2 gap-12">
+<div class="space-y-4">
+<p class="font-label text-[10px] font-black uppercase text-secondary border-b border-outline-variant pb-2">Viper Hawks</p>
+<div class="space-y-3">
+<div class="flex items-center justify-between group cursor-pointer p-2 rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center text-[10px] font-bold">GS</span>
+<span class="font-body font-semibold">Sarah Jenkins</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">18/20</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer p-2 rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center text-[10px] font-bold">GA</span>
+<span class="font-body font-semibold">Maya Thompson</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">12/15</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer p-2 rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center text-[10px] font-bold">WA</span>
+<span class="font-body font-semibold">Elena Rodriguez</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">24 AST</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer p-2 rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center text-[10px] font-bold">C</span>
+<span class="font-body font-semibold">Jessica Chen</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">18 FEED</span>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<p class="font-label text-[10px] font-black uppercase text-secondary border-b border-outline-variant pb-2 text-right">Nova Stars</p>
+<div class="space-y-3">
+<div class="flex items-center justify-between flex-row-reverse group cursor-pointer p-2 rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3 flex-row-reverse">
+<span class="w-8 h-8 rounded-full bg-secondary text-white flex items-center justify-center text-[10px] font-bold">GS</span>
+<span class="font-body font-semibold">Linda Blair</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">22/24</span>
+</div>
+<div class="flex items-center justify-between flex-row-reverse group cursor-pointer p-2 rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3 flex-row-reverse">
+<span class="w-8 h-8 rounded-full bg-secondary text-white flex items-center justify-center text-[10px] font-bold">GA</span>
+<span class="font-body font-semibold">Chloe Smith</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">10/12</span>
+</div>
+<div class="flex items-center justify-between flex-row-reverse group cursor-pointer p-2 rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3 flex-row-reverse">
+<span class="w-8 h-8 rounded-full bg-secondary text-white flex items-center justify-center text-[10px] font-bold">WA</span>
+<span class="font-body font-semibold">Priya Kapoor</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">19 AST</span>
+</div>
+<div class="flex items-center justify-between flex-row-reverse group cursor-pointer p-2 rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-3 flex-row-reverse">
+<span class="w-8 h-8 rounded-full bg-secondary text-white flex items-center justify-center text-[10px] font-bold">C</span>
+<span class="font-body font-semibold">Sophie Wright</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">15 FEED</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/15">
+<div class="flex justify-between items-center mb-8">
+<h3 class="font-headline text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">analytics</span>
+                                Key Match Stats
+                            </h3>
+<button class="bg-surface-container-high text-primary font-label text-xs font-bold py-1.5 px-4 rounded-md">VIEW ALL</button>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold font-label uppercase">
+<span>54%</span>
+<span>Possession</span>
+<span>46%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden flex">
+<div class="h-full bg-primary-container" style="width: 54%"></div>
+<div class="h-full bg-secondary" style="width: 46%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold font-label uppercase">
+<span>88%</span>
+<span>Shooting Accuracy</span>
+<span>92%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden flex">
+<div class="h-full bg-primary-container" style="width: 88%"></div>
+<div class="h-full bg-secondary" style="width: 92%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold font-label uppercase">
+<span>14</span>
+<span>Interceptions</span>
+<span>11</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden flex">
+<div class="h-full bg-primary-container" style="width: 56%"></div>
+<div class="h-full bg-secondary" style="width: 44%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-1">
+<div class="bg-slate-950 rounded-xl overflow-hidden shadow-2xl sticky top-24">
+<div class="bg-slate-900 p-4 border-b border-slate-800 flex items-center justify-between">
+<h4 class="text-white font-headline text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-lime-400 text-sm">sensors</span>
+                                Live Feed
+                            </h4>
+<span class="text-[10px] text-lime-400 font-bold uppercase">Real-Time</span>
+</div>
+<div class="h-[600px] overflow-y-auto p-4 space-y-6 custom-scrollbar">
+<div class="flex gap-4 relative">
+<div class="flex-none flex flex-col items-center">
+<div class="w-1.5 h-1.5 rounded-full bg-lime-400 mt-2"></div>
+<div class="w-px h-full bg-slate-800 mt-2"></div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-bold text-slate-500 Lexend uppercase">12:44 - Q3</p>
+<p class="text-white text-sm font-medium">Sarah Jenkins (GS) scores from the edge of the circle. High-pressure shot successfully converted.</p>
+<p class="text-lime-400 text-[10px] font-bold uppercase">Score: 42 - 38</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="flex-none flex flex-col items-center">
+<div class="w-1.5 h-1.5 rounded-full bg-slate-600 mt-2"></div>
+<div class="w-px h-full bg-slate-800 mt-2"></div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-bold text-slate-500 Lexend uppercase">11:30 - Q3</p>
+<p class="text-slate-300 text-sm">Interception by Chloe Smith (GA) in the mid-court. Nova Stars pushing forward quickly.</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="flex-none flex flex-col items-center">
+<div class="w-1.5 h-1.5 rounded-full bg-slate-600 mt-2"></div>
+<div class="w-px h-full bg-slate-800 mt-2"></div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-bold text-slate-500 Lexend uppercase">10:15 - Q3</p>
+<p class="text-slate-300 text-sm">Obstruction called against Viper Hawks' GD. Penalty pass awarded to Nova Stars.</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="flex-none flex flex-col items-center">
+<div class="w-1.5 h-1.5 rounded-full bg-lime-400 mt-2"></div>
+<div class="w-px h-full bg-slate-800 mt-2"></div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-bold text-slate-500 Lexend uppercase">09:50 - Q3</p>
+<p class="text-white text-sm font-medium">Linda Blair (GS) converts the penalty shot. Lead narrows.</p>
+<p class="text-lime-400 text-[10px] font-bold uppercase">Score: 41 - 38</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="flex-none flex flex-col items-center">
+<div class="w-1.5 h-1.5 rounded-full bg-slate-600 mt-2"></div>
+<div class="w-px h-full bg-slate-800 mt-2"></div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-bold text-slate-500 Lexend uppercase">08:00 - Q3</p>
+<p class="text-slate-300 text-sm">Technical timeout called. Player hydration break.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-slate-950 rounded-t-2xl shadow-[0_-8px_24px_rgba(0,0,0,0.6)] border-t border-slate-800/50">
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4 hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Fixtures</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-lime-500 text-slate-950 rounded-xl py-1 px-4 scale-105 transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">sensors</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Live</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4 hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 py-1 px-4 hover:bg-slate-800 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-bold Lexend text-[10px] tracking-tight uppercase">Standings</span>
+</a>
+</nav>
+<footer class="w-full flex flex-col md:flex-row justify-between items-center gap-4 mt-20 full-width py-12 px-8 bg-slate-950 border-t border-slate-900">
+<div class="flex flex-col gap-2">
+<span class="text-slate-400 font-bold Lexend text-lg uppercase tracking-widest">NETPULSE</span>
+<p class="text-[10px] font-medium Lexend tracking-widest text-slate-600">© 2024 NETPULSE KINETIC. ALL RIGHTS RESERVED.</p>
+</div>
+<div class="flex gap-8">
+<a class="text-[10px] font-medium Lexend tracking-widest text-slate-600 hover:text-lime-400 transition-colors" href="#">Privacy Policy</a>
+<a class="text-[10px] font-medium Lexend tracking-widest text-slate-600 hover:text-lime-400 transition-colors" href="#">Terms of Service</a>
+<a class="text-[10px] font-medium Lexend tracking-widest text-slate-600 hover:text-lime-400 transition-colors" href="#">Support</a>
+</div>
+</footer>
+</body></html>
