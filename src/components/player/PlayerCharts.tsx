@@ -84,12 +84,12 @@ function ShooterDonutChart({ matchStats }: { matchStats: PlayerMatchStats[] }) {
             }}
           />
           {/* Inner cutout */}
-          <div className="absolute inset-3 bg-surface-container-lowest rounded-full flex items-center justify-center">
+          <div className="absolute inset-6 bg-surface-container-lowest rounded-full flex items-center justify-center">
             <div className="text-center">
-              <span className="font-headline text-3xl font-black text-primary">
+              <span className="font-headline text-2xl font-black text-primary">
                 {accuracy.toFixed(1)}%
               </span>
-              <p className="font-label text-xs text-on-surface-variant uppercase tracking-wider mt-1">
+              <p className="font-label text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5">
                 Accuracy
               </p>
             </div>
