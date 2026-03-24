@@ -37,6 +37,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# screenshots & temp files
+/screenshots
+/.playwright-mcp
+/.superpowers
+/supabase
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

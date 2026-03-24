@@ -95,6 +95,28 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 - **Prisma nullable narrowing:** After `if (!match) return notFound()`, use `NonNullable<typeof match>` in function parameter types — TypeScript doesn't narrow through hoisted function declarations.
 - **Prisma AI safety check:** `prisma migrate reset` and destructive commands require `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="yes"` env var when run from an AI agent. Use `npx prisma db push --force-reset` as an alternative.
 
+## SEO & Domain
+
+**Domain:** centrepass.io — site will be hosted here.
+
+**Competitor landscape:** Low-competition niche. No dedicated independent SSN scores site exists. Official sites (netball.com.au) have poor web SEO. Media giants (Fox, Nine) treat netball as afterthought. Nobody runs Google Ads in this niche.
+
+**Technical SEO implementation (all free):**
+- `app/sitemap.ts` — dynamic sitemap with all match, team, player URLs
+- `app/robots.ts` — allow all, block `/api/` and `/auth/`
+- JSON-LD structured data on every page:
+  - `SportsEvent` on match pages
+  - `SportsTeam` on team pages
+  - `Person` on player pages
+  - `BreadcrumbList` on all pages (via layout)
+  - `WebSite` on homepage
+- `generateMetadata()` on every page with descriptive titles (e.g. "Vixens vs Fever - Round 5 Score | CentrePass")
+- Google Search Console + GA4 registration after deployment
+
+**Important:** Google's live score panels come from licensed data partners, NOT from website schema markup. Structured data helps with entity recognition and event listings, but won't generate score-specific rich results.
+
+**No paid SEO needed:** Free tools (Google Search Console, GA4, Ahrefs Webmaster Tools free tier) cover everything. Paid tools (Ahrefs, SEMrush) are overkill for this niche.
+
 ## Project Structure
 
 Personal project — repo lives in `~/Documents/personal/` (uses personal GitHub account: SilverCrocus).
