@@ -32,40 +32,29 @@ function PrimaryBarChart({
       <h3 className="font-headline text-xl font-bold mb-6">
         {label} Per Match
       </h3>
-      <div className="h-40 flex items-end justify-between gap-1.5">
+      <div className="h-48 flex items-end gap-3 px-2">
         {matchStats.map((stat, i) => {
           const value = values[i];
-          const heightPct = (value / maxVal) * 100;
-          const opacity = 0.3 + (i / (matchStats.length - 1 || 1)) * 0.7;
+          const heightPct = Math.max((value / maxVal) * 100, 4);
 
           return (
-            <div key={stat.id} className="flex flex-col items-center flex-1 min-w-0">
+            <div key={stat.id} className="flex flex-col items-center flex-1 max-w-20 min-w-0">
+              <span className="text-sm font-bold text-lime-400 mb-1">
+                {statField === 'shootingPct' ? `${value.toFixed(0)}%` : value}
+              </span>
               <div
-                className="w-full rounded-t-sm transition-all duration-300"
+                className="w-full rounded-t-md bg-lime-400"
                 style={{
                   height: `${heightPct}%`,
-                  backgroundColor: `rgba(163, 230, 53, ${opacity})`,
+                  opacity: 0.4 + (i / (matchStats.length - 1 || 1)) * 0.6,
                 }}
               />
-              <span className="text-[10px] mt-2 font-bold text-slate-400 truncate">
+              <span className="text-[10px] mt-2 font-bold text-slate-400">
                 R{i + 1}
               </span>
             </div>
           );
         })}
-      </div>
-      <div className="mt-4 flex justify-between items-center">
-        <div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest">
-            Season High
-          </p>
-          <p className="text-xl font-bold text-lime-400">
-            {maxVal.toFixed(statField === 'shootingPct' ? 1 : 0)}
-          </p>
-        </div>
-        <span className="material-symbols-outlined text-lime-400">
-          bar_chart
-        </span>
       </div>
     </div>
   );
@@ -95,9 +84,9 @@ function ShooterDonutChart({ matchStats }: { matchStats: PlayerMatchStats[] }) {
             }}
           />
           {/* Inner cutout */}
-          <div className="absolute inset-4 bg-surface-container-lowest rounded-full flex items-center justify-center">
+          <div className="absolute inset-3 bg-surface-container-lowest rounded-full flex items-center justify-center">
             <div className="text-center">
-              <span className="font-headline text-4xl font-black text-primary">
+              <span className="font-headline text-3xl font-black text-primary">
                 {accuracy.toFixed(1)}%
               </span>
               <p className="font-label text-xs text-on-surface-variant uppercase tracking-wider mt-1">
