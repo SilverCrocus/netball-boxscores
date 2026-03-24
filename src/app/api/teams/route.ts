@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
   try {
     const teams = await prisma.team.findMany({
       orderBy: { name: 'asc' },

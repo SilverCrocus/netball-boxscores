@@ -40,7 +40,8 @@ describe('Sidebar', () => {
 
   it('renders material icons', () => {
     render(<Sidebar />);
-    expect(screen.getByText('home')).toHaveClass('material-symbols-outlined');
+    expect(screen.getByText('calendar_today')).toHaveClass('material-symbols-outlined');
+    expect(screen.getByText('sensors')).toHaveClass('material-symbols-outlined');
     expect(screen.getByText('leaderboard')).toHaveClass('material-symbols-outlined');
     expect(screen.getByText('groups')).toHaveClass('material-symbols-outlined');
   });

@@ -1,13 +1,11 @@
 import type {
   CDCompetitionsResponse,
   CDFixtureResponse,
-  CDMatchStatsResponse,
   CDFixtureMatch,
+  CDMatchStatsResponse,
   CDPlayerStats,
 } from "@/types/champion-data";
 
-// MatchStatus will come from Prisma once the schema is generated.
-// Define locally for now to avoid a hard dependency on Task 2.
 type MatchStatus = "SCHEDULED" | "LIVE" | "COMPLETED";
 
 const BASE_URL =
@@ -33,9 +31,11 @@ export async function fetchCompetitions(): Promise<CDCompetitionsResponse> {
 
 /**
  * Fetch fixture (schedule + results) for a competition.
+ * Returns the array of matches from the nested fixture.match structure.
  */
-export async function fetchFixture(compId: number): Promise<CDFixtureResponse> {
-  return fetchFromChampionData<CDFixtureResponse>(`/${compId}/fixture.json`, 900);
+export async function fetchFixture(compId: number): Promise<CDFixtureMatch[]> {
+  const data = await fetchFromChampionData<CDFixtureResponse>(`/${compId}/fixture.json`, 900);
+  return data.fixture?.match ?? [];
 }
 
 /**
@@ -48,15 +48,12 @@ export async function fetchMatchStats(
   return fetchFromChampionData<CDMatchStatsResponse>(`/${compId}/${matchId}.json`, 30);
 }
 
-// ───── Transform functions ─────
-
 function mapMatchStatus(cdStatus: string): MatchStatus {
-  switch (cdStatus) {
-    case "Playing":
+  switch (cdStatus.toLowerCase()) {
+    case "playing":
       return "LIVE";
-    case "Complete":
+    case "complete":
       return "COMPLETED";
-    case "Scheduled":
     default:
       return "SCHEDULED";
   }
@@ -67,17 +64,30 @@ function mapMatchStatus(cdStatus: string): MatchStatus {
  * Note: homeTeamId and awayTeamId are returned as champion data IDs
  * and must be resolved to Prisma IDs by the caller.
  */
+interface TransformedFixtureMatch {
+  championDataMatchId: number;
+  round: number;
+  venue: string;
+  scheduledAt: Date;
+  homeScore: number;
+  awayScore: number;
+  status: MatchStatus;
+  competitionId: string;
+  homeChampionDataTeamId: number;
+  awayChampionDataTeamId: number;
+}
+
 export function transformFixtureMatch(
   cdMatch: CDFixtureMatch,
   competitionId: string
-) {
+): TransformedFixtureMatch {
   return {
     championDataMatchId: cdMatch.matchId,
-    round: cdMatch.round,
-    venue: cdMatch.venue,
+    round: cdMatch.roundNumber,
+    venue: cdMatch.venueName,
     scheduledAt: new Date(cdMatch.utcStartTime),
-    homeScore: cdMatch.homeScore ?? 0,
-    awayScore: cdMatch.awayScore ?? 0,
+    homeScore: cdMatch.homeSquadScore ?? 0,
+    awayScore: cdMatch.awaySquadScore ?? 0,
     status: mapMatchStatus(cdMatch.matchStatus),
     competitionId,
     homeChampionDataTeamId: cdMatch.homeSquadId,
@@ -90,7 +100,24 @@ export function transformFixtureMatch(
  * Note: playerId is returned as championDataPlayerId and must be resolved
  * to a Prisma Player ID by the caller.
  */
-export function transformPlayerStats(cdPlayer: CDPlayerStats) {
+interface TransformedPlayerStats {
+  championDataPlayerId: number;
+  name: string;
+  position: string;
+  goals: number;
+  attempts: number;
+  goalAssists: number;
+  intercepts: number;
+  deflections: number;
+  rebounds: number;
+  penalties: number;
+  feeds: number;
+  centrePassReceives: number;
+  turnovers: number;
+  minutesPlayed: number;
+}
+
+export function transformPlayerStats(cdPlayer: CDPlayerStats): TransformedPlayerStats {
   return {
     championDataPlayerId: cdPlayer.playerId,
     name: cdPlayer.displayName,

@@ -64,6 +64,24 @@
   --color-on-background: #1a1c1e;
 }
 
+/* Custom utility classes from Stitch prototypes */
+.kinetic-gradient {
+  background: linear-gradient(135deg, #000613 0%, #001f3f 100%);
+}
+
+.pulse-live {
+  animation: pulse-live 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.text-shadow-glow {
+  text-shadow: 0 0 20px rgba(117, 255, 104, 0.3);
+}
+
 .material-symbols-outlined {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
   display: inline-block;

@@ -69,7 +69,7 @@ describe("TheSportsDB Service", () => {
       const result = await fetchTeams();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("lookup_all_teams.php?id=4540"),
+        expect.stringContaining("search_all_teams.php?l="),
         expect.any(Object)
       );
       expect(result).toHaveLength(1);

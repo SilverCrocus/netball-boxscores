@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { requireAuth, badRequest } from '@/lib/api-auth';
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function GET(): Promise<NextResponse> {
+  const { user, error } = await requireAuth();
+  if (error) return error;
 
   const reminders = await prisma.userReminder.findMany({
-    where: { userId: session.user.id },
+    where: { userId: user.id },
     include: {
       match: {
         include: { homeTeam: true, awayTeam: true },
@@ -21,44 +18,30 @@ export async function GET() {
   return NextResponse.json(reminders);
 }
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function POST(request: Request): Promise<NextResponse> {
+  const { user, error } = await requireAuth();
+  if (error) return error;
 
   const { matchId } = await request.json();
-  if (!matchId) {
-    return NextResponse.json({ error: 'matchId is required' }, { status: 400 });
-  }
+  if (!matchId) return badRequest('matchId is required');
 
   const reminder = await prisma.userReminder.create({
-    data: {
-      userId: session.user.id,
-      matchId,
-    },
+    data: { userId: user.id, matchId },
   });
 
   return NextResponse.json(reminder, { status: 201 });
 }
 
-export async function DELETE(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function DELETE(request: Request): Promise<NextResponse> {
+  const { user, error } = await requireAuth();
+  if (error) return error;
 
   const { matchId } = await request.json();
-  if (!matchId) {
-    return NextResponse.json({ error: 'matchId is required' }, { status: 400 });
-  }
+  if (!matchId) return badRequest('matchId is required');
 
   await prisma.userReminder.delete({
     where: {
-      userId_matchId: {
-        userId: session.user.id,
-        matchId,
-      },
+      userId_matchId: { userId: user.id, matchId },
     },
   });
 

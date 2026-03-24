@@ -3,15 +3,22 @@
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
+interface TeamSummary {
+  id: string;
+  name: string;
+  abbreviation: string;
+  logoUrl: string | null;
+}
+
 interface TeamFollow {
   teamId: string;
-  team: { id: string; name: string; abbreviation: string; logoUrl: string | null };
+  team: TeamSummary;
 }
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [followedTeams, setFollowedTeams] = useState<TeamFollow[]>([]);
-  const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [allTeams, setAllTeams] = useState<TeamSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,7 +52,9 @@ export default function SettingsPage() {
       });
       if (res.ok) {
         const team = allTeams.find((t) => t.id === teamId);
-        setFollowedTeams((prev) => [...prev, { teamId, team }]);
+        if (team) {
+          setFollowedTeams((prev) => [...prev, { teamId, team }]);
+        }
       }
     }
   };

@@ -1,4 +1,5 @@
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 
 interface TeamInfo {
   name: string;
@@ -53,17 +54,7 @@ export function LiveScoreHero({
         {/* Home team */}
         <div className="flex flex-col items-center md:items-start text-center md:text-left gap-4">
           <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center p-2">
-            {homeTeam.logoUrl ? (
-              <img
-                src={homeTeam.logoUrl}
-                alt={homeTeam.name}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <span className="text-3xl font-black italic text-primary-container font-headline">
-                {homeTeam.abbreviation.charAt(0)}
-              </span>
-            )}
+            <TeamBadge team={homeTeam} size={64} variant="home" />
           </div>
           <div>
             <h2 className="font-headline text-3xl font-extrabold tracking-tighter uppercase italic">
@@ -104,17 +95,7 @@ export function LiveScoreHero({
         {/* Away team */}
         <div className="flex flex-col items-center md:items-end text-center md:text-right gap-4">
           <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center p-2">
-            {awayTeam.logoUrl ? (
-              <img
-                src={awayTeam.logoUrl}
-                alt={awayTeam.name}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <span className="text-3xl font-black italic text-secondary font-headline">
-                {awayTeam.abbreviation.charAt(0)}
-              </span>
-            )}
+            <TeamBadge team={awayTeam} size={64} variant="away" />
           </div>
           <div>
             <h2 className="font-headline text-3xl font-extrabold tracking-tighter uppercase italic">

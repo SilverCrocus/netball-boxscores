@@ -32,23 +32,42 @@ const mockCompetitionsResponse: CDCompetitionsResponse = {
 };
 
 const mockFixtureResponse: CDFixtureResponse = {
-  fixture: [
-    {
-      matchId: 115001,
-      round: 1,
-      roundName: "Round 1",
-      homeSquadId: 810,
-      homeSquadName: "Melbourne Vixens",
-      awaySquadId: 811,
-      awaySquadName: "West Coast Fever",
-      venue: "John Cain Arena",
-      localStartTime: "2026-03-28T17:00:00+11:00",
-      utcStartTime: "2026-03-28T06:00:00Z",
-      homeScore: 64,
-      awayScore: 58,
-      matchStatus: "Complete",
-    },
-  ],
+  fixture: {
+    jobId: 1,
+    match: [
+      {
+        matchId: 115001,
+        matchNumber: 1,
+        matchType: "Regular",
+        roundNumber: 1,
+        homeSquadId: 810,
+        homeSquadName: "Melbourne Vixens",
+        homeSquadCode: "VIX",
+        homeSquadShortCode: "VIX",
+        homeSquadNickname: "Vixens",
+        homeSquadScore: 64,
+        awaySquadId: 811,
+        awaySquadName: "West Coast Fever",
+        awaySquadCode: "FEV",
+        awaySquadShortCode: "FEV",
+        awaySquadNickname: "Fever",
+        awaySquadScore: 58,
+        venue: "John Cain Arena",
+        venueName: "John Cain Arena",
+        venueId: 100,
+        venueCode: "JCA",
+        localStartTime: "2026-03-28T17:00:00+11:00",
+        utcStartTime: "2026-03-28T06:00:00Z",
+        matchStatus: "complete",
+        period: 4,
+        periodSecs: 0,
+        periodCompleted: 4,
+        isNetball2pt: false,
+        finalCode: "FT",
+        finalShortCode: "FT",
+      },
+    ],
+  },
 };
 
 const mockMatchStatsResponse: CDMatchStatsResponse = {
@@ -186,8 +205,8 @@ describe("Champion Data Service", () => {
         "https://mc.championdata.com/data/10850/fixture.json",
         expect.any(Object)
       );
-      expect(result.fixture).toHaveLength(1);
-      expect(result.fixture[0].matchId).toBe(115001);
+      expect(result).toHaveLength(1);
+      expect(result[0].matchId).toBe(115001);
     });
   });
 
@@ -211,7 +230,7 @@ describe("Champion Data Service", () => {
 
   describe("transformFixtureMatch", () => {
     it("transforms CDFixtureMatch to Prisma-compatible format", () => {
-      const cdMatch: CDFixtureMatch = mockFixtureResponse.fixture[0];
+      const cdMatch: CDFixtureMatch = mockFixtureResponse.fixture.match[0];
       const result = transformFixtureMatch(cdMatch, "comp-id-123");
 
       expect(result).toEqual({
@@ -230,8 +249,8 @@ describe("Champion Data Service", () => {
 
     it("maps 'Playing' status to LIVE", () => {
       const liveMatch: CDFixtureMatch = {
-        ...mockFixtureResponse.fixture[0],
-        matchStatus: "Playing",
+        ...mockFixtureResponse.fixture.match[0],
+        matchStatus: "playing",
       };
       const result = transformFixtureMatch(liveMatch, "comp-id-123");
       expect(result.status).toBe("LIVE");
@@ -239,10 +258,10 @@ describe("Champion Data Service", () => {
 
     it("maps 'Scheduled' status to SCHEDULED", () => {
       const scheduledMatch: CDFixtureMatch = {
-        ...mockFixtureResponse.fixture[0],
-        matchStatus: "Scheduled",
-        homeScore: undefined,
-        awayScore: undefined,
+        ...mockFixtureResponse.fixture.match[0],
+        matchStatus: "scheduled",
+        homeSquadScore: undefined as unknown as number,
+        awaySquadScore: undefined as unknown as number,
       };
       const result = transformFixtureMatch(scheduledMatch, "comp-id-123");
       expect(result.status).toBe("SCHEDULED");

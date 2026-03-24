@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,9 +68,7 @@ export default async function StandingsPage() {
                     </td>
                     <td className="py-6 px-6">
                       <Link href={`/team/${s.team.slug}`} className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-primary-container rounded-lg flex items-center justify-center text-white font-black text-xl italic font-headline shadow-inner">
-                          {s.team.abbreviation.charAt(0)}
-                        </div>
+                        <TeamBadge team={s.team} size={48} variant="home" className="shadow-inner" />
                         <div className="font-headline font-bold text-primary text-lg leading-tight">
                           {s.team.name}
                         </div>

@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import Image from 'next/image';
 import Link from 'next/link';
+import Image from 'next/image';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { formatMatchDate, formatMatchTime, formatShortDate } from '@/lib/format';
 
 interface TeamPageProps {
   params: Promise<{ teamSlug: string }>;
@@ -134,7 +135,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                     <p className="font-label text-xs text-on-surface-variant">
                       {teamScore} - {oppScore}
                       {' \u2022 '}
-                      {new Date(m.scheduledAt).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      {formatMatchDate(m.scheduledAt)}
                     </p>
                   </div>
                 </Link>
@@ -217,10 +218,10 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   </div>
                   <div className="text-right">
                     <p className="font-label text-xs font-bold text-on-surface-variant">
-                      {new Date(m.scheduledAt).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })}
+                      {formatShortDate(m.scheduledAt)}
                     </p>
                     <p className="font-body font-black text-primary">
-                      {new Date(m.scheduledAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+                      {formatMatchTime(m.scheduledAt)}
                     </p>
                   </div>
                 </div>

@@ -21,8 +21,17 @@ describe('useMatchSocket', () => {
     vi.clearAllMocks();
   });
 
-  it('should subscribe to match room on mount', () => {
+  it('should subscribe to match room on connect', () => {
     renderHook(() => useMatchSocket('match-123'));
+
+    // Find the connect handler and trigger it
+    const connectCall = mockSocket.on.mock.calls.find(
+      (call: unknown[]) => call[0] === 'connect'
+    );
+    expect(connectCall).toBeDefined();
+    const connectHandler = connectCall![1] as () => void;
+    connectHandler();
+
     expect(mockSocket.emit).toHaveBeenCalledWith('match:subscribe', {
       matchId: 'match-123',
     });

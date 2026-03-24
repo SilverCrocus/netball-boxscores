@@ -1,60 +1,43 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { requireAuth, badRequest } from '@/lib/api-auth';
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function GET(): Promise<NextResponse> {
+  const { user, error } = await requireAuth();
+  if (error) return error;
 
   const teams = await prisma.userTeam.findMany({
-    where: { userId: session.user.id },
+    where: { userId: user.id },
     include: { team: true },
   });
 
   return NextResponse.json(teams);
 }
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function POST(request: Request): Promise<NextResponse> {
+  const { user, error } = await requireAuth();
+  if (error) return error;
 
   const { teamId } = await request.json();
-  if (!teamId) {
-    return NextResponse.json({ error: 'teamId is required' }, { status: 400 });
-  }
+  if (!teamId) return badRequest('teamId is required');
 
   const userTeam = await prisma.userTeam.create({
-    data: {
-      userId: session.user.id,
-      teamId,
-    },
+    data: { userId: user.id, teamId },
   });
 
   return NextResponse.json(userTeam, { status: 201 });
 }
 
-export async function DELETE(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function DELETE(request: Request): Promise<NextResponse> {
+  const { user, error } = await requireAuth();
+  if (error) return error;
 
   const { teamId } = await request.json();
-  if (!teamId) {
-    return NextResponse.json({ error: 'teamId is required' }, { status: 400 });
-  }
+  if (!teamId) return badRequest('teamId is required');
 
   await prisma.userTeam.delete({
     where: {
-      userId_teamId: {
-        userId: session.user.id,
-        teamId,
-      },
+      userId_teamId: { userId: user.id, teamId },
     },
   });
 

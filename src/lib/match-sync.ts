@@ -131,6 +131,20 @@ export async function applyChanges(
       });
       if (!player) continue;
 
+      const statsData = {
+        goals: ps.goals,
+        attempts: ps.attempts,
+        goalAssists: ps.goalAssists,
+        intercepts: ps.intercepts,
+        deflections: ps.deflections,
+        rebounds: ps.rebounds,
+        penalties: ps.penalties,
+        feeds: ps.feeds,
+        centrePassReceives: ps.centrePassReceives,
+        turnovers: ps.turnovers,
+        minutesPlayed: ps.minutesPlayed,
+      };
+
       await prisma.playerMatchStats.upsert({
         where: {
           playerId_matchId: {
@@ -138,33 +152,11 @@ export async function applyChanges(
             matchId: changes.matchId,
           },
         },
-        update: {
-          goals: ps.goals,
-          attempts: ps.attempts,
-          goalAssists: ps.goalAssists,
-          intercepts: ps.intercepts,
-          deflections: ps.deflections,
-          rebounds: ps.rebounds,
-          penalties: ps.penalties,
-          feeds: ps.feeds,
-          centrePassReceives: ps.centrePassReceives,
-          turnovers: ps.turnovers,
-          minutesPlayed: ps.minutesPlayed,
-        },
+        update: statsData,
         create: {
           playerId: player.id,
           matchId: changes.matchId,
-          goals: ps.goals,
-          attempts: ps.attempts,
-          goalAssists: ps.goalAssists,
-          intercepts: ps.intercepts,
-          deflections: ps.deflections,
-          rebounds: ps.rebounds,
-          penalties: ps.penalties,
-          feeds: ps.feeds,
-          centrePassReceives: ps.centrePassReceives,
-          turnovers: ps.turnovers,
-          minutesPlayed: ps.minutesPlayed,
+          ...statsData,
         },
       });
     }

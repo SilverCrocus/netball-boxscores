@@ -21,7 +21,7 @@ interface MatchSocketState {
   isConnected: boolean;
 }
 
-export function useMatchSocket(matchId: string) {
+export function useMatchSocket(matchId: string): MatchSocketState {
   const socketRef = useRef<TypedSocket | null>(null);
   const [state, setState] = useState<MatchSocketState>({
     score: null,
@@ -42,12 +42,12 @@ export function useMatchSocket(matchId: string) {
 
     socketRef.current = socket;
 
-    socket.on('connect' as any, () => {
+    socket.on('connect', () => {
       setState((prev) => ({ ...prev, isConnected: true }));
       socket.emit('match:subscribe', { matchId });
     });
 
-    socket.on('disconnect' as any, () => {
+    socket.on('disconnect', () => {
       setState((prev) => ({ ...prev, isConnected: false }));
     });
 
@@ -77,9 +77,6 @@ export function useMatchSocket(matchId: string) {
         }));
       }
     });
-
-    // Subscribe to match room
-    socket.emit('match:subscribe', { matchId });
 
     return () => {
       socket.emit('match:unsubscribe', { matchId });

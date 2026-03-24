@@ -2,9 +2,9 @@ import { prisma } from '@/lib/db';
 import { detectChanges, applyChanges } from '@/lib/match-sync';
 import {
   broadcastScoreUpdate,
-  broadcastStatsUpdate,
   broadcastMatchStatus,
 } from '@/lib/socket-server';
+import type { CDFixtureMatch } from '@/types/champion-data';
 
 const POLL_LIVE = 30_000; // 30 seconds
 const POLL_MATCH_DAY = 900_000; // 15 minutes
@@ -57,12 +57,11 @@ async function pollChampionData(): Promise<void> {
       return;
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as { fixture?: { match?: CDFixtureMatch[] } };
 
-    // Process each match in the fixture
-    const matches = data?.fixture?.match || [];
+    const matches = data?.fixture?.match ?? [];
     for (const matchData of matches) {
-      if (matchData.matchStatus !== 'LIVE') continue;
+      if (matchData.matchStatus.toLowerCase() !== 'playing') continue;
 
       // Fetch detailed match data
       const matchRes = await fetch(
@@ -70,13 +69,16 @@ async function pollChampionData(): Promise<void> {
       );
       if (!matchRes.ok) continue;
 
-      const matchDetail = await matchRes.json();
+      const matchDetail = (await matchRes.json()) as {
+        matchStats?: { homeScore?: number; awayScore?: number; currentPeriod?: number; currentTime?: string };
+      };
 
+      const cdStatus = matchData.matchStatus.toLowerCase();
       const incoming = {
         matchId: matchData.matchId,
         homeScore: matchDetail.matchStats?.homeScore ?? 0,
         awayScore: matchDetail.matchStats?.awayScore ?? 0,
-        status: matchData.matchStatus === 'Final' ? 'COMPLETED' : matchData.matchStatus,
+        status: cdStatus === 'complete' ? 'COMPLETED' : cdStatus === 'playing' ? 'LIVE' : 'SCHEDULED',
         currentQuarter: matchDetail.matchStats?.currentPeriod ?? 0,
         currentTime: matchDetail.matchStats?.currentTime ?? '',
       };

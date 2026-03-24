@@ -1,4 +1,3 @@
-// src/components/ui/TeamBadge.tsx
 import Image from 'next/image';
 
 interface TeamBadgeProps {

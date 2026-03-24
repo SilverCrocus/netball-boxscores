@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,6 @@ export default async function TeamsPage() {
       slug: true,
       abbreviation: true,
       logoUrl: true,
-      primaryColor: true,
     },
     orderBy: { name: 'asc' },
   });
@@ -35,15 +35,7 @@ export default async function TeamsPage() {
             className="bg-surface-container-lowest rounded-xl p-6 shadow-sm hover:shadow-md transition-all group"
           >
             <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-20 h-20 rounded-2xl bg-primary-container flex items-center justify-center">
-                {team.logoUrl ? (
-                  <img src={team.logoUrl} alt={team.name} className="w-14 h-14 object-contain" />
-                ) : (
-                  <span className="text-4xl font-black italic text-white font-headline">
-                    {team.abbreviation.charAt(0)}
-                  </span>
-                )}
-              </div>
+              <TeamBadge team={team} size={56} variant="home" className="rounded-2xl" />
               <div>
                 <h2 className="font-headline font-bold text-lg text-primary group-hover:text-secondary transition-colors">
                   {team.name}

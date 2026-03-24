@@ -2,13 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-
-const navItems = [
-  { href: '/', label: 'Home', icon: 'home' },
-  { href: '/?filter=live', label: 'Live', icon: 'sensors' },
-  { href: '/standings', label: 'Standings', icon: 'leaderboard' },
-  { href: '/teams', label: 'Teams', icon: 'groups' },
-];
+import { NAV_ITEMS } from '@/lib/navigation';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -21,7 +15,7 @@ export function Sidebar() {
         </span>
       </div>
       <nav className="flex flex-col gap-1">
-        {navItems.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           return (
             <Link
@@ -34,7 +28,7 @@ export function Sidebar() {
               }`}
             >
               <span className="material-symbols-outlined">{item.icon}</span>
-              {item.label}
+              {item.sidebarLabel ?? item.label}
             </Link>
           );
         })}

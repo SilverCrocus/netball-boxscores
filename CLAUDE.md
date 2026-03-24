@@ -59,6 +59,12 @@ When building components, reference these designs as the visual spec.
 - **`TeamBadge`** (`src/components/ui/TeamBadge.tsx`): Renders team logo with letter fallback. Use this instead of inline letter placeholders. Props: `team` (name/abbreviation/logoUrl), `size` (px), `variant` ('home'|'away').
 - **`ScoreCard`** (`src/components/ui/ScoreCard.tsx`): Match result card with team badges, scores, date, round, and venue.
 
+## Shared Utilities
+
+- **`src/lib/navigation.ts`**: `NAV_ITEMS` array — single source of truth for sidebar and bottom nav links. Each item has `href`, `label`, `icon`, and optional `sidebarLabel`.
+- **`src/lib/api-auth.ts`**: `requireAuth()` (returns session or 401 response) and `badRequest(msg)` helpers for API routes.
+- **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatShortDate(date)` — shared date formatting across pages and components.
+
 ## Gotchas
 
 - **Prisma 7 breaks builds:** Always use Prisma 6.x. Import from `@prisma/client`.
@@ -67,6 +73,7 @@ When building components, reference these designs as the visual spec.
 - **Next.js 15 async params:** Page params are `Promise<{ param: string }>` — must `await params`
 - **Supabase direct connection:** Use pooler session mode (port 5432) as `DIRECT_URL`, not `db.xxx.supabase.co`
 - **Match sorting:** Queries use `scheduledAt: 'asc'`. For completed matches (results), reverse to show most-recent-first. For upcoming fixtures filtered from a desc-sorted list, reverse to show nearest-first.
+- **Prisma nullable narrowing:** After `if (!match) return notFound()`, use `NonNullable<typeof match>` in function parameter types — TypeScript doesn't narrow through hoisted function declarations.
 
 ## Project Structure
 

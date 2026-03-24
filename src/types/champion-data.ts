@@ -16,23 +16,42 @@ export interface CDCompetition {
 // GET mc.championdata.com/data/{compId}/fixture.json
 
 export interface CDFixtureResponse {
-  fixture: CDFixtureMatch[];
+  fixture: {
+    jobId: number;
+    match: CDFixtureMatch[];
+  };
 }
 
 export interface CDFixtureMatch {
   matchId: number;
-  round: number;
-  roundName: string;
+  matchNumber: number;
+  matchType: string;
+  roundNumber: number;
   homeSquadId: number;
   homeSquadName: string;
+  homeSquadCode: string;
+  homeSquadShortCode: string;
+  homeSquadNickname: string;
+  homeSquadScore: number;
   awaySquadId: number;
   awaySquadName: string;
-  venue: string;
+  awaySquadCode: string;
+  awaySquadShortCode: string;
+  awaySquadNickname: string;
+  awaySquadScore: number;
+  venue: string; // deprecated alias
+  venueName: string;
+  venueId: number;
+  venueCode: string;
   localStartTime: string; // ISO 8601
   utcStartTime: string;
-  homeScore?: number;
-  awayScore?: number;
-  matchStatus: string; // "Scheduled" | "Playing" | "Complete"
+  matchStatus: string; // "scheduled" | "playing" | "complete"
+  period: number;
+  periodSecs: number;
+  periodCompleted: number;
+  isNetball2pt: boolean;
+  finalCode: string;
+  finalShortCode: string;
 }
 
 // ───── Match Stats endpoint response ─────

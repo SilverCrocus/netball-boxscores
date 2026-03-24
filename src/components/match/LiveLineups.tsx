@@ -18,15 +18,22 @@ interface LiveLineupsProps {
 }
 
 function getStatLabel(player: PlayerEntry): string {
-  if (player.position === 'GS' || player.position === 'GA') {
-    return `${player.goals}/${player.attempts}`;
+  switch (player.position) {
+    case 'GS':
+    case 'GA':
+      return `${player.goals}/${player.attempts}`;
+    case 'WA':
+      return `${player.goalAssists} AST`;
+    case 'C':
+      return `${player.feeds} FEED`;
+    case 'WD':
+      return `${player.deflections} DEF`;
+    case 'GD':
+    case 'GK':
+      return `${player.intercepts} INT`;
+    default:
+      return '';
   }
-  if (player.position === 'WA') return `${player.goalAssists} AST`;
-  if (player.position === 'C') return `${player.feeds} FEED`;
-  if (player.position === 'WD') return `${player.deflections} DEF`;
-  if (player.position === 'GD') return `${player.intercepts} INT`;
-  if (player.position === 'GK') return `${player.intercepts} INT`;
-  return '';
 }
 
 export function LiveLineups({

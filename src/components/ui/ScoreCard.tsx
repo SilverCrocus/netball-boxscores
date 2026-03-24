@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { LiveIndicator } from './LiveIndicator';
 import { TeamBadge } from './TeamBadge';
+import { formatMatchDate, formatMatchTime } from '@/lib/format';
 
 interface TeamInfo {
   name: string;
@@ -51,7 +52,7 @@ export function ScoreCard({ match }: ScoreCardProps) {
         )}
         {match.status === 'SCHEDULED' && match.scheduledAt && (
           <span className="text-[10px] font-bold text-on-surface-variant uppercase font-label">
-            {new Date(match.scheduledAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+            {formatMatchTime(match.scheduledAt)}
           </span>
         )}
         {isLive && <LiveIndicator />}
@@ -84,7 +85,7 @@ export function ScoreCard({ match }: ScoreCardProps) {
       {(match.round || match.venue) && (
         <div className="mt-6 pt-4 border-t border-surface-container flex justify-between items-center">
           <span className="text-[10px] font-medium text-on-surface-variant uppercase font-label">
-            {match.scheduledAt && new Date(match.scheduledAt).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+            {match.scheduledAt && formatMatchDate(match.scheduledAt)}
             {match.round && ` \u2022 Round ${match.round}`}
             {match.venue && ` \u2022 ${match.venue}`}
           </span>

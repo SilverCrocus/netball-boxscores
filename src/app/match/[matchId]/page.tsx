@@ -28,12 +28,32 @@ export default async function MatchPage({ params }: MatchPageProps) {
 
   if (!match) notFound();
 
-  const homePlayerStats = match.playerStats.filter(
-    (ps) => ps.player.teamId === match.homeTeamId
-  );
-  const awayPlayerStats = match.playerStats.filter(
-    (ps) => ps.player.teamId === match.awayTeamId
-  );
+  function toPlayerStatRow(ps: NonNullable<typeof match>['playerStats'][number]) {
+    return {
+      id: ps.id,
+      name: ps.player.name,
+      position: ps.player.position,
+      photoUrl: ps.player.photoUrl,
+      goals: ps.goals,
+      attempts: ps.attempts,
+      goalAssists: ps.goalAssists,
+      intercepts: ps.intercepts,
+      deflections: ps.deflections,
+      rebounds: ps.rebounds,
+      penalties: ps.penalties,
+      feeds: ps.feeds,
+      centrePassReceives: ps.centrePassReceives,
+      turnovers: ps.turnovers,
+      minutesPlayed: ps.minutesPlayed,
+    };
+  }
+
+  const homePlayerStats = match.playerStats
+    .filter((ps) => ps.player.teamId === match.homeTeamId)
+    .map(toPlayerStatRow);
+  const awayPlayerStats = match.playerStats
+    .filter((ps) => ps.player.teamId === match.awayTeamId)
+    .map(toPlayerStatRow);
 
   const mvp = match.playerStats.length > 0 ? match.playerStats[0] : null;
 
@@ -79,47 +99,8 @@ export default async function MatchPage({ params }: MatchPageProps) {
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         {/* Left Column: Tables */}
         <div className="xl:col-span-3 space-y-8">
-          <PlayerStatsTable
-            teamName={match.homeTeam.name}
-            players={homePlayerStats.map((ps) => ({
-              id: ps.id,
-              name: ps.player.name,
-              position: ps.player.position,
-              photoUrl: ps.player.photoUrl,
-              goals: ps.goals,
-              attempts: ps.attempts,
-              goalAssists: ps.goalAssists,
-              intercepts: ps.intercepts,
-              deflections: ps.deflections,
-              rebounds: ps.rebounds,
-              penalties: ps.penalties,
-              feeds: ps.feeds,
-              centrePassReceives: ps.centrePassReceives,
-              turnovers: ps.turnovers,
-              minutesPlayed: ps.minutesPlayed,
-            }))}
-          />
-
-          <PlayerStatsTable
-            teamName={match.awayTeam.name}
-            players={awayPlayerStats.map((ps) => ({
-              id: ps.id,
-              name: ps.player.name,
-              position: ps.player.position,
-              photoUrl: ps.player.photoUrl,
-              goals: ps.goals,
-              attempts: ps.attempts,
-              goalAssists: ps.goalAssists,
-              intercepts: ps.intercepts,
-              deflections: ps.deflections,
-              rebounds: ps.rebounds,
-              penalties: ps.penalties,
-              feeds: ps.feeds,
-              centrePassReceives: ps.centrePassReceives,
-              turnovers: ps.turnovers,
-              minutesPlayed: ps.minutesPlayed,
-            }))}
-          />
+          <PlayerStatsTable teamName={match.homeTeam.name} players={homePlayerStats} />
+          <PlayerStatsTable teamName={match.awayTeam.name} players={awayPlayerStats} />
         </div>
 
         {/* Right Column: Sidebar */}

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { formatMatchDate, formatMatchTime } from '@/lib/format';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -88,13 +89,10 @@ export default async function HomePage() {
                 </div>
                 <div className="text-right">
                   <span className="block text-2xl font-bold font-headline">
-                    {new Date(featured.scheduledAt).toLocaleTimeString('en-AU', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatMatchTime(featured.scheduledAt)}
                   </span>
                   <span className="text-[10px] uppercase font-label text-slate-300 block">
-                    {new Date(featured.scheduledAt).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    {formatMatchDate(featured.scheduledAt)}
                   </span>
                   {featured.venue && (
                     <span className="text-[10px] uppercase font-label text-slate-400">
@@ -137,12 +135,9 @@ export default async function HomePage() {
                   <TeamBadge team={match.homeTeam} size={32} variant="home" />
                   <div>
                     <div className="text-[10px] font-bold text-on-surface-variant uppercase font-label">
-                      {new Date(match.scheduledAt).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      {formatMatchDate(match.scheduledAt)}
                       {' \u2022 '}
-                      {new Date(match.scheduledAt).toLocaleTimeString('en-AU', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatMatchTime(match.scheduledAt)}
                     </div>
                     <div className="text-sm font-bold font-headline text-primary">
                       {match.homeTeam.abbreviation} v {match.awayTeam.abbreviation}
