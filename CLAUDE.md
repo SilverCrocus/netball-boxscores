@@ -6,12 +6,27 @@ Real SSN data displayed under the NETPULSE brand. Live scores, box scores, stand
 
 Next.js 15 Full-Stack Monolith with custom Express server for Socket.io. Deployed on Render (Sydney region).
 
-**Tech Stack:** Next.js 15 (App Router), TypeScript, Tailwind CSS 4, Prisma ORM, Supabase PostgreSQL, NextAuth.js, Socket.io, Vitest
+**Tech Stack:** Next.js 15 (App Router), TypeScript, Tailwind CSS 4, Prisma 6.x, Supabase PostgreSQL, NextAuth.js, Socket.io, Vitest
 
 ## Data Sources
 
-- **Champion Data** (primary): `mc.championdata.com/data/` — free JSON endpoints, no auth. Scores, 48+ player stat fields, fixtures, score flow.
-- **TheSportsDB** (secondary): Team badges, player photos. SSN league ID: 4540.
+- **Champion Data** (primary): `mc.championdata.com/data/` — free JSON endpoints, no auth. 2026 SSN competition ID: **12949**.
+  - Fixture response structure: `{ fixture: { match: [...] } }` — field names use `roundNumber`, `homeSquadScore`, `venueName`, `matchStatus` (lowercase values)
+- **TheSportsDB** (secondary): Team badges, player photos. Use `search_all_teams.php?l=Australian%20Super%20Netball%20League` (NOT `lookup_all_teams.php`).
+
+## Data Seeding
+
+`prisma/seed.ts` fetches real data from both APIs:
+- 8 teams from Champion Data with correct squad IDs (801, 804, 806, 807, 810, 8117, 8118, 9698)
+- 52 players from TheSportsDB with photos
+- 56 real matches with actual scores
+- Standings computed from results
+
+**Name alias mapping** resolves CD→TSDB mismatches: "GIANTS Netball"→"Giants Netball", "NSW Swifts"→"New South Wales Swifts"
+
+Team badges stored in DB `logoUrl` at seed time — pages read from DB, no runtime TheSportsDB calls.
+
+Run `npx prisma db seed` to re-seed with fresh API data.
 
 ## Key Documents
 
@@ -30,7 +45,7 @@ UI designs are in `stitch-designs/` — each subfolder contains a `screenshot.pn
 - `league-standings/` — Team rankings table
 - `team-profile-vipers/` — Individual team page (example: Vipers Athletics)
 
-When building components, reference these designs as the visual spec. The HTML prototypes are self-contained and can be opened directly in a browser.
+When building components, reference these designs as the visual spec.
 
 ## Design System
 
@@ -39,13 +54,20 @@ When building components, reference these designs as the visual spec. The HTML p
 - **Icons:** Material Symbols Outlined
 - **Patterns:** `kinetic-gradient` (dark gradient headers), `pulse-live` (live indicator animation)
 
+## Shared Components
+
+- **`TeamBadge`** (`src/components/ui/TeamBadge.tsx`): Renders team logo with letter fallback. Use this instead of inline letter placeholders. Props: `team` (name/abbreviation/logoUrl), `size` (px), `variant` ('home'|'away').
+- **`ScoreCard`** (`src/components/ui/ScoreCard.tsx`): Match result card with team badges, scores, date, round, and venue.
+
+## Gotchas
+
+- **Prisma 7 breaks builds:** Always use Prisma 6.x. Import from `@prisma/client`.
+- **Champion Data field names:** API uses `roundNumber` not `round`, `homeSquadScore` not `homeScore`, `matchStatus` values are lowercase ("complete" not "Complete")
+- **TheSportsDB endpoint:** Must use `search_all_teams.php?l=` not `lookup_all_teams.php?id=` — the latter returns English football teams
+- **Next.js 15 async params:** Page params are `Promise<{ param: string }>` — must `await params`
+- **Supabase direct connection:** Use pooler session mode (port 5432) as `DIRECT_URL`, not `db.xxx.supabase.co`
+- **Match sorting:** Queries use `scheduledAt: 'asc'`. For completed matches (results), reverse to show most-recent-first. For upcoming fixtures filtered from a desc-sorted list, reverse to show nearest-first.
+
 ## Project Structure
 
 Personal project — repo lives in `~/Documents/personal/` (uses personal GitHub account: SilverCrocus).
-
-## Implementation
-
-Follow the implementation plan task-by-task (17 tasks across 3 parts):
-1. Foundation & Data Layer (Tasks 1-4): scaffolding, Prisma schema, Champion Data service, TheSportsDB service
-2. UI Components & Pages (Tasks 5-11): AppShell, shared components, all 7 pages
-3. Features & Deployment (Tasks 12-17): auth, live pages, real-time infrastructure, personalization, Render deploy
