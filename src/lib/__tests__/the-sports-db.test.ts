@@ -52,6 +52,8 @@ const mockPlayersResponse: TSDBPlayersResponse = {
       dateBorn: "1993-08-22",
       strDescriptionEN: "Malawian netball player.",
       strTeam: "Melbourne Vixens",
+      strHeight: "5 ft 11 in",
+      strBirthLocation: "Dedza, Malawi",
     },
   ],
 };
