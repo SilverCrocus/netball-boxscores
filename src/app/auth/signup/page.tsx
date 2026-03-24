@@ -49,7 +49,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-headline text-3xl font-black tracking-tighter uppercase italic text-primary-container">
-            NETPULSE
+            CentrePass
           </h1>
           <p className="font-body text-on-surface-variant mt-2">
             Create an account to personalize your experience

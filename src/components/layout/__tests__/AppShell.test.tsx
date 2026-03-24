@@ -29,8 +29,8 @@ describe('AppShell', () => {
     expect(navElements.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders NETPULSE branding', () => {
+  it('renders CentrePass branding', () => {
     render(<AppShell><div>Content</div></AppShell>);
-    expect(screen.getByText('NETPULSE')).toBeInTheDocument();
+    expect(screen.getByText('CentrePass')).toBeInTheDocument();
   });
 });

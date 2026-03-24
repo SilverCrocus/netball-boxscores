@@ -1,6 +1,6 @@
-# NETPULSE — Suncorp Super Netball Scores Website
+# CentrePass — Suncorp Super Netball Scores Website
 
-Real SSN data displayed under the NETPULSE brand. Live scores, box scores, standings, fixtures, team profiles, player profiles, and on-court visualization.
+Real SSN data displayed under the CentrePass brand at centrepass.io. Live scores, box scores, standings, fixtures, team profiles, player profiles, and on-court visualization.
 
 ## Architecture
 

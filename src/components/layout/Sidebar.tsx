@@ -11,7 +11,7 @@ export function Sidebar() {
     <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 bg-slate-900 py-8 z-40 shadow-xl">
       <div className="px-6 mb-8">
         <span className="text-2xl font-black italic tracking-tighter text-white uppercase font-headline">
-          NETPULSE
+          CentrePass
         </span>
       </div>
       <nav className="flex flex-col gap-1">

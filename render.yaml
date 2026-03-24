@@ -1,7 +1,7 @@
 services:
   - type: web
     runtime: node
-    name: netpulse
+    name: centrepass
     region: sydney
     plan: starter
     buildCommand: npm ci && npx prisma generate && npm run build

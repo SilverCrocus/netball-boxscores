@@ -19,10 +19,10 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
     include: { team: { select: { name: true } } },
   });
 
-  if (!player) return { title: 'Player Not Found | NETPULSE' };
+  if (!player) return { title: 'Player Not Found | CentrePass' };
 
   return {
-    title: `${player.name} | ${player.team.name} | NETPULSE`,
+    title: `${player.name} | ${player.team.name} | CentrePass`,
     description: `${player.name} — ${player.position} for ${player.team.name}. Season stats, game log, and profile.`,
   };
 }

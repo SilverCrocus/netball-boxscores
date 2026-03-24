@@ -32,7 +32,7 @@ app.prepare().then(() => {
   });
 
   httpServer.listen(port, () => {
-    console.log(`> NETPULSE ready on http://${hostname}:${port}`);
+    console.log(`> CentrePass ready on http://${hostname}:${port}`);
     console.log(`> Socket.io server attached`);
   });
 

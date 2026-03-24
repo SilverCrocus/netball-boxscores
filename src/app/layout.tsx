@@ -23,7 +23,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "NETPULSE - Suncorp Super Netball",
+  title: "CentrePass - Suncorp Super Netball",
   description:
     "Live scores, stats, and fixtures for Suncorp Super Netball",
 };

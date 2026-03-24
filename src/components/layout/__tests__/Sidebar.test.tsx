@@ -18,9 +18,9 @@ describe('Sidebar', () => {
     expect(screen.getByRole('complementary')).toBeInTheDocument();
   });
 
-  it('renders NETPULSE branding', () => {
+  it('renders CentrePass branding', () => {
     render(<Sidebar />);
-    expect(screen.getByText('NETPULSE')).toBeInTheDocument();
+    expect(screen.getByText('CentrePass')).toBeInTheDocument();
   });
 
   it('renders navigation links', () => {

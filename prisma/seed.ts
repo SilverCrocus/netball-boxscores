@@ -43,7 +43,7 @@ async function fetchJSON<T>(url: string): Promise<T> {
 }
 
 async function main() {
-  console.log("🏐 Seeding NETPULSE with real SSN data...\n");
+  console.log("🏐 Seeding CentrePass with real SSN data...\n");
 
   // ─── Step 1: Clean existing data ───
   console.log("Cleaning existing data...");
