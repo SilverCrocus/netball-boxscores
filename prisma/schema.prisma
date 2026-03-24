@@ -82,6 +82,12 @@ model Player {
   position             Position
   photoUrl             String?
   championDataPlayerId Int?               @unique
+  nationality          String?
+  dateOfBirth          DateTime?
+  height               String?            /// imperial format e.g. "6 ft 1 in"
+  birthLocation        String?
+  biography            String?            @db.Text
+  theSportsDbId        String?            @unique
   teamId               String
   team                 Team               @relation(fields: [teamId], references: [id])
   matchStats           PlayerMatchStats[]
