@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LiveIndicator } from './LiveIndicator';
+import { TeamBadge } from './TeamBadge';
 
 interface TeamInfo {
   name: string;
@@ -59,9 +60,7 @@ export function ScoreCard({ match }: ScoreCardProps) {
       {/* Score display */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col items-center flex-1 text-center">
-          <div className="w-12 h-12 bg-primary-container rounded-lg flex items-center justify-center text-white font-black italic text-lg font-headline mb-2">
-            {match.homeTeam.abbreviation.charAt(0)}
-          </div>
+          <TeamBadge team={match.homeTeam} size={48} variant="home" className="mb-2" />
           <span className="text-sm font-bold font-headline text-primary uppercase">
             {match.homeTeam.name}
           </span>
@@ -74,9 +73,7 @@ export function ScoreCard({ match }: ScoreCardProps) {
         </div>
 
         <div className="flex flex-col items-center flex-1 text-center">
-          <div className="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center text-primary font-black italic text-lg font-headline mb-2">
-            {match.awayTeam.abbreviation.charAt(0)}
-          </div>
+          <TeamBadge team={match.awayTeam} size={48} variant="away" className="mb-2" />
           <span className="text-sm font-bold font-headline text-primary uppercase">
             {match.awayTeam.name}
           </span>
@@ -87,7 +84,9 @@ export function ScoreCard({ match }: ScoreCardProps) {
       {(match.round || match.venue) && (
         <div className="mt-6 pt-4 border-t border-surface-container flex justify-between items-center">
           <span className="text-[10px] font-medium text-on-surface-variant uppercase font-label">
-            {match.round && `Round ${match.round}`} {match.venue && `\u2022 ${match.venue}`}
+            {match.scheduledAt && new Date(match.scheduledAt).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+            {match.round && ` \u2022 Round ${match.round}`}
+            {match.venue && ` \u2022 ${match.venue}`}
           </span>
           <span className="text-secondary font-bold text-xs flex items-center gap-1 group-hover:gap-2 transition-all">
             View Stats
