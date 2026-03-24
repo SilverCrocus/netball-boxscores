@@ -84,12 +84,12 @@ function ShooterDonutChart({ matchStats }: { matchStats: PlayerMatchStats[] }) {
             }}
           />
           {/* Inner cutout */}
-          <div className="absolute inset-6 bg-surface-container-lowest rounded-full flex items-center justify-center">
+          <div className="absolute inset-4 bg-surface-container-lowest rounded-full flex items-center justify-center">
             <div className="text-center">
-              <span className="font-headline text-2xl font-black text-primary">
+              <span className="font-headline text-4xl font-black text-primary">
                 {accuracy.toFixed(1)}%
               </span>
-              <p className="font-label text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5">
+              <p className="font-label text-xs text-on-surface-variant uppercase tracking-wider mt-1">
                 Accuracy
               </p>
             </div>
@@ -261,6 +261,10 @@ export default function PlayerCharts({
 }: PlayerChartsProps) {
   if (matchStats.length === 0) return null;
 
+  if (positionConfig.group === 'shooter') {
+    return <ShooterDonutChart matchStats={matchStats} />;
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <PrimaryBarChart
@@ -268,10 +272,6 @@ export default function PlayerCharts({
         statField={positionConfig.primaryChartStat}
         label={positionConfig.primaryChartLabel}
       />
-
-      {positionConfig.group === 'shooter' && (
-        <ShooterDonutChart matchStats={matchStats} />
-      )}
 
       {positionConfig.group === 'defender' && (
         <DefenderStackedBar matchStats={matchStats} />
