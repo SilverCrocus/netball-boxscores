@@ -1,29 +1,39 @@
 import { prisma } from '@/lib/db';
 import { ScoreCard } from '@/components/ui/ScoreCard';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  let matches: Array<{
+    id: string;
+    status: 'LIVE' | 'COMPLETED' | 'SCHEDULED';
+    scheduledAt: Date;
+    homeScore: number;
+    awayScore: number;
+    venue: string;
+    round: number;
+    currentQuarter: number | null;
+    homeTeam: { name: string; abbreviation: string; logoUrl: string | null };
+    awayTeam: { name: string; abbreviation: string; logoUrl: string | null };
+  }> = [];
 
-  const matches = await prisma.match.findMany({
-    where: {
-      scheduledAt: { gte: today, lt: tomorrow },
-    },
-    include: {
-      homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
-      awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
-    },
-    orderBy: { scheduledAt: 'asc' },
-  });
+  try {
+    matches = await prisma.match.findMany({
+      include: {
+        homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
+        awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
+      },
+      orderBy: { scheduledAt: 'asc' },
+    });
+  } catch {
+    // DB unavailable (e.g. Supabase free tier paused) — show empty state
+  }
 
   const liveMatches = matches.filter((m) => m.status === 'LIVE');
   const upcomingMatches = matches.filter((m) => m.status === 'SCHEDULED');
-  const completedMatches = matches.filter((m) => m.status === 'COMPLETED');
+  const completedMatches = matches.filter((m) => m.status === 'COMPLETED').reverse();
   const featured = upcomingMatches[0];
 
   return (
@@ -83,6 +93,9 @@ export default async function HomePage() {
                       minute: '2-digit',
                     })}
                   </span>
+                  <span className="text-[10px] uppercase font-label text-slate-300 block">
+                    {new Date(featured.scheduledAt).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </span>
                   {featured.venue && (
                     <span className="text-[10px] uppercase font-label text-slate-400">
                       {featured.venue}
@@ -92,10 +105,8 @@ export default async function HomePage() {
               </div>
               <div className="flex items-center justify-around py-8">
                 <div className="text-center">
-                  <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md mb-3">
-                    <span className="text-3xl font-black italic font-headline">
-                      {featured.homeTeam.abbreviation.charAt(0)}
-                    </span>
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center backdrop-blur-md mb-3 overflow-hidden">
+                    <TeamBadge team={featured.homeTeam} size={64} variant="home" />
                   </div>
                   <span className="font-bold font-headline uppercase">
                     {featured.homeTeam.name}
@@ -103,10 +114,8 @@ export default async function HomePage() {
                 </div>
                 <div className="text-lime-400 font-black text-4xl italic px-4">VS</div>
                 <div className="text-center">
-                  <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md mb-3">
-                    <span className="text-3xl font-black italic font-headline">
-                      {featured.awayTeam.abbreviation.charAt(0)}
-                    </span>
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center backdrop-blur-md mb-3 overflow-hidden">
+                    <TeamBadge team={featured.awayTeam} size={64} variant="away" />
                   </div>
                   <span className="font-bold font-headline uppercase">
                     {featured.awayTeam.name}
@@ -124,14 +133,12 @@ export default async function HomePage() {
                 href={`/match/${match.id}`}
                 className="bg-surface-container rounded-xl p-4 flex items-center justify-between group hover:bg-surface-container-high transition-all"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                    <span className="font-black italic text-primary font-headline">
-                      {match.homeTeam.abbreviation.charAt(0)}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <TeamBadge team={match.homeTeam} size={32} variant="home" />
                   <div>
                     <div className="text-[10px] font-bold text-on-surface-variant uppercase font-label">
+                      {new Date(match.scheduledAt).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      {' \u2022 '}
                       {new Date(match.scheduledAt).toLocaleTimeString('en-AU', {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -141,6 +148,7 @@ export default async function HomePage() {
                       {match.homeTeam.abbreviation} v {match.awayTeam.abbreviation}
                     </div>
                   </div>
+                  <TeamBadge team={match.awayTeam} size={32} variant="away" />
                 </div>
                 <span className="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">
                   calendar_today
