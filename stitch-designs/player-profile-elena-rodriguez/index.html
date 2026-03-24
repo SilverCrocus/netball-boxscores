@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&amp;family=Manrope:wght@300;400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary": "#000700",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f4f3f6",
+                        "surface-container-highest": "#e3e2e5",
+                        "secondary": "#006e0a",
+                        "background": "#faf9fc",
+                        "surface-bright": "#faf9fc",
+                        "on-surface": "#1a1c1e",
+                        "inverse-surface": "#2f3033",
+                        "tertiary-fixed": "#75ff68",
+                        "surface-tint": "#476083",
+                        "surface-variant": "#e3e2e5",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "on-secondary-container": "#00730b",
+                        "on-background": "#1a1c1e",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-high": "#e9e7eb",
+                        "inverse-primary": "#afc8f0",
+                        "secondary-fixed": "#75ff68",
+                        "primary-container": "#001f3f",
+                        "primary-fixed": "#d4e3ff",
+                        "secondary-fixed-dim": "#4ce346",
+                        "on-primary-container": "#6f88ad",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed": "#002201",
+                        "on-primary-fixed-variant": "#2f486a",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#faf9fc",
+                        "outline-variant": "#c4c6cf",
+                        "on-tertiary-fixed-variant": "#005306",
+                        "surface-dim": "#dbd9dd",
+                        "surface-container": "#efedf0",
+                        "tertiary-fixed-dim": "#4ce346",
+                        "on-primary-fixed": "#001c3a",
+                        "outline": "#74777f",
+                        "on-surface-variant": "#43474e",
+                        "on-secondary-fixed-variant": "#005306",
+                        "on-primary": "#ffffff",
+                        "primary": "#000613",
+                        "inverse-on-surface": "#f2f0f3",
+                        "on-tertiary-fixed": "#002201",
+                        "primary-fixed-dim": "#afc8f0",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#009c14",
+                        "tertiary-container": "#002501",
+                        "secondary-container": "#69fd5d"
+                    },
+                    fontFamily: {
+                        "headline": ["Lexend"],
+                        "body": ["Manrope"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-mesh {
+            background-color: #faf9fc;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(210, 100%, 12%, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(125, 100%, 21%, 0.1) 0px, transparent 50%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-secondary-container selection:text-on-secondary-container min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-xl shadow-2xl shadow-blue-900/20">
+<div class="flex justify-between items-center px-6 py-4 w-full max-w-7xl mx-auto">
+<div class="text-2xl font-black italic tracking-tighter text-white font-headline">NETPULSE</div>
+<nav class="hidden md:flex items-center space-x-8 font-headline font-bold tracking-tight">
+<a class="text-lime-400 border-b-2 border-lime-400 pb-1" href="#">Players</a>
+<a class="text-slate-300 hover:text-white transition-colors" href="#">Teams</a>
+<a class="text-slate-300 hover:text-white transition-colors" href="#">Schedule</a>
+<a class="text-slate-300 hover:text-white transition-colors" href="#">Stats</a>
+</nav>
+<div class="flex items-center space-x-4">
+<button class="p-2 text-slate-300 hover:bg-white/10 rounded-lg transition-all active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<button class="p-2 text-slate-300 hover:bg-white/10 rounded-lg transition-all active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full border-2 border-lime-400 overflow-hidden shadow-lg shadow-lime-400/20">
+<img alt="User Profile" data-alt="professional headshot of a female athlete with a confident expression, soft lighting against a neutral grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqjBq2em9BGfKFpoMejRyqxg7TkCUs-eZkNIFYCX5C-OMnye2e01Dopraln-565Ozuk-dVa-4f9CWHqGHOt-d2KYZ6bMtxE2cboLUT36kTFXZuL9T5HpBnP1HL3DD-8quBRFO77WKP6KCRfvcG3VAUU0S9BrtcG8mPIznt6SzTXVf-_uLJUu3HGqOoHYX7JfgFiOxo3OQ8Een5u8GxroubDy-hNVHwa97sW3WB42c3EebBuw88NhbIuIpJVfE0g14xdy1UjePR3cY"/>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<!-- Hero Section: Elena Rodriguez -->
+<section class="relative mb-12 overflow-hidden rounded-3xl bg-primary-container text-white min-h-[500px] flex flex-col md:flex-row items-end">
+<!-- Background Texture -->
+<div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBFpITeNc74L8mXuRrcr6edNi8gyiLnO9Mm5tsXnbTV6whHMpJPgzcc5hB7a-tJwUN1pnTDy9UDO8Ub4r64USChDLboUSG1pGj_rpCwPMfqlW1LNLj9HWlv0NE05u_Qye-K6db2m1k3KJ6K7tmPEXgz0KMWGA49dRc9qyMqtULJwgwIKBAnBFvhrTO7g-8MSTzzo16liQ984b4t4w8Fk--X0llsPB9mq4iNpz9X_DGRW1K9Gif9MjhB8ac1aDmjGXWE_YA8vamkDIQ');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-primary-container via-transparent to-transparent"></div>
+<div class="relative z-10 w-full md:w-1/2 p-8 md:p-12 self-center">
+<div class="inline-flex items-center px-3 py-1 bg-secondary-fixed text-on-secondary-fixed rounded-md font-headline font-bold text-xs tracking-widest uppercase mb-4 shadow-lg shadow-secondary/20">
+                    Vice Captain
+                </div>
+<h1 class="font-headline font-black text-6xl md:text-8xl tracking-tighter mb-2 italic">
+                    RODRIGUEZ
+                </h1>
+<div class="flex items-center space-x-4 mb-8">
+<span class="font-headline font-extrabold text-4xl text-secondary-fixed">#03</span>
+<div class="h-8 w-px bg-white/20"></div>
+<span class="font-headline font-medium text-2xl tracking-wide opacity-80 uppercase">Center</span>
+</div>
+<div class="grid grid-cols-3 gap-6 pt-8 border-t border-white/10">
+<div>
+<div class="font-label text-xs text-on-primary-container uppercase tracking-[0.2em] mb-1">Goals</div>
+<div class="font-headline font-black text-4xl">315</div>
+</div>
+<div>
+<div class="font-label text-xs text-on-primary-container uppercase tracking-[0.2em] mb-1">Intercepts</div>
+<div class="font-headline font-black text-4xl">24</div>
+</div>
+<div>
+<div class="font-label text-xs text-on-primary-container uppercase tracking-[0.2em] mb-1">Rebounds</div>
+<div class="font-headline font-black text-4xl">52</div>
+</div>
+</div>
+</div>
+<div class="relative z-10 w-full md:w-1/2 h-full flex justify-end items-end overflow-hidden">
+<img alt="Elena Rodriguez" class="object-cover object-top h-[500px] md:h-[600px] w-auto transform scale-110 translate-y-12 md:translate-y-20 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]" data-alt="dynamic action shot of a professional female netball player in a dark jersey jumping for a ball, dramatic stadium lighting, intense expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOKKKOtlCwqgDlqtmBDdP4nzzgbQpSEAJuETB0albGPqHc_kU2T3g_DZ4GgN1wL9p0B6owOFuiVXBskWQk6z4asMp3UBoxf2ZZH_8mKq7ffl4x0kvV9bou3JxRUbeofJQTwJUdga4YudryuBmT0ddbLTuoRX2QAndlrI5AifQgHcEO1tNv7A7jjcJ5CC4XgnwBmdH7O-CItdO0_TXDD7QN8Kkd9QxWoVLalofGa6HHoLLFfti_1vNFBKIrcMlsdqWT8hSNUGiQWFE"/>
+</div>
+</section>
+<!-- Bento Grid Stats Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Court Heat Map (Bento Large) -->
+<div class="md:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex justify-between items-center mb-10">
+<h2 class="font-headline font-extrabold text-2xl tracking-tight text-primary uppercase">Court Movement Profile</h2>
+<div class="flex space-x-2">
+<span class="px-3 py-1 bg-surface-container-high rounded-full text-xs font-label font-bold text-on-surface-variant uppercase">Last 5 Games</span>
+<span class="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-xs font-label font-bold uppercase">Center Position</span>
+</div>
+</div>
+<div class="relative aspect-[16/9] bg-surface-container-low rounded-lg overflow-hidden border border-outline-variant/10">
+<!-- Virtual Court Representation -->
+<div class="absolute inset-0 grid grid-cols-3">
+<div class="border-r border-outline-variant/20 flex items-center justify-center">
+<div class="w-32 h-32 border-2 border-outline-variant/10 rounded-full"></div>
+</div>
+<div class="border-r border-outline-variant/20 flex items-center justify-center">
+<div class="w-20 h-20 bg-secondary/20 blur-2xl rounded-full absolute"></div>
+<div class="w-40 h-40 bg-secondary/10 blur-3xl rounded-full absolute"></div>
+<div class="w-2 h-2 bg-on-surface/10 rounded-full"></div>
+</div>
+<div class="flex items-center justify-center">
+<div class="w-32 h-32 border-2 border-outline-variant/10 rounded-full"></div>
+</div>
+</div>
+<!-- Heatmap Overlays -->
+<div class="absolute top-1/4 left-1/3 w-32 h-48 bg-secondary/30 blur-[40px] rounded-full mix-blend-multiply"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-secondary/50 blur-[60px] rounded-full mix-blend-multiply"></div>
+<div class="absolute bottom-1/4 right-1/3 w-24 h-40 bg-secondary/20 blur-[40px] rounded-full mix-blend-multiply"></div>
+<!-- Data Points -->
+<div class="absolute inset-0 p-8 flex flex-col justify-between pointer-events-none">
+<div class="flex justify-between text-[10px] font-label font-bold text-outline uppercase tracking-widest">
+<span>Goal Circle</span>
+<span>Center Third</span>
+<span>Goal Circle</span>
+</div>
+</div>
+</div>
+<div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="p-4 bg-surface-container-high rounded-lg">
+<div class="text-[10px] font-label font-bold text-outline uppercase mb-1">Pass Accuracy</div>
+<div class="text-xl font-headline font-black">94.2%</div>
+</div>
+<div class="p-4 bg-surface-container-high rounded-lg">
+<div class="text-[10px] font-label font-bold text-outline uppercase mb-1">Feeds to Circle</div>
+<div class="text-xl font-headline font-black">12.5 <span class="text-xs font-normal opacity-50">/gm</span></div>
+</div>
+<div class="p-4 bg-surface-container-high rounded-lg">
+<div class="text-[10px] font-label font-bold text-outline uppercase mb-1">Avg Speed</div>
+<div class="text-xl font-headline font-black">6.8 <span class="text-xs font-normal opacity-50">km/h</span></div>
+</div>
+<div class="p-4 bg-surface-container-high rounded-lg">
+<div class="text-[10px] font-label font-bold text-outline uppercase mb-1">Max Sprints</div>
+<div class="text-xl font-headline font-black">42</div>
+</div>
+</div>
+</div>
+<!-- Performance Card (Bento Side) -->
+<div class="md:col-span-4 space-y-6">
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm">
+<h3 class="font-headline font-extrabold text-lg mb-6 text-primary flex items-center">
+<span class="material-symbols-outlined mr-2" data-icon="leaderboard">leaderboard</span>
+                        SEASON COMPARISON
+                    </h3>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between text-xs font-label font-bold mb-2 uppercase text-on-surface-variant">
+<span>Attack efficiency</span>
+<span class="text-secondary">88%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 88%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-label font-bold mb-2 uppercase text-on-surface-variant">
+<span>Defensive Intercepts</span>
+<span class="text-secondary">72%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 72%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-label font-bold mb-2 uppercase text-on-surface-variant">
+<span>Rebound Retention</span>
+<span class="text-secondary">91%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 91%"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-primary-container rounded-xl p-6 text-white overflow-hidden relative">
+<div class="relative z-10">
+<div class="text-secondary-fixed text-xs font-label font-black uppercase tracking-widest mb-1">Upcoming Fixture</div>
+<div class="text-2xl font-headline font-bold mb-4 italic">STORM VS Vipers</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-secondary-fixed" data-icon="calendar_today">calendar_today</span>
+<span class="text-sm font-label font-medium">SAT 24 OCT</span>
+</div>
+<button class="bg-secondary-fixed text-on-secondary-fixed px-4 py-2 rounded-md font-label font-bold text-xs uppercase hover:brightness-110 transition-all active:scale-95">Tickets</button>
+</div>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-8xl" data-icon="sports_score">sports_score</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/10">
+<h3 class="font-headline font-extrabold text-sm mb-4 uppercase tracking-tighter">Physical Profile</h3>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col">
+<span class="text-[10px] font-label font-bold text-outline uppercase">Height</span>
+<span class="font-headline font-bold text-lg">182cm</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-label font-bold text-outline uppercase">Reach</span>
+<span class="font-headline font-bold text-lg">215cm</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Achievements (Bottom Row Wide) -->
+<div class="md:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-container-low p-6 rounded-xl flex items-start space-x-4 border border-outline-variant/5">
+<div class="p-3 bg-secondary-container rounded-lg">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="military_tech" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+</div>
+<div>
+<div class="font-headline font-bold text-lg leading-tight">MVP Week 14</div>
+<div class="text-xs font-label font-medium text-on-surface-variant mt-1">Stellar performance with 42 goals and 8 assists against Blue Jays.</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl flex items-start space-x-4 border border-outline-variant/5">
+<div class="p-3 bg-secondary-container rounded-lg">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div>
+<div class="font-headline font-bold text-lg leading-tight">National Call-up</div>
+<div class="text-xs font-label font-medium text-on-surface-variant mt-1">Selected for the 2024 International Series development squad.</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl flex items-start space-x-4 border border-outline-variant/5">
+<div class="p-3 bg-secondary-container rounded-lg">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<div>
+<div class="font-headline font-bold text-lg leading-tight">Captain's Honor</div>
+<div class="text-xs font-label font-medium text-on-surface-variant mt-1">Awarded the 3rd consecutive season leadership commendation.</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-slate-950 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-50 rounded-t-2xl border-t border-white/5">
+<a class="flex flex-col items-center justify-center text-slate-500 p-2 hover:text-lime-300 transition-colors active:scale-90 duration-150 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="Electric_bolt">electric_bolt</span>
+<span class="font-headline text-[10px] uppercase font-bold tracking-widest mt-1">Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-lime-400 text-slate-950 rounded-xl p-2 mb-1 scale-110 active:scale-90 duration-150 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-headline text-[10px] uppercase font-bold tracking-widest mt-1">Pro</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 p-2 hover:text-lime-300 transition-colors active:scale-90 duration-150 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-headline text-[10px] uppercase font-bold tracking-widest mt-1">Teams</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 p-2 hover:text-lime-300 transition-colors active:scale-90 duration-150 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="font-headline text-[10px] uppercase font-bold tracking-widest mt-1">Stats</span>
+</a>
+</nav>
+</body></html>

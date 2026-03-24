@@ -27,9 +27,14 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
   const lastName = restName.join(' ');
 
   return (
-    <section className="kinetic-gradient rounded-xl overflow-hidden relative min-h-[500px] flex flex-col justify-end p-8 md:p-12 text-white shadow-2xl">
+    <section className="kinetic-gradient rounded-xl overflow-hidden relative p-8 md:p-12 text-white shadow-2xl">
+      {/* Ghost text watermark */}
+      <div className="absolute top-4 right-8 text-[8rem] md:text-[10rem] font-headline font-black italic leading-none text-white/[0.03] select-none pointer-events-none tracking-tighter">
+        {lastName.toUpperCase()}
+      </div>
+
       {/* Back link */}
-      <div className="absolute top-6 left-6 z-20">
+      <div className="mb-8">
         <Link
           href={`/team/${player.team.slug}`}
           className="inline-flex items-center gap-2 text-sm font-label text-slate-300 hover:text-white transition-colors"
@@ -39,7 +44,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
         </Link>
       </div>
 
-      <div className="relative z-10 w-full flex flex-col md:flex-row items-end justify-between gap-8 mt-12">
+      <div className="relative z-10 w-full flex flex-col md:flex-row items-end justify-between gap-8">
         {/* Left: photo + name + bio info */}
         <div className="flex-1 flex flex-col md:flex-row items-start md:items-end gap-8">
           {/* Player photo */}
@@ -70,7 +75,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
             </div>
 
             {/* Player name */}
-            <h1 className="font-headline text-6xl md:text-8xl font-black italic tracking-tighter leading-none mb-4">
+            <h1 className="font-headline text-6xl md:text-7xl font-black italic tracking-tighter leading-none mb-4">
               {firstName}
               <br />
               <span className="text-lime-400">{lastName}</span>
