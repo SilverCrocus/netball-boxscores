@@ -155,11 +155,12 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 <tr className="bg-surface-container-high border-b border-outline-variant">
                   <th className="p-4 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">Player</th>
                   <th className="p-4 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">Pos</th>
+                  <th className="w-12" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container">
                 {team.players.map((player) => (
-                  <tr key={player.id} className="hover:bg-surface-container-low transition-colors">
+                  <tr key={player.id} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded bg-primary-container overflow-hidden flex-shrink-0">
@@ -179,13 +180,20 @@ export default async function TeamPage({ params }: TeamPageProps) {
                             </div>
                           )}
                         </div>
-                        <p className="font-body font-bold text-primary">{player.name}</p>
+                        <Link href={`/player/${player.id}`} className="font-body font-bold text-primary hover:text-secondary transition-colors">
+                          {player.name}
+                        </Link>
                       </div>
                     </td>
                     <td className="p-4">
                       <span className="bg-primary-container text-primary-fixed-dim px-2 py-1 rounded text-xs font-black font-label">
                         {player.position}
                       </span>
+                    </td>
+                    <td className="p-4 w-12">
+                      <Link href={`/player/${player.id}`} className="text-outline-variant group-hover:text-secondary transition-colors">
+                        <span className="material-symbols-outlined text-xl">chevron_right</span>
+                      </Link>
                     </td>
                   </tr>
                 ))}
