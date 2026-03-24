@@ -1,33 +1,41 @@
+// src/components/ui/TeamBadge.tsx
 import Image from 'next/image';
 
 interface TeamBadgeProps {
-  name: string;
-  abbreviation: string;
-  logoUrl?: string | null;
-  size?: 'sm' | 'md' | 'lg';
+  team: {
+    name: string;
+    abbreviation: string;
+    logoUrl?: string | null;
+  };
+  size: number;
+  variant?: 'home' | 'away';
+  className?: string;
 }
 
-const sizeClasses = {
-  sm: { badge: 'w-8 h-8', text: 'text-xs', name: 'text-xs' },
-  md: { badge: 'w-12 h-12', text: 'text-lg', name: 'text-sm' },
-  lg: { badge: 'w-16 h-16', text: 'text-xl', name: 'text-base' },
-};
+export function TeamBadge({ team, size, variant = 'home', className = '' }: TeamBadgeProps) {
+  const fallbackBg = variant === 'home' ? 'bg-primary-container' : 'bg-surface-container-high';
+  const fallbackText = variant === 'home' ? 'text-white' : 'text-primary';
 
-export function TeamBadge({ name, abbreviation, logoUrl, size = 'md' }: TeamBadgeProps) {
-  const s = sizeClasses[size];
+  if (team.logoUrl) {
+    return (
+      <Image
+        src={team.logoUrl}
+        alt={`${team.name} badge`}
+        width={size}
+        height={size}
+        className={`object-contain ${className}`}
+      />
+    );
+  }
 
+  // Letter fallback
+  const textSize = size >= 64 ? 'text-3xl' : size >= 40 ? 'text-lg' : 'text-sm';
   return (
-    <div className="flex items-center gap-3">
-      <div className={`${s.badge} rounded-lg bg-primary-container flex items-center justify-center overflow-hidden`}>
-        {logoUrl ? (
-          <Image src={logoUrl} alt={name} width={48} height={48} className="w-full h-full object-contain" />
-        ) : (
-          <span className={`${s.text} font-black italic text-white font-headline`}>
-            {abbreviation.charAt(0)}
-          </span>
-        )}
-      </div>
-      <span className={`${s.name} font-bold font-headline text-primary uppercase`}>{name}</span>
+    <div
+      className={`flex items-center justify-center rounded-lg font-black italic font-headline ${fallbackBg} ${fallbackText} ${textSize} ${className}`}
+      style={{ width: size, height: size }}
+    >
+      {team.abbreviation.charAt(0)}
     </div>
   );
 }
