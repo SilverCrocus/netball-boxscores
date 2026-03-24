@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import Image from 'next/image';
 import Link from 'next/link';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 
 interface TeamPageProps {
   params: Promise<{ teamSlug: string }>;
@@ -15,12 +17,12 @@ export default async function TeamPage({ params }: TeamPageProps) {
       players: { orderBy: { name: 'asc' } },
       standings: { take: 1 },
       homeMatches: {
-        include: { awayTeam: { select: { name: true, abbreviation: true } } },
+        include: { awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } } },
         orderBy: { scheduledAt: 'desc' },
         take: 10,
       },
       awayMatches: {
-        include: { homeTeam: { select: { name: true, abbreviation: true } } },
+        include: { homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } } },
         orderBy: { scheduledAt: 'desc' },
         take: 10,
       },
@@ -31,12 +33,12 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
   const standing = team.standings[0];
   const allMatches = [
-    ...team.homeMatches.map((m) => ({ ...m, opponent: m.awayTeam.name, isHome: true })),
-    ...team.awayMatches.map((m) => ({ ...m, opponent: m.homeTeam.name, isHome: false })),
+    ...team.homeMatches.map((m) => ({ ...m, opponent: m.awayTeam.name, opponentTeam: m.awayTeam, isHome: true })),
+    ...team.awayMatches.map((m) => ({ ...m, opponent: m.homeTeam.name, opponentTeam: m.homeTeam, isHome: false })),
   ].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
   const recentResults = allMatches.filter((m) => m.status === 'COMPLETED').slice(0, 5);
-  const upcoming = allMatches.filter((m) => m.status === 'SCHEDULED').slice(0, 3);
+  const upcoming = allMatches.filter((m) => m.status === 'SCHEDULED').reverse().slice(0, 3);
 
   return (
     <div className="max-w-7xl mx-auto space-y-12">
@@ -44,10 +46,20 @@ export default async function TeamPage({ params }: TeamPageProps) {
       <section className="kinetic-gradient rounded-xl overflow-hidden relative min-h-[400px] flex items-center p-8 md:p-12 text-white shadow-2xl">
         <div className="relative z-10 w-full grid md:grid-cols-2 gap-12 items-center">
           <div className="flex items-center gap-8">
-            <div className="w-32 h-32 md:w-48 md:h-48 bg-white/10 backdrop-blur-xl border-4 border-lime-400 rounded-full flex items-center justify-center transform -rotate-12 shadow-inner">
-              <span className="font-headline font-black text-7xl md:text-9xl text-lime-400 italic tracking-tighter">
-                {team.abbreviation.charAt(0)}
-              </span>
+            <div className="w-32 h-32 md:w-48 md:h-48 bg-white/10 backdrop-blur-xl border-4 border-lime-400 rounded-full flex items-center justify-center transform -rotate-12 shadow-inner overflow-hidden">
+              {team.logoUrl ? (
+                <Image
+                  src={team.logoUrl}
+                  alt={team.name}
+                  width={192}
+                  height={192}
+                  className="w-full h-full object-contain p-3"
+                />
+              ) : (
+                <span className="font-headline font-black text-7xl md:text-9xl text-lime-400 italic tracking-tighter text-shadow-glow">
+                  {team.abbreviation.charAt(0)}
+                </span>
+              )}
             </div>
             <div>
               {standing && (
@@ -116,9 +128,14 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   <span className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${won ? 'bg-secondary' : 'bg-error'}`}>
                     {won ? 'W' : 'L'}
                   </span>
+                  <TeamBadge team={m.opponentTeam} size={32} variant="away" />
                   <div>
                     <p className="font-headline font-bold text-sm">vs {m.opponent}</p>
-                    <p className="font-label text-xs text-on-surface-variant">{teamScore} - {oppScore}</p>
+                    <p className="font-label text-xs text-on-surface-variant">
+                      {teamScore} - {oppScore}
+                      {' \u2022 '}
+                      {new Date(m.scheduledAt).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </p>
                   </div>
                 </Link>
               );
@@ -143,10 +160,29 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 {team.players.map((player) => (
                   <tr key={player.id} className="hover:bg-surface-container-low transition-colors">
                     <td className="p-4">
-                      <p className="font-body font-bold text-primary">{player.name}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded bg-primary-container overflow-hidden flex-shrink-0">
+                          {player.photoUrl ? (
+                            <Image
+                              src={player.photoUrl}
+                              alt={player.name}
+                              width={40}
+                              height={40}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-white font-black italic font-headline text-sm">
+                                {player.name.charAt(0)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="font-body font-bold text-primary">{player.name}</p>
+                      </div>
                     </td>
                     <td className="p-4">
-                      <span className="bg-primary-container text-on-primary-fixed-variant px-2 py-1 rounded text-xs font-black font-label">
+                      <span className="bg-primary-container text-primary-fixed-dim px-2 py-1 rounded text-xs font-black font-label">
                         {player.position}
                       </span>
                     </td>
@@ -170,11 +206,14 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 className="block bg-surface-container-lowest p-5 rounded-xl border-l-4 border-secondary shadow-sm"
               >
                 <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <p className="font-label text-xs font-black text-secondary uppercase tracking-widest">
-                      {m.isHome ? 'Home' : 'Away'}
-                    </p>
-                    <p className="font-headline font-bold text-lg mt-1">vs {m.opponent}</p>
+                  <div className="flex items-center gap-3">
+                    <TeamBadge team={m.opponentTeam} size={36} variant="away" />
+                    <div>
+                      <p className="font-label text-xs font-black text-secondary uppercase tracking-widest">
+                        {m.isHome ? 'Home' : 'Away'}
+                      </p>
+                      <p className="font-headline font-bold text-lg mt-1">vs {m.opponent}</p>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="font-label text-xs font-bold text-on-surface-variant">
