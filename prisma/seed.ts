@@ -175,6 +175,12 @@ async function main() {
             position,
             photoUrl,
             teamId: prismaTeamId,
+            nationality: p.strNationality || null,
+            dateOfBirth: p.dateBorn ? new Date(p.dateBorn) : null,
+            height: p.strHeight || null,
+            birthLocation: p.strBirthLocation || null,
+            biography: p.strDescriptionEN || null,
+            theSportsDbId: p.idPlayer,
           },
         });
         totalPlayers++;
@@ -191,6 +197,7 @@ async function main() {
   let completedCount = 0;
   let scheduledCount = 0;
   let liveCount = 0;
+  const cdMatchIdToPrismaId = new Map<number, string>();
 
   for (const m of cdMatches) {
     const homeTeamId = squadIdToPrismaId.get(m.homeSquadId);
@@ -214,7 +221,7 @@ async function main() {
       scheduledCount++;
     }
 
-    await prisma.match.create({
+    const createdMatch = await prisma.match.create({
       data: {
         competitionId: comp.id,
         homeTeamId,
@@ -229,10 +236,192 @@ async function main() {
         currentQuarter: status === "playing" ? m.period : null,
       },
     });
+    cdMatchIdToPrismaId.set(m.matchId, createdMatch.id);
   }
 
   console.log(
     `  Created ${cdMatches.length} matches (${completedCount} completed, ${liveCount} live, ${scheduledCount} scheduled)`
+  );
+
+  // ─── Step 6.5: Fetch match detail stats for completed matches ───
+  console.log("\nFetching match detail stats for completed matches...");
+  let statsCount = 0;
+  let quarterCount = 0;
+  let scoreFlowCount = 0;
+
+  for (const m of cdMatches) {
+    if (m.matchStatus.toLowerCase() !== "complete") continue;
+
+    const prismaMatchId = cdMatchIdToPrismaId.get(m.matchId);
+    if (!prismaMatchId) continue;
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = await fetchJSON<{ matchStats: any }>(
+        `${CD_BASE}/${SSN_2026_COMP_ID}/${m.matchId}.json`
+      );
+      const ms = raw.matchStats;
+      const homeSquadId = ms.matchInfo.homeSquadId as number;
+      const awaySquadId = ms.matchInfo.awaySquadId as number;
+
+      // Build CD player ID → full name mapping
+      const playerNames = new Map<number, string>();
+      for (const p of ms.playerInfo.player) {
+        playerNames.set(p.playerId, `${p.firstname} ${p.surname}`);
+      }
+
+      // Create quarter scores from teamPeriodStats
+      const teamPeriodEntries = ms.teamPeriodStats.team as Array<{
+        period: number;
+        squadId: number;
+        goals: number;
+      }>;
+      const periods = [...new Set(teamPeriodEntries.map((t) => t.period))];
+      for (const period of periods) {
+        const homeQtr = teamPeriodEntries.find(
+          (t) => t.period === period && t.squadId === homeSquadId
+        );
+        const awayQtr = teamPeriodEntries.find(
+          (t) => t.period === period && t.squadId === awaySquadId
+        );
+        if (homeQtr && awayQtr) {
+          await prisma.matchQuarter.create({
+            data: {
+              matchId: prismaMatchId,
+              quarter: period,
+              homeScore: homeQtr.goals,
+              awayScore: awayQtr.goals,
+            },
+          });
+          quarterCount++;
+        }
+      }
+
+      // Create player match stats
+      const cdPlayerStats = ms.playerStats.player as Array<{
+        playerId: number;
+        squadId: number;
+        goals: number;
+        goalAttempts: number;
+        goalAssists: number;
+        intercepts: number;
+        deflections: number;
+        rebounds: number;
+        penalties: number;
+        feeds: number;
+        centrePassReceives: number;
+        generalPlayTurnovers: number;
+        minutesPlayed: number;
+        startingPositionCode: string;
+        currentPositionCode: string;
+      }>;
+
+      for (const ps of cdPlayerStats) {
+        const teamId = squadIdToPrismaId.get(ps.squadId);
+        if (!teamId) continue;
+
+        const fullName = playerNames.get(ps.playerId) ?? `Player ${ps.playerId}`;
+        const positionCode = ps.startingPositionCode || ps.currentPositionCode;
+
+        // Try to find existing player by CD player ID first
+        let player = await prisma.player.findUnique({
+          where: { championDataPlayerId: ps.playerId },
+        });
+
+        if (!player) {
+          // Try by name + team (case-insensitive)
+          player = await prisma.player.findFirst({
+            where: {
+              teamId,
+              name: { equals: fullName, mode: "insensitive" },
+            },
+          });
+
+          if (player) {
+            // Link existing TSDB player to CD ID
+            player = await prisma.player.update({
+              where: { id: player.id },
+              data: { championDataPlayerId: ps.playerId },
+            });
+          } else {
+            // Create new player from CD data
+            const position = POSITION_MAP[positionCode] || Position.C;
+            player = await prisma.player.create({
+              data: {
+                name: fullName,
+                position,
+                teamId,
+                championDataPlayerId: ps.playerId,
+              },
+            });
+            totalPlayers++;
+          }
+        }
+
+        await prisma.playerMatchStats.create({
+          data: {
+            playerId: player.id,
+            matchId: prismaMatchId,
+            goals: ps.goals ?? 0,
+            attempts: ps.goalAttempts ?? 0,
+            goalAssists: ps.goalAssists ?? 0,
+            intercepts: ps.intercepts ?? 0,
+            deflections: ps.deflections ?? 0,
+            rebounds: ps.rebounds ?? 0,
+            penalties: ps.penalties ?? 0,
+            feeds: ps.feeds ?? 0,
+            centrePassReceives: ps.centrePassReceives ?? 0,
+            turnovers: ps.generalPlayTurnovers ?? 0,
+            minutesPlayed: ps.minutesPlayed ?? 0,
+          },
+        });
+        statsCount++;
+      }
+
+      // Create score flow with computed running totals
+      const cdScoreFlow = ms.scoreFlow.score as Array<{
+        period: number;
+        periodSeconds: number;
+        squadId: number;
+        scorepoints: number;
+      }>;
+      let runningHome = 0;
+      let runningAway = 0;
+      for (const sf of cdScoreFlow) {
+        const scoringTeamId = squadIdToPrismaId.get(sf.squadId);
+        if (!scoringTeamId) continue;
+
+        if (sf.squadId === homeSquadId) {
+          runningHome += sf.scorepoints;
+        } else {
+          runningAway += sf.scorepoints;
+        }
+
+        await prisma.scoreFlow.create({
+          data: {
+            matchId: prismaMatchId,
+            period: sf.period,
+            periodSeconds: sf.periodSeconds,
+            scoringTeamId,
+            homeScore: runningHome,
+            awayScore: runningAway,
+          },
+        });
+        scoreFlowCount++;
+      }
+
+      console.log(
+        `  Match R${m.roundNumber} ${m.homeSquadName} vs ${m.awaySquadName}: ✓ ${cdPlayerStats.length} players, ${periods.length} qtrs, ${cdScoreFlow.length} scores`
+      );
+    } catch (err) {
+      console.log(
+        `  Match R${m.roundNumber} ${m.homeSquadName} vs ${m.awaySquadName}: ✗ ${err instanceof Error ? err.message : err}`
+      );
+    }
+  }
+
+  console.log(
+    `  Total: ${statsCount} player stats, ${quarterCount} quarters, ${scoreFlowCount} score flows`
   );
 
   // ─── Step 7: Compute standings from completed matches ───
@@ -341,6 +530,9 @@ async function main() {
   console.log(`  Teams: ${teamCount}`);
   console.log(`  Players: ${totalPlayers}`);
   console.log(`  Matches: ${cdMatches.length}`);
+  console.log(`  Player stats: ${statsCount}`);
+  console.log(`  Quarter scores: ${quarterCount}`);
+  console.log(`  Score flows: ${scoreFlowCount}`);
   console.log(`  Standings: ${sorted.length}`);
 }
 

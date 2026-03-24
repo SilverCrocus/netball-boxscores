@@ -30,10 +30,12 @@ export interface TSDBPlayer {
   strPlayer: string;
   strPosition: string;
   strNationality: string;
-  strThumb: string;     // URL to player photo (thumbnail)
-  strCutout: string;    // URL to cutout image
-  strRender: string;    // URL to render image
-  dateBorn: string;
-  strDescriptionEN: string;
+  strThumb: string | null;
+  strCutout: string | null;
+  strRender: string | null;
+  dateBorn: string | null;
+  strDescriptionEN: string | null;
   strTeam: string;
+  strHeight: string | null;
+  strBirthLocation: string | null;
 }
