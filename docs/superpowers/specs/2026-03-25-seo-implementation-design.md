@@ -286,6 +286,12 @@ Build `src/lib/seo.ts`, update root layout, create `sitemap.ts`, create `robots.
 - `src/app/match/[matchId]/opengraph-image.tsx` — match OG image
 - `src/app/team/[teamSlug]/opengraph-image.tsx` — team OG image
 - `src/app/player/[playerId]/opengraph-image.tsx` — player OG image
+- `src/assets/fonts/Lexend-Bold.ttf` — bundled font for Satori OG image rendering
+- `src/assets/fonts/Manrope-Regular.ttf` — bundled font for Satori OG image rendering
+- `src/app/auth/layout.tsx` — noindex metadata for auth pages (client components can't export metadata)
+- `src/app/auth/signin/layout.tsx` — "Sign In" title for signin page
+- `src/app/auth/signup/layout.tsx` — "Sign Up" title for signup page
+- `src/app/settings/layout.tsx` — noindex metadata + "Settings" title
 
 ### Modified Files
 - `src/app/layout.tsx` — metadataBase, title template, OG defaults, GSC meta tag, GA4 component
@@ -297,9 +303,6 @@ Build `src/lib/seo.ts`, update root layout, create `sitemap.ts`, create `robots.
 - `src/app/player/[playerId]/page.tsx` — update metadata to use template, add Person JSON-LD
 - `src/app/standings/page.tsx` — generateMetadata + BreadcrumbList JSON-LD
 - `src/app/teams/page.tsx` — generateMetadata + BreadcrumbList JSON-LD
-- `src/app/auth/signin/page.tsx` — noindex metadata
-- `src/app/auth/signup/page.tsx` — noindex metadata
-- `src/app/settings/page.tsx` — noindex metadata
 
 ## Out of Scope
 
