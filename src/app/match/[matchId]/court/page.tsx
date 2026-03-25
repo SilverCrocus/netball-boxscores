@@ -1,9 +1,28 @@
+import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { CourtClient } from './CourtClient';
 
 interface Props {
   params: Promise<{ matchId: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { matchId } = await params;
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: {
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+  });
+
+  if (!match) return { title: 'Match Not Found' };
+
+  return {
+    title: `Court View: ${match.homeTeam.name} vs ${match.awayTeam.name}`,
+    robots: { index: false },
+  };
 }
 
 export default async function CourtPage({ params }: Props) {

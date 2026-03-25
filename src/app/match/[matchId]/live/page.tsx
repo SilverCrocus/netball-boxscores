@@ -1,9 +1,29 @@
+import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { LiveGameClient } from './LiveGameClient';
 
 interface Props {
   params: Promise<{ matchId: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { matchId } = await params;
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: {
+      round: true,
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+  });
+
+  if (!match) return { title: 'Match Not Found' };
+
+  return {
+    title: `LIVE: ${match.homeTeam.name} vs ${match.awayTeam.name} | Round ${match.round}`,
+    robots: { index: false },
+  };
 }
 
 export default async function LiveGamePage({ params }: Props) {
