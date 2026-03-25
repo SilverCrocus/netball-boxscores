@@ -1,18 +1,19 @@
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
 import Image from 'next/image';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { formatMatchDate, formatMatchTime, formatShortDate } from '@/lib/format';
+import { JsonLd, sportsTeamJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 
 interface TeamPageProps {
   params: Promise<{ teamSlug: string }>;
 }
 
-export default async function TeamPage({ params }: TeamPageProps) {
-  const { teamSlug } = await params;
-
-  const team = await prisma.team.findUnique({
+const getTeam = cache((teamSlug: string) =>
+  prisma.team.findUnique({
     where: { slug: teamSlug },
     include: {
       players: { orderBy: { name: 'asc' } },
@@ -28,7 +29,25 @@ export default async function TeamPage({ params }: TeamPageProps) {
         take: 10,
       },
     },
-  });
+  })
+);
+
+export async function generateMetadata({ params }: TeamPageProps): Promise<Metadata> {
+  const { teamSlug } = await params;
+  const team = await getTeam(teamSlug);
+
+  if (!team) return { title: 'Team Not Found' };
+
+  return {
+    title: `${team.name} - Roster & Stats`,
+    description: `${team.name} roster, season stats, and recent results in the ${new Date().getFullYear()} Suncorp Super Netball season.`,
+  };
+}
+
+export default async function TeamPage({ params }: TeamPageProps) {
+  const { teamSlug } = await params;
+
+  const team = await getTeam(teamSlug);
 
   if (!team) notFound();
 
@@ -43,6 +62,16 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto space-y-12">
+      <JsonLd data={sportsTeamJsonLd({
+        name: team.name,
+        slug: team.slug,
+        logoUrl: team.logoUrl,
+      })} />
+      <JsonLd data={breadcrumbJsonLd([
+        { name: 'Home', url: '/' },
+        { name: 'Teams', url: '/teams' },
+        { name: team.name, url: `/team/${team.slug}` },
+      ])} />
       {/* Hero */}
       <section className="kinetic-gradient rounded-xl overflow-hidden relative min-h-[400px] flex items-center p-8 md:p-12 text-white shadow-2xl">
         <div className="relative z-10 w-full grid md:grid-cols-2 gap-12 items-center">
