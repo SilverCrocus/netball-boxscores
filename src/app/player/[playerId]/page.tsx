@@ -8,6 +8,7 @@ import { PlayerBioCard } from '@/components/player/PlayerBioCard';
 import PlayerSeasonStats from '@/components/player/PlayerSeasonStats';
 import PlayerCharts from '@/components/player/PlayerCharts';
 import { PlayerGameLog } from '@/components/player/PlayerGameLog';
+import { JsonLd, personJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import type { Metadata } from 'next';
 
 interface PlayerPageProps {
@@ -38,10 +39,10 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
   const { playerId } = await params;
   const player = await getPlayer(playerId);
 
-  if (!player) return { title: 'Player Not Found | CentrePass' };
+  if (!player) return { title: 'Player Not Found' };
 
   return {
-    title: `${player.name} | ${player.team.name} | CentrePass`,
+    title: `${player.name} - ${player.team.name}`,
     description: `${player.name} — ${player.position} for ${player.team.name}. Season stats, game log, and profile.`,
   };
 }
@@ -82,6 +83,21 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      <JsonLd data={personJsonLd({
+        name: player.name,
+        position: player.position,
+        dateOfBirth: player.dateOfBirth,
+        nationality: player.nationality,
+        teamName: player.team.name,
+        teamSlug: player.team.slug,
+      })} />
+      <JsonLd data={breadcrumbJsonLd([
+        { name: 'Home', url: '/' },
+        { name: 'Teams', url: '/teams' },
+        { name: player.team.name, url: `/team/${player.team.slug}` },
+        { name: player.name, url: `/player/${player.id}` },
+      ])} />
+
       <PlayerHero
         player={player}
         positionConfig={config}
