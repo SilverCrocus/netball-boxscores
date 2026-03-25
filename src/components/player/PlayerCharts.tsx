@@ -32,23 +32,26 @@ function PrimaryBarChart({
       <h3 className="font-headline text-xl font-bold mb-6">
         {label} Per Match
       </h3>
-      <div className="h-48 flex items-end gap-3 px-2">
+      <div className="h-48 flex gap-3 px-2">
         {matchStats.map((stat, i) => {
           const value = values[i];
           const heightPct = Math.max((value / maxVal) * 100, 4);
 
           return (
             <div key={stat.id} className="flex flex-col items-center flex-1 max-w-20 min-w-0">
-              <span className="text-sm font-bold text-lime-400 mb-1">
-                {statField === 'shootingPct' ? `${value.toFixed(0)}%` : value}
-              </span>
-              <div
-                className="w-full rounded-t-md bg-lime-400"
-                style={{
-                  height: `${heightPct}%`,
-                  opacity: 0.4 + (i / (matchStats.length - 1 || 1)) * 0.6,
-                }}
-              />
+              <div className="flex-1 w-full flex flex-col items-center justify-end min-h-0">
+                <span className="text-sm font-bold text-lime-400 mb-1 shrink-0">
+                  {statField === 'shootingPct' ? `${value.toFixed(0)}%` : value}
+                </span>
+                <div
+                  className="w-full rounded-t-md bg-lime-400"
+                  style={{
+                    height: `${heightPct}%`,
+                    maxHeight: 'calc(100% - 1.5rem)',
+                    opacity: 0.4 + (i / (matchStats.length - 1 || 1)) * 0.6,
+                  }}
+                />
+              </div>
               <span className="text-[10px] mt-2 font-bold text-slate-400">
                 R{i + 1}
               </span>
@@ -129,7 +132,7 @@ function DefenderStackedBar({
       <h3 className="font-headline text-xl font-bold text-primary mb-6">
         Defensive Actions Per Match
       </h3>
-      <div className="h-40 flex items-end justify-between gap-1.5">
+      <div className="h-40 flex justify-between gap-1.5">
         {matchStats.map((stat, i) => {
           const total = stat.intercepts + stat.deflections + stat.rebounds;
           const heightPct = (total / maxTotal) * 100;
@@ -142,22 +145,24 @@ function DefenderStackedBar({
               key={stat.id}
               className="flex flex-col items-center flex-1 min-w-0"
             >
-              <div
-                className="w-full rounded-t-sm overflow-hidden"
-                style={{ height: `${heightPct}%` }}
-              >
+              <div className="flex-1 w-full flex items-end">
                 <div
-                  className="w-full bg-secondary"
-                  style={{ height: `${interceptPct}%` }}
-                />
-                <div
-                  className="w-full bg-lime-400"
-                  style={{ height: `${deflectionPct}%` }}
-                />
-                <div
-                  className="w-full bg-outline-variant"
-                  style={{ height: `${100 - interceptPct - deflectionPct}%` }}
-                />
+                  className="w-full rounded-t-sm overflow-hidden"
+                  style={{ height: `${heightPct}%` }}
+                >
+                  <div
+                    className="w-full bg-secondary"
+                    style={{ height: `${interceptPct}%` }}
+                  />
+                  <div
+                    className="w-full bg-lime-400"
+                    style={{ height: `${deflectionPct}%` }}
+                  />
+                  <div
+                    className="w-full bg-outline-variant"
+                    style={{ height: `${100 - interceptPct - deflectionPct}%` }}
+                  />
+                </div>
               </div>
               <span className="text-[10px] mt-2 font-bold text-on-surface-variant truncate">
                 R{i + 1}
@@ -205,7 +210,7 @@ function MidcourtFeedDistribution({
       <h3 className="font-headline text-xl font-bold text-primary mb-6">
         Feed Distribution
       </h3>
-      <div className="h-40 flex items-end justify-between gap-1.5">
+      <div className="h-40 flex justify-between gap-1.5">
         {matchStats.map((stat, i) => {
           const assistHeight = (stat.goalAssists / maxVal) * 100;
           const feedHeight = (stat.feeds / maxVal) * 100;
@@ -265,6 +270,10 @@ export default function PlayerCharts({
     return <ShooterDonutChart matchStats={matchStats} />;
   }
 
+  if (positionConfig.group === 'defender') {
+    return <DefenderStackedBar matchStats={matchStats} />;
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <PrimaryBarChart
@@ -272,10 +281,6 @@ export default function PlayerCharts({
         statField={positionConfig.primaryChartStat}
         label={positionConfig.primaryChartLabel}
       />
-
-      {positionConfig.group === 'defender' && (
-        <DefenderStackedBar matchStats={matchStats} />
-      )}
 
       {positionConfig.group === 'midcourt' && (
         <MidcourtFeedDistribution matchStats={matchStats} />

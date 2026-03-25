@@ -22,6 +22,15 @@ export function formatShortDate(date: string | Date): string {
   });
 }
 
+export function formatHeight(height: string): string {
+  const match = height.match(/(\d+)\s*ft\s*(\d+)\s*in/i);
+  if (match) {
+    const cm = Math.round(parseInt(match[1]) * 30.48 + parseInt(match[2]) * 2.54);
+    return `${cm} cm`;
+  }
+  return height;
+}
+
 export function computeAge(dateOfBirth: Date): number {
   const today = new Date();
   let age = today.getFullYear() - dateOfBirth.getFullYear();

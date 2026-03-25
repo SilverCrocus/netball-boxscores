@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { Position } from '@prisma/client';
 import type { PositionConfig } from './position-config';
-import { computeAge } from '@/lib/format';
+import { computeAge, formatHeight } from '@/lib/format';
 
 interface PlayerHeroProps {
   player: {
@@ -95,7 +95,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
               {player.height && (
                 <>
                   <span className="text-slate-500">&bull;</span>
-                  <span>{player.height}</span>
+                  <span>{formatHeight(player.height)}</span>
                 </>
               )}
               <span className="text-slate-500">&bull;</span>
