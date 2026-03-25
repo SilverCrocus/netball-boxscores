@@ -1,10 +1,12 @@
 const LOCALE = 'en-AU';
+const TIMEZONE = 'Australia/Sydney';
 
 export function formatMatchDate(date: string | Date): string {
   return new Date(date).toLocaleDateString(LOCALE, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
+    timeZone: TIMEZONE,
   });
 }
 
@@ -12,6 +14,7 @@ export function formatMatchTime(date: string | Date): string {
   return new Date(date).toLocaleTimeString(LOCALE, {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: TIMEZONE,
   });
 }
 
@@ -19,6 +22,7 @@ export function formatShortDate(date: string | Date): string {
   return new Date(date).toLocaleDateString(LOCALE, {
     month: 'short',
     day: 'numeric',
+    timeZone: TIMEZONE,
   });
 }
 
