@@ -1,8 +1,18 @@
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import type { Metadata } from 'next';
+import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const year = new Date().getFullYear();
+  return {
+    title: `${year} SSN Standings`,
+    description: `Current Suncorp Super Netball standings and ladder for the ${year} season.`,
+  };
+}
 
 export default async function StandingsPage() {
   const standings = await prisma.standing.findMany({
@@ -14,6 +24,11 @@ export default async function StandingsPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <JsonLd data={breadcrumbJsonLd([
+        { name: 'Home', url: '/' },
+        { name: 'Standings', url: '/standings' },
+      ])} />
+
       {/* Header */}
       <section className="mb-12 flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
