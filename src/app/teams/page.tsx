@@ -1,8 +1,16 @@
+import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'All Teams - Suncorp Super Netball',
+  description:
+    'Browse all 8 Suncorp Super Netball teams — rosters, stats, and season performance.',
+};
 
 export default async function TeamsPage() {
   const teams = await prisma.team.findMany({
@@ -18,6 +26,10 @@ export default async function TeamsPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <JsonLd data={breadcrumbJsonLd([
+        { name: 'Home', url: '/' },
+        { name: 'Teams', url: '/teams' },
+      ])} />
       <section className="mb-12">
         <h1 className="text-4xl md:text-6xl font-black font-headline tracking-tighter text-primary uppercase">
           Teams
