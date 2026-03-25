@@ -2,23 +2,18 @@
 
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
-
-interface TeamSummary {
-  id: string;
-  name: string;
-  abbreviation: string;
-  logoUrl: string | null;
-}
+import { TeamBadge } from '@/components/ui/TeamBadge';
+import type { TeamInfoWithId } from '@/types/team';
 
 interface TeamFollow {
   teamId: string;
-  team: TeamSummary;
+  team: TeamInfoWithId;
 }
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [followedTeams, setFollowedTeams] = useState<TeamFollow[]>([]);
-  const [allTeams, setAllTeams] = useState<TeamSummary[]>([]);
+  const [allTeams, setAllTeams] = useState<TeamInfoWithId[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -104,13 +99,7 @@ export default function SettingsPage() {
                   : 'border-outline-variant/30 hover:border-outline-variant'
               }`}
             >
-              {team.logoUrl && (
-                <img
-                  src={team.logoUrl}
-                  alt={team.name}
-                  className="w-12 h-12 mx-auto mb-2 object-contain"
-                />
-              )}
+              <TeamBadge team={team} size={48} className="mx-auto mb-2" />
               <p className="font-headline text-sm font-bold">{team.abbreviation}</p>
               <p className="font-label text-[10px] text-on-surface-variant">
                 {team.name}

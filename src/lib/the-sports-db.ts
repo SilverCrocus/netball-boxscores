@@ -46,12 +46,3 @@ export async function fetchPlayersByTeam(teamId: string): Promise<TSDBPlayer[]> 
   return data.player ?? [];
 }
 
-/**
- * Fetch the badge (logo) URL for a specific team.
- */
-export async function fetchTeamBadge(teamId: string): Promise<string | null> {
-  const data = await fetchFromTSDB<{ teams: { strBadge: string }[] | null }>(
-    `lookupteam.php?id=${teamId}`
-  );
-  return data.teams?.[0]?.strBadge ?? null;
-}

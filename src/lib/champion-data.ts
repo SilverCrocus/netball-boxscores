@@ -1,5 +1,4 @@
 import type {
-  CDCompetitionsResponse,
   CDFixtureResponse,
   CDFixtureMatch,
   CDMatchStatsResponse,
@@ -23,13 +22,6 @@ async function fetchFromChampionData<T>(path: string, revalidate = 3600): Promis
 }
 
 /**
- * Fetch all available competitions.
- */
-export async function fetchCompetitions(): Promise<CDCompetitionsResponse> {
-  return fetchFromChampionData<CDCompetitionsResponse>("/competitions.json", 86400);
-}
-
-/**
  * Fetch fixture (schedule + results) for a competition.
  * Returns the array of matches from the nested fixture.match structure.
  */
@@ -48,7 +40,7 @@ export async function fetchMatchStats(
   return fetchFromChampionData<CDMatchStatsResponse>(`/${compId}/${matchId}.json`, 30);
 }
 
-function mapMatchStatus(cdStatus: string): MatchStatus {
+export function mapMatchStatus(cdStatus: string): MatchStatus {
   switch (cdStatus.toLowerCase()) {
     case "playing":
       return "LIVE";

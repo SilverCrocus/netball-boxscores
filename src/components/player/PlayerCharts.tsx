@@ -1,18 +1,10 @@
 import type { PlayerMatchStats } from '@prisma/client';
+import { getStatValue } from '@/lib/stat-utils';
 import type { PositionConfig } from './position-config';
 
 interface PlayerChartsProps {
   matchStats: PlayerMatchStats[];
   positionConfig: PositionConfig;
-}
-
-type StatRecord = Record<string, number>;
-
-function getStatValue(stat: PlayerMatchStats, field: string): number {
-  if (field === 'shootingPct') {
-    return stat.attempts > 0 ? (stat.goals / stat.attempts) * 100 : 0;
-  }
-  return (stat as unknown as StatRecord)[field] ?? 0;
 }
 
 function PrimaryBarChart({

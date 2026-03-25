@@ -1,11 +1,6 @@
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { TeamBadge } from '@/components/ui/TeamBadge';
-
-interface TeamInfo {
-  name: string;
-  abbreviation: string;
-  logoUrl?: string | null;
-}
+import type { TeamInfo } from '@/types/team';
 
 interface LiveScoreHeroProps {
   homeTeam: TeamInfo;

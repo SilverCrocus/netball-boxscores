@@ -1,18 +1,10 @@
 import type { PlayerMatchStats } from '@prisma/client';
+import { getStatValue } from '@/lib/stat-utils';
 import type { PositionConfig, StatHighlight } from './position-config';
 
 interface PlayerSeasonStatsProps {
   matchStats: PlayerMatchStats[];
   positionConfig: PositionConfig;
-}
-
-type StatRecord = Record<string, number>;
-
-function getStatValue(stat: PlayerMatchStats, field: string): number {
-  if (field === 'shootingPct') {
-    return stat.attempts > 0 ? (stat.goals / stat.attempts) * 100 : 0;
-  }
-  return (stat as unknown as StatRecord)[field] ?? 0;
 }
 
 function computeSeasonTotal(stats: PlayerMatchStats[], field: string): number {
@@ -171,9 +163,7 @@ export default function PlayerSeasonStats({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {ALL_STAT_FIELDS.map(({ field, label }) => {
             const total = computeSeasonTotal(matchStats, field);
-            const avg = field === 'minutesPlayed'
-              ? (total / gamesPlayed).toFixed(1)
-              : (total / gamesPlayed).toFixed(1);
+            const avg = (total / gamesPlayed).toFixed(1);
 
             return (
               <div

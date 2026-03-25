@@ -1,13 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  fetchCompetitions,
   fetchFixture,
   fetchMatchStats,
   transformFixtureMatch,
   transformPlayerStats,
 } from "@/lib/champion-data";
 import type {
-  CDCompetitionsResponse,
   CDFixtureResponse,
   CDMatchStatsResponse,
   CDFixtureMatch,
@@ -23,13 +21,6 @@ beforeEach(() => {
 });
 
 // ───── Mock data ─────
-
-const mockCompetitionsResponse: CDCompetitionsResponse = {
-  competitions: [
-    { id: 10850, name: "Suncorp Super Netball 2026", season: 2026, sport: "netball" },
-    { id: 10724, name: "Suncorp Super Netball 2025", season: 2025, sport: "netball" },
-  ],
-};
 
 const mockFixtureResponse: CDFixtureResponse = {
   fixture: {
@@ -168,30 +159,6 @@ const mockMatchStatsResponse: CDMatchStatsResponse = {
 // ───── Tests ─────
 
 describe("Champion Data Service", () => {
-  describe("fetchCompetitions", () => {
-    it("fetches and returns competitions", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockCompetitionsResponse,
-      });
-
-      const result = await fetchCompetitions();
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://mc.championdata.com/data/competitions.json",
-        expect.objectContaining({ next: { revalidate: expect.any(Number) } })
-      );
-      expect(result.competitions).toHaveLength(2);
-      expect(result.competitions[0].id).toBe(10850);
-    });
-
-    it("throws on fetch failure", async () => {
-      mockFetch.mockResolvedValueOnce({ ok: false, status: 500, statusText: "Internal Server Error" });
-
-      await expect(fetchCompetitions()).rejects.toThrow("Champion Data API error: 500 Internal Server Error");
-    });
-  });
-
   describe("fetchFixture", () => {
     it("fetches fixture for a given competition", async () => {
       mockFetch.mockResolvedValueOnce({

@@ -3,8 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('@/lib/db', () => ({
   prisma: {
     match: {
-      findMany: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
+    },
+    player: {
+      findMany: vi.fn(),
     },
     playerMatchStats: {
       upsert: vi.fn(),
@@ -12,9 +15,7 @@ vi.mock('@/lib/db', () => ({
     matchQuarter: {
       upsert: vi.fn(),
     },
-    scoreFlow: {
-      create: vi.fn(),
-    },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -27,15 +28,13 @@ describe('match-sync', () => {
     const { prisma } = await import('@/lib/db');
     const { detectChanges } = await import('@/lib/match-sync');
 
-    (prisma.match.findMany as any).mockResolvedValue([
-      {
-        id: 'match-1',
-        championDataMatchId: 100,
-        homeScore: 30,
-        awayScore: 28,
-        status: 'LIVE',
-      },
-    ]);
+    (prisma.match.findUnique as any).mockResolvedValue({
+      id: 'match-1',
+      championDataMatchId: 100,
+      homeScore: 30,
+      awayScore: 28,
+      status: 'LIVE',
+    });
 
     const changes = await detectChanges({
       matchId: 100,
@@ -58,15 +57,13 @@ describe('match-sync', () => {
     const { prisma } = await import('@/lib/db');
     const { detectChanges } = await import('@/lib/match-sync');
 
-    (prisma.match.findMany as any).mockResolvedValue([
-      {
-        id: 'match-1',
-        championDataMatchId: 100,
-        homeScore: 30,
-        awayScore: 28,
-        status: 'LIVE',
-      },
-    ]);
+    (prisma.match.findUnique as any).mockResolvedValue({
+      id: 'match-1',
+      championDataMatchId: 100,
+      homeScore: 30,
+      awayScore: 28,
+      status: 'LIVE',
+    });
 
     const changes = await detectChanges({
       matchId: 100,
@@ -88,15 +85,13 @@ describe('match-sync', () => {
     const { prisma } = await import('@/lib/db');
     const { detectChanges } = await import('@/lib/match-sync');
 
-    (prisma.match.findMany as any).mockResolvedValue([
-      {
-        id: 'match-1',
-        championDataMatchId: 100,
-        homeScore: 55,
-        awayScore: 50,
-        status: 'LIVE',
-      },
-    ]);
+    (prisma.match.findUnique as any).mockResolvedValue({
+      id: 'match-1',
+      championDataMatchId: 100,
+      homeScore: 55,
+      awayScore: 50,
+      status: 'LIVE',
+    });
 
     const changes = await detectChanges({
       matchId: 100,

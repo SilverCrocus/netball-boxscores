@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/db';
+import { fetchFixture, fetchMatchStats, mapMatchStatus } from '@/lib/champion-data';
 import { detectChanges, applyChanges } from '@/lib/match-sync';
 import {
   broadcastScoreUpdate,
   broadcastMatchStatus,
 } from '@/lib/socket-server';
-import type { CDFixtureMatch } from '@/types/champion-data';
 
 const POLL_LIVE = 30_000; // 30 seconds
 const POLL_MATCH_DAY = 900_000; // 15 minutes
@@ -45,42 +45,28 @@ async function checkIsMatchDay(): Promise<boolean> {
 
 async function pollChampionData(): Promise<void> {
   try {
-    const COMP_ID = process.env.CHAMPION_DATA_COMP_ID;
+    const COMP_ID = Number(process.env.CHAMPION_DATA_COMP_ID);
     if (!COMP_ID) return;
 
-    // Fetch live matches from Champion Data
-    const res = await fetch(
-      `https://mc.championdata.com/data/${COMP_ID}/fixture.json`
-    );
-    if (!res.ok) {
-      console.error('[Worker] Champion Data fetch failed:', res.status);
-      return;
-    }
+    const matches = await fetchFixture(COMP_ID);
 
-    const data = (await res.json()) as { fixture?: { match?: CDFixtureMatch[] } };
-
-    const matches = data?.fixture?.match ?? [];
     for (const matchData of matches) {
       if (matchData.matchStatus.toLowerCase() !== 'playing') continue;
 
-      // Fetch detailed match data
-      const matchRes = await fetch(
-        `https://mc.championdata.com/data/${COMP_ID}/${matchData.matchId}.json`
-      );
-      if (!matchRes.ok) continue;
+      let matchDetail;
+      try {
+        matchDetail = await fetchMatchStats(COMP_ID, matchData.matchId);
+      } catch {
+        continue;
+      }
 
-      const matchDetail = (await matchRes.json()) as {
-        matchStats?: { homeScore?: number; awayScore?: number; currentPeriod?: number; currentTime?: string };
-      };
-
-      const cdStatus = matchData.matchStatus.toLowerCase();
       const incoming = {
         matchId: matchData.matchId,
-        homeScore: matchDetail.matchStats?.homeScore ?? 0,
-        awayScore: matchDetail.matchStats?.awayScore ?? 0,
-        status: cdStatus === 'complete' ? 'COMPLETED' : cdStatus === 'playing' ? 'LIVE' : 'SCHEDULED',
-        currentQuarter: matchDetail.matchStats?.currentPeriod ?? 0,
-        currentTime: matchDetail.matchStats?.currentTime ?? '',
+        homeScore: matchDetail.matchInfo?.homeScore ?? 0,
+        awayScore: matchDetail.matchInfo?.awayScore ?? 0,
+        status: mapMatchStatus(matchData.matchStatus),
+        currentQuarter: matchDetail.matchInfo?.period ?? 0,
+        currentTime: `${matchDetail.matchInfo?.periodSeconds ?? 0}`,
       };
 
       const changes = await detectChanges(incoming);

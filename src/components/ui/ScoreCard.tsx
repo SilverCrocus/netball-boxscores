@@ -2,12 +2,7 @@ import Link from 'next/link';
 import { LiveIndicator } from './LiveIndicator';
 import { TeamBadge } from './TeamBadge';
 import { formatMatchDate, formatMatchTime } from '@/lib/format';
-
-interface TeamInfo {
-  name: string;
-  abbreviation: string;
-  logoUrl?: string | null;
-}
+import type { TeamInfo } from '@/types/team';
 
 interface ScoreCardMatch {
   id: string;

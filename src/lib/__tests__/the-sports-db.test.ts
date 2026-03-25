@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   fetchTeams,
   fetchPlayersByTeam,
-  fetchTeamBadge,
 } from "@/lib/the-sports-db";
 import type {
   TSDBTeamsResponse,
@@ -123,30 +122,4 @@ describe("TheSportsDB Service", () => {
     });
   });
 
-  describe("fetchTeamBadge", () => {
-    it("returns badge URL for a team", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ teams: [{ strBadge: "https://example.com/badge.png" }] }),
-      });
-
-      const result = await fetchTeamBadge("149291");
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("lookupteam.php?id=149291"),
-        expect.any(Object)
-      );
-      expect(result).toBe("https://example.com/badge.png");
-    });
-
-    it("returns null when team not found", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ teams: null }),
-      });
-
-      const result = await fetchTeamBadge("000000");
-      expect(result).toBeNull();
-    });
-  });
 });

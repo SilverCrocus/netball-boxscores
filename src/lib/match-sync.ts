@@ -43,11 +43,9 @@ interface ChangeResult {
 export async function detectChanges(
   incoming: ChampionDataMatchState
 ): Promise<ChangeResult> {
-  const matches = await prisma.match.findMany({
+  const match = await prisma.match.findUnique({
     where: { championDataMatchId: incoming.matchId },
   });
-
-  const match = matches[0];
   if (!match) {
     return {
       matchId: '',
@@ -124,41 +122,52 @@ export async function applyChanges(
   }
 
   // Upsert player stats
-  if (incoming.playerStats) {
-    for (const ps of incoming.playerStats) {
-      const player = await prisma.player.findUnique({
-        where: { championDataPlayerId: ps.championDataPlayerId },
-      });
-      if (!player) continue;
+  if (incoming.playerStats && incoming.playerStats.length > 0) {
+    const players = await prisma.player.findMany({
+      where: {
+        championDataPlayerId: {
+          in: incoming.playerStats.map((ps) => ps.championDataPlayerId),
+        },
+      },
+    });
+    const playerMap = new Map(
+      players.map((p) => [p.championDataPlayerId, p]),
+    );
 
-      const statsData = {
-        goals: ps.goals,
-        attempts: ps.attempts,
-        goalAssists: ps.goalAssists,
-        intercepts: ps.intercepts,
-        deflections: ps.deflections,
-        rebounds: ps.rebounds,
-        penalties: ps.penalties,
-        feeds: ps.feeds,
-        centrePassReceives: ps.centrePassReceives,
-        turnovers: ps.turnovers,
-        minutesPlayed: ps.minutesPlayed,
-      };
+    const upserts = incoming.playerStats
+      .filter((ps) => playerMap.has(ps.championDataPlayerId))
+      .map((ps) => {
+        const player = playerMap.get(ps.championDataPlayerId)!;
+        const statsData = {
+          goals: ps.goals,
+          attempts: ps.attempts,
+          goalAssists: ps.goalAssists,
+          intercepts: ps.intercepts,
+          deflections: ps.deflections,
+          rebounds: ps.rebounds,
+          penalties: ps.penalties,
+          feeds: ps.feeds,
+          centrePassReceives: ps.centrePassReceives,
+          turnovers: ps.turnovers,
+          minutesPlayed: ps.minutesPlayed,
+        };
 
-      await prisma.playerMatchStats.upsert({
-        where: {
-          playerId_matchId: {
+        return prisma.playerMatchStats.upsert({
+          where: {
+            playerId_matchId: {
+              playerId: player.id,
+              matchId: changes.matchId,
+            },
+          },
+          update: statsData,
+          create: {
             playerId: player.id,
             matchId: changes.matchId,
+            ...statsData,
           },
-        },
-        update: statsData,
-        create: {
-          playerId: player.id,
-          matchId: changes.matchId,
-          ...statsData,
-        },
+        });
       });
-    }
+
+    await prisma.$transaction(upserts);
   }
 }

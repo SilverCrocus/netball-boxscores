@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NAV_ITEMS } from '@/lib/navigation';
+import { NAV_ITEMS, isActive } from '@/lib/navigation';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -16,13 +16,13 @@ export function Sidebar() {
       </div>
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+          const active = isActive(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`flex items-center gap-4 py-3 pl-4 border-l-4 transition-all font-headline font-medium text-sm ${
-                isActive
+                active
                   ? 'text-lime-400 border-lime-400 bg-slate-800/30'
                   : 'text-slate-400 border-transparent hover:bg-slate-800'
               }`}

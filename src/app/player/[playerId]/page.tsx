@@ -1,5 +1,7 @@
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { getStatValue } from '@/lib/stat-utils';
 import { getPositionConfig } from '@/components/player/position-config';
 import { PlayerHero } from '@/components/player/PlayerHero';
 import { PlayerBioCard } from '@/components/player/PlayerBioCard';
@@ -12,23 +14,8 @@ interface PlayerPageProps {
   params: Promise<{ playerId: string }>;
 }
 
-export async function generateMetadata({ params }: PlayerPageProps): Promise<Metadata> {
-  const { playerId } = await params;
-  const player = await prisma.player.findUnique({
-    where: { id: playerId },
-    include: { team: { select: { name: true } } },
-  });
-
-  if (!player) return { title: 'Player Not Found | CentrePass' };
-
-  return {
-    title: `${player.name} | ${player.team.name} | CentrePass`,
-    description: `${player.name} — ${player.position} for ${player.team.name}. Season stats, game log, and profile.`,
-  };
-}
-
-async function getPlayer(playerId: string) {
-  return prisma.player.findUnique({
+const getPlayer = cache((playerId: string) =>
+  prisma.player.findUnique({
     where: { id: playerId },
     include: {
       team: true,
@@ -44,7 +31,19 @@ async function getPlayer(playerId: string) {
         orderBy: { match: { scheduledAt: 'desc' } },
       },
     },
-  });
+  })
+);
+
+export async function generateMetadata({ params }: PlayerPageProps): Promise<Metadata> {
+  const { playerId } = await params;
+  const player = await getPlayer(playerId);
+
+  if (!player) return { title: 'Player Not Found | CentrePass' };
+
+  return {
+    title: `${player.name} | ${player.team.name} | CentrePass`,
+    description: `${player.name} — ${player.position} for ${player.team.name}. Season stats, game log, and profile.`,
+  };
 }
 
 type PlayerWithStats = NonNullable<Awaited<ReturnType<typeof getPlayer>>>;
@@ -64,10 +63,10 @@ function computeStatHighlightValues(
         ? ((totalGoals / totalAttempts) * 100).toFixed(1)
         : '0.0';
     }
-    const total = matchStats.reduce((sum, s) => {
-      const val = (s as unknown as Record<string, number>)[highlight.statField];
-      return sum + (typeof val === 'number' ? val : 0);
-    }, 0);
+    const total = matchStats.reduce(
+      (sum, s) => sum + getStatValue(s, highlight.statField),
+      0,
+    );
     return total;
   });
 }

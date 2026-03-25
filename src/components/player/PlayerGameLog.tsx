@@ -1,14 +1,10 @@
 import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { formatShortDate } from '@/lib/format';
+import { getStatValue } from '@/lib/stat-utils';
+import type { PlayerMatchStats } from '@prisma/client';
+import type { TeamInfoWithId } from '@/types/team';
 import type { PositionConfig } from './position-config';
-
-interface MatchTeam {
-  id: string;
-  name: string;
-  abbreviation: string;
-  logoUrl: string | null;
-}
 
 interface MatchWithTeams {
   id: string;
@@ -17,8 +13,8 @@ interface MatchWithTeams {
   awayScore: number;
   homeTeamId: string;
   awayTeamId: string;
-  homeTeam: MatchTeam;
-  awayTeam: MatchTeam;
+  homeTeam: TeamInfoWithId;
+  awayTeam: TeamInfoWithId;
 }
 
 interface MatchStat {
@@ -43,14 +39,10 @@ interface PlayerGameLogProps {
   playerTeamId: string;
 }
 
-function getStatValue(stat: MatchStat, statField: string): string {
-  if (statField === 'shootingPct') {
-    if (stat.attempts === 0) return '0%';
-    return `${((stat.goals / stat.attempts) * 100).toFixed(0)}%`;
-  }
-  const value = stat[statField as keyof MatchStat];
-  if (typeof value === 'number') return String(value);
-  return '-';
+function formatStatValue(stat: MatchStat, statField: string): string {
+  const value = getStatValue(stat as unknown as PlayerMatchStats, statField);
+  if (statField === 'shootingPct') return `${value.toFixed(0)}%`;
+  return String(value);
 }
 
 export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLogProps) {
@@ -142,7 +134,7 @@ export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLo
                             : ''
                       }`}
                     >
-                      {getStatValue(stat, col.statField)}
+                      {formatStatValue(stat, col.statField)}
                     </td>
                   ))}
                 </tr>
