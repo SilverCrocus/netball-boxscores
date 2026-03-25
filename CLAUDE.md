@@ -60,6 +60,7 @@ When building components, reference these designs as the visual spec.
 - **Fonts:** Lexend (headlines), Manrope (body), Inter (labels)
 - **Icons:** Material Symbols Outlined
 - **Patterns:** `kinetic-gradient` (dark gradient headers), `pulse-live` (live indicator animation)
+- **Favicon:** "C" pulse ring icon — `src/app/icon.tsx` (32x32) + `src/app/apple-icon.tsx` (180x180). Generated via `next/og` ImageResponse, same as OG images.
 
 ## Shared Components
 
@@ -70,7 +71,7 @@ When building components, reference these designs as the visual spec.
 
 - **`src/lib/navigation.ts`**: `NAV_ITEMS` array — single source of truth for sidebar and bottom nav links. Each item has `href`, `label`, `icon`, and optional `sidebarLabel`. Also exports `isActive(pathname, href)` for nav highlight logic.
 - **`src/lib/api-auth.ts`**: `requireAuth()` (returns session or 401 response) and `badRequest(msg)` helpers for API routes.
-- **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatShortDate(date)`, `computeAge(dob)` — shared date formatting and age computation.
+- **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatShortDate(date)`, `computeAge(dob)` — shared date formatting and age computation. All date/time functions pinned to `Australia/Sydney` timezone (not system/UTC).
 - **`src/lib/stat-utils.ts`**: `getStatValue(stat, field)` — shared stat accessor with computed `shootingPct` field. Used by PlayerSeasonStats, PlayerCharts, PlayerGameLog, and the player page.
 - **`src/lib/user-resource-route.ts`**: `createUserResourceHandlers(config)` — factory for user CRUD API routes (favorites, reminders, teams). Each route file is ~7 lines.
 - **`src/types/team.ts`**: `TeamInfo` and `TeamInfoWithId` — shared team type used by ScoreCard, LiveScoreHero, PlayerGameLog, settings page.
@@ -97,6 +98,7 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 - **Match sorting:** Queries use `scheduledAt: 'asc'`. For completed matches (results), reverse to show most-recent-first. For upcoming fixtures filtered from a desc-sorted list, reverse to show nearest-first.
 - **Prisma nullable narrowing:** After `if (!match) return notFound()`, use `NonNullable<typeof match>` in function parameter types — TypeScript doesn't narrow through hoisted function declarations.
 - **Prisma AI safety check:** `prisma migrate reset` and destructive commands require `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="yes"` env var when run from an AI agent. Use `npx prisma db push --force-reset` as an alternative.
+- **Server timezone:** Render servers run in UTC. All date formatting in `format.ts` is pinned to `Australia/Sydney` — do not use bare `toLocaleDateString()`/`toLocaleTimeString()` without `timeZone` option.
 
 ## SEO & Domain
 
