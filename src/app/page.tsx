@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { formatMatchDate, formatMatchTime } from '@/lib/format';
+import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,10 @@ export default async function HomePage() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <JsonLd data={websiteJsonLd()} />
+      <JsonLd data={breadcrumbJsonLd([
+        { name: 'Home', url: '/' },
+      ])} />
       {/* Hero Header */}
       <section className="mb-12">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
