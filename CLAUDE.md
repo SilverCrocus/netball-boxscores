@@ -68,9 +68,12 @@ When building components, reference these designs as the visual spec.
 
 ## Shared Utilities
 
-- **`src/lib/navigation.ts`**: `NAV_ITEMS` array — single source of truth for sidebar and bottom nav links. Each item has `href`, `label`, `icon`, and optional `sidebarLabel`.
+- **`src/lib/navigation.ts`**: `NAV_ITEMS` array — single source of truth for sidebar and bottom nav links. Each item has `href`, `label`, `icon`, and optional `sidebarLabel`. Also exports `isActive(pathname, href)` for nav highlight logic.
 - **`src/lib/api-auth.ts`**: `requireAuth()` (returns session or 401 response) and `badRequest(msg)` helpers for API routes.
 - **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatShortDate(date)`, `computeAge(dob)` — shared date formatting and age computation.
+- **`src/lib/stat-utils.ts`**: `getStatValue(stat, field)` — shared stat accessor with computed `shootingPct` field. Used by PlayerSeasonStats, PlayerCharts, PlayerGameLog, and the player page.
+- **`src/lib/user-resource-route.ts`**: `createUserResourceHandlers(config)` — factory for user CRUD API routes (favorites, reminders, teams). Each route file is ~7 lines.
+- **`src/types/team.ts`**: `TeamInfo` and `TeamInfoWithId` — shared team type used by ScoreCard, LiveScoreHero, PlayerGameLog, settings page.
 
 ## Player Profile Components
 
