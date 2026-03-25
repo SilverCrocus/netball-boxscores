@@ -114,7 +114,9 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
   - `BreadcrumbList` on all pages (via layout)
   - `WebSite` on homepage
 - `generateMetadata()` on every page with descriptive titles (e.g. "Vixens vs Fever - Round 5 Score | CentrePass")
-- Google Search Console + GA4 registration after deployment
+- Google Search Console — verified (domain property via DNS TXT), sitemap submitted
+- Google Analytics 4 — live, Measurement ID `G-CHLT6ZR1W7` (env var `NEXT_PUBLIC_GA4_ID` on Render)
+- **TODO:** Bing Webmaster Tools (import from GSC), Ahrefs Webmaster Tools free tier (after site indexed ~2-4 weeks)
 
 **Important:** Google's live score panels come from licensed data partners, NOT from website schema markup. Structured data helps with entity recognition and event listings, but won't generate score-specific rich results.
 
