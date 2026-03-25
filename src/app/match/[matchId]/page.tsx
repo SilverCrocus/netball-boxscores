@@ -1,30 +1,51 @@
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { PlayerStatsTable } from '@/components/ui/PlayerStatsTable';
 import { QuarterScoreBar } from '@/components/ui/QuarterScoreBar';
 import { MatchMomentum } from '@/components/ui/MatchMomentum';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
+import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd, SITE_URL } from '@/lib/seo';
 
-interface MatchPageProps {
-  params: Promise<{ matchId: string }>;
-}
-
-export default async function MatchPage({ params }: MatchPageProps) {
-  const { matchId } = await params;
-
-  const match = await prisma.match.findUnique({
+const getMatch = cache((matchId: string) =>
+  prisma.match.findUnique({
     where: { id: matchId },
     include: {
       homeTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true } },
       awayTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true } },
       quarters: { orderBy: { quarter: 'asc' } },
-      playerStats: {
-        include: { player: true },
-        orderBy: { goals: 'desc' },
-      },
+      playerStats: { include: { player: true }, orderBy: { goals: 'desc' } },
       scoreFlow: { orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }] },
     },
-  });
+  })
+);
+
+interface MatchPageProps {
+  params: Promise<{ matchId: string }>;
+}
+
+export async function generateMetadata({ params }: MatchPageProps): Promise<Metadata> {
+  const { matchId } = await params;
+  const match = await getMatch(matchId);
+
+  if (!match) return { title: 'Match Not Found' };
+
+  const isCompleted = match.status === 'COMPLETED';
+  const title = isCompleted
+    ? `${match.homeTeam.name} ${match.homeScore} - ${match.awayTeam.name} ${match.awayScore} | Round ${match.round}`
+    : `${match.homeTeam.name} vs ${match.awayTeam.name} | Round ${match.round}`;
+
+  const description = isCompleted
+    ? `${match.homeTeam.name} ${match.homeScore} - ${match.awayTeam.name} ${match.awayScore}. Round ${match.round} at ${match.venue}.`
+    : `${match.homeTeam.name} vs ${match.awayTeam.name}. Round ${match.round} at ${match.venue}.`;
+
+  return { title, description };
+}
+
+export default async function MatchPage({ params }: MatchPageProps) {
+  const { matchId } = await params;
+  const match = await getMatch(matchId);
 
   if (!match) notFound();
 
@@ -61,6 +82,21 @@ export default async function MatchPage({ params }: MatchPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <JsonLd data={sportsEventJsonLd({
+        homeTeamName: match.homeTeam.name,
+        awayTeamName: match.awayTeam.name,
+        venue: match.venue,
+        scheduledAt: match.scheduledAt,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        round: match.round,
+      })} />
+      <JsonLd data={breadcrumbJsonLd([
+        { name: 'Home', url: '/' },
+        { name: 'Scores', url: '/' },
+        { name: `${match.homeTeam.abbreviation} vs ${match.awayTeam.abbreviation}`, url: `/match/${match.id}` },
+      ])} />
+
       {/* Hero Header */}
       <section className="mb-12">
         <div className="flex flex-col md:flex-row justify-between items-end gap-6">
