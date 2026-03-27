@@ -7,12 +7,15 @@ import type {
 
 type MatchStatus = "SCHEDULED" | "LIVE" | "COMPLETED";
 
-const BASE_URL =
-  process.env.CHAMPION_DATA_BASE_URL || "https://mc.championdata.com/data";
+const SIM_MODE = process.env.SIMULATION_MODE === 'true';
+const SIM_BASE = `http://localhost:${process.env.PORT || 3000}/api/sim`;
+const CD_BASE =
+  process.env.CHAMPION_DATA_BASE_URL || 'https://mc.championdata.com/data';
 
 async function fetchFromChampionData<T>(path: string, revalidate = 3600): Promise<T> {
-  const url = `${BASE_URL}${path}`;
-  const res = await fetch(url, { next: { revalidate } });
+  const baseUrl = SIM_MODE ? SIM_BASE : CD_BASE;
+  const url = `${baseUrl}${path}`;
+  const res = await fetch(url, SIM_MODE ? {} : { next: { revalidate } });
 
   if (!res.ok) {
     throw new Error(`Champion Data API error: ${res.status} ${res.statusText}`);
@@ -26,7 +29,9 @@ async function fetchFromChampionData<T>(path: string, revalidate = 3600): Promis
  * Returns the array of matches from the nested fixture.match structure.
  */
 export async function fetchFixture(compId: number): Promise<CDFixtureMatch[]> {
-  const data = await fetchFromChampionData<CDFixtureResponse>(`/${compId}/fixture.json`, 900);
+  // In sim mode, skip compId — sim routes serve at /api/sim/fixture.json
+  const path = SIM_MODE ? '/fixture.json' : `/${compId}/fixture.json`;
+  const data = await fetchFromChampionData<CDFixtureResponse>(path, 900);
   return data.fixture?.match ?? [];
 }
 
@@ -37,7 +42,9 @@ export async function fetchMatchStats(
   compId: number,
   matchId: number
 ): Promise<CDMatchStatsResponse> {
-  return fetchFromChampionData<CDMatchStatsResponse>(`/${compId}/${matchId}.json`, 30);
+  // In sim mode, skip compId — sim routes serve at /api/sim/{matchId}.json
+  const path = SIM_MODE ? `/${matchId}.json` : `/${compId}/${matchId}.json`;
+  return fetchFromChampionData<CDMatchStatsResponse>(path, 30);
 }
 
 export function mapMatchStatus(cdStatus: string): MatchStatus {

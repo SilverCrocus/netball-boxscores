@@ -5,6 +5,8 @@ import type {
   ClientToServerEvents,
   ScoreUpdatePayload,
   MatchStatusPayload,
+  StatsUpdatePayload,
+  ScoreFlowAddPayload,
 } from '@/types/socket';
 
 let io: SocketServer<ClientToServerEvents, ServerToClientEvents> | null = null;
@@ -55,5 +57,13 @@ export function broadcastScoreUpdate(matchId: string, payload: ScoreUpdatePayloa
 
 export function broadcastMatchStatus(matchId: string, payload: MatchStatusPayload) {
   getIO().to(`match:${matchId}`).emit('match:status', payload);
+}
+
+export function broadcastStatsUpdate(matchId: string, payload: StatsUpdatePayload) {
+  getIO().to(`match:${matchId}`).emit('stats:update', payload);
+}
+
+export function broadcastScoreFlowAdd(matchId: string, payload: ScoreFlowAddPayload) {
+  getIO().to(`match:${matchId}`).emit('scoreflow:add', payload);
 }
 

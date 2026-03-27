@@ -4,14 +4,15 @@ import next from "next";
 import { initSocketServer } from "./src/lib/socket-server";
 import { startWorker, stopWorker } from "./src/lib/worker";
 
+const SIM_MODE = process.env.SIMULATION_MODE === 'true';
 const dev = process.env.NODE_ENV !== "production";
-const hostname = process.env.HOSTNAME || "0.0.0.0";
+const hostname = dev ? "localhost" : (process.env.HOSTNAME || "0.0.0.0");
 const port = parseInt(process.env.PORT || "3000", 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-app.prepare().then(() => {
+app.prepare().then(async () => {
   const expressApp = express();
   const httpServer = createServer(expressApp);
 
@@ -21,6 +22,13 @@ app.prepare().then(() => {
 
   // Make io accessible to API routes via Express app locals
   expressApp.set("io", io);
+
+  // Mount simulation routes (dev only) — must await before registering catch-all
+  if (SIM_MODE) {
+    const { simRouter } = await import('./src/lib/simulation/sim-routes');
+    expressApp.use('/api/sim', simRouter);
+    console.log('[Server] Simulation routes mounted at /api/sim');
+  }
 
   // Start background worker
   startWorker();

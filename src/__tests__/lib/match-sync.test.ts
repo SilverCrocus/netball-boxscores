@@ -15,6 +15,9 @@ vi.mock('@/lib/db', () => ({
     matchQuarter: {
       upsert: vi.fn(),
     },
+    scoreFlow: {
+      upsert: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -77,6 +80,69 @@ describe('match-sync', () => {
     expect(changes).toEqual(
       expect.objectContaining({
         scoreChanged: false,
+      })
+    );
+  });
+
+  it('should persist score flow entries in applyChanges', async () => {
+    const { prisma } = await import('@/lib/db');
+    const { applyChanges } = await import('@/lib/match-sync');
+
+    const changes = {
+      matchId: 'match-1',
+      scoreChanged: true,
+      statusChanged: false,
+      newHomeScore: 32,
+      newAwayScore: 28,
+      newStatus: 'LIVE' as const,
+      currentQuarter: 2,
+      currentTime: '450',
+    };
+
+    const incoming = {
+      matchId: 100,
+      homeScore: 32,
+      awayScore: 28,
+      status: 'LIVE',
+      currentQuarter: 2,
+      currentTime: '450',
+      scoreFlow: [
+        {
+          period: 1,
+          periodSeconds: 200,
+          squadId: 810,
+          scorepoints: 1,
+          homeScore: 15,
+          awayScore: 14,
+          scoringTeamPrismaId: 'team-home',
+        },
+        {
+          period: 2,
+          periodSeconds: 100,
+          squadId: 811,
+          scorepoints: 1,
+          homeScore: 30,
+          awayScore: 28,
+          scoringTeamPrismaId: 'team-away',
+        },
+      ],
+    };
+
+    (prisma.match.update as any).mockResolvedValue({});
+    (prisma.scoreFlow.upsert as any).mockResolvedValue({});
+
+    await applyChanges(changes, incoming);
+
+    expect(prisma.scoreFlow.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.scoreFlow.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          matchId_period_periodSeconds: {
+            matchId: 'match-1',
+            period: 1,
+            periodSeconds: 200,
+          },
+        }),
       })
     );
   });

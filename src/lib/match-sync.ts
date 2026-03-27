@@ -27,6 +27,15 @@ interface ChampionDataMatchState {
     homeScore: number;
     awayScore: number;
   }>;
+  scoreFlow?: Array<{
+    period: number;
+    periodSeconds: number;
+    squadId: number;
+    scorepoints: number;
+    homeScore: number;
+    awayScore: number;
+    scoringTeamPrismaId: string;
+  }>;
 }
 
 interface ChangeResult {
@@ -169,5 +178,32 @@ export async function applyChanges(
       });
 
     await prisma.$transaction(upserts);
+  }
+
+  // Upsert score flow
+  if (incoming.scoreFlow && incoming.scoreFlow.length > 0) {
+    for (const sf of incoming.scoreFlow) {
+      await prisma.scoreFlow.upsert({
+        where: {
+          matchId_period_periodSeconds: {
+            matchId: changes.matchId,
+            period: sf.period,
+            periodSeconds: sf.periodSeconds,
+          },
+        },
+        update: {
+          homeScore: sf.homeScore,
+          awayScore: sf.awayScore,
+        },
+        create: {
+          matchId: changes.matchId,
+          period: sf.period,
+          periodSeconds: sf.periodSeconds,
+          scoringTeamId: sf.scoringTeamPrismaId,
+          homeScore: sf.homeScore,
+          awayScore: sf.awayScore,
+        },
+      });
+    }
   }
 }
