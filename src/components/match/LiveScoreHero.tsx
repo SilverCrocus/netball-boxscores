@@ -1,4 +1,5 @@
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { formatGameClock } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
 
 interface QuarterData {
@@ -77,7 +78,7 @@ export function LiveScoreHero({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
               </span>
               <span className="font-label text-xs font-bold uppercase tracking-[0.5px] text-white">
-                Q{quarter} {time && `\u2022 ${time}`}
+                Q{quarter} {time && `\u2022 ${formatGameClock(time)}`}
               </span>
             </div>
           )}

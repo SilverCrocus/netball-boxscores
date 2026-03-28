@@ -35,6 +35,15 @@ export function formatHeight(height: string): string {
   return height;
 }
 
+export function formatGameClock(periodSeconds: string | null | undefined): string {
+  const elapsed = Number(periodSeconds);
+  if (!elapsed && elapsed !== 0) return '';
+  const remaining = Math.max(0, 900 - elapsed); // 15-min quarters
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 export function computeAge(dateOfBirth: Date): number {
   const today = new Date();
   let age = today.getFullYear() - dateOfBirth.getFullYear();
