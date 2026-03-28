@@ -117,11 +117,12 @@ async function pollChampionData(): Promise<void> {
       };
 
       const changes = await detectChanges(incoming);
+      const hasChanges = changes.scoreChanged || changes.statusChanged || changes.timeChanged;
 
-      if (changes.matchId && (changes.scoreChanged || changes.statusChanged)) {
+      if (changes.matchId && hasChanges) {
         await applyChanges(changes, incoming);
 
-        if (changes.scoreChanged) {
+        if (changes.scoreChanged || changes.timeChanged) {
           broadcastScoreUpdate(changes.matchId, {
             matchId: changes.matchId,
             homeScore: changes.newHomeScore,

@@ -42,6 +42,7 @@ interface ChangeResult {
   matchId: string;
   scoreChanged: boolean;
   statusChanged: boolean;
+  timeChanged: boolean;
   newHomeScore: number;
   newAwayScore: number;
   newStatus: MatchStatus;
@@ -60,6 +61,7 @@ export async function detectChanges(
       matchId: '',
       scoreChanged: false,
       statusChanged: false,
+      timeChanged: false,
       newHomeScore: incoming.homeScore,
       newAwayScore: incoming.awayScore,
       newStatus: incoming.status as MatchStatus,
@@ -74,10 +76,15 @@ export async function detectChanges(
 
   const statusChanged = match.status !== incoming.status;
 
+  const timeChanged =
+    match.currentQuarter !== incoming.currentQuarter ||
+    match.currentTime !== incoming.currentTime;
+
   return {
     matchId: match.id,
     scoreChanged,
     statusChanged,
+    timeChanged,
     newHomeScore: incoming.homeScore,
     newAwayScore: incoming.awayScore,
     newStatus: incoming.status as MatchStatus,
@@ -93,7 +100,7 @@ export async function applyChanges(
   if (!changes.matchId) return;
 
   // Update match record
-  if (changes.scoreChanged || changes.statusChanged) {
+  if (changes.scoreChanged || changes.statusChanged || changes.timeChanged) {
     await prisma.match.update({
       where: { id: changes.matchId },
       data: {

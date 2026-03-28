@@ -123,6 +123,7 @@ Dev-only system for testing the live scores pipeline without a real Champion Dat
 - **Prisma AI safety check:** `prisma migrate reset` and destructive commands require `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="yes"` env var when run from an AI agent. Use `npx prisma db push --force-reset` as an alternative.
 - **Server timezone:** Render servers run in UTC. All date formatting in `format.ts` is pinned to `Australia/Sydney` — do not use bare `toLocaleDateString()`/`toLocaleTimeString()` without `timeZone` option.
 - **Simulation data leak:** Simulation writes to the real database via the worker pipeline. If `SIMULATION_MODE=true` reaches production (or dev points at prod DB), sim data pollutes real data. The triple safeguard (server.ts + engine.ts + champion-data.ts) prevents this, but never deploy with `SIMULATION_MODE=true`.
+- **Worker fetch caching:** The worker runs in the same Node process as Next.js, so `fetch()` calls are patched and cached by Next.js. Worker fetches must use `cache: 'no-store'` — never `next: { revalidate }` — otherwise the worker gets stale Champion Data responses and detects no changes.
 
 ## SEO & Domain
 

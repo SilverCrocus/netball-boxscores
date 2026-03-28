@@ -15,10 +15,10 @@ const SIM_BASE = `http://localhost:${process.env.PORT || 3000}/api/sim`;
 const CD_BASE =
   process.env.CHAMPION_DATA_BASE_URL || 'https://mc.championdata.com/data';
 
-async function fetchFromChampionData<T>(path: string, revalidate = 3600): Promise<T> {
+async function fetchFromChampionData<T>(path: string): Promise<T> {
   const baseUrl = SIM_MODE ? SIM_BASE : CD_BASE;
   const url = `${baseUrl}${path}`;
-  const res = await fetch(url, SIM_MODE ? {} : { next: { revalidate } });
+  const res = await fetch(url, { cache: 'no-store' });
 
   if (!res.ok) {
     throw new Error(`Champion Data API error: ${res.status} ${res.statusText}`);
@@ -34,7 +34,7 @@ async function fetchFromChampionData<T>(path: string, revalidate = 3600): Promis
 export async function fetchFixture(compId: number): Promise<CDFixtureMatch[]> {
   // In sim mode, skip compId — sim routes serve at /api/sim/fixture.json
   const path = SIM_MODE ? '/fixture.json' : `/${compId}/fixture.json`;
-  const data = await fetchFromChampionData<CDFixtureResponse>(path, 900);
+  const data = await fetchFromChampionData<CDFixtureResponse>(path);
   return data.fixture?.match ?? [];
 }
 
@@ -52,7 +52,7 @@ export async function fetchMatchStats(
 ): Promise<CDMatchStatsResponse> {
   const path = SIM_MODE ? `/${matchId}.json` : `/${compId}/${matchId}.json`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = await fetchFromChampionData<any>(path, 30);
+  const raw = await fetchFromChampionData<any>(path);
 
   // Sim format — already normalised
   if (!raw.matchStats) return raw as CDMatchStatsResponse;
