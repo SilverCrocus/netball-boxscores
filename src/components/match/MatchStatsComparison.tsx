@@ -40,13 +40,13 @@ export function MatchStatsComparison({ stats }: MatchStatsComparisonProps) {
                   {suffix}
                 </span>
               </div>
-              <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden flex">
+              <div className="h-2.5 w-full bg-surface-container-high rounded overflow-hidden flex">
                 <div
-                  className="h-full bg-primary-container"
+                  className="h-full bg-primary-container rounded-l"
                   style={{ width: `${homePct}%` }}
                 />
                 <div
-                  className="h-full bg-secondary"
+                  className="h-full bg-secondary rounded-r"
                   style={{ width: `${awayPct}%` }}
                 />
               </div>

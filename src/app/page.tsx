@@ -23,7 +23,7 @@ export default async function HomePage() {
 
   try {
     matches = await prisma.match.findMany({
-      where: process.env.SIMULATION_MODE === 'true' ? {} : { round: { not: 99 } },
+      where: process.env.NODE_ENV === 'production' ? { round: { not: 99 } } : {},
       include: {
         homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
         awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },

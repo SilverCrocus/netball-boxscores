@@ -41,6 +41,7 @@ const mockMatch = {
         rebounds: 2,
         feeds: 0,
         turnovers: 1,
+        minutesPlayed: 30,
       },
       {
         id: 'p2',
@@ -54,6 +55,7 @@ const mockMatch = {
         rebounds: 0,
         feeds: 18,
         turnovers: 3,
+        minutesPlayed: 30,
       },
     ],
   },
@@ -75,9 +77,14 @@ const mockMatch = {
         rebounds: 1,
         feeds: 0,
         turnovers: 2,
+        minutesPlayed: 30,
       },
     ],
   },
+  quarters: [
+    { quarter: 1, homeScore: 14, awayScore: 12 },
+    { quarter: 2, homeScore: 16, awayScore: 14 },
+  ],
 };
 
 describe('LiveGameClient', () => {
@@ -89,8 +96,8 @@ describe('LiveGameClient', () => {
 
   it('should render the score', () => {
     render(<LiveGameClient match={mockMatch} />);
-    expect(screen.getByText('42')).toBeInTheDocument();
-    expect(screen.getByText('38')).toBeInTheDocument();
+    expect(screen.getAllByText('42').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('38').length).toBeGreaterThan(0);
   });
 
   it('should render player names in lineups', () => {

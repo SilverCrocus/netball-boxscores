@@ -50,7 +50,7 @@ async function checkIsMatchDay(): Promise<boolean> {
 async function pollChampionData(): Promise<void> {
   try {
     const COMP_ID = Number(process.env.CHAMPION_DATA_COMP_ID);
-    if (!COMP_ID) return;
+    if (!COMP_ID && process.env.SIMULATION_MODE !== 'true') return;
 
     const matches = await fetchFixture(COMP_ID);
 
