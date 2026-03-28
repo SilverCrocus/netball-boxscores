@@ -19,11 +19,13 @@ const getTeam = cache((teamSlug: string) =>
       players: { orderBy: { name: 'asc' } },
       standings: { take: 1 },
       homeMatches: {
+        ...(process.env.SIMULATION_MODE !== 'true' && { where: { round: { not: 99 } } }),
         include: { awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } } },
         orderBy: { scheduledAt: 'desc' },
         take: 10,
       },
       awayMatches: {
+        ...(process.env.SIMULATION_MODE !== 'true' && { where: { round: { not: 99 } } }),
         include: { homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } } },
         orderBy: { scheduledAt: 'desc' },
         take: 10,
