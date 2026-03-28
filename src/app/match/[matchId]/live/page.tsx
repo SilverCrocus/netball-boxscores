@@ -80,6 +80,7 @@ export default async function LiveGamePage({ params }: Props) {
           rebounds: stats?.rebounds ?? 0,
           feeds: stats?.feeds ?? 0,
           turnovers: stats?.turnovers ?? 0,
+          minutesPlayed: stats?.minutesPlayed ?? 0,
         };
       }),
     };
@@ -96,6 +97,11 @@ export default async function LiveGamePage({ params }: Props) {
     currentTime: match.currentTime,
     homeTeam: serializeTeam(match.homeTeam),
     awayTeam: serializeTeam(match.awayTeam),
+    quarters: match.quarters.map((q) => ({
+      quarter: q.quarter,
+      homeScore: q.homeScore,
+      awayScore: q.awayScore,
+    })),
   };
 
   return <LiveGameClient match={serialized} />;
