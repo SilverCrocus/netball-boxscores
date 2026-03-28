@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { LiveIndicator } from './LiveIndicator';
 import { TeamBadge } from './TeamBadge';
-import { formatMatchDate, formatMatchTime } from '@/lib/format';
+import { formatMatchDate, formatMatchTime, formatGameClock } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
 
 interface ScoreCardMatch {
@@ -25,10 +25,11 @@ interface ScoreCardProps {
 export function ScoreCard({ match }: ScoreCardProps) {
   const isLive = match.status === 'LIVE';
   const isCompleted = match.status === 'COMPLETED';
+  const matchHref = isLive ? `/match/${match.id}/live` : `/match/${match.id}`;
 
   return (
     <Link
-      href={`/match/${match.id}`}
+      href={matchHref}
       className={`block bg-surface-container-lowest rounded-xl p-6 shadow-sm relative overflow-hidden group transition-all hover:shadow-md ${
         isLive ? 'border-l-4 border-secondary' : 'border-l-4 border-transparent'
       }`}
@@ -36,8 +37,8 @@ export function ScoreCard({ match }: ScoreCardProps) {
       {/* Status badge */}
       <div className="flex justify-between items-start mb-6">
         {isLive && match.currentQuarter && (
-          <span className="bg-primary-container text-on-primary-fixed-variant px-3 py-1 rounded-full text-[10px] font-bold font-label tracking-widest uppercase">
-            Q{match.currentQuarter} {match.currentTime && `\u2022 ${match.currentTime}`}
+          <span className="bg-primary-container text-white px-3 py-1 rounded-full text-[10px] font-bold font-label tracking-widest uppercase">
+            {(match.currentQuarter ?? 0) > 4 ? 'ET' : `Q${match.currentQuarter}`} {match.currentTime && `\u2022 ${formatGameClock(match.currentTime, match.currentQuarter)}`}
           </span>
         )}
         {isCompleted && (
@@ -85,7 +86,7 @@ export function ScoreCard({ match }: ScoreCardProps) {
             {match.venue && ` \u2022 ${match.venue}`}
           </span>
           <span className="text-secondary font-bold text-xs flex items-center gap-1 group-hover:gap-2 transition-all">
-            View Stats
+            {isLive ? 'See Live Stats' : 'View Stats'}
             <span className="material-symbols-outlined text-sm">chevron_right</span>
           </span>
         </div>

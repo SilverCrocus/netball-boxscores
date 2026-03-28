@@ -1,4 +1,5 @@
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { formatGameClock } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
 
 interface QuarterData {
@@ -77,7 +78,7 @@ export function LiveScoreHero({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
               </span>
               <span className="font-label text-xs font-bold uppercase tracking-[0.5px] text-white">
-                Q{quarter} {time && `\u2022 ${time}`}
+                {(quarter ?? 0) > 4 ? 'ET' : `Q${quarter}`} {time && `\u2022 ${formatGameClock(time, quarter)}`}
               </span>
             </div>
           )}
@@ -93,12 +94,17 @@ export function LiveScoreHero({
             </span>
           </div>
           {/* Quarter-by-quarter grid */}
-          {quarters && quarters.length > 0 && (
+          {quarters && quarters.length > 0 && (() => {
+            const hasET = (quarter ?? 0) > 4 || quarters.some((q) => q.quarter > 4);
+            const periods = hasET ? [1, 2, 3, 4, 5] : [1, 2, 3, 4];
+            const periodLabel = (p: number) => (p <= 4 ? `Q${p}` : 'ET');
+
+            return (
             <table className="mt-2 border-separate" style={{ borderSpacing: '1px' }}>
               <thead>
                 <tr>
                   <th className="px-2.5 py-1 text-left text-[10px] font-bold uppercase tracking-[0.5px] text-white/40 font-label min-w-[34px]" />
-                  {[1, 2, 3, 4].map((q) => (
+                  {periods.map((q) => (
                     <th
                       key={q}
                       className={`px-3.5 py-1 text-center text-[10px] font-bold uppercase tracking-[0.5px] font-label min-w-[40px] ${
@@ -108,7 +114,7 @@ export function LiveScoreHero({
                       }`}
                       style={{ background: q === quarter ? 'rgba(0,110,10,0.25)' : 'rgba(0,31,63,0.8)' }}
                     >
-                      Q{q}
+                      {periodLabel(q)}
                     </th>
                   ))}
                   <th
@@ -131,7 +137,7 @@ export function LiveScoreHero({
                     >
                       {abbr}
                     </td>
-                    {[1, 2, 3, 4].map((q) => {
+                    {periods.map((q) => {
                       const qData = quarters.find((qd) => qd.quarter === q);
                       const isActive = q === quarter;
                       const value = qData
@@ -170,7 +176,8 @@ export function LiveScoreHero({
                 ))}
               </tbody>
             </table>
-          )}
+            );
+          })()}
           <p className="font-label text-xs uppercase tracking-widest text-secondary-fixed font-bold mt-4">
             Round {round} &bull; {venue}
           </p>
