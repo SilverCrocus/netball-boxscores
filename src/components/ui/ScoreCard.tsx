@@ -38,7 +38,7 @@ export function ScoreCard({ match }: ScoreCardProps) {
       <div className="flex justify-between items-start mb-6">
         {isLive && match.currentQuarter && (
           <span className="bg-primary-container text-white px-3 py-1 rounded-full text-[10px] font-bold font-label tracking-widest uppercase">
-            Q{match.currentQuarter} {match.currentTime && `\u2022 ${formatGameClock(match.currentTime)}`}
+            {(match.currentQuarter ?? 0) > 4 ? 'ET' : `Q${match.currentQuarter}`} {match.currentTime && `\u2022 ${formatGameClock(match.currentTime, match.currentQuarter)}`}
           </span>
         )}
         {isCompleted && (
