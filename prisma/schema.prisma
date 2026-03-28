@@ -168,6 +168,7 @@ model ScoreFlow {
   homeScore     Int
   awayScore     Int
 
+  @@unique([matchId, period, periodSeconds])
   @@index([matchId, period])
 }
 

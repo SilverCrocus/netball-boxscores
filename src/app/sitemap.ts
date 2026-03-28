@@ -8,7 +8,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Fetch all indexable entities
   const [teams, matches, players] = await Promise.all([
     prisma.team.findMany({ select: { slug: true } }),
-    prisma.match.findMany({ select: { id: true, scheduledAt: true } }),
+    prisma.match.findMany({
+      where: process.env.SIMULATION_MODE === 'true' ? {} : { round: { not: 99 } },
+      select: { id: true, scheduledAt: true },
+    }),
     prisma.player.findMany({ select: { id: true } }),
   ]);
 
