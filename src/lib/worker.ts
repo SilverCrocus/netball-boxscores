@@ -227,10 +227,12 @@ async function scheduleNextPoll(): Promise<void> {
   }, interval);
 }
 
-export function startWorker(): void {
+export async function startWorker(): Promise<void> {
   if (isRunning) return;
   isRunning = true;
   console.log('[Worker] Starting background worker');
+  // Poll immediately on startup, then schedule based on result
+  await pollChampionData();
   scheduleNextPoll();
 }
 
