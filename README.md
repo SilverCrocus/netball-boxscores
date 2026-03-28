@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CentrePass
+
+Live scores, box scores, standings, fixtures, team profiles, and player profiles for the Suncorp Super Netball league.
+
+**Live at [centrepass.io](https://centrepass.io)**
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router) with custom Express server
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS 4
+- **Database:** Supabase PostgreSQL via Prisma 6.x
+- **Real-time:** Socket.io (live scores + stats)
+- **Auth:** NextAuth.js
+- **Hosting:** Render (Sydney region)
+- **Testing:** Vitest
+
+## Data Sources
+
+- **Champion Data** — Match fixtures, scores, and player statistics (free JSON endpoints)
+- **TheSportsDB** — Team badges, player photos, and biographies
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Push schema to database
+npx prisma db push
+
+# Seed with real SSN data
+npx tsx prisma/seed.ts
+
+# Start dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server (with hot reload) |
+| `npm run build` | Production build |
+| `npm start` | Start production server |
+| `npm test` | Run tests |
+| `npm run db:push` | Push Prisma schema to database |
+| `npm run db:seed` | Seed database with real API data |
+| `npm run db:studio` | Open Prisma Studio |
 
-## Learn More
+## Live Game Simulation
 
-To learn more about Next.js, take a look at the following resources:
+A dev-only simulation system lets you test the live scores pipeline without waiting for a real match.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# 1. Enable simulation in .env
+SIMULATION_MODE=true
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 2. Start dev server
+npm run dev
 
-## Deploy on Vercel
+# 3. Open admin panel
+# http://localhost:3000/admin/sim
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The simulation creates temporary matches (round 99), generates realistic scoring data through the real worker pipeline, and broadcasts via Socket.io. Orphaned data is auto-cleaned on startup.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Production safeguards:** Simulation is blocked in production at three levels — server routes refuse to mount, the engine refuses to create matches, and the Champion Data client refuses to redirect to sim endpoints.
+
+## Project Structure
+
+```
+src/
+  app/              # Next.js App Router pages
+  components/       # React components (ui/, player/, match/)
+  lib/              # Server utilities (db, worker, simulation, etc.)
+  types/            # TypeScript type definitions
+prisma/
+  schema.prisma     # Database schema
+  seed.ts           # Real data seeder
+server.ts           # Custom Express + Socket.io server
+scripts/            # Maintenance scripts
+stitch-designs/     # UI design prototypes (HTML + screenshots)
+docs/               # Design specs and implementation plans
+```
