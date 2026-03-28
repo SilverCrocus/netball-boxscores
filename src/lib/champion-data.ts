@@ -7,7 +7,7 @@ import type {
 
 type MatchStatus = "SCHEDULED" | "LIVE" | "COMPLETED";
 
-const SIM_MODE = process.env.SIMULATION_MODE === 'true';
+const SIM_MODE = process.env.SIMULATION_MODE === 'true' && process.env.NODE_ENV !== 'production';
 const SIM_BASE = `http://localhost:${process.env.PORT || 3000}/api/sim`;
 const CD_BASE =
   process.env.CHAMPION_DATA_BASE_URL || 'https://mc.championdata.com/data';

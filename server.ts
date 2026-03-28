@@ -23,11 +23,20 @@ app.prepare().then(async () => {
   // Make io accessible to API routes via Express app locals
   expressApp.set("io", io);
 
-  // Mount simulation routes (dev only) — must await before registering catch-all
-  if (SIM_MODE) {
+  // Mount simulation routes — dev only, never in production
+  if (SIM_MODE && dev) {
     const { simRouter } = await import('./src/lib/simulation/sim-routes');
+    const { cleanupOrphanedSimData } = await import('./src/lib/simulation/engine');
     expressApp.use('/api/sim', simRouter);
     console.log('[Server] Simulation routes mounted at /api/sim');
+
+    // Clean up any orphaned sim data from previous crashes
+    const cleaned = await cleanupOrphanedSimData();
+    if (cleaned > 0) {
+      console.log(`[Server] Cleaned up ${cleaned} orphaned simulation match(es)`);
+    }
+  } else if (SIM_MODE && !dev) {
+    console.warn('[Server] SIMULATION_MODE is set but ignored in production');
   }
 
   // Start background worker
