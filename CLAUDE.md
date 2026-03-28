@@ -88,6 +88,29 @@ When building components, reference these designs as the visual spec.
 
 Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 
+## Live Game Simulation
+
+Dev-only system for testing the live scores pipeline without a real Champion Data match. Located in `src/lib/simulation/`.
+
+**How it works:** Admin panel at `/admin/sim` creates temporary Match records (round 99, championDataMatchId 99001+), then the sim engine generates Champion Data-formatted JSON. The existing worker polls these sim endpoints (instead of real CD), writes to DB via match-sync, and broadcasts via Socket.io — exercising the full production pipeline.
+
+**Key files:**
+- `src/lib/simulation/engine.ts` — State machine, tick logic, DB setup/teardown, orphan cleanup
+- `src/lib/simulation/data-generator.ts` — Builds fake CD JSON responses from sim state
+- `src/lib/simulation/sim-routes.ts` — Express routes for sim control + data serving
+- `src/app/admin/sim/` — Admin panel UI (SimPanel.tsx)
+
+**Usage:** Set `SIMULATION_MODE=true` in `.env`, run `npm run dev`, open `/admin/sim`.
+
+**Production safeguards (triple-layered):**
+1. `server.ts` — Sim routes only mount when `SIMULATION_MODE=true` AND `NODE_ENV !== 'production'`
+2. `engine.ts` — `setupSimMatches()` throws if `NODE_ENV === 'production'`
+3. `champion-data.ts` — `SIM_MODE` is forced `false` in production, worker always hits real CD API
+
+**Orphan cleanup:** On dev startup, `cleanupOrphanedSimData()` deletes any `round = 99` matches and their children (ScoreFlow, PlayerMatchStats, MatchQuarter). Also available as standalone script: `npx tsx scripts/cleanup-sim-data.ts`.
+
+**Cleanup script:** `scripts/cleanup-sim-data.ts` — Finds and deletes simulation matches (round 99) and all child records. Safe to run against any environment.
+
 ## Gotchas
 
 - **Prisma 7 breaks builds:** Always use Prisma 6.x. Import from `@prisma/client`.
@@ -99,6 +122,7 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 - **Prisma nullable narrowing:** After `if (!match) return notFound()`, use `NonNullable<typeof match>` in function parameter types — TypeScript doesn't narrow through hoisted function declarations.
 - **Prisma AI safety check:** `prisma migrate reset` and destructive commands require `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="yes"` env var when run from an AI agent. Use `npx prisma db push --force-reset` as an alternative.
 - **Server timezone:** Render servers run in UTC. All date formatting in `format.ts` is pinned to `Australia/Sydney` — do not use bare `toLocaleDateString()`/`toLocaleTimeString()` without `timeZone` option.
+- **Simulation data leak:** Simulation writes to the real database via the worker pipeline. If `SIMULATION_MODE=true` reaches production (or dev points at prod DB), sim data pollutes real data. The triple safeguard (server.ts + engine.ts + champion-data.ts) prevents this, but never deploy with `SIMULATION_MODE=true`.
 
 ## SEO & Domain
 

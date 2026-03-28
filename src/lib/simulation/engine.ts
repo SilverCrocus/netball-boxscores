@@ -216,9 +216,30 @@ export function tickMatch(match: SimMatch, tickStep: number): SimMatch {
 
 // ───── Database setup/teardown ─────
 
+export async function cleanupOrphanedSimData(): Promise<number> {
+  const orphaned = await prisma.match.findMany({
+    where: { round: 99 },
+    select: { id: true },
+  });
+  if (orphaned.length === 0) return 0;
+
+  const matchIds = orphaned.map((m) => m.id);
+  await prisma.scoreFlow.deleteMany({ where: { matchId: { in: matchIds } } });
+  await prisma.playerMatchStats.deleteMany({ where: { matchId: { in: matchIds } } });
+  await prisma.matchQuarter.deleteMany({ where: { matchId: { in: matchIds } } });
+  await prisma.userFavorite.deleteMany({ where: { matchId: { in: matchIds } } });
+  await prisma.userReminder.deleteMany({ where: { matchId: { in: matchIds } } });
+  await prisma.match.deleteMany({ where: { id: { in: matchIds } } });
+  return orphaned.length;
+}
+
 export async function setupSimMatches(
   matchCount: number,
 ): Promise<SimMatch[]> {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Simulation cannot run in production');
+  }
+
   const competition = await prisma.competition.findFirst();
   if (!competition) throw new Error('No competition found in DB');
 
