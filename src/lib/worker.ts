@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db';
 import { fetchFixture, fetchMatchStats, mapMatchStatus } from '@/lib/champion-data';
-import { detectChanges, applyChanges } from '@/lib/match-sync';
+import { detectChanges, applyChanges, reconcileCompletedMatches } from '@/lib/match-sync';
 import {
   broadcastScoreUpdate,
   broadcastMatchStatus,
@@ -204,6 +204,24 @@ async function pollChampionData(): Promise<void> {
           }
         }
       }
+    }
+
+    // Reconcile matches that Champion Data marked complete but DB still has as LIVE
+    const completedMatches = await reconcileCompletedMatches(matches);
+    for (const completed of completedMatches) {
+      broadcastMatchStatus(completed.matchId, {
+        matchId: completed.matchId,
+        status: 'COMPLETED',
+        quarter: 4,
+        time: '0',
+      });
+      broadcastScoreUpdate(completed.matchId, {
+        matchId: completed.matchId,
+        homeScore: completed.homeScore,
+        awayScore: completed.awayScore,
+        currentQuarter: 4,
+        currentTime: '0',
+      });
     }
   } catch (error) {
     console.error('[Worker] Poll error:', error);

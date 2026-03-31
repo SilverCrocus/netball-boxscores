@@ -12,6 +12,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     select: {
+      status: true,
       round: true,
       homeTeam: { select: { name: true } },
       awayTeam: { select: { name: true } },
@@ -20,8 +21,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!match) return { title: 'Match Not Found' };
 
+  const statusPrefix = match.status === 'COMPLETED' ? 'Full Time:' : 'LIVE:';
+
   return {
-    title: `LIVE: ${match.homeTeam.name} vs ${match.awayTeam.name} | Round ${match.round}`,
+    title: `${statusPrefix} ${match.homeTeam.name} vs ${match.awayTeam.name} | Round ${match.round}`,
     robots: { index: false },
   };
 }

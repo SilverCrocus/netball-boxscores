@@ -127,7 +127,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   const awayScore = score?.awayScore ?? match.awayScore;
   const quarter = score?.currentQuarter ?? match.currentQuarter;
   const time = score?.currentTime ?? match.currentTime;
-  const isLive = matchStatus?.status === 'LIVE' || match.status === 'LIVE';
+  const isLive = matchStatus?.status === 'COMPLETED' ? false : (matchStatus?.status === 'LIVE' || match.status === 'LIVE');
 
   // ── Merge socket stats into player data ──
   const homePlayers = mergePlayerStats(match.homeTeam.players, playerStats);

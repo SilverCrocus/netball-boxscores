@@ -46,7 +46,8 @@ export function LiveScoreHero({
   const awayScore = liveScore?.awayScore ?? dbAwayScore;
   const quarter = liveScore?.currentQuarter ?? dbQuarter;
   const time = liveScore?.currentTime ?? dbTime;
-  const isLive = matchStatus?.status === 'LIVE' || dbIsLive;
+  const isCompleted = matchStatus?.status === 'COMPLETED' || (!dbIsLive && dbHomeScore > 0 && !matchStatus);
+  const isLive = !isCompleted && (matchStatus?.status === 'LIVE' || dbIsLive);
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-primary-container text-white p-8 md:p-12 shadow-2xl">
@@ -71,6 +72,13 @@ export function LiveScoreHero({
 
         {/* Score center */}
         <div className="flex flex-col items-center gap-2">
+          {isCompleted && (
+            <div className="bg-surface-container-high text-on-surface-variant px-4 py-1.5 rounded-full mb-4">
+              <span className="font-label text-xs font-bold uppercase tracking-[0.5px]">
+                Full Time
+              </span>
+            </div>
+          )}
           {isLive && (
             <div className="bg-secondary px-4 py-1.5 rounded-full flex items-center gap-2 mb-4">
               <span className="relative flex h-2 w-2">

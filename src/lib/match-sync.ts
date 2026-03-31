@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import type { MatchStatus } from '@prisma/client';
+import type { CDFixtureMatch } from '@/types/champion-data';
 
 interface ChampionDataMatchState {
   matchId: number; // championDataMatchId
@@ -206,4 +207,45 @@ export async function applyChanges(
       });
     }
   }
+}
+
+export async function reconcileCompletedMatches(
+  fixtureMatches: CDFixtureMatch[]
+): Promise<Array<{ matchId: string; homeScore: number; awayScore: number }>> {
+  const liveMatches = await prisma.match.findMany({
+    where: { status: 'LIVE' },
+    select: { id: true, championDataMatchId: true },
+  });
+
+  if (liveMatches.length === 0) return [];
+
+  const fixtureMap = new Map(
+    fixtureMatches.map((fm) => [fm.matchId, fm])
+  );
+
+  const completed: Array<{ matchId: string; homeScore: number; awayScore: number }> = [];
+
+  for (const liveMatch of liveMatches) {
+    if (!liveMatch.championDataMatchId) continue;
+
+    const fixture = fixtureMap.get(liveMatch.championDataMatchId);
+    if (!fixture || fixture.matchStatus.toLowerCase() !== 'complete') continue;
+
+    await prisma.match.update({
+      where: { id: liveMatch.id },
+      data: {
+        status: 'COMPLETED',
+        homeScore: fixture.homeSquadScore,
+        awayScore: fixture.awaySquadScore,
+      },
+    });
+
+    completed.push({
+      matchId: liveMatch.id,
+      homeScore: fixture.homeSquadScore,
+      awayScore: fixture.awaySquadScore,
+    });
+  }
+
+  return completed;
 }
