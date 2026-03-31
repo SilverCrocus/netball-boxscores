@@ -23,6 +23,7 @@ interface MatchSocketState {
 
 export function useMatchSocket(matchId: string): MatchSocketState {
   const socketRef = useRef<TypedSocket | null>(null);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [state, setState] = useState<MatchSocketState>({
     score: null,
     playerStats: null,
@@ -66,6 +67,13 @@ export function useMatchSocket(matchId: string): MatchSocketState {
     socket.on('match:status', (payload) => {
       if (payload.matchId === matchId) {
         setState((prev) => ({ ...prev, matchStatus: payload }));
+
+        if (payload.status === 'COMPLETED') {
+          completionTimeoutRef.current = setTimeout(() => {
+            socket.io.opts.reconnection = false;
+            socket.disconnect();
+          }, 2000);
+        }
       }
     });
 
@@ -79,6 +87,10 @@ export function useMatchSocket(matchId: string): MatchSocketState {
     });
 
     return () => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current);
+        completionTimeoutRef.current = null;
+      }
       socket.emit('match:unsubscribe', { matchId });
       socket.off('score:update');
       socket.off('stats:update');
