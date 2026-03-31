@@ -10,7 +10,7 @@ Next.js 15 Full-Stack Monolith with custom Express server for Socket.io. Deploye
 
 ## Data Sources
 
-- **Champion Data** (primary): `mc.championdata.com/data/` — free JSON endpoints, no auth. 2026 SSN competition ID: **12949**.
+- **Champion Data** (primary): `mc.championdata.com/data/` — free JSON endpoints, no auth. 2026 SSN competition ID: **12949** (configurable via `SSN_COMPETITION_ID` env var).
   - Fixture response structure: `{ fixture: { match: [...] } }` — field names use `roundNumber`, `homeSquadScore`, `venueName`, `matchStatus` (lowercase values)
 - **TheSportsDB** (secondary): Team badges, player photos. Use `search_all_teams.php?l=Australian%20Super%20Netball%20League` (NOT `lookup_all_teams.php`).
 
@@ -34,6 +34,8 @@ Run `npx prisma db seed` to re-seed with fresh API data.
 - **Implementation plan:** `docs/superpowers/plans/2026-03-23-netpulse-implementation.md` (17 tasks)
 - **Player profile spec:** `docs/superpowers/specs/2026-03-24-player-profile-design.md`
 - **Player profile plan:** `docs/superpowers/plans/2026-03-24-player-profile-implementation.md` (12 tasks)
+- **Live tracking spec:** `docs/superpowers/specs/2026-03-31-live-tracking-completion-design.md`
+- **Live tracking plan:** `docs/superpowers/plans/2026-03-31-live-tracking-completion.md`
 - **Stitch designs:** `stitch-designs/` (6 original + 4 player profile HTML prototypes)
 
 ## Design Reference
@@ -72,9 +74,13 @@ When building components, reference these designs as the visual spec.
 - **`src/lib/navigation.ts`**: `NAV_ITEMS` array — single source of truth for sidebar and bottom nav links. Each item has `href`, `label`, `icon`, and optional `sidebarLabel`. Also exports `isActive(pathname, href)` for nav highlight logic.
 - **`src/lib/api-auth.ts`**: `requireAuth()` (returns session or 401 response) and `badRequest(msg)` helpers for API routes.
 - **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatShortDate(date)`, `computeAge(dob)` — shared date formatting and age computation. All date/time functions pinned to `Australia/Sydney` timezone (not system/UTC).
-- **`src/lib/stat-utils.ts`**: `getStatValue(stat, field)` — shared stat accessor with computed `shootingPct` field. Used by PlayerSeasonStats, PlayerCharts, PlayerGameLog, and the player page.
+- **`src/lib/stat-utils.ts`**: Single source of truth for stat field operations. Exports: `STAT_FIELDS` (11 field names), `StatValues` (typed record), `pickStatFields(obj)` (extract stat fields from any object), `emptyStats()` (zero-initialized), `aggregateStats(items)` (sum across players, excludes minutesPlayed), `computeShootingPct(goals, attempts)`, `getStatValue(stat, field)` (dynamic accessor with computed shootingPct).
+- **`src/lib/db.ts`**: Prisma client + `excludeSimData` — shared Prisma `where` clause that filters out round-99 simulation data in production. Use this in all match queries instead of inline conditions.
 - **`src/lib/user-resource-route.ts`**: `createUserResourceHandlers(config)` — factory for user CRUD API routes (favorites, reminders, teams). Each route file is ~7 lines.
 - **`src/types/team.ts`**: `TeamInfo` and `TeamInfoWithId` — shared team type used by ScoreCard, LiveScoreHero, PlayerGameLog, settings page.
+- **`src/types/stats.ts`**: `PlayerStatRow` — `{ id, name, position } & StatValues`. Used by box scores, live lineups, player stats tables.
+- **`src/types/match.ts`**: `QuarterData` — `{ quarter, homeScore, awayScore }`. Used by LiveScoreHero, QuarterScoreBar, LiveGameClient.
+- **`src/types/champion-data.ts`**: Includes `CDRaw*` types (`CDRawMatchStatsResponse`, `CDRawTeamStats`, `CDRawPlayerStats`, `CDRawScoreFlowEntry`) for the raw Champion Data JSON shape. The transform layer in `champion-data.ts` converts `CDRaw*` → normalized types.
 
 ## Player Profile Components
 
@@ -87,6 +93,19 @@ When building components, reference these designs as the visual spec.
 - **`PlayerGameLog.tsx`**: Match-by-match stats table with position-specific columns, opponent badges, W/L indicators.
 
 Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
+
+## Live Tracking Pipeline
+
+Worker polls Champion Data every 10s → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
+
+**Key functions in the pipeline:**
+- **`pollChampionData()`** (`worker.ts`): Orchestrator — fetches fixtures, delegates to helpers, reconciles completed matches.
+- **`buildIncomingMatchState()`** (`worker.ts`): Builds normalized match state from CD fixture + detail data.
+- **`broadcastChanges()`** (`worker.ts`): Emits Socket.io events (`score:update`, `match:status`, `stats:update`, `scoreflow:update`).
+- **`reconcileCompletedMatches()`** (`match-sync.ts`): Catches LIVE→COMPLETED transitions by cross-referencing DB vs CD fixture status. Uses `periodCompleted || period || 4` for final quarter (handles extra time).
+- **`transformRawCDMatchStats()`** (`champion-data.ts`): Transforms raw CD JSON → normalized types. Entry point for the CD transform pipeline.
+
+**Socket lifecycle:** Client (`useMatchSocket.ts`) disconnects 2 seconds after receiving `match:status: COMPLETED` — the delay allows final stat updates to arrive.
 
 ## Live Game Simulation
 
@@ -123,6 +142,12 @@ Dev-only system for testing the live scores pipeline without a real Champion Dat
 - **Prisma AI safety check:** `prisma migrate reset` and destructive commands require `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="yes"` env var when run from an AI agent. Use `npx prisma db push --force-reset` as an alternative.
 - **Server timezone:** Render servers run in UTC. All date formatting in `format.ts` is pinned to `Australia/Sydney` — do not use bare `toLocaleDateString()`/`toLocaleTimeString()` without `timeZone` option.
 - **Simulation data leak:** Simulation writes to the real database via the worker pipeline. If `SIMULATION_MODE=true` reaches production (or dev points at prod DB), sim data pollutes real data. The triple safeguard (server.ts + engine.ts + champion-data.ts) prevents this, but never deploy with `SIMULATION_MODE=true`.
+- **Stat fields — never enumerate manually:** Use `STAT_FIELDS`, `pickStatFields()`, `emptyStats()`, `aggregateStats()`, or `extends StatValues` from `stat-utils.ts`. Never list the 11 stat fields inline — this was the #1 duplication source before the refactor.
+- **Shooting percentage — use `computeShootingPct()`:** Never inline `(goals / attempts) * 100`. Always import from `stat-utils.ts`.
+- **Sim data filter — use `excludeSimData`:** Import from `@/lib/db`. Never write inline `{ round: { not: 99 } }` conditions.
+- **Test mocks for `@/lib/db`:** Any test that mocks `@/lib/db` must include `excludeSimData: {}` in the mock, not just `prisma`.
+- **`aggregateStats()` excludes `minutesPlayed`:** Minutes played is per-player, not summable. The function deliberately skips it.
+- **Champion Data raw field names differ:** Raw CD uses `goalAttempts` not `attempts`, `generalPlayTurnovers` not `turnovers`. The `transformRawCDMatchStats()` layer handles the rename — don't access raw CD fields directly.
 
 ## SEO & Domain
 
