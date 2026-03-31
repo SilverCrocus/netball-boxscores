@@ -10,6 +10,7 @@ import type {
 } from '@/types/champion-data';
 import type { SimMatch } from './types';
 import { stateToMatchStatus, stateToPeriod } from './types';
+import { pickStatFields, aggregateStats } from '@/lib/stat-utils';
 
 export function buildFixtureResponse(matches: SimMatch[]): CDFixtureResponse {
   const now = new Date().toISOString();
@@ -65,34 +66,15 @@ export function buildMatchStatsResponse(match: SimMatch): CDMatchStatsResponse {
     displayName: ps.displayName,
     position: ps.position,
     squadId: ps.squadId,
-    goals: ps.goals,
-    attempts: ps.attempts,
-    goalAssists: ps.goalAssists,
-    intercepts: ps.intercepts,
-    deflections: ps.deflections,
-    rebounds: ps.rebounds,
-    penalties: ps.penalties,
-    feeds: ps.feeds,
-    centrePassReceives: ps.centrePassReceives,
-    turnovers: ps.turnovers,
-    minutesPlayed: ps.minutesPlayed,
+    ...pickStatFields(ps),
   });
 
-  const aggregateTeamStats = (
+  const buildTeamStats = (
     players: typeof match.playerStats,
     squadId: number,
   ): CDTeamStats => ({
     squadId,
-    goals: players.reduce((sum, p) => sum + p.goals, 0),
-    attempts: players.reduce((sum, p) => sum + p.attempts, 0),
-    goalAssists: players.reduce((sum, p) => sum + p.goalAssists, 0),
-    intercepts: players.reduce((sum, p) => sum + p.intercepts, 0),
-    deflections: players.reduce((sum, p) => sum + p.deflections, 0),
-    rebounds: players.reduce((sum, p) => sum + p.rebounds, 0),
-    penalties: players.reduce((sum, p) => sum + p.penalties, 0),
-    feeds: players.reduce((sum, p) => sum + p.feeds, 0),
-    centrePassReceives: players.reduce((sum, p) => sum + p.centrePassReceives, 0),
-    turnovers: players.reduce((sum, p) => sum + p.turnovers, 0),
+    ...aggregateStats(players),
   });
 
   // Build period scores from score flow
@@ -146,8 +128,8 @@ export function buildMatchStatsResponse(match: SimMatch): CDMatchStatsResponse {
     matchInfo,
     scoreFlow,
     teamStats: {
-      home: aggregateTeamStats(homePlayerStats, match.homeSquadId),
-      away: aggregateTeamStats(awayPlayerStats, match.awaySquadId),
+      home: buildTeamStats(homePlayerStats, match.homeSquadId),
+      away: buildTeamStats(awayPlayerStats, match.awaySquadId),
     },
     playerStats: {
       home: homePlayerStats.map(toCDPlayerStats),

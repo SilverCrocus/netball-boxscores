@@ -2,32 +2,16 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import type { PlayerStatRow } from '@/types/stats';
+import type { TeamInfo } from '@/types/team';
 
-interface PlayerData {
-  id: string;
-  name: string;
-  position: string;
-  goals: number;
-  attempts: number;
-  goalAssists: number;
-  intercepts: number;
-  deflections: number;
-  rebounds: number;
-  feeds: number;
-  turnovers: number;
-  minutesPlayed: number;
-}
-
-interface TeamData {
-  name: string;
-  abbreviation: string;
-  logoUrl?: string | null;
-  players: PlayerData[];
+interface TeamWithPlayers extends TeamInfo {
+  players: PlayerStatRow[];
 }
 
 interface LiveLineupsProps {
-  homeTeam: TeamData;
-  awayTeam: TeamData;
+  homeTeam: TeamWithPlayers;
+  awayTeam: TeamWithPlayers;
 }
 
 const POSITION_ORDER: Record<string, number> = {
@@ -42,7 +26,7 @@ interface SortState {
   direction: SortDirection;
 }
 
-const STAT_KEY: Record<StatColumn, keyof PlayerData> = {
+const STAT_KEY: Record<StatColumn, keyof PlayerStatRow> = {
   G: 'goals',
   ATT: 'attempts',
   AST: 'goalAssists',
@@ -65,13 +49,13 @@ function isShooter(position: string): boolean {
 }
 
 function splitAndSort(
-  players: PlayerData[],
+  players: PlayerStatRow[],
   sort: SortState,
-): { onCourt: PlayerData[]; bench: PlayerData[] } {
+): { onCourt: PlayerStatRow[]; bench: PlayerStatRow[] } {
   const hasMinutesData = players.some((p) => p.minutesPlayed > 0);
 
-  let onCourt: PlayerData[];
-  let bench: PlayerData[];
+  let onCourt: PlayerStatRow[];
+  let bench: PlayerStatRow[];
 
   if (hasMinutesData) {
     onCourt = players.filter((p) => p.minutesPlayed > 0);
@@ -118,7 +102,7 @@ function TeamTable({
   team,
   variant,
 }: {
-  team: TeamData;
+  team: TeamWithPlayers;
   variant: 'home' | 'away';
 }) {
   const [sort, setSort] = useState<SortState>({
@@ -164,7 +148,7 @@ function TeamTable({
     variant === 'home' ? 'bg-secondary/[0.03]' : 'bg-primary-container/[0.03]';
   const headerAlign = variant === 'away' ? 'justify-end text-right' : '';
 
-  function renderRow(player: PlayerData, isBench: boolean) {
+  function renderRow(player: PlayerStatRow, isBench: boolean) {
     const rowClass = isBench
       ? 'opacity-45 hover:opacity-70 transition-opacity'
       : 'hover:bg-surface-container-low transition-colors';

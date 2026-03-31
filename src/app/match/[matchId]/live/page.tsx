@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { LiveGameClient } from './LiveGameClient';
+import { pickStatFields, emptyStats } from '@/lib/stat-utils';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -75,15 +76,7 @@ export default async function LiveGamePage({ params }: Props) {
           id: p.id,
           name: p.name,
           position: p.position,
-          goals: stats?.goals ?? 0,
-          attempts: stats?.attempts ?? 0,
-          goalAssists: stats?.goalAssists ?? 0,
-          intercepts: stats?.intercepts ?? 0,
-          deflections: stats?.deflections ?? 0,
-          rebounds: stats?.rebounds ?? 0,
-          feeds: stats?.feeds ?? 0,
-          turnovers: stats?.turnovers ?? 0,
-          minutesPlayed: stats?.minutesPlayed ?? 0,
+          ...(stats ? pickStatFields(stats) : emptyStats()),
         };
       }),
     };

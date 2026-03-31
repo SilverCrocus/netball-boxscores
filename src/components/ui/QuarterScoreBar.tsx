@@ -1,11 +1,7 @@
-interface Quarter {
-  quarter: number;
-  homeScore: number;
-  awayScore: number;
-}
+import type { QuarterData } from '@/types/match';
 
 interface QuarterScoreBarProps {
-  quarters: Quarter[];
+  quarters: QuarterData[];
 }
 
 export function QuarterScoreBar({ quarters }: QuarterScoreBarProps) {

@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { getStatValue } from '@/lib/stat-utils';
+import { getStatValue, computeShootingPct } from '@/lib/stat-utils';
 import { getPositionConfig } from '@/components/player/position-config';
 import { PlayerHero } from '@/components/player/PlayerHero';
 import { PlayerBioCard } from '@/components/player/PlayerBioCard';
@@ -60,9 +60,7 @@ function computeStatHighlightValues(
     if (highlight.statField === 'shootingPct') {
       const totalGoals = matchStats.reduce((sum, s) => sum + s.goals, 0);
       const totalAttempts = matchStats.reduce((sum, s) => sum + s.attempts, 0);
-      return totalAttempts > 0
-        ? ((totalGoals / totalAttempts) * 100).toFixed(1)
-        : '0.0';
+      return computeShootingPct(totalGoals, totalAttempts).toFixed(1);
     }
     const total = matchStats.reduce(
       (sum, s) => sum + getStatValue(s, highlight.statField),

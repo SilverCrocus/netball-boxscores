@@ -1,5 +1,5 @@
 import type { PlayerMatchStats } from '@prisma/client';
-import { getStatValue } from '@/lib/stat-utils';
+import { getStatValue, computeShootingPct } from '@/lib/stat-utils';
 import type { PositionConfig, StatHighlight } from './position-config';
 
 interface PlayerSeasonStatsProps {
@@ -11,7 +11,7 @@ function computeSeasonTotal(stats: PlayerMatchStats[], field: string): number {
   if (field === 'shootingPct') {
     const totalGoals = stats.reduce((sum, s) => sum + s.goals, 0);
     const totalAttempts = stats.reduce((sum, s) => sum + s.attempts, 0);
-    return totalAttempts > 0 ? (totalGoals / totalAttempts) * 100 : 0;
+    return computeShootingPct(totalGoals, totalAttempts);
   }
   return stats.reduce((sum, s) => sum + getStatValue(s, field), 0);
 }

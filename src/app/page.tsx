@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db';
+import { prisma, excludeSimData } from '@/lib/db';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { formatMatchDate, formatMatchTime } from '@/lib/format';
@@ -23,7 +23,7 @@ export default async function HomePage() {
 
   try {
     matches = await prisma.match.findMany({
-      where: process.env.NODE_ENV === 'production' ? { round: { not: 99 } } : {},
+      where: excludeSimData,
       include: {
         homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
         awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
