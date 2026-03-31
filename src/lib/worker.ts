@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { fetchFixture, fetchMatchStats, mapMatchStatus } from '@/lib/champion-data';
 import { detectChanges, applyChanges, reconcileCompletedMatches } from '@/lib/match-sync';
+import { recalculateStandings } from '@/lib/standings';
 import {
   broadcastScoreUpdate,
   broadcastMatchStatus,
@@ -230,6 +231,15 @@ async function pollChampionData(): Promise<void> {
         currentQuarter: completed.finalQuarter,
         currentTime: '0',
       });
+    }
+
+    if (completedMatches.length > 0) {
+      console.log(`[Worker] ${completedMatches.length} match(es) completed — recalculating standings`);
+      try {
+        await recalculateStandings();
+      } catch (error) {
+        console.error('[Worker] Standings recalculation failed:', error);
+      }
     }
   } catch (error) {
     console.error('[Worker] Poll error:', error);
