@@ -212,14 +212,14 @@ async function pollChampionData(): Promise<void> {
       broadcastMatchStatus(completed.matchId, {
         matchId: completed.matchId,
         status: 'COMPLETED',
-        quarter: 4,
+        quarter: completed.finalQuarter,
         time: '0',
       });
       broadcastScoreUpdate(completed.matchId, {
         matchId: completed.matchId,
         homeScore: completed.homeScore,
         awayScore: completed.awayScore,
-        currentQuarter: 4,
+        currentQuarter: completed.finalQuarter,
         currentTime: '0',
       });
     }
