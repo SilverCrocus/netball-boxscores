@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/db';
+import { prisma, excludeSimData } from '@/lib/db';
 import Link from 'next/link';
 import Image from 'next/image';
 import { TeamBadge } from '@/components/ui/TeamBadge';
@@ -19,13 +19,13 @@ const getTeam = cache((teamSlug: string) =>
       players: { orderBy: { name: 'asc' } },
       standings: { take: 1 },
       homeMatches: {
-        ...(process.env.NODE_ENV === 'production' && { where: { round: { not: 99 } } }),
+        where: excludeSimData,
         include: { awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } } },
         orderBy: { scheduledAt: 'desc' },
         take: 10,
       },
       awayMatches: {
-        ...(process.env.NODE_ENV === 'production' && { where: { round: { not: 99 } } }),
+        where: excludeSimData,
         include: { homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } } },
         orderBy: { scheduledAt: 'desc' },
         take: 10,

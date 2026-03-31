@@ -132,3 +132,68 @@ export interface CDPeriodScore {
   homeScore: number;
   awayScore: number;
 }
+
+// ───── Raw Champion Data match stats response ─────
+// The real CD API wraps match stats in { matchStats: { ... } } with
+// different field names than our normalised CDMatchStatsResponse.
+
+export interface CDRawMatchStatsResponse {
+  matchStats: {
+    matchInfo: CDRawMatchInfo;
+    teamStats?: { team?: CDRawTeamStats[] };
+    playerStats?: { player?: CDRawPlayerStats[] };
+    scoreFlow?: { score?: CDRawScoreFlowEntry[] };
+  };
+}
+
+export interface CDRawMatchInfo {
+  matchId?: number;
+  roundNumber?: number;
+  venueName?: string;
+  homeSquadId: number;
+  awaySquadId: number;
+  matchStatus?: string;
+  period?: number;
+  periodSeconds?: number;
+}
+
+export interface CDRawTeamStats {
+  squadId: number;
+  points?: number;
+  goals?: number;
+  goalAttempts?: number;
+  goalAssists?: number;
+  intercepts?: number;
+  deflections?: number;
+  rebounds?: number;
+  penalties?: number;
+  feeds?: number;
+  centrePassReceives?: number;
+  generalPlayTurnovers?: number;
+}
+
+export interface CDRawPlayerStats {
+  playerId: number;
+  displayName?: string;
+  currentPositionCode?: string;
+  startingPositionCode?: string;
+  squadId: number;
+  goals?: number;
+  goalAttempts?: number;
+  goalAssists?: number;
+  intercepts?: number;
+  deflections?: number;
+  rebounds?: number;
+  penalties?: number;
+  feeds?: number;
+  centrePassReceives?: number;
+  generalPlayTurnovers?: number;
+  minutesPlayed?: number;
+}
+
+export interface CDRawScoreFlowEntry {
+  period: number;
+  periodSeconds: number;
+  squadId: number;
+  scorepoints: number;
+}

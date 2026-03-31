@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import type { MatchStatus } from '@prisma/client';
 import type { CDFixtureMatch } from '@/types/champion-data';
+import { pickStatFields, type StatValues } from '@/lib/stat-utils';
 
 interface ChampionDataMatchState {
   matchId: number; // championDataMatchId
@@ -9,20 +10,7 @@ interface ChampionDataMatchState {
   status: string;
   currentQuarter: number;
   currentTime: string;
-  playerStats?: Array<{
-    championDataPlayerId: number;
-    goals: number;
-    attempts: number;
-    goalAssists: number;
-    intercepts: number;
-    deflections: number;
-    rebounds: number;
-    penalties: number;
-    feeds: number;
-    centrePassReceives: number;
-    turnovers: number;
-    minutesPlayed: number;
-  }>;
+  playerStats?: Array<StatValues & { championDataPlayerId: number }>;
   quarterScores?: Array<{
     quarter: number;
     homeScore: number;
@@ -148,19 +136,7 @@ export async function applyChanges(
       .filter((ps) => playerMap.has(ps.championDataPlayerId))
       .map((ps) => {
         const player = playerMap.get(ps.championDataPlayerId)!;
-        const statsData = {
-          goals: ps.goals,
-          attempts: ps.attempts,
-          goalAssists: ps.goalAssists,
-          intercepts: ps.intercepts,
-          deflections: ps.deflections,
-          rebounds: ps.rebounds,
-          penalties: ps.penalties,
-          feeds: ps.feeds,
-          centrePassReceives: ps.centrePassReceives,
-          turnovers: ps.turnovers,
-          minutesPlayed: ps.minutesPlayed,
-        };
+        const statsData = pickStatFields(ps);
 
         return prisma.playerMatchStats.upsert({
           where: {

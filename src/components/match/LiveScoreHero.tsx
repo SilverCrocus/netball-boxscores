@@ -1,12 +1,7 @@
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { formatGameClock } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
-
-interface QuarterData {
-  quarter: number;
-  homeScore: number;
-  awayScore: number;
-}
+import type { QuarterData } from '@/types/match';
 
 interface LiveScoreHeroProps {
   homeTeam: TeamInfo;
@@ -26,6 +21,105 @@ interface LiveScoreHeroProps {
   } | null;
   matchStatus?: { status: 'LIVE' | 'COMPLETED' } | null;
   quarters?: QuarterData[];
+}
+
+function QuarterGrid({
+  quarters,
+  quarter,
+  homeTeam,
+  awayTeam,
+  homeScore,
+  awayScore,
+}: {
+  quarters: QuarterData[];
+  quarter: number | null | undefined;
+  homeTeam: TeamInfo;
+  awayTeam: TeamInfo;
+  homeScore: number;
+  awayScore: number;
+}) {
+  const hasET = (quarter ?? 0) > 4 || quarters.some((q) => q.quarter > 4);
+  const periods = hasET ? [1, 2, 3, 4, 5] : [1, 2, 3, 4];
+  const periodLabel = (p: number) => (p <= 4 ? `Q${p}` : 'ET');
+
+  return (
+    <table className="mt-2 border-separate" style={{ borderSpacing: '1px' }}>
+      <thead>
+        <tr>
+          <th className="px-2.5 py-1 text-left text-[10px] font-bold uppercase tracking-[0.5px] text-white/40 font-label min-w-[34px]" />
+          {periods.map((q) => (
+            <th
+              key={q}
+              className={`px-3.5 py-1 text-center text-[10px] font-bold uppercase tracking-[0.5px] font-label min-w-[40px] ${
+                q === quarter
+                  ? 'bg-secondary/25 text-secondary-container'
+                  : 'text-white/40'
+              }`}
+              style={{ background: q === quarter ? 'rgba(0,110,10,0.25)' : 'rgba(0,31,63,0.8)' }}
+            >
+              {periodLabel(q)}
+            </th>
+          ))}
+          <th
+            className="px-3.5 py-1 text-center text-[10px] font-extrabold uppercase tracking-[0.5px] text-white/60 font-label min-w-[40px]"
+            style={{ background: 'rgba(0,31,63,0.8)' }}
+          >
+            T
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {[
+          { abbr: homeTeam.abbreviation, side: 'home' as const },
+          { abbr: awayTeam.abbreviation, side: 'away' as const },
+        ].map(({ abbr, side }) => (
+          <tr key={side}>
+            <td
+              className="px-2.5 py-1 text-left text-[10px] font-bold tracking-[0.5px] text-white/50 font-label"
+              style={{ background: 'rgba(0,31,63,0.8)' }}
+            >
+              {abbr}
+            </td>
+            {periods.map((q) => {
+              const qData = quarters.find((qd) => qd.quarter === q);
+              const isActive = q === quarter;
+              const value = qData
+                ? side === 'home'
+                  ? qData.homeScore
+                  : qData.awayScore
+                : null;
+
+              return (
+                <td
+                  key={q}
+                  className={`px-3.5 py-1 text-center text-xs font-label ${
+                    isActive
+                      ? 'font-bold text-secondary-container'
+                      : value !== null
+                        ? 'text-white/60'
+                        : 'text-white/20'
+                  }`}
+                  style={{
+                    background: isActive
+                      ? 'rgba(0,110,10,0.25)'
+                      : 'rgba(0,31,63,0.8)',
+                  }}
+                >
+                  {value !== null ? value : '\u2013'}
+                </td>
+              );
+            })}
+            <td
+              className="px-3.5 py-1 text-center text-xs font-extrabold text-white font-label"
+              style={{ background: 'rgba(0,31,63,0.8)' }}
+            >
+              {side === 'home' ? homeScore : awayScore}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 export function LiveScoreHero({
@@ -102,90 +196,16 @@ export function LiveScoreHero({
             </span>
           </div>
           {/* Quarter-by-quarter grid */}
-          {quarters && quarters.length > 0 && (() => {
-            const hasET = (quarter ?? 0) > 4 || quarters.some((q) => q.quarter > 4);
-            const periods = hasET ? [1, 2, 3, 4, 5] : [1, 2, 3, 4];
-            const periodLabel = (p: number) => (p <= 4 ? `Q${p}` : 'ET');
-
-            return (
-            <table className="mt-2 border-separate" style={{ borderSpacing: '1px' }}>
-              <thead>
-                <tr>
-                  <th className="px-2.5 py-1 text-left text-[10px] font-bold uppercase tracking-[0.5px] text-white/40 font-label min-w-[34px]" />
-                  {periods.map((q) => (
-                    <th
-                      key={q}
-                      className={`px-3.5 py-1 text-center text-[10px] font-bold uppercase tracking-[0.5px] font-label min-w-[40px] ${
-                        q === quarter
-                          ? 'bg-secondary/25 text-secondary-container'
-                          : 'text-white/40'
-                      }`}
-                      style={{ background: q === quarter ? 'rgba(0,110,10,0.25)' : 'rgba(0,31,63,0.8)' }}
-                    >
-                      {periodLabel(q)}
-                    </th>
-                  ))}
-                  <th
-                    className="px-3.5 py-1 text-center text-[10px] font-extrabold uppercase tracking-[0.5px] text-white/60 font-label min-w-[40px]"
-                    style={{ background: 'rgba(0,31,63,0.8)' }}
-                  >
-                    T
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { abbr: homeTeam.abbreviation, side: 'home' as const },
-                  { abbr: awayTeam.abbreviation, side: 'away' as const },
-                ].map(({ abbr, side }) => (
-                  <tr key={side}>
-                    <td
-                      className="px-2.5 py-1 text-left text-[10px] font-bold tracking-[0.5px] text-white/50 font-label"
-                      style={{ background: 'rgba(0,31,63,0.8)' }}
-                    >
-                      {abbr}
-                    </td>
-                    {periods.map((q) => {
-                      const qData = quarters.find((qd) => qd.quarter === q);
-                      const isActive = q === quarter;
-                      const value = qData
-                        ? side === 'home'
-                          ? qData.homeScore
-                          : qData.awayScore
-                        : null;
-
-                      return (
-                        <td
-                          key={q}
-                          className={`px-3.5 py-1 text-center text-xs font-label ${
-                            isActive
-                              ? 'font-bold text-secondary-container'
-                              : value !== null
-                                ? 'text-white/60'
-                                : 'text-white/20'
-                          }`}
-                          style={{
-                            background: isActive
-                              ? 'rgba(0,110,10,0.25)'
-                              : 'rgba(0,31,63,0.8)',
-                          }}
-                        >
-                          {value !== null ? value : '\u2013'}
-                        </td>
-                      );
-                    })}
-                    <td
-                      className="px-3.5 py-1 text-center text-xs font-extrabold text-white font-label"
-                      style={{ background: 'rgba(0,31,63,0.8)' }}
-                    >
-                      {side === 'home' ? homeScore : awayScore}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            );
-          })()}
+          {quarters && quarters.length > 0 && (
+            <QuarterGrid
+              quarters={quarters}
+              quarter={quarter}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              homeScore={homeScore}
+              awayScore={awayScore}
+            />
+          )}
           <p className="font-label text-xs uppercase tracking-widest text-secondary-fixed font-bold mt-4">
             Round {round} &bull; {venue}
           </p>

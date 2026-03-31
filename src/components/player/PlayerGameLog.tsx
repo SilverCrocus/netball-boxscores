@@ -4,6 +4,7 @@ import { formatShortDate } from '@/lib/format';
 import { getStatValue } from '@/lib/stat-utils';
 import type { PlayerMatchStats } from '@prisma/client';
 import type { TeamInfoWithId } from '@/types/team';
+import type { StatValues } from '@/lib/stat-utils';
 import type { PositionConfig } from './position-config';
 
 interface MatchWithTeams {
@@ -17,19 +18,8 @@ interface MatchWithTeams {
   awayTeam: TeamInfoWithId;
 }
 
-interface MatchStat {
+interface MatchStat extends StatValues {
   id: string;
-  goals: number;
-  attempts: number;
-  goalAssists: number;
-  intercepts: number;
-  deflections: number;
-  rebounds: number;
-  penalties: number;
-  feeds: number;
-  centrePassReceives: number;
-  turnovers: number;
-  minutesPlayed: number;
   match: MatchWithTeams;
 }
 

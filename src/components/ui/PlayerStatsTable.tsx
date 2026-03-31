@@ -1,31 +1,16 @@
-import type { Position } from '@prisma/client';
+import type { PlayerStatRow } from '@/types/stats';
+import { computeShootingPct } from '@/lib/stat-utils';
 
-interface PlayerStat {
-  id: string;
-  name: string;
-  position: Position;
+interface PlayerStatWithPhoto extends PlayerStatRow {
   photoUrl?: string | null;
-  goals: number;
-  attempts: number;
-  goalAssists: number;
-  intercepts: number;
-  deflections: number;
-  rebounds: number;
-  penalties: number;
-  feeds: number;
-  centrePassReceives: number;
-  turnovers: number;
-  minutesPlayed: number;
 }
 
 interface PlayerStatsTableProps {
   teamName: string;
-  players: PlayerStat[];
+  players: PlayerStatWithPhoto[];
 }
 
 export function PlayerStatsTable({ teamName, players }: PlayerStatsTableProps) {
-  const shootingPct = (goals: number, attempts: number) =>
-    attempts > 0 ? Math.round((goals / attempts) * 100) : null;
 
   return (
     <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
@@ -66,7 +51,7 @@ export function PlayerStatsTable({ teamName, players }: PlayerStatsTableProps) {
           </thead>
           <tbody className="divide-y divide-outline-variant/10">
             {players.map((player) => {
-              const pct = shootingPct(player.goals, player.attempts);
+              const pct = player.attempts > 0 ? Math.round(computeShootingPct(player.goals, player.attempts)) : null;
               return (
                 <tr key={player.id} className="hover:bg-surface-container/50 transition-colors">
                   <td className="px-6 py-4">

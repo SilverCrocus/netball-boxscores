@@ -1,5 +1,5 @@
 import type { PlayerMatchStats } from '@prisma/client';
-import { getStatValue } from '@/lib/stat-utils';
+import { getStatValue, computeShootingPct } from '@/lib/stat-utils';
 import type { PositionConfig } from './position-config';
 
 interface PlayerChartsProps {
@@ -58,7 +58,7 @@ function PrimaryBarChart({
 function ShooterDonutChart({ matchStats }: { matchStats: PlayerMatchStats[] }) {
   const totalGoals = matchStats.reduce((sum, s) => sum + s.goals, 0);
   const totalAttempts = matchStats.reduce((sum, s) => sum + s.attempts, 0);
-  const accuracy = totalAttempts > 0 ? (totalGoals / totalAttempts) * 100 : 0;
+  const accuracy = computeShootingPct(totalGoals, totalAttempts);
   const missedPct = 100 - accuracy;
 
   return (
