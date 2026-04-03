@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db';
 import type { MatchStatus } from '@prisma/client';
+import type { CDFixtureMatch } from '@/types/champion-data';
+import { pickStatFields, type StatValues } from '@/lib/stat-utils';
 
 interface ChampionDataMatchState {
   matchId: number; // championDataMatchId
@@ -8,20 +10,7 @@ interface ChampionDataMatchState {
   status: string;
   currentQuarter: number;
   currentTime: string;
-  playerStats?: Array<{
-    championDataPlayerId: number;
-    goals: number;
-    attempts: number;
-    goalAssists: number;
-    intercepts: number;
-    deflections: number;
-    rebounds: number;
-    penalties: number;
-    feeds: number;
-    centrePassReceives: number;
-    turnovers: number;
-    minutesPlayed: number;
-  }>;
+  playerStats?: Array<StatValues & { championDataPlayerId: number }>;
   quarterScores?: Array<{
     quarter: number;
     homeScore: number;
@@ -154,19 +143,7 @@ export async function applyChanges(
       .filter((ps) => playerMap.has(ps.championDataPlayerId))
       .map((ps) => {
         const player = playerMap.get(ps.championDataPlayerId)!;
-        const statsData = {
-          goals: ps.goals,
-          attempts: ps.attempts,
-          goalAssists: ps.goalAssists,
-          intercepts: ps.intercepts,
-          deflections: ps.deflections,
-          rebounds: ps.rebounds,
-          penalties: ps.penalties,
-          feeds: ps.feeds,
-          centrePassReceives: ps.centrePassReceives,
-          turnovers: ps.turnovers,
-          minutesPlayed: ps.minutesPlayed,
-        };
+        const statsData = pickStatFields(ps);
 
         return prisma.playerMatchStats.upsert({
           where: {
@@ -213,4 +190,46 @@ export async function applyChanges(
       });
     }
   }
+}
+
+export async function reconcileCompletedMatches(
+  fixtureMatches: CDFixtureMatch[]
+): Promise<Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }>> {
+  const liveMatches = await prisma.match.findMany({
+    where: { status: 'LIVE' },
+    select: { id: true, championDataMatchId: true },
+  });
+
+  if (liveMatches.length === 0) return [];
+
+  const fixtureMap = new Map(
+    fixtureMatches.map((fm) => [fm.matchId, fm])
+  );
+
+  const completed: Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }> = [];
+
+  for (const liveMatch of liveMatches) {
+    if (!liveMatch.championDataMatchId) continue;
+
+    const fixture = fixtureMap.get(liveMatch.championDataMatchId);
+    if (!fixture || fixture.matchStatus.toLowerCase() !== 'complete') continue;
+
+    await prisma.match.update({
+      where: { id: liveMatch.id },
+      data: {
+        status: 'COMPLETED',
+        homeScore: fixture.homeSquadScore,
+        awayScore: fixture.awaySquadScore,
+      },
+    });
+
+    completed.push({
+      matchId: liveMatch.id,
+      homeScore: fixture.homeSquadScore,
+      awayScore: fixture.awaySquadScore,
+      finalQuarter: fixture.periodCompleted || fixture.period || 4,
+    });
+  }
+
+  return completed;
 }

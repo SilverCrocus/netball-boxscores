@@ -7,6 +7,7 @@ import { QuarterScoreBar } from '@/components/ui/QuarterScoreBar';
 import { MatchMomentum } from '@/components/ui/MatchMomentum';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd, SITE_URL } from '@/lib/seo';
+import { pickStatFields } from '@/lib/stat-utils';
 
 const getMatch = cache((matchId: string) =>
   prisma.match.findUnique({
@@ -55,17 +56,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
       name: ps.player.name,
       position: ps.player.position,
       photoUrl: ps.player.photoUrl,
-      goals: ps.goals,
-      attempts: ps.attempts,
-      goalAssists: ps.goalAssists,
-      intercepts: ps.intercepts,
-      deflections: ps.deflections,
-      rebounds: ps.rebounds,
-      penalties: ps.penalties,
-      feeds: ps.feeds,
-      centrePassReceives: ps.centrePassReceives,
-      turnovers: ps.turnovers,
-      minutesPlayed: ps.minutesPlayed,
+      ...pickStatFields(ps),
     };
   }
 

@@ -10,6 +10,7 @@ import type {
   SimScoreFlowEntry,
 } from './types';
 import { STATE_ORDER, isActiveState, isBreakState, stateToPeriod } from './types';
+import { emptyStats } from '@/lib/stat-utils';
 
 // ───── State management ─────
 
@@ -314,17 +315,7 @@ export async function setupSimMatches(
         displayName: p.name,
         position: p.position,
         squadId: p.squadId,
-        goals: 0,
-        attempts: 0,
-        goalAssists: 0,
-        intercepts: 0,
-        deflections: 0,
-        rebounds: 0,
-        penalties: 0,
-        feeds: 0,
-        centrePassReceives: 0,
-        turnovers: 0,
-        minutesPlayed: 0,
+        ...emptyStats(),
       }));
 
     matches.push({

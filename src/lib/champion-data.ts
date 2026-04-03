@@ -6,7 +6,12 @@ import type {
   CDScoreFlowEntry,
   CDPeriodScore,
   CDTeamStats,
+  CDRawMatchStatsResponse,
+  CDRawTeamStats,
+  CDRawPlayerStats,
+  CDRawScoreFlowEntry,
 } from "@/types/champion-data";
+import { pickStatFields, type StatValues } from "@/lib/stat-utils";
 
 type MatchStatus = "SCHEDULED" | "LIVE" | "COMPLETED";
 
@@ -39,41 +44,30 @@ export async function fetchFixture(compId: number): Promise<CDFixtureMatch[]> {
 }
 
 /**
- * Fetch detailed match stats.
- *
- * Real Champion Data wraps everything in `{ matchStats: { ... } }` with
- * different field names than our normalised CDMatchStatsResponse. The sim
- * data-generator already produces the normalised shape. This function
- * detects which format we received and transforms the raw CD response.
+ * Transform a raw Champion Data team stats entry to the normalised shape.
+ * CD uses `goalAttempts` and `generalPlayTurnovers` instead of `attempts`/`turnovers`.
  */
-export async function fetchMatchStats(
-  compId: number,
-  matchId: number
-): Promise<CDMatchStatsResponse> {
-  const path = SIM_MODE ? `/${matchId}.json` : `/${compId}/${matchId}.json`;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = await fetchFromChampionData<any>(path);
+function mapRawTeamStats(t: CDRawTeamStats | undefined): CDTeamStats {
+  return {
+    squadId: t?.squadId ?? 0,
+    goals: t?.goals ?? 0,
+    attempts: t?.goalAttempts ?? 0,
+    goalAssists: t?.goalAssists ?? 0,
+    intercepts: t?.intercepts ?? 0,
+    deflections: t?.deflections ?? 0,
+    rebounds: t?.rebounds ?? 0,
+    penalties: t?.penalties ?? 0,
+    feeds: t?.feeds ?? 0,
+    centrePassReceives: t?.centrePassReceives ?? 0,
+    turnovers: t?.generalPlayTurnovers ?? 0,
+  };
+}
 
-  // Sim format — already normalised
-  if (!raw.matchStats) return raw as CDMatchStatsResponse;
-
-  // Real Champion Data format — transform
-  const ms = raw.matchStats;
-  const info = ms.matchInfo;
-  const homeSquadId: number = info.homeSquadId;
-  const awaySquadId: number = info.awaySquadId;
-
-  // Scores live in teamStats.team[], keyed by squadId — use `points` (includes super shots)
-  const teams: Array<{ squadId: number; points: number; goals: number; [k: string]: unknown }> =
-    ms.teamStats?.team ?? [];
-  const homeTeamStats = teams.find((t) => t.squadId === homeSquadId);
-  const awayTeamStats = teams.find((t) => t.squadId === awaySquadId);
-
-  // Player stats: flat array → split by squad, rename fields
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allPlayers: any[] = ms.playerStats?.player ?? [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapPlayer = (p: any): CDPlayerStats => ({
+/**
+ * Transform a raw Champion Data player stats entry to the normalised shape.
+ */
+function mapRawPlayer(p: CDRawPlayerStats): CDPlayerStats {
+  return {
     playerId: p.playerId,
     displayName: p.displayName ?? '',
     position: p.currentPositionCode ?? p.startingPositionCode ?? '',
@@ -89,17 +83,22 @@ export async function fetchMatchStats(
     centrePassReceives: p.centrePassReceives ?? 0,
     turnovers: p.generalPlayTurnovers ?? 0,
     minutesPlayed: p.minutesPlayed ?? 0,
-  });
+  };
+}
 
-  // Score flow: unwrap {score: [...]}, filter to actual goals, compute running totals
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawScores: any[] = ms.scoreFlow?.score ?? [];
-  rawScores.sort((a: { period: number; periodSeconds: number }, b: { period: number; periodSeconds: number }) =>
-    a.period - b.period || a.periodSeconds - b.periodSeconds
+/**
+ * Build score flow with running totals from raw score entries.
+ */
+function buildScoreFlow(
+  rawScores: CDRawScoreFlowEntry[],
+  homeSquadId: number
+): CDScoreFlowEntry[] {
+  const sorted = [...rawScores].sort(
+    (a, b) => a.period - b.period || a.periodSeconds - b.periodSeconds
   );
   let runHome = 0;
   let runAway = 0;
-  const scoreFlow: CDScoreFlowEntry[] = rawScores
+  return sorted
     .filter((s) => s.scorepoints > 0)
     .map((s) => {
       if (s.squadId === homeSquadId) runHome += s.scorepoints;
@@ -113,8 +112,15 @@ export async function fetchMatchStats(
         awayScore: runAway,
       };
     });
+}
 
-  // Period scores: aggregate scorepoints per period per team
+/**
+ * Aggregate scorepoints per period per team into period scores.
+ */
+function buildPeriodScores(
+  rawScores: CDRawScoreFlowEntry[],
+  homeSquadId: number
+): CDPeriodScore[] {
   const periodMap = new Map<number, { home: number; away: number }>();
   for (const s of rawScores.filter((s) => s.scorepoints > 0)) {
     const entry = periodMap.get(s.period) ?? { home: 0, away: 0 };
@@ -122,24 +128,32 @@ export async function fetchMatchStats(
     else entry.away += s.scorepoints;
     periodMap.set(s.period, entry);
   }
-  const periodScores: CDPeriodScore[] = Array.from(periodMap.entries()).map(
-    ([period, scores]) => ({ period, homeScore: scores.home, awayScore: scores.away })
-  );
+  return Array.from(periodMap.entries()).map(([period, scores]) => ({
+    period,
+    homeScore: scores.home,
+    awayScore: scores.away,
+  }));
+}
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapTeamStats = (t: any): CDTeamStats => ({
-    squadId: t?.squadId ?? 0,
-    goals: t?.goals ?? 0,
-    attempts: t?.goalAttempts ?? 0,
-    goalAssists: t?.goalAssists ?? 0,
-    intercepts: t?.intercepts ?? 0,
-    deflections: t?.deflections ?? 0,
-    rebounds: t?.rebounds ?? 0,
-    penalties: t?.penalties ?? 0,
-    feeds: t?.feeds ?? 0,
-    centrePassReceives: t?.centrePassReceives ?? 0,
-    turnovers: t?.generalPlayTurnovers ?? 0,
-  });
+/**
+ * Transform the raw Champion Data match stats response (with its
+ * `matchStats` wrapper and different field names) into our normalised
+ * CDMatchStatsResponse shape.
+ */
+export function transformRawCDMatchStats(
+  raw: CDRawMatchStatsResponse,
+  matchId: number
+): CDMatchStatsResponse {
+  const ms = raw.matchStats;
+  const info = ms.matchInfo;
+  const { homeSquadId, awaySquadId } = info;
+
+  const teams = ms.teamStats?.team ?? [];
+  const homeTeamStats = teams.find((t) => t.squadId === homeSquadId);
+  const awayTeamStats = teams.find((t) => t.squadId === awaySquadId);
+
+  const allPlayers = ms.playerStats?.player ?? [];
+  const rawScores = ms.scoreFlow?.score ?? [];
 
   return {
     matchInfo: {
@@ -156,17 +170,39 @@ export async function fetchMatchStats(
       period: info.period ?? 0,
       periodSeconds: info.periodSeconds ?? 0,
     },
-    scoreFlow,
+    scoreFlow: buildScoreFlow(rawScores, homeSquadId),
     teamStats: {
-      home: mapTeamStats(homeTeamStats),
-      away: mapTeamStats(awayTeamStats),
+      home: mapRawTeamStats(homeTeamStats),
+      away: mapRawTeamStats(awayTeamStats),
     },
     playerStats: {
-      home: allPlayers.filter((p) => p.squadId === homeSquadId).map(mapPlayer),
-      away: allPlayers.filter((p) => p.squadId === awaySquadId).map(mapPlayer),
+      home: allPlayers.filter((p) => p.squadId === homeSquadId).map(mapRawPlayer),
+      away: allPlayers.filter((p) => p.squadId === awaySquadId).map(mapRawPlayer),
     },
-    periodScores,
+    periodScores: buildPeriodScores(rawScores, homeSquadId),
   };
+}
+
+/**
+ * Fetch detailed match stats.
+ *
+ * Real Champion Data wraps everything in `{ matchStats: { ... } }` with
+ * different field names than our normalised CDMatchStatsResponse. The sim
+ * data-generator already produces the normalised shape. This function
+ * detects which format we received and transforms the raw CD response.
+ */
+export async function fetchMatchStats(
+  compId: number,
+  matchId: number
+): Promise<CDMatchStatsResponse> {
+  const path = SIM_MODE ? `/${matchId}.json` : `/${compId}/${matchId}.json`;
+  const raw = await fetchFromChampionData<CDMatchStatsResponse | CDRawMatchStatsResponse>(path, 30);
+
+  // Sim format — already normalised
+  if (!('matchStats' in raw)) return raw;
+
+  // Real Champion Data format — transform
+  return transformRawCDMatchStats(raw, matchId);
 }
 
 export function mapMatchStatus(cdStatus: string): MatchStatus {
@@ -221,21 +257,10 @@ export function transformFixtureMatch(
  * Note: playerId is returned as championDataPlayerId and must be resolved
  * to a Prisma Player ID by the caller.
  */
-interface TransformedPlayerStats {
+interface TransformedPlayerStats extends StatValues {
   championDataPlayerId: number;
   name: string;
   position: string;
-  goals: number;
-  attempts: number;
-  goalAssists: number;
-  intercepts: number;
-  deflections: number;
-  rebounds: number;
-  penalties: number;
-  feeds: number;
-  centrePassReceives: number;
-  turnovers: number;
-  minutesPlayed: number;
 }
 
 export function transformPlayerStats(cdPlayer: CDPlayerStats): TransformedPlayerStats {
@@ -243,16 +268,6 @@ export function transformPlayerStats(cdPlayer: CDPlayerStats): TransformedPlayer
     championDataPlayerId: cdPlayer.playerId,
     name: cdPlayer.displayName,
     position: cdPlayer.position,
-    goals: cdPlayer.goals,
-    attempts: cdPlayer.attempts,
-    goalAssists: cdPlayer.goalAssists,
-    intercepts: cdPlayer.intercepts,
-    deflections: cdPlayer.deflections,
-    rebounds: cdPlayer.rebounds,
-    penalties: cdPlayer.penalties,
-    feeds: cdPlayer.feeds,
-    centrePassReceives: cdPlayer.centrePassReceives,
-    turnovers: cdPlayer.turnovers,
-    minutesPlayed: cdPlayer.minutesPlayed,
+    ...pickStatFields(cdPlayer),
   };
 }

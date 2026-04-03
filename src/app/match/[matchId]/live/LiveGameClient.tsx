@@ -10,34 +10,13 @@ import {
   type FeedEntry,
 } from '@/components/match/LivePlayByPlay';
 import type { StatsUpdatePayload } from '@/types/socket';
+import { pickStatFields } from '@/lib/stat-utils';
+import type { PlayerStatRow } from '@/types/stats';
+import type { QuarterData } from '@/types/match';
+import type { TeamInfoWithId } from '@/types/team';
 
-interface PlayerData {
-  id: string;
-  name: string;
-  position: string;
-  goals: number;
-  attempts: number;
-  goalAssists: number;
-  intercepts: number;
-  deflections: number;
-  rebounds: number;
-  feeds: number;
-  turnovers: number;
-  minutesPlayed: number;
-}
-
-interface TeamData {
-  id: string;
-  name: string;
-  abbreviation: string;
-  logoUrl: string | null;
-  players: PlayerData[];
-}
-
-interface QuarterData {
-  quarter: number;
-  homeScore: number;
-  awayScore: number;
+interface TeamData extends TeamInfoWithId {
+  players: PlayerStatRow[];
 }
 
 interface MatchData {
@@ -61,9 +40,9 @@ interface LiveGameClientProps {
 // ─── Helpers ───
 
 function mergePlayerStats(
-  players: PlayerData[],
+  players: PlayerStatRow[],
   socketStats: StatsUpdatePayload | null,
-): PlayerData[] {
+): PlayerStatRow[] {
   if (!socketStats) return players;
   return players.map((player) => {
     const update = socketStats.playerStats.find(
@@ -72,15 +51,7 @@ function mergePlayerStats(
     if (!update) return player;
     return {
       ...player,
-      goals: update.goals,
-      attempts: update.attempts,
-      goalAssists: update.goalAssists,
-      intercepts: update.intercepts,
-      deflections: update.deflections,
-      rebounds: update.rebounds,
-      feeds: update.feeds,
-      turnovers: update.turnovers,
-      minutesPlayed: update.minutesPlayed,
+      ...pickStatFields(update),
     };
   });
 }
@@ -112,7 +83,7 @@ function buildLiveQuarters(
   ];
 }
 
-const sumStat = (players: PlayerData[], key: keyof PlayerData) =>
+const sumStat = (players: PlayerStatRow[], key: keyof PlayerStatRow) =>
   players.reduce((sum, p) => sum + (Number(p[key]) || 0), 0);
 
 // ─── Component ───
@@ -127,7 +98,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   const awayScore = score?.awayScore ?? match.awayScore;
   const quarter = score?.currentQuarter ?? match.currentQuarter;
   const time = score?.currentTime ?? match.currentTime;
-  const isLive = matchStatus?.status === 'LIVE' || match.status === 'LIVE';
+  const isLive = matchStatus?.status === 'COMPLETED' ? false : (matchStatus?.status === 'LIVE' || match.status === 'LIVE');
 
   // ── Merge socket stats into player data ──
   const homePlayers = mergePlayerStats(match.homeTeam.players, playerStats);

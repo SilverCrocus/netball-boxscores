@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import TeamPage from '../page';
 
 vi.mock('@/lib/db', () => ({
+  excludeSimData: {},
   prisma: {
     team: {
       findUnique: vi.fn().mockResolvedValue({

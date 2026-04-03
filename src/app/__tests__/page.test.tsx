@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import HomePage from '../page';
 
 vi.mock('@/lib/db', () => ({
+  excludeSimData: {},
   prisma: {
     match: {
       findMany: vi.fn().mockResolvedValue([

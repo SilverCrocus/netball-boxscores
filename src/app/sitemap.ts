@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { prisma } from '@/lib/db';
+import { prisma, excludeSimData } from '@/lib/db';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -9,7 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [teams, matches, players] = await Promise.all([
     prisma.team.findMany({ select: { slug: true } }),
     prisma.match.findMany({
-      where: process.env.SIMULATION_MODE === 'true' ? {} : { round: { not: 99 } },
+      where: excludeSimData,
       select: { id: true, scheduledAt: true },
     }),
     prisma.player.findMany({ select: { id: true } }),

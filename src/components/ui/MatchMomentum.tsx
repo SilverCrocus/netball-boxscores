@@ -39,19 +39,21 @@ export function MatchMomentum({ scoreFlow, homeTeam, awayTeam }: MatchMomentumPr
         <polyline
           points={homeLine}
           fill="none"
-          stroke="#001f3f"
+          stroke="currentColor"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
+          className="text-primary-container"
         />
         <polyline
           points={awayLine}
           fill="none"
-          stroke="#006e0a"
+          stroke="currentColor"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeDasharray="6 3"
+          className="text-secondary"
         />
       </svg>
       <div className="flex gap-6 mt-4">
