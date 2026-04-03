@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import { TeamBadge } from '@/components/ui/TeamBadge';
-import { formatMatchDate, formatMatchTime } from '@/lib/format';
+import { formatMatchDateTime } from '@/lib/format';
 import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import Link from 'next/link';
 
@@ -36,7 +36,21 @@ export default async function HomePage() {
 
   const liveMatches = matches.filter((m) => m.status === 'LIVE');
   const upcomingMatches = matches.filter((m) => m.status === 'SCHEDULED');
-  const completedMatches = matches.filter((m) => m.status === 'COMPLETED').reverse();
+  // Sort completed matches by round desc, then scheduledAt asc within each round
+  const sortedCompleted = matches
+    .filter((m) => m.status === 'COMPLETED')
+    .sort((a, b) => {
+      if (a.round !== b.round) return b.round - a.round;
+      return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    });
+
+  // Group by round
+  const resultsByRound = new Map<number, typeof sortedCompleted>();
+  for (const match of sortedCompleted) {
+    const group = resultsByRound.get(match.round) ?? [];
+    group.push(match);
+    resultsByRound.set(match.round, group);
+  }
   const featured = upcomingMatches[0];
 
   return (
@@ -87,21 +101,18 @@ export default async function HomePage() {
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
                   <span className="text-lime-400 font-black font-label text-xs uppercase tracking-widest">
-                    Match of the Day
+                    Next Match
                   </span>
                   <h3 className="text-3xl font-black font-headline tracking-tighter italic uppercase">
                     {featured.homeTeam.name} vs {featured.awayTeam.name}
                   </h3>
                 </div>
                 <div className="text-right">
-                  <span className="block text-2xl font-bold font-headline">
-                    {formatMatchTime(featured.scheduledAt)}
-                  </span>
-                  <span className="text-[10px] uppercase font-label text-slate-300 block">
-                    {formatMatchDate(featured.scheduledAt)}
+                  <span className="block text-lg font-bold font-headline">
+                    {formatMatchDateTime(featured.scheduledAt)}
                   </span>
                   {featured.venue && (
-                    <span className="text-[10px] uppercase font-label text-slate-400">
+                    <span className="text-[10px] uppercase font-label text-slate-400 block mt-1">
                       {featured.venue}
                     </span>
                   )}
@@ -138,18 +149,19 @@ export default async function HomePage() {
                 className="bg-surface-container rounded-xl p-4 flex items-center justify-between group hover:bg-surface-container-high transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <TeamBadge team={match.homeTeam} size={32} variant="home" />
+                  <TeamBadge team={match.homeTeam} size={44} variant="home" />
                   <div>
-                    <div className="text-[10px] font-bold text-on-surface-variant uppercase font-label">
-                      {formatMatchDate(match.scheduledAt)}
-                      {' \u2022 '}
-                      {formatMatchTime(match.scheduledAt)}
-                    </div>
                     <div className="text-sm font-bold font-headline text-primary">
-                      {match.homeTeam.abbreviation} v {match.awayTeam.abbreviation}
+                      {match.homeTeam.name} v {match.awayTeam.name}
+                    </div>
+                    <div className="text-[10px] font-bold text-on-surface-variant uppercase font-label">
+                      {formatMatchDateTime(match.scheduledAt)}
+                    </div>
+                    <div className="text-[10px] text-on-surface-variant font-label">
+                      {match.venue}
                     </div>
                   </div>
-                  <TeamBadge team={match.awayTeam} size={32} variant="away" />
+                  <TeamBadge team={match.awayTeam} size={44} variant="away" />
                 </div>
                 <span className="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">
                   calendar_today
@@ -160,15 +172,26 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Completed */}
-      {completedMatches.length > 0 && (
+      {/* Results grouped by round */}
+      {resultsByRound.size > 0 && (
         <section className="mb-16">
           <h2 className="text-xl font-bold font-headline text-primary mb-6">RESULTS</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {completedMatches.map((match) => (
-              <ScoreCard key={match.id} match={match} />
-            ))}
-          </div>
+          {Array.from(resultsByRound.entries()).map(([round, roundMatches]) => (
+            <div key={round} className="mb-8">
+              <h3 className="text-sm font-semibold text-on-surface-variant mb-3 pb-2 border-b border-outline-variant">
+                Round {round}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {roundMatches.map((match) => (
+                  <ScoreCard
+                    key={match.id}
+                    match={{ ...match, round: undefined }}
+                    showFinalBadge={false}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
       )}
     </div>

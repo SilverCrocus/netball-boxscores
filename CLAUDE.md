@@ -65,13 +65,13 @@ When building components, reference these designs as the visual spec.
 ## Shared Components
 
 - **`TeamBadge`** (`src/components/ui/TeamBadge.tsx`): Renders team logo with letter fallback. Use this instead of inline letter placeholders. Props: `team` (name/abbreviation/logoUrl), `size` (px), `variant` ('home'|'away').
-- **`ScoreCard`** (`src/components/ui/ScoreCard.tsx`): Match result card with team badges, scores, date, round, and venue.
+- **`ScoreCard`** (`src/components/ui/ScoreCard.tsx`): Match result card with team badges, scores, date, round, and venue. Props: `match` (ScoreCardMatch), `showFinalBadge` (default `true` — when `false`, replaces "Final" pill with `formatMatchDateTime`). Uses flex-stretch layout (`flex flex-col h-full`) for consistent card heights in grids.
 
 ## Shared Utilities
 
 - **`src/lib/navigation.ts`**: `NAV_ITEMS` array — single source of truth for sidebar and bottom nav links. Each item has `href`, `label`, `icon`, and optional `sidebarLabel`. Also exports `isActive(pathname, href)` for nav highlight logic.
 - **`src/lib/api-auth.ts`**: `requireAuth()` (returns session or 401 response) and `badRequest(msg)` helpers for API routes.
-- **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatShortDate(date)`, `computeAge(dob)` — shared date formatting and age computation. All date/time functions pinned to `Australia/Sydney` timezone (not system/UTC).
+- **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatMatchDateTime(date)`, `formatShortDate(date)`, `computeAge(dob)` — shared date formatting and age computation. `formatMatchDateTime` combines date + time on one line (e.g., `"Sun, 5 Apr, 3:00 pm"`). All date/time functions pinned to `Australia/Sydney` timezone (not system/UTC).
 - **`src/lib/stat-utils.ts`**: `getStatValue(stat, field)` — shared stat accessor with computed `shootingPct` field. Used by PlayerSeasonStats, PlayerCharts, PlayerGameLog, and the player page.
 - **`src/lib/user-resource-route.ts`**: `createUserResourceHandlers(config)` — factory for user CRUD API routes (favorites, reminders, teams). Each route file is ~7 lines.
 - **`src/types/team.ts`**: `TeamInfo` and `TeamInfoWithId` — shared team type used by ScoreCard, LiveScoreHero, PlayerGameLog, settings page.
