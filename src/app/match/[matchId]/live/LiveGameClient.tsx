@@ -191,7 +191,9 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
 
   // ── Build enriched feed entries ──
   const feedEntries: FeedEntry[] = useMemo(() => {
-    // Split scorer log by team for ordered matching
+    // Split scorer log by team for ordered matching against NEW entries only.
+    // scorerLog only contains goals detected via socket stats diffs, so they
+    // correspond to score flow entries that arrived after the initial DB load.
     const homeScorers = scorerLog.filter(
       (s) => s.teamId === match.homeTeam.id,
     );
@@ -199,22 +201,26 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       (s) => s.teamId === match.awayTeam.id,
     );
 
+    const initialCount = (match.initialScoreFlow ?? []).length;
     let homeIdx = 0;
     let awayIdx = 0;
 
-    return allScoreFlow.map((flow) => {
+    return allScoreFlow.map((flow, idx) => {
       const isHome = flow.scoringTeamId === match.homeTeam.id;
       let scorerName: string | undefined;
       let scorerPlayerId: string | undefined;
 
-      if (isHome && homeIdx < homeScorers.length) {
-        scorerName = homeScorers[homeIdx].name;
-        scorerPlayerId = homeScorers[homeIdx].playerId;
-        homeIdx++;
-      } else if (!isHome && awayIdx < awayScorers.length) {
-        scorerName = awayScorers[awayIdx].name;
-        scorerPlayerId = awayScorers[awayIdx].playerId;
-        awayIdx++;
+      // Only match scorers to entries that arrived via socket (not historical)
+      if (idx >= initialCount) {
+        if (isHome && homeIdx < homeScorers.length) {
+          scorerName = homeScorers[homeIdx].name;
+          scorerPlayerId = homeScorers[homeIdx].playerId;
+          homeIdx++;
+        } else if (!isHome && awayIdx < awayScorers.length) {
+          scorerName = awayScorers[awayIdx].name;
+          scorerPlayerId = awayScorers[awayIdx].playerId;
+          awayIdx++;
+        }
       }
 
       const teamAbbr = isHome
@@ -232,6 +238,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         scorerPlayerId,
         teamAbbreviation: teamAbbr,
         teamName,
+        teamLogoUrl: isHome ? match.homeTeam.logoUrl : match.awayTeam.logoUrl,
         isHomeTeam: isHome,
         homeScore: flow.homeScore,
         awayScore: flow.awayScore,
