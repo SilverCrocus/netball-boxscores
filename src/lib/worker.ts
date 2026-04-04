@@ -7,6 +7,7 @@ import {
   broadcastMatchStatus,
   broadcastStatsUpdate,
   broadcastScoreFlowAdd,
+  broadcastStatEvent,
 } from '@/lib/socket-server';
 import { pickStatFields } from '@/lib/stat-utils';
 
@@ -200,8 +201,143 @@ async function broadcastChanges(
         scoringTeamId: sf.scoringTeamId,
         homeScore: sf.homeScore,
         awayScore: sf.awayScore,
+        scorePoints: sf.scorePoints,
         scorerPlayerId: sf.scorerPlayer?.id,
         scorerName: sf.scorerPlayer?.name,
+      });
+    }
+  }
+}
+
+/**
+ * Detect LIVE matches that appear to have ended but CD never marked "complete".
+ * If Q4+ and the elapsed time exceeds the quarter length (clock at 0), and the
+ * match has been in this state for at least 2 poll cycles, mark as completed.
+ */
+async function detectStaleCompletedMatches(): Promise<
+  Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }>
+> {
+  const liveMatches = await prisma.match.findMany({
+    where: { status: 'LIVE' },
+  });
+
+  const completed: Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }> = [];
+
+  for (const match of liveMatches) {
+    const quarter = match.currentQuarter ?? 0;
+    if (quarter < 4) continue;
+
+    const elapsed = Number(match.currentTime);
+    if (isNaN(elapsed)) continue;
+
+    const quarterLength = quarter > 4 ? 300 : 900; // ET = 5min, regular = 15min
+    if (elapsed < quarterLength) continue;
+
+    // Clock has reached or passed the end of Q4+ — check if enough real time
+    // has passed since the match started. A netball match is ~75 min including
+    // stoppages. If 90+ min have passed since scheduledAt, the match is over.
+    const matchAge = Date.now() - match.scheduledAt.getTime();
+    const MIN_MATCH_DURATION = 90 * 60 * 1000; // 90 minutes
+    if (matchAge < MIN_MATCH_DURATION) continue;
+
+    console.log(`[Worker] Stale LIVE match detected: ${match.id} (Q${quarter}, ${elapsed}s elapsed, match age: ${Math.round(matchAge / 60000)}min)`);
+
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { status: 'COMPLETED' },
+    });
+
+    completed.push({
+      matchId: match.id,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      finalQuarter: quarter,
+    });
+  }
+
+  return completed;
+}
+
+/**
+ * Broadcast just player stats (including positions) without score/status/flow.
+ * Used when positions change but no scoring activity occurred.
+ */
+async function broadcastPlayerStats(
+  matchId: string,
+  matchDetail: CDMatchStatsResponse,
+): Promise<void> {
+  if (!matchDetail.playerStats) return;
+
+  const allPlayerStats = [
+    ...(matchDetail.playerStats.home ?? []),
+    ...(matchDetail.playerStats.away ?? []),
+  ];
+
+  const players = await prisma.player.findMany({
+    where: {
+      championDataPlayerId: { in: allPlayerStats.map((ps) => ps.playerId) },
+    },
+    select: { id: true, championDataPlayerId: true },
+  });
+  const playerIdMap = new Map(players.map((p) => [p.championDataPlayerId, p.id]));
+
+  const statsPayload = allPlayerStats
+    .filter((ps) => playerIdMap.has(ps.playerId))
+    .map((ps) => ({
+      playerId: playerIdMap.get(ps.playerId)!,
+      currentPosition: ps.position ?? '',
+      ...pickStatFields(ps),
+    }));
+
+  if (statsPayload.length > 0) {
+    broadcastStatsUpdate(matchId, { matchId, playerStats: statsPayload });
+  }
+}
+
+async function broadcastInterceptEvents(
+  matchId: string,
+  matchDetail: CDMatchStatsResponse,
+  dbMatch: DbMatchWithTeams,
+  oldInterceptMap: Map<string, number>,
+  quarter: number,
+  time: string,
+): Promise<void> {
+  const allPlayerStats = [
+    ...(matchDetail.playerStats.home ?? []),
+    ...(matchDetail.playerStats.away ?? []),
+  ];
+
+  const players = await prisma.player.findMany({
+    where: {
+      championDataPlayerId: { in: allPlayerStats.map((ps) => ps.playerId) },
+    },
+    select: { id: true, name: true, championDataPlayerId: true, teamId: true },
+  });
+  const playerMap = new Map(players.map((p) => [p.championDataPlayerId, p]));
+
+  for (const ps of allPlayerStats) {
+    const player = playerMap.get(ps.playerId);
+    if (!player) continue;
+    const oldIntercepts = oldInterceptMap.get(player.id) ?? 0;
+    const newIntercepts = (ps.intercepts ?? 0) - oldIntercepts;
+    if (newIntercepts <= 0) continue;
+
+    const isHome = player.teamId === dbMatch.homeTeamId;
+    const team = isHome ? dbMatch.homeTeam : dbMatch.awayTeam;
+
+    for (let i = 0; i < newIntercepts; i++) {
+      broadcastStatEvent(matchId, {
+        matchId,
+        type: 'intercept',
+        playerId: player.id,
+        playerName: player.name,
+        teamId: team.id,
+        teamName: team.name,
+        teamAbbreviation: team.abbreviation,
+        teamLogoUrl: team.logoUrl,
+        isHomeTeam: isHome,
+        quarter,
+        time,
       });
     }
   }
@@ -232,10 +368,55 @@ async function pollChampionData(): Promise<void> {
       const changes = await detectChanges(incoming);
       const hasChanges = changes.scoreChanged || changes.statusChanged || changes.timeChanged;
 
+      // Snapshot old intercept counts before applying changes (for intercept feed events)
+      let oldInterceptMap: Map<string, number> | undefined;
+      if (changes.matchId && matchDetail.playerStats) {
+        const oldStats = await prisma.playerMatchStats.findMany({
+          where: { matchId: changes.matchId },
+          select: { playerId: true, intercepts: true },
+        });
+        oldInterceptMap = new Map(oldStats.map((s) => [s.playerId, s.intercepts]));
+      }
+
       if (changes.matchId && hasChanges) {
         await applyChanges(changes, incoming);
         await broadcastChanges(changes, matchDetail, dbMatch);
+      } else if (changes.matchId && matchDetail.playerStats) {
+        // Even without score/status/time changes, broadcast stats so position
+        // swaps (substitutions) reach the client immediately
+        await broadcastPlayerStats(changes.matchId, matchDetail);
       }
+
+      // Broadcast intercept events for any new intercepts
+      if (changes.matchId && oldInterceptMap && matchDetail.playerStats && dbMatch) {
+        await broadcastInterceptEvents(
+          changes.matchId,
+          matchDetail,
+          dbMatch,
+          oldInterceptMap,
+          changes.currentQuarter,
+          changes.currentTime,
+        );
+      }
+    }
+
+    // Check for stale LIVE matches: if CD stopped sending updates but never
+    // marked the match as "complete", detect based on Q4+ and clock at/past end
+    const staleCompleted = await detectStaleCompletedMatches();
+    for (const stale of staleCompleted) {
+      broadcastMatchStatus(stale.matchId, {
+        matchId: stale.matchId,
+        status: 'COMPLETED',
+        quarter: stale.finalQuarter,
+        time: '0',
+      });
+      broadcastScoreUpdate(stale.matchId, {
+        matchId: stale.matchId,
+        homeScore: stale.homeScore,
+        awayScore: stale.awayScore,
+        currentQuarter: stale.finalQuarter,
+        currentTime: '0',
+      });
     }
 
     // Reconcile matches that Champion Data marked complete but DB still has as LIVE
@@ -256,8 +437,9 @@ async function pollChampionData(): Promise<void> {
       });
     }
 
-    if (completedMatches.length > 0) {
-      console.log(`[Worker] ${completedMatches.length} match(es) completed — recalculating standings`);
+    if (completedMatches.length > 0 || staleCompleted.length > 0) {
+      const totalCompleted = completedMatches.length + staleCompleted.length;
+      console.log(`[Worker] ${totalCompleted} match(es) completed — recalculating standings`);
       try {
         await recalculateStandings();
       } catch (error) {

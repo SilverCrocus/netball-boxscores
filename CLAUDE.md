@@ -81,6 +81,7 @@ When building components, reference these designs as the visual spec.
 - **`src/types/stats.ts`**: `PlayerStatRow` — `{ id, name, position } & StatValues`. Used by box scores, live lineups, player stats tables.
 - **`src/types/match.ts`**: `QuarterData` — `{ quarter, homeScore, awayScore }`. Used by LiveScoreHero, QuarterScoreBar, LiveGameClient.
 - **`src/types/champion-data.ts`**: Includes `CDRaw*` types (`CDRawMatchStatsResponse`, `CDRawTeamStats`, `CDRawPlayerStats`, `CDRawScoreFlowEntry`) for the raw Champion Data JSON shape. The transform layer in `champion-data.ts` converts `CDRaw*` → normalized types.
+- **`src/types/socket.ts`**: Socket.io event payload types — `ScoreUpdatePayload`, `StatsUpdatePayload`, `MatchStatusPayload`, `ScoreFlowAddPayload` (includes `scorePoints`), `StatEventPayload` (intercepts and other notable plays).
 
 ## Player Profile Components
 
@@ -94,19 +95,35 @@ When building components, reference these designs as the visual spec.
 
 Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 
+## Live Match Components
+
+`src/components/match/` — live game page components:
+- **`LiveScoreHero.tsx`**: Score display with team badges, quarter grid, game clock. Shows goals/super shots breakdown `(15.2)` when super shots exist. Detects half-time, full-time, and extra time states.
+- **`ScoreProgressChart.tsx`**: SVG step-line graph showing both teams' score progression over match time. Quarter dividers, Y-axis grid, team-colored lines. No external charting library.
+- **`LiveLineups.tsx`**: Side-by-side on-court/bench tables with sortable stat columns (G, ATT, AST, INT, FD). Detects current on-court player via `minutesPlayed` heuristic when multiple players share a position.
+- **`LivePlayByPlay.tsx`**: Reverse-chronological feed of scoring events and intercepts. `FeedEntry` supports `eventType: 'goal' | 'intercept'`. Goals show scorer links, super shot badges, and running scores. Intercepts show player links with cyan styling.
+- **`MatchStatsComparison.tsx`**: Horizontal bar chart for team-level stat comparison (Goals, Goal%, Intercepts, Deflections, Turnovers, Feeds, Goal Assists).
+
 ## Live Tracking Pipeline
 
 Worker polls Champion Data every 30s (live), 1min (pre-match), 15min (match day), 6hr (off-season) → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
 
 **Key functions in the pipeline:**
-- **`pollChampionData()`** (`worker.ts`): Orchestrator — fetches fixtures, delegates to helpers, reconciles completed matches.
+- **`pollChampionData()`** (`worker.ts`): Orchestrator — fetches fixtures, delegates to helpers, reconciles completed matches, detects stale matches.
 - **`buildIncomingMatchState()`** (`worker.ts`): Builds normalized match state from CD fixture + detail data.
 - **`broadcastChanges()`** (`worker.ts`): Emits Socket.io events (`score:update`, `match:status`, `stats:update`, `scoreflow:add`). Score flow is broadcast from DB (not raw CD) so scorer attributions are included.
-- **`applyChanges()`** (`match-sync.ts`): Writes match state to DB. Includes **server-side scorer attribution** — snapshots player goals before upserting stats, computes diffs, and attributes scorers to new ScoreFlow entries via `scorerPlayerId`.
+- **`broadcastPlayerStats()`** (`worker.ts`): Broadcasts just player stats (including positions) when no score/status/time changed — catches position-only substitution swaps.
+- **`broadcastInterceptEvents()`** (`worker.ts`): Diffs intercept counts before/after stat updates and emits `stat:event` for each new intercept.
+- **`detectStaleCompletedMatches()`** (`worker.ts`): Fallback for when CD stops sending data without marking "complete" — if Q4+ clock is at/past end AND 90+ minutes since `scheduledAt`, auto-marks COMPLETED.
+- **`applyChanges()`** (`match-sync.ts`): Writes match state to DB. Includes **server-side scorer attribution** — snapshots player goals before upserting stats, computes diffs, and attributes scorers to new ScoreFlow entries via `scorerPlayerId`. Stores `scorePoints` (1=goal, 2=super shot) on ScoreFlow entries.
 - **`reconcileCompletedMatches()`** (`match-sync.ts`): Catches LIVE→COMPLETED transitions by cross-referencing DB vs CD fixture status. Uses `periodCompleted || period || 4` for final quarter (handles extra time).
 - **`transformRawCDMatchStats()`** (`champion-data.ts`): Transforms raw CD JSON → normalized types. Entry point for the CD transform pipeline.
 
+**Super shots:** CD score flow entries have `scorepoints` (1=normal, 2=super shot). Stored as `ScoreFlow.scorePoints` in DB. Broadcast in `scoreflow:add` socket payload. Client shows breakdown `(goals.superShots)` in LiveScoreHero and "Super" badge in the feed.
+
 **Scorer attribution:** Champion Data score flow entries don't include who scored — only which team. The worker infers scorers by diffing player goal counts between polls and matching them to new score flow entries. `ScoreFlow.scorerPlayerId` (nullable FK to Player) persists this in the DB. The client uses server-provided scorer info first, falling back to a client-side goal-diff heuristic for unattributed entries.
+
+**Socket events:** `score:update`, `match:status`, `stats:update`, `scoreflow:add`, `stat:event`. The `stat:event` carries notable play events (intercepts) with player/team info for the live feed.
 
 **Socket lifecycle:** Client (`useMatchSocket.ts`) disconnects 2 seconds after receiving `match:status: COMPLETED` — the delay allows final stat updates to arrive.
 
@@ -153,6 +170,9 @@ Dev-only system for testing the live scores pipeline without a real Champion Dat
 - **`aggregateStats()` excludes `minutesPlayed`:** Minutes played is per-player, not summable. The function deliberately skips it.
 - **Champion Data raw field names differ:** Raw CD uses `goalAttempts` not `attempts`, `generalPlayTurnovers` not `turnovers`. The `transformRawCDMatchStats()` layer handles the rename — don't access raw CD fields directly.
 - **Client-side API fetch caching:** Client-side `fetch()` to Next.js API routes must use `cache: 'no-store'` in production. Even with `dynamic = 'force-dynamic'` on the route, browsers or intermediate layers may cache GET responses. The `useLiveStatus` hook was broken on Render because of this.
+- **Position-only changes need broadcast:** Worker must broadcast `stats:update` even when score/status/time didn't change, otherwise substitution swaps don't reach the client. `broadcastPlayerStats()` handles this case.
+- **Match completion fallback:** CD may stop sending data without marking "complete". `detectStaleCompletedMatches()` catches this: Q4+ clock at end + 90min since `scheduledAt` → auto-COMPLETED. Client-side `useLocalClock` also ticks past quarter end, triggering "Full Time" display before the server catches up.
+- **`useMatchSocket` mock must include `statEvents`:** Tests mocking `useMatchSocket` need `statEvents: []` in the return value, alongside `scoreFlow: []`.
 
 ## SEO & Domain
 

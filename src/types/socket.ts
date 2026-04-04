@@ -41,8 +41,23 @@ export interface ScoreFlowAddPayload {
   scoringTeamId: string;
   homeScore: number;
   awayScore: number;
+  scorePoints: number;
   scorerPlayerId?: string;
   scorerName?: string;
+}
+
+export interface StatEventPayload {
+  matchId: string;
+  type: 'intercept';
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  teamName: string;
+  teamAbbreviation: string;
+  teamLogoUrl?: string | null;
+  isHomeTeam: boolean;
+  quarter: number;
+  time: string;
 }
 
 // Server emits these events to clients
@@ -51,6 +66,7 @@ export interface ServerToClientEvents {
   'stats:update': (payload: StatsUpdatePayload) => void;
   'match:status': (payload: MatchStatusPayload) => void;
   'scoreflow:add': (payload: ScoreFlowAddPayload) => void;
+  'stat:event': (payload: StatEventPayload) => void;
 }
 
 // Clients emit these events to server

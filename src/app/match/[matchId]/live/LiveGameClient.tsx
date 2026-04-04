@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useMatchSocket } from '@/hooks/useMatchSocket';
 import { LiveScoreHero } from '@/components/match/LiveScoreHero';
+import { ScoreProgressChart } from '@/components/match/ScoreProgressChart';
 import { LiveLineups } from '@/components/match/LiveLineups';
 import { MatchStatsComparison } from '@/components/match/MatchStatsComparison';
 import {
@@ -10,7 +11,7 @@ import {
   type FeedEntry,
 } from '@/components/match/LivePlayByPlay';
 import type { StatsUpdatePayload, ScoreFlowAddPayload } from '@/types/socket';
-import { pickStatFields } from '@/lib/stat-utils';
+import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
 import { useLocalClock } from '@/hooks/useLocalClock';
 import type { PlayerStatRow } from '@/types/stats';
 import type { QuarterData } from '@/types/match';
@@ -99,7 +100,7 @@ const sumStat = (players: PlayerStatRow[], key: keyof PlayerStatRow) =>
 // ─── Component ───
 
 export function LiveGameClient({ match }: LiveGameClientProps) {
-  const { score, playerStats, matchStatus, scoreFlow } = useMatchSocket(
+  const { score, playerStats, matchStatus, scoreFlow, statEvents } = useMatchSocket(
     match.id,
   );
 
@@ -164,7 +165,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
     let homeIdx = 0;
     let awayIdx = 0;
 
-    return allScoreFlow.map((flow, idx) => {
+    const goalEntries = allScoreFlow.map((flow, idx) => {
       const isHome = flow.scoringTeamId === match.homeTeam.id;
       let scorerName: string | undefined = flow.scorerName;
       let scorerPlayerId: string | undefined = flow.scorerPlayerId;
@@ -193,6 +194,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       return {
         time: `${mins}:${secs}`,
         quarter: flow.period,
+        eventType: 'goal' as const,
         scorerName,
         scorerPlayerId,
         teamAbbreviation: teamAbbr,
@@ -201,16 +203,65 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         isHomeTeam: isHome,
         homeScore: flow.homeScore,
         awayScore: flow.awayScore,
+        scorePoints: flow.scorePoints,
       };
     });
-  }, [allScoreFlow, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow]);
+
+    // Merge intercept events from socket
+    const interceptEntries: FeedEntry[] = statEvents
+      .filter((e) => e.type === 'intercept')
+      .map((e) => ({
+        time: e.time,
+        quarter: e.quarter,
+        eventType: 'intercept' as const,
+        playerName: e.playerName,
+        playerId: e.playerId,
+        teamAbbreviation: e.teamAbbreviation,
+        teamName: e.teamName,
+        teamLogoUrl: e.teamLogoUrl,
+        isHomeTeam: e.isHomeTeam,
+      }));
+
+    return [...goalEntries, ...interceptEntries];
+  }, [allScoreFlow, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, statEvents]);
+
+  // ── Score breakdown (goals vs super shots) ──
+  const { homeBreakdown, awayBreakdown } = useMemo(() => {
+    let homeGoals = 0, homeSuperShots = 0;
+    let awayGoals = 0, awaySuperShots = 0;
+    for (const flow of allScoreFlow) {
+      const isHome = flow.scoringTeamId === match.homeTeam.id;
+      if (flow.scorePoints === 2) {
+        if (isHome) homeSuperShots++;
+        else awaySuperShots++;
+      } else {
+        if (isHome) homeGoals++;
+        else awayGoals++;
+      }
+    }
+    return {
+      homeBreakdown: { goals: homeGoals, superShots: homeSuperShots },
+      awayBreakdown: { goals: awayGoals, superShots: awaySuperShots },
+    };
+  }, [allScoreFlow, match.homeTeam.id]);
 
   // ── Comparison stats (6 stats) ──
+  const homeGoals = sumStat(homePlayers, 'goals');
+  const homeAttempts = sumStat(homePlayers, 'attempts');
+  const awayGoals = sumStat(awayPlayers, 'goals');
+  const awayAttempts = sumStat(awayPlayers, 'attempts');
+
   const comparisonStats = [
     {
       label: 'Goals',
-      homeValue: sumStat(homePlayers, 'goals'),
-      awayValue: sumStat(awayPlayers, 'goals'),
+      homeValue: homeGoals,
+      awayValue: awayGoals,
+    },
+    {
+      label: 'Goal %',
+      homeValue: Math.round(computeShootingPct(homeGoals, homeAttempts)),
+      awayValue: Math.round(computeShootingPct(awayGoals, awayAttempts)),
+      format: 'percentage' as const,
     },
     {
       label: 'Intercepts',
@@ -255,6 +306,15 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         liveScore={score}
         matchStatus={matchStatus}
         quarters={quarters}
+        homeBreakdown={homeBreakdown}
+        awayBreakdown={awayBreakdown}
+      />
+
+      <ScoreProgressChart
+        scoreFlow={allScoreFlow}
+        homeTeam={match.homeTeam}
+        awayTeam={match.awayTeam}
+        currentQuarter={quarter}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

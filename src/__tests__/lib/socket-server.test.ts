@@ -60,6 +60,7 @@ describe('socket-server broadcasts', () => {
       scoringTeamId: 'team-1',
       homeScore: 30,
       awayScore: 28,
+      scorePoints: 1,
     };
 
     broadcastScoreFlowAdd('match-1', payload);

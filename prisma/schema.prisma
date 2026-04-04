@@ -168,6 +168,7 @@ model ScoreFlow {
   scoringTeam    Team    @relation("ScoringTeam", fields: [scoringTeamId], references: [id])
   homeScore      Int
   awayScore      Int
+  scorePoints    Int     @default(1)
   scorerPlayerId String?
   scorerPlayer   Player? @relation(fields: [scorerPlayerId], references: [id])
 
