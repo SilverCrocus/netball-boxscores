@@ -41,6 +41,8 @@ export interface ScoreFlowAddPayload {
   scoringTeamId: string;
   homeScore: number;
   awayScore: number;
+  scorerPlayerId?: string;
+  scorerName?: string;
 }
 
 // Server emits these events to clients

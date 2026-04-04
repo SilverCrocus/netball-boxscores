@@ -126,6 +126,10 @@ export async function applyChanges(
     }
   }
 
+  // ── Scorer attribution: read old goals BEFORE upserting stats ──
+  // Maps teamId → [{playerId, name}] for players whose goals increased
+  const scorersByTeam = new Map<string, Array<{ playerId: string; name: string }>>();
+
   // Upsert player stats
   if (incoming.playerStats && incoming.playerStats.length > 0) {
     const players = await prisma.player.findMany({
@@ -134,10 +138,18 @@ export async function applyChanges(
           in: incoming.playerStats.map((ps) => ps.championDataPlayerId),
         },
       },
+      select: { id: true, name: true, championDataPlayerId: true, teamId: true },
     });
     const playerMap = new Map(
       players.map((p) => [p.championDataPlayerId, p]),
     );
+
+    // Snapshot current goals before overwrite
+    const oldStats = await prisma.playerMatchStats.findMany({
+      where: { matchId: changes.matchId },
+      select: { playerId: true, goals: true },
+    });
+    const oldGoalMap = new Map(oldStats.map((s) => [s.playerId, s.goals]));
 
     const upserts = incoming.playerStats
       .filter((ps) => playerMap.has(ps.championDataPlayerId))
@@ -162,11 +174,53 @@ export async function applyChanges(
       });
 
     await prisma.$transaction(upserts);
+
+    // Build scorer queues from goal diffs
+    for (const ps of incoming.playerStats) {
+      const player = playerMap.get(ps.championDataPlayerId);
+      if (!player) continue;
+      const oldGoals = oldGoalMap.get(player.id) ?? 0;
+      const newGoals = ps.goals - oldGoals;
+      if (newGoals > 0) {
+        const queue = scorersByTeam.get(player.teamId) ?? [];
+        for (let i = 0; i < newGoals; i++) {
+          queue.push({ playerId: player.id, name: player.name });
+        }
+        scorersByTeam.set(player.teamId, queue);
+      }
+    }
   }
 
-  // Upsert score flow
+  // Upsert score flow (with scorer attribution for new entries)
   if (incoming.scoreFlow && incoming.scoreFlow.length > 0) {
+    // Identify which entries already exist so we only attribute new ones
+    const existing = await prisma.scoreFlow.findMany({
+      where: { matchId: changes.matchId },
+      select: { period: true, periodSeconds: true },
+    });
+    const existingKeys = new Set(
+      existing.map((sf) => `${sf.period}-${sf.periodSeconds}`),
+    );
+
+    const scorerIdx = new Map<string, number>();
+
     for (const sf of incoming.scoreFlow) {
+      const isNew = !existingKeys.has(`${sf.period}-${sf.periodSeconds}`);
+
+      // Pop next scorer for this team (best-effort chronological match)
+      let scorerPlayerId: string | undefined;
+      if (isNew) {
+        const teamId = sf.scoringTeamPrismaId;
+        const queue = scorersByTeam.get(teamId);
+        if (queue) {
+          const idx = scorerIdx.get(teamId) ?? 0;
+          if (idx < queue.length) {
+            scorerPlayerId = queue[idx].playerId;
+            scorerIdx.set(teamId, idx + 1);
+          }
+        }
+      }
+
       await prisma.scoreFlow.upsert({
         where: {
           matchId_period_periodSeconds: {
@@ -186,6 +240,7 @@ export async function applyChanges(
           scoringTeamId: sf.scoringTeamPrismaId,
           homeScore: sf.homeScore,
           awayScore: sf.awayScore,
+          scorerPlayerId: scorerPlayerId ?? null,
         },
       });
     }

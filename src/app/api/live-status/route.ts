@@ -22,8 +22,13 @@ export async function GET() {
     }),
   ]);
 
-  return NextResponse.json({
-    hasLive: liveCount > 0,
-    nextMatchAt: nextMatch?.scheduledAt ?? null,
-  });
+  return NextResponse.json(
+    { hasLive: liveCount > 0, nextMatchAt: nextMatch?.scheduledAt ?? null },
+    {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    },
+  );
 }

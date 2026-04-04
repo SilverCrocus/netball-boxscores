@@ -67,6 +67,7 @@ export default async function LiveGamePage({ params }: Props) {
           scoringTeamId: true,
           homeScore: true,
           awayScore: true,
+          scorerPlayer: { select: { id: true, name: true } },
         },
       },
     },
@@ -115,6 +116,8 @@ export default async function LiveGamePage({ params }: Props) {
       scoringTeamId: sf.scoringTeamId,
       homeScore: sf.homeScore,
       awayScore: sf.awayScore,
+      scorerPlayerId: sf.scorerPlayer?.id,
+      scorerName: sf.scorerPlayer?.name,
     })),
   };
 

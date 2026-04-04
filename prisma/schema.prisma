@@ -91,6 +91,7 @@ model Player {
   teamId               String
   team                 Team               @relation(fields: [teamId], references: [id])
   matchStats           PlayerMatchStats[]
+  scoredFlows          ScoreFlow[]
 }
 
 // ───── Matches ─────
@@ -158,15 +159,17 @@ model PlayerMatchStats {
 }
 
 model ScoreFlow {
-  id            String @id @default(cuid())
-  matchId       String
-  match         Match  @relation(fields: [matchId], references: [id])
-  period        Int
-  periodSeconds Int
-  scoringTeamId String
-  scoringTeam   Team   @relation("ScoringTeam", fields: [scoringTeamId], references: [id])
-  homeScore     Int
-  awayScore     Int
+  id             String  @id @default(cuid())
+  matchId        String
+  match          Match   @relation(fields: [matchId], references: [id])
+  period         Int
+  periodSeconds  Int
+  scoringTeamId  String
+  scoringTeam    Team    @relation("ScoringTeam", fields: [scoringTeamId], references: [id])
+  homeScore      Int
+  awayScore      Int
+  scorerPlayerId String?
+  scorerPlayer   Player? @relation(fields: [scorerPlayerId], references: [id])
 
   @@unique([matchId, period, periodSeconds])
   @@index([matchId, period])

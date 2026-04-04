@@ -96,14 +96,17 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 
 ## Live Tracking Pipeline
 
-Worker polls Champion Data every 10s → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
+Worker polls Champion Data every 30s (live), 1min (pre-match), 15min (match day), 6hr (off-season) → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
 
 **Key functions in the pipeline:**
 - **`pollChampionData()`** (`worker.ts`): Orchestrator — fetches fixtures, delegates to helpers, reconciles completed matches.
 - **`buildIncomingMatchState()`** (`worker.ts`): Builds normalized match state from CD fixture + detail data.
-- **`broadcastChanges()`** (`worker.ts`): Emits Socket.io events (`score:update`, `match:status`, `stats:update`, `scoreflow:update`).
+- **`broadcastChanges()`** (`worker.ts`): Emits Socket.io events (`score:update`, `match:status`, `stats:update`, `scoreflow:add`). Score flow is broadcast from DB (not raw CD) so scorer attributions are included.
+- **`applyChanges()`** (`match-sync.ts`): Writes match state to DB. Includes **server-side scorer attribution** — snapshots player goals before upserting stats, computes diffs, and attributes scorers to new ScoreFlow entries via `scorerPlayerId`.
 - **`reconcileCompletedMatches()`** (`match-sync.ts`): Catches LIVE→COMPLETED transitions by cross-referencing DB vs CD fixture status. Uses `periodCompleted || period || 4` for final quarter (handles extra time).
 - **`transformRawCDMatchStats()`** (`champion-data.ts`): Transforms raw CD JSON → normalized types. Entry point for the CD transform pipeline.
+
+**Scorer attribution:** Champion Data score flow entries don't include who scored — only which team. The worker infers scorers by diffing player goal counts between polls and matching them to new score flow entries. `ScoreFlow.scorerPlayerId` (nullable FK to Player) persists this in the DB. The client uses server-provided scorer info first, falling back to a client-side goal-diff heuristic for unattributed entries.
 
 **Socket lifecycle:** Client (`useMatchSocket.ts`) disconnects 2 seconds after receiving `match:status: COMPLETED` — the delay allows final stat updates to arrive.
 
@@ -149,6 +152,7 @@ Dev-only system for testing the live scores pipeline without a real Champion Dat
 - **Test mocks for `@/lib/db`:** Any test that mocks `@/lib/db` must include `excludeSimData: {}` in the mock, not just `prisma`.
 - **`aggregateStats()` excludes `minutesPlayed`:** Minutes played is per-player, not summable. The function deliberately skips it.
 - **Champion Data raw field names differ:** Raw CD uses `goalAttempts` not `attempts`, `generalPlayTurnovers` not `turnovers`. The `transformRawCDMatchStats()` layer handles the rename — don't access raw CD fields directly.
+- **Client-side API fetch caching:** Client-side `fetch()` to Next.js API routes must use `cache: 'no-store'` in production. Even with `dynamic = 'force-dynamic'` on the route, browsers or intermediate layers may cache GET responses. The `useLiveStatus` hook was broken on Render because of this.
 
 ## SEO & Domain
 

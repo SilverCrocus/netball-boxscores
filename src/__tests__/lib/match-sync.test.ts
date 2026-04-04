@@ -11,12 +11,14 @@ vi.mock('@/lib/db', () => ({
     },
     playerMatchStats: {
       upsert: vi.fn(),
+      findMany: vi.fn(),
     },
     matchQuarter: {
       upsert: vi.fn(),
     },
     scoreFlow: {
       upsert: vi.fn(),
+      findMany: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -131,6 +133,8 @@ describe('match-sync', () => {
 
     (prisma.match.update as any).mockResolvedValue({});
     (prisma.scoreFlow.upsert as any).mockResolvedValue({});
+    (prisma.scoreFlow.findMany as any).mockResolvedValue([]);
+    (prisma.playerMatchStats.findMany as any).mockResolvedValue([]);
 
     await applyChanges(changes, incoming);
 
