@@ -3,6 +3,7 @@ import { ScoreCard } from '@/components/ui/ScoreCard';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { formatMatchDateTime } from '@/lib/format';
 import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
+import { Countdown } from '@/components/ui/Countdown';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -110,9 +111,12 @@ export default async function HomePage() {
               </div>
               <div className="relative flex justify-between items-start">
                 <div className="space-y-1">
-                  <span className="text-lime-400 font-black font-label text-xs uppercase tracking-widest">
-                    Next Match &middot; Round {featured.round}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lime-400 font-black font-label text-xs uppercase tracking-widest">
+                      Next Match &middot; Round {featured.round}
+                    </span>
+                    <Countdown scheduledAt={featured.scheduledAt.toISOString()} />
+                  </div>
                   <h3 className="text-2xl md:text-4xl font-black font-headline tracking-tighter italic uppercase leading-tight">
                     {featured.homeTeam.name} <span className="text-lime-400">vs</span><br />
                     {featured.awayTeam.name}
@@ -129,8 +133,8 @@ export default async function HomePage() {
                   )}
                 </div>
               </div>
-              <div className="relative flex items-center justify-around py-4">
-                <div className="text-center">
+              <div className="relative flex items-center py-4">
+                <div className="flex-1 flex flex-col items-center text-center">
                   <div className="w-28 h-28 rounded-full flex items-center justify-center backdrop-blur-md mb-2 overflow-hidden">
                     <TeamBadge team={featured.homeTeam} size={96} variant="home" />
                   </div>
@@ -139,7 +143,7 @@ export default async function HomePage() {
                   </span>
                 </div>
                 <div className="text-lime-400 font-black text-4xl italic px-4">VS</div>
-                <div className="text-center">
+                <div className="flex-1 flex flex-col items-center text-center">
                   <div className="w-28 h-28 rounded-full flex items-center justify-center backdrop-blur-md mb-2 overflow-hidden">
                     <TeamBadge team={featured.awayTeam} size={96} variant="away" />
                   </div>

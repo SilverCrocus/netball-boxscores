@@ -27,6 +27,8 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
   const isLive = match.status === 'LIVE';
   const isCompleted = match.status === 'COMPLETED';
   const matchHref = isLive ? `/match/${match.id}/live` : `/match/${match.id}`;
+  const homeWon = isCompleted && match.homeScore > match.awayScore;
+  const awayWon = isCompleted && match.awayScore > match.homeScore;
 
   return (
     <Link
@@ -70,10 +72,10 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-4xl font-black font-headline text-primary tracking-tighter">
-            <span>{match.homeScore}</span>
+          <div className="flex items-center gap-4 text-4xl font-black font-headline tracking-tighter">
+            <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{match.homeScore}</span>
             <span className="text-outline-variant text-2xl">-</span>
-            <span>{match.awayScore}</span>
+            <span className={awayWon ? 'text-secondary' : homeWon ? 'text-slate-400' : 'text-primary'}>{match.awayScore}</span>
           </div>
 
           <div className="flex flex-col items-center flex-1 text-center">
