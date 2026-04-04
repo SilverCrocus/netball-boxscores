@@ -7,14 +7,18 @@ import { TeamBadge } from '@/components/ui/TeamBadge';
 export interface FeedEntry {
   time: string;
   quarter: number;
+  eventType: 'goal' | 'intercept';
   scorerName?: string;
   scorerPlayerId?: string;
+  playerName?: string;
+  playerId?: string;
   teamAbbreviation: string;
   teamName: string;
   teamLogoUrl?: string | null;
   isHomeTeam: boolean;
-  homeScore: number;
-  awayScore: number;
+  homeScore?: number;
+  awayScore?: number;
+  scorePoints?: number;
 }
 
 interface LivePlayByPlayProps {
@@ -81,34 +85,61 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
                   <p className="font-label text-[10px] font-bold text-white/35 uppercase">
                     {entry.time} &middot; Q{entry.quarter}
                   </p>
-                  <p className="font-body text-sm font-semibold text-white mt-0.5 leading-snug">
-                    {entry.scorerName && entry.scorerPlayerId ? (
-                      <Link
-                        href={`/player/${entry.scorerPlayerId}`}
-                        className="text-white underline decoration-white/25 underline-offset-2 hover:decoration-lime-400 hover:text-lime-400"
-                      >
-                        {entry.scorerName}
-                      </Link>
-                    ) : (
-                      <span className="text-white">{entry.teamName}</span>
-                    )}{' '}
-                    <span className="text-white/50">scored</span>
-                  </p>
+                  {entry.eventType === 'goal' ? (
+                    <p className="font-body text-sm font-semibold text-white mt-0.5 leading-snug">
+                      {entry.scorerName && entry.scorerPlayerId ? (
+                        <Link
+                          href={`/player/${entry.scorerPlayerId}`}
+                          className="text-white underline decoration-white/25 underline-offset-2 hover:decoration-lime-400 hover:text-lime-400"
+                        >
+                          {entry.scorerName}
+                        </Link>
+                      ) : (
+                        <span className="text-white">{entry.teamName}</span>
+                      )}{' '}
+                      <span className="text-white/50">scored</span>
+                      {entry.scorePoints === 2 && (
+                        <span className="ml-1.5 text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-400/15 px-1.5 py-0.5 rounded">
+                          Super
+                        </span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="font-body text-sm font-semibold text-white mt-0.5 leading-snug">
+                      {entry.playerName && entry.playerId ? (
+                        <Link
+                          href={`/player/${entry.playerId}`}
+                          className="text-cyan-300 underline decoration-cyan-300/25 underline-offset-2 hover:decoration-cyan-400 hover:text-cyan-400"
+                        >
+                          {entry.playerName}
+                        </Link>
+                      ) : (
+                        <span className="text-cyan-300">{entry.teamName}</span>
+                      )}{' '}
+                      <span className="text-white/50">intercept</span>
+                    </p>
+                  )}
                   <p className="font-label text-[10px] text-white/30 mt-0.5">
                     {entry.teamName}
                   </p>
                 </div>
 
-                {/* Score badge */}
-                <span
-                  className={`shrink-0 font-label text-[11px] font-extrabold px-2 py-0.5 rounded tracking-[0.5px] ${
-                    entry.isHomeTeam
-                      ? 'bg-primary-container/60 text-primary-fixed-dim'
-                      : 'bg-secondary/30 text-secondary-container'
-                  }`}
-                >
-                  {entry.homeScore} &ndash; {entry.awayScore}
-                </span>
+                {/* Score badge (only for goals) */}
+                {entry.eventType === 'goal' && entry.homeScore != null && entry.awayScore != null ? (
+                  <span
+                    className={`shrink-0 font-label text-[11px] font-extrabold px-2 py-0.5 rounded tracking-[0.5px] ${
+                      entry.isHomeTeam
+                        ? 'bg-primary-container/60 text-primary-fixed-dim'
+                        : 'bg-secondary/30 text-secondary-container'
+                    }`}
+                  >
+                    {entry.homeScore} &ndash; {entry.awayScore}
+                  </span>
+                ) : (
+                  <span className="shrink-0 material-symbols-outlined text-cyan-400/60 text-[18px]">
+                    shield
+                  </span>
+                )}
               </div>
             </Fragment>
           );

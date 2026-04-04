@@ -8,6 +8,7 @@ vi.mock('@/hooks/useMatchSocket', () => ({
     playerStats: null,
     matchStatus: null,
     scoreFlow: [],
+    statEvents: [],
     isConnected: false,
   })),
 }));

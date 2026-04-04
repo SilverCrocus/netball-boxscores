@@ -67,6 +67,7 @@ export default async function LiveGamePage({ params }: Props) {
           scoringTeamId: true,
           homeScore: true,
           awayScore: true,
+          scorePoints: true,
           scorerPlayer: { select: { id: true, name: true } },
         },
       },
@@ -81,6 +82,7 @@ export default async function LiveGamePage({ params }: Props) {
       name: team.name,
       abbreviation: team.abbreviation,
       logoUrl: team.logoUrl,
+      primaryColor: team.primaryColor,
       players: team.players.map((p) => {
         const stats = p.matchStats[0];
         return {
@@ -116,6 +118,7 @@ export default async function LiveGamePage({ params }: Props) {
       scoringTeamId: sf.scoringTeamId,
       homeScore: sf.homeScore,
       awayScore: sf.awayScore,
+      scorePoints: sf.scorePoints,
       scorerPlayerId: sf.scorerPlayer?.id,
       scorerName: sf.scorerPlayer?.name,
     })),

@@ -240,6 +240,7 @@ export async function applyChanges(
           scoringTeamId: sf.scoringTeamPrismaId,
           homeScore: sf.homeScore,
           awayScore: sf.awayScore,
+          scorePoints: sf.scorepoints,
           scorerPlayerId: scorerPlayerId ?? null,
         },
       });

@@ -3,6 +3,11 @@ import { formatGameClock } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
 import type { QuarterData } from '@/types/match';
 
+interface ScoreBreakdown {
+  goals: number;
+  superShots: number;
+}
+
 interface LiveScoreHeroProps {
   homeTeam: TeamInfo;
   awayTeam: TeamInfo;
@@ -21,6 +26,8 @@ interface LiveScoreHeroProps {
   } | null;
   matchStatus?: { status: 'LIVE' | 'COMPLETED' } | null;
   quarters?: QuarterData[];
+  homeBreakdown?: ScoreBreakdown | null;
+  awayBreakdown?: ScoreBreakdown | null;
 }
 
 function QuarterGrid({
@@ -135,6 +142,8 @@ export function LiveScoreHero({
   liveScore,
   matchStatus,
   quarters,
+  homeBreakdown,
+  awayBreakdown,
 }: LiveScoreHeroProps) {
   const homeScore = liveScore?.homeScore ?? dbHomeScore;
   const awayScore = liveScore?.awayScore ?? dbAwayScore;
@@ -205,15 +214,29 @@ export function LiveScoreHero({
             </div>
           )}
           <div className="flex items-center gap-8">
-            <span className="font-headline text-7xl md:text-9xl font-black tracking-tighter">
-              {homeScore}
-            </span>
+            <div className="flex flex-col items-center">
+              <span className="font-headline text-7xl md:text-9xl font-black tracking-tighter">
+                {homeScore}
+              </span>
+              {homeBreakdown && homeBreakdown.superShots > 0 && (
+                <span className="font-label text-[11px] text-white/45 mt-[-4px]">
+                  ({homeBreakdown.goals}.{homeBreakdown.superShots})
+                </span>
+              )}
+            </div>
             <span className="font-headline text-2xl font-light text-on-primary-container">
               &mdash;
             </span>
-            <span className="font-headline text-7xl md:text-9xl font-black tracking-tighter">
-              {awayScore}
-            </span>
+            <div className="flex flex-col items-center">
+              <span className="font-headline text-7xl md:text-9xl font-black tracking-tighter">
+                {awayScore}
+              </span>
+              {awayBreakdown && awayBreakdown.superShots > 0 && (
+                <span className="font-label text-[11px] text-white/45 mt-[-4px]">
+                  ({awayBreakdown.goals}.{awayBreakdown.superShots})
+                </span>
+              )}
+            </div>
           </div>
           {/* Quarter-by-quarter grid */}
           {quarters && quarters.length > 0 && (

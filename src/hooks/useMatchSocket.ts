@@ -9,6 +9,7 @@ import type {
   StatsUpdatePayload,
   MatchStatusPayload,
   ScoreFlowAddPayload,
+  StatEventPayload,
 } from '@/types/socket';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -18,6 +19,7 @@ interface MatchSocketState {
   playerStats: StatsUpdatePayload | null;
   matchStatus: MatchStatusPayload | null;
   scoreFlow: ScoreFlowAddPayload[];
+  statEvents: StatEventPayload[];
   isConnected: boolean;
 }
 
@@ -29,6 +31,7 @@ export function useMatchSocket(matchId: string): MatchSocketState {
     playerStats: null,
     matchStatus: null,
     scoreFlow: [],
+    statEvents: [],
     isConnected: false,
   });
 
@@ -91,6 +94,15 @@ export function useMatchSocket(matchId: string): MatchSocketState {
       }
     });
 
+    socket.on('stat:event', (payload) => {
+      if (payload.matchId === matchId) {
+        setState((prev) => ({
+          ...prev,
+          statEvents: [...prev.statEvents, payload],
+        }));
+      }
+    });
+
     return () => {
       if (completionTimeoutRef.current) {
         clearTimeout(completionTimeoutRef.current);
@@ -101,6 +113,7 @@ export function useMatchSocket(matchId: string): MatchSocketState {
       socket.off('stats:update');
       socket.off('match:status');
       socket.off('scoreflow:add');
+      socket.off('stat:event');
       socket.disconnect();
     };
   }, [matchId]);
