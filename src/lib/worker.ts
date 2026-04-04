@@ -184,20 +184,24 @@ async function broadcastChanges(
     }
   }
 
-  if (matchDetail.scoreFlow && matchDetail.scoreFlow.length > 0 && dbMatch) {
-    for (const sf of matchDetail.scoreFlow) {
-      const scoringTeamId =
-        sf.squadId === dbMatch.homeTeam.championDataTeamId
-          ? dbMatch.homeTeamId
-          : dbMatch.awayTeamId;
+  // Broadcast score flow from DB so scorer attributions are included
+  if (matchDetail.scoreFlow && matchDetail.scoreFlow.length > 0) {
+    const dbScoreFlow = await prisma.scoreFlow.findMany({
+      where: { matchId: changes.matchId },
+      include: { scorerPlayer: { select: { id: true, name: true } } },
+      orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
+    });
 
+    for (const sf of dbScoreFlow) {
       broadcastScoreFlowAdd(changes.matchId, {
         matchId: changes.matchId,
         period: sf.period,
         periodSeconds: sf.periodSeconds,
-        scoringTeamId,
+        scoringTeamId: sf.scoringTeamId,
         homeScore: sf.homeScore,
         awayScore: sf.awayScore,
+        scorerPlayerId: sf.scorerPlayer?.id,
+        scorerName: sf.scorerPlayer?.name,
       });
     }
   }

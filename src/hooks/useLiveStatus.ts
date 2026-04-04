@@ -18,7 +18,7 @@ export function useLiveStatus(): LiveStatus {
 
     async function fetchStatus() {
       try {
-        const res = await fetch('/api/live-status');
+        const res = await fetch('/api/live-status', { cache: 'no-store' });
         const data = await res.json();
 
         const minutesUntilNext = data.nextMatchAt

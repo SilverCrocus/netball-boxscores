@@ -136,13 +136,12 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   }, [match.initialScoreFlow, scoreFlow]);
 
   // ── Build enriched feed entries ──
-  // Scorer detection is done synchronously here by comparing current
-  // live-merged player goals with the SSR snapshot. This avoids the
-  // timing issues of useEffect-based detection where the scorer log
-  // updates asynchronously after render.
+  // Server-provided scorer info (from DB / socket) is used when available.
+  // Falls back to a client-side heuristic (goal-diff since page load) for
+  // any entries that don't yet have server attribution.
   const feedEntries: FeedEntry[] = useMemo(() => {
-    // Build scorer lists by diffing current goals vs SSR initial goals.
-    // Only players whose goals increased since page load are scorers.
+    // Client-side fallback: diff current goals vs SSR snapshot for entries
+    // that arrived via socket without server-attributed scorers.
     const homeScorers: Array<{ name: string; playerId: string }> = [];
     const awayScorers: Array<{ name: string; playerId: string }> = [];
 
@@ -167,11 +166,11 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
 
     return allScoreFlow.map((flow, idx) => {
       const isHome = flow.scoringTeamId === match.homeTeam.id;
-      let scorerName: string | undefined;
-      let scorerPlayerId: string | undefined;
+      let scorerName: string | undefined = flow.scorerName;
+      let scorerPlayerId: string | undefined = flow.scorerPlayerId;
 
-      // Only match scorers to entries that arrived via socket (not historical)
-      if (idx >= initialCount) {
+      // Fallback: client-side heuristic for socket entries without server scorer
+      if (!scorerPlayerId && idx >= initialCount) {
         if (isHome && homeIdx < homeScorers.length) {
           scorerName = homeScorers[homeIdx].name;
           scorerPlayerId = homeScorers[homeIdx].playerId;
