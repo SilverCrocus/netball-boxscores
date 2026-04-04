@@ -143,6 +143,13 @@ export function LiveScoreHero({
   const isCompleted = matchStatus?.status === 'COMPLETED' || (!dbIsLive && dbHomeScore > 0 && !matchStatus);
   const isLive = !isCompleted && (matchStatus?.status === 'LIVE' || dbIsLive);
 
+  // Detect quarter breaks: clock remaining = 0
+  const elapsed = Number(time);
+  const quarterLength = (quarter ?? 0) > 4 ? 300 : 900;
+  const remaining = !isNaN(elapsed) ? Math.max(0, quarterLength - elapsed) : null;
+  const isHalfTime = isLive && quarter === 2 && remaining === 0;
+  const isFullTime = isLive && (quarter ?? 0) >= 4 && remaining === 0;
+
   return (
     <div className="relative overflow-hidden rounded-xl bg-primary-container text-white p-8 md:p-12 shadow-2xl">
       {/* Gradient overlay */}
@@ -174,13 +181,26 @@ export function LiveScoreHero({
             </div>
           )}
           {isLive && (
-            <div className="bg-secondary px-4 py-1.5 rounded-full flex items-center gap-2 mb-4">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-              </span>
-              <span className="font-label text-xs font-bold uppercase tracking-[0.5px] text-white">
-                {(quarter ?? 0) > 4 ? 'ET' : `Q${quarter}`} {time && `\u2022 ${formatGameClock(time, quarter)}`}
+            <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 mb-4 ${
+              isHalfTime || isFullTime ? 'bg-surface-container-high' : 'bg-secondary'
+            }`}>
+              {!isHalfTime && !isFullTime && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                </span>
+              )}
+              <span className={`font-label text-xs font-bold uppercase tracking-[0.5px] ${
+                isHalfTime || isFullTime ? 'text-on-surface-variant' : 'text-white'
+              }`}>
+                {isHalfTime
+                  ? 'Half Time'
+                  : isFullTime
+                    ? 'Full Time'
+                    : <>
+                        {(quarter ?? 0) > 4 ? 'ET' : `Q${quarter}`} {time && `\u2022 ${formatGameClock(time, quarter)}`}
+                      </>
+                }
               </span>
             </div>
           )}
