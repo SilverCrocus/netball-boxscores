@@ -32,6 +32,5 @@ export default async function Icon() {
         />
       </div>
     ),
-    { ...size },
   );
 }
