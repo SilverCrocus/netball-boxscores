@@ -9,8 +9,9 @@ import {
   LivePlayByPlay,
   type FeedEntry,
 } from '@/components/match/LivePlayByPlay';
-import type { StatsUpdatePayload } from '@/types/socket';
+import type { StatsUpdatePayload, ScoreFlowAddPayload } from '@/types/socket';
 import { pickStatFields } from '@/lib/stat-utils';
+import { useLocalClock } from '@/hooks/useLocalClock';
 import type { PlayerStatRow } from '@/types/stats';
 import type { QuarterData } from '@/types/match';
 import type { TeamInfoWithId } from '@/types/team';
@@ -31,6 +32,7 @@ interface MatchData {
   homeTeam: TeamData;
   awayTeam: TeamData;
   quarters: QuarterData[];
+  initialScoreFlow?: ScoreFlowAddPayload[];
 }
 
 interface LiveGameClientProps {
@@ -52,6 +54,8 @@ function mergePlayerStats(
     return {
       ...player,
       ...pickStatFields(update),
+      // Use live position from Champion Data if available
+      ...(update.currentPosition ? { position: update.currentPosition } : {}),
     };
   });
 }
@@ -97,8 +101,11 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   const homeScore = score?.homeScore ?? match.homeScore;
   const awayScore = score?.awayScore ?? match.awayScore;
   const quarter = score?.currentQuarter ?? match.currentQuarter;
-  const time = score?.currentTime ?? match.currentTime;
+  const serverTime = score?.currentTime ?? match.currentTime;
   const isLive = matchStatus?.status === 'COMPLETED' ? false : (matchStatus?.status === 'LIVE' || match.status === 'LIVE');
+
+  // Tick the game clock locally between server updates
+  const time = useLocalClock(isLive ? serverTime : null) ?? serverTime;
 
   // ── Merge socket stats into player data ──
   const homePlayers = mergePlayerStats(match.homeTeam.players, playerStats);
@@ -172,9 +179,21 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
     }
   }, [playerStats]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Merge initial + socket score flow, deduplicating ──
+  const allScoreFlow = useMemo(() => {
+    const initial = match.initialScoreFlow ?? [];
+    const seen = new Set(initial.map((sf) => `${sf.period}-${sf.periodSeconds}`));
+    const newEntries = scoreFlow.filter(
+      (sf) => !seen.has(`${sf.period}-${sf.periodSeconds}`),
+    );
+    return [...initial, ...newEntries];
+  }, [match.initialScoreFlow, scoreFlow]);
+
   // ── Build enriched feed entries ──
   const feedEntries: FeedEntry[] = useMemo(() => {
-    // Split scorer log by team for ordered matching
+    // Split scorer log by team for ordered matching against NEW entries only.
+    // scorerLog only contains goals detected via socket stats diffs, so they
+    // correspond to score flow entries that arrived after the initial DB load.
     const homeScorers = scorerLog.filter(
       (s) => s.teamId === match.homeTeam.id,
     );
@@ -182,22 +201,26 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       (s) => s.teamId === match.awayTeam.id,
     );
 
+    const initialCount = (match.initialScoreFlow ?? []).length;
     let homeIdx = 0;
     let awayIdx = 0;
 
-    return scoreFlow.map((flow) => {
+    return allScoreFlow.map((flow, idx) => {
       const isHome = flow.scoringTeamId === match.homeTeam.id;
       let scorerName: string | undefined;
       let scorerPlayerId: string | undefined;
 
-      if (isHome && homeIdx < homeScorers.length) {
-        scorerName = homeScorers[homeIdx].name;
-        scorerPlayerId = homeScorers[homeIdx].playerId;
-        homeIdx++;
-      } else if (!isHome && awayIdx < awayScorers.length) {
-        scorerName = awayScorers[awayIdx].name;
-        scorerPlayerId = awayScorers[awayIdx].playerId;
-        awayIdx++;
+      // Only match scorers to entries that arrived via socket (not historical)
+      if (idx >= initialCount) {
+        if (isHome && homeIdx < homeScorers.length) {
+          scorerName = homeScorers[homeIdx].name;
+          scorerPlayerId = homeScorers[homeIdx].playerId;
+          homeIdx++;
+        } else if (!isHome && awayIdx < awayScorers.length) {
+          scorerName = awayScorers[awayIdx].name;
+          scorerPlayerId = awayScorers[awayIdx].playerId;
+          awayIdx++;
+        }
       }
 
       const teamAbbr = isHome
@@ -215,12 +238,13 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         scorerPlayerId,
         teamAbbreviation: teamAbbr,
         teamName,
+        teamLogoUrl: isHome ? match.homeTeam.logoUrl : match.awayTeam.logoUrl,
         isHomeTeam: isHome,
         homeScore: flow.homeScore,
         awayScore: flow.awayScore,
       };
     });
-  }, [scoreFlow, scorerLog, match.homeTeam, match.awayTeam]);
+  }, [allScoreFlow, scorerLog, match.homeTeam, match.awayTeam]);
 
   // ── Comparison stats (6 stats) ──
   const comparisonStats = [

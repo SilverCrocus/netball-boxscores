@@ -59,6 +59,16 @@ export default async function LiveGamePage({ params }: Props) {
         },
       },
       quarters: { orderBy: { quarter: 'asc' } },
+      scoreFlow: {
+        orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
+        select: {
+          period: true,
+          periodSeconds: true,
+          scoringTeamId: true,
+          homeScore: true,
+          awayScore: true,
+        },
+      },
     },
   });
 
@@ -97,6 +107,14 @@ export default async function LiveGamePage({ params }: Props) {
       quarter: q.quarter,
       homeScore: q.homeScore,
       awayScore: q.awayScore,
+    })),
+    initialScoreFlow: match.scoreFlow.map((sf) => ({
+      matchId: match.id,
+      period: sf.period,
+      periodSeconds: sf.periodSeconds,
+      scoringTeamId: sf.scoringTeamId,
+      homeScore: sf.homeScore,
+      awayScore: sf.awayScore,
     })),
   };
 

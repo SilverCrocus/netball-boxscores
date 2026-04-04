@@ -12,6 +12,7 @@ export interface StatsUpdatePayload {
   matchId: string;
   playerStats: Array<{
     playerId: string;
+    currentPosition?: string;
     goals: number;
     attempts: number;
     goalAssists: number;

@@ -79,10 +79,15 @@ export function useMatchSocket(matchId: string): MatchSocketState {
 
     socket.on('scoreflow:add', (payload) => {
       if (payload.matchId === matchId) {
-        setState((prev) => ({
-          ...prev,
-          scoreFlow: [...prev.scoreFlow, payload],
-        }));
+        setState((prev) => {
+          // Deduplicate by period+periodSeconds
+          const key = `${payload.period}-${payload.periodSeconds}`;
+          const exists = prev.scoreFlow.some(
+            (sf) => `${sf.period}-${sf.periodSeconds}` === key,
+          );
+          if (exists) return prev;
+          return { ...prev, scoreFlow: [...prev.scoreFlow, payload] };
+        });
       }
     });
 

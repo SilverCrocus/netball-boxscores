@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, Fragment } from 'react';
 import Link from 'next/link';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 
 export interface FeedEntry {
   time: string;
@@ -10,6 +11,7 @@ export interface FeedEntry {
   scorerPlayerId?: string;
   teamAbbreviation: string;
   teamName: string;
+  teamLogoUrl?: string | null;
   isHomeTeam: boolean;
   homeScore: number;
   awayScore: number;
@@ -64,16 +66,14 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
                   &#9654; Quarter {reversed[i - 1].quarter} Start
                 </div>
               )}
-              <div className="flex gap-3 px-4 py-3.5 border-b border-white/[0.04] items-start hover:bg-white/[0.03] transition-colors">
-                {/* Team mini-badge */}
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[8px] font-extrabold shrink-0 mt-0.5 font-label border-2 ${
-                    entry.isHomeTeam
-                      ? 'bg-primary-container text-white border-primary-fixed-dim/30'
-                      : 'bg-secondary text-white border-secondary-container/30'
-                  }`}
-                >
-                  {entry.teamAbbreviation}
+              <div className="flex gap-3 px-4 py-3.5 border-b border-white/[0.04] items-center hover:bg-white/[0.03] transition-colors">
+                {/* Team logo */}
+                <div className="shrink-0">
+                  <TeamBadge
+                    team={{ name: entry.teamName, abbreviation: entry.teamAbbreviation, logoUrl: entry.teamLogoUrl ?? null }}
+                    size={32}
+                    variant={entry.isHomeTeam ? 'home' : 'away'}
+                  />
                 </div>
 
                 {/* Entry content */}
@@ -83,30 +83,32 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
                   </p>
                   <p className="font-body text-sm font-semibold text-white mt-0.5 leading-snug">
                     {entry.scorerName && entry.scorerPlayerId ? (
-                      <>
-                        <Link
-                          href={`/player/${entry.scorerPlayerId}`}
-                          className="text-white underline decoration-white/25 underline-offset-2 hover:decoration-lime-400 hover:text-lime-400"
-                        >
-                          {entry.scorerName}
-                        </Link>{' '}
-                        scored
-                      </>
+                      <Link
+                        href={`/player/${entry.scorerPlayerId}`}
+                        className="text-white underline decoration-white/25 underline-offset-2 hover:decoration-lime-400 hover:text-lime-400"
+                      >
+                        {entry.scorerName}
+                      </Link>
                     ) : (
-                      <>{entry.teamName} scored</>
-                    )}
+                      <span className="text-white">{entry.teamName}</span>
+                    )}{' '}
+                    <span className="text-white/50">scored</span>
                   </p>
-                  {/* Score badge */}
-                  <span
-                    className={`inline-block mt-1.5 font-label text-[11px] font-extrabold px-2 py-0.5 rounded tracking-[0.5px] ${
-                      entry.isHomeTeam
-                        ? 'bg-primary-container/60 text-primary-fixed-dim'
-                        : 'bg-secondary/30 text-secondary-container'
-                    }`}
-                  >
-                    {entry.homeScore} &ndash; {entry.awayScore}
-                  </span>
+                  <p className="font-label text-[10px] text-white/30 mt-0.5">
+                    {entry.teamName}
+                  </p>
                 </div>
+
+                {/* Score badge */}
+                <span
+                  className={`shrink-0 font-label text-[11px] font-extrabold px-2 py-0.5 rounded tracking-[0.5px] ${
+                    entry.isHomeTeam
+                      ? 'bg-primary-container/60 text-primary-fixed-dim'
+                      : 'bg-secondary/30 text-secondary-container'
+                  }`}
+                >
+                  {entry.homeScore} &ndash; {entry.awayScore}
+                </span>
               </div>
             </Fragment>
           );

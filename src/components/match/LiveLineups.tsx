@@ -48,28 +48,57 @@ function isShooter(position: string): boolean {
   return position === 'GS' || position === 'GA';
 }
 
+const STANDARD_POSITIONS = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+
 function splitAndSort(
   players: PlayerStatRow[],
   sort: SortState,
 ): { onCourt: PlayerStatRow[]; bench: PlayerStatRow[] } {
-  const hasMinutesData = players.some((p) => p.minutesPlayed > 0);
+  // Build a map: for each position, pick ONE player to be on court.
+  // When multiple players share a position (substitution happened),
+  // keep the one with fewer minutes (the replacement who came on later).
+  // For positions with only one player, that player is always on court.
+  const positionMap = new Map<string, PlayerStatRow>();
 
-  let onCourt: PlayerStatRow[];
-  let bench: PlayerStatRow[];
-
-  if (hasMinutesData) {
-    onCourt = players.filter((p) => p.minutesPlayed > 0);
-    bench = players.filter((p) => p.minutesPlayed <= 0);
-  } else {
-    // Fallback: first 7 by position order are "on court"
-    const byPos = [...players].sort(
-      (a, b) =>
-        (POSITION_ORDER[a.position] ?? 99) -
-        (POSITION_ORDER[b.position] ?? 99),
-    );
-    onCourt = byPos.slice(0, 7);
-    bench = byPos.slice(7);
+  // First pass: group players by position
+  const byPosition = new Map<string, PlayerStatRow[]>();
+  for (const p of players) {
+    const group = byPosition.get(p.position) ?? [];
+    group.push(p);
+    byPosition.set(p.position, group);
   }
+
+  // For each of the 7 standard positions, pick the on-court player
+  for (const pos of STANDARD_POSITIONS) {
+    const group = byPosition.get(pos);
+    if (!group || group.length === 0) continue;
+
+    if (group.length === 1) {
+      // Only one player at this position — they're on court
+      positionMap.set(pos, group[0]);
+    } else {
+      // Multiple players at this position — substitution occurred.
+      // The player currently on court is the one with fewer minutes
+      // (they came on later and have accumulated less time).
+      // If no one has minutes yet, pick the first one.
+      const withMinutes = group.filter((p) => p.minutesPlayed > 0);
+      if (withMinutes.length === 0) {
+        positionMap.set(pos, group[0]);
+      } else if (withMinutes.length === 1) {
+        positionMap.set(pos, withMinutes[0]);
+      } else {
+        // Pick the one with fewest minutes (most recently subbed on)
+        const current = withMinutes.reduce((a, b) =>
+          a.minutesPlayed <= b.minutesPlayed ? a : b,
+        );
+        positionMap.set(pos, current);
+      }
+    }
+  }
+
+  const onCourt = Array.from(positionMap.values());
+  const onCourtIds = new Set(onCourt.map((p) => p.id));
+  const bench = players.filter((p) => !onCourtIds.has(p.id));
 
   let sorted = [...onCourt];
 
