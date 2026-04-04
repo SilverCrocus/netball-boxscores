@@ -82,6 +82,7 @@ export default async function LiveGamePage({ params }: Props) {
       name: team.name,
       abbreviation: team.abbreviation,
       logoUrl: team.logoUrl,
+      primaryColor: team.primaryColor,
       players: team.players.map((p) => {
         const stats = p.matchStats[0];
         return {

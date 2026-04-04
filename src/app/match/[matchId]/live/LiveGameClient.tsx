@@ -207,23 +207,53 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       };
     });
 
-    // Merge intercept events from socket
-    const interceptEntries: FeedEntry[] = statEvents
-      .filter((e) => e.type === 'intercept')
-      .map((e) => ({
-        time: e.time,
-        quarter: e.quarter,
-        eventType: 'intercept' as const,
-        playerName: e.playerName,
-        playerId: e.playerId,
-        teamAbbreviation: e.teamAbbreviation,
-        teamName: e.teamName,
-        teamLogoUrl: e.teamLogoUrl,
-        isHomeTeam: e.isHomeTeam,
-      }));
+    // Derive intercept feed entries from player stats diff (survives re-mounts).
+    // Socket stat:event entries are used for timing; otherwise we show them
+    // with a generic timestamp from the current game clock.
+    const interceptEntries: FeedEntry[] = [];
+    const statEventMap = new Map(
+      statEvents
+        .filter((e) => e.type === 'intercept')
+        .map((e) => [e.playerId, e]),
+    );
+
+    const allTeamPlayers = [
+      ...homePlayers.map((p) => ({ ...p, isHome: true })),
+      ...awayPlayers.map((p) => ({ ...p, isHome: false })),
+    ];
+    for (const player of allTeamPlayers) {
+      const initial = player.isHome
+        ? match.homeTeam.players.find((p) => p.id === player.id)
+        : match.awayTeam.players.find((p) => p.id === player.id);
+      const newIntercepts = player.intercepts - (initial?.intercepts ?? 0);
+      if (newIntercepts <= 0) continue;
+
+      const team = player.isHome ? match.homeTeam : match.awayTeam;
+      const socketEvent = statEventMap.get(player.id);
+
+      for (let i = 0; i < newIntercepts; i++) {
+        // Use socket event timing if available, otherwise use current quarter/time
+        const eventSecs = socketEvent ? parseInt(socketEvent.time, 10) || 0 : 0;
+        const eventQuarter = socketEvent?.quarter ?? (quarter ?? 1);
+        const mins = eventSecs > 0 ? Math.floor(eventSecs / 60) : 0;
+        const rem = eventSecs > 0 ? String(eventSecs % 60).padStart(2, '0') : '00';
+
+        interceptEntries.push({
+          time: eventSecs > 0 ? `${mins}:${rem}` : '',
+          quarter: eventQuarter,
+          eventType: 'intercept',
+          playerName: player.name,
+          playerId: player.id,
+          teamAbbreviation: team.abbreviation,
+          teamName: team.name,
+          teamLogoUrl: team.logoUrl,
+          isHomeTeam: player.isHome,
+        });
+      }
+    }
 
     return [...goalEntries, ...interceptEntries];
-  }, [allScoreFlow, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, statEvents]);
+  }, [allScoreFlow, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, statEvents, quarter]);
 
   // ── Score breakdown (goals vs super shots) ──
   const { homeBreakdown, awayBreakdown } = useMemo(() => {

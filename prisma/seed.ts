@@ -18,6 +18,18 @@ const CD_TO_TSDB_NAME: Record<string, string> = {
   "NSW Swifts": "New South Wales Swifts",
 };
 
+// Official SSN team primary brand colours
+const TEAM_COLOURS: Record<string, string> = {
+  "Melbourne Mavericks": "#465EB1",
+  "Adelaide Thunderbirds": "#D23B6C",
+  "NSW Swifts": "#CF4333",
+  "Sunshine Coast Lightning": "#F3BB49",
+  "GIANTS Netball": "#EE8434",
+  "Melbourne Vixens": "#16315F",
+  "West Coast Fever": "#449759",
+  "Queensland Firebirds": "#3E1A55",
+};
+
 // TheSportsDB position strings to Prisma Position enum
 const POSITION_MAP: Record<string, Position> = {
   "Goal Shooter": Position.GS,
@@ -131,6 +143,7 @@ async function main() {
         abbreviation: info.code,
         logoUrl: tsdbTeam?.strBadge || null,
         bannerUrl: tsdbTeam?.strBanner || null,
+        primaryColor: TEAM_COLOURS[info.name] || null,
         championDataTeamId: squadId,
         competitionId: comp.id,
       },
@@ -385,8 +398,11 @@ async function main() {
         squadId: number;
         scorepoints: number;
       }>;
+      // Deduplicate: CD can have multiple events at the same (period, periodSeconds).
+      // Accumulate running scores, keep the last entry per unique key.
       let runningHome = 0;
       let runningAway = 0;
+      const deduped = new Map<string, { period: number; periodSeconds: number; scoringTeamId: string; homeScore: number; awayScore: number; scorePoints: number }>();
       for (const sf of cdScoreFlow) {
         const scoringTeamId = squadIdToPrismaId.get(sf.squadId);
         if (!scoringTeamId) continue;
@@ -397,14 +413,22 @@ async function main() {
           runningAway += sf.scorepoints;
         }
 
+        const key = `${sf.period}:${sf.periodSeconds}`;
+        deduped.set(key, {
+          period: sf.period,
+          periodSeconds: sf.periodSeconds,
+          scoringTeamId,
+          homeScore: runningHome,
+          awayScore: runningAway,
+          scorePoints: sf.scorepoints,
+        });
+      }
+
+      for (const entry of deduped.values()) {
         await prisma.scoreFlow.create({
           data: {
             matchId: prismaMatchId,
-            period: sf.period,
-            periodSeconds: sf.periodSeconds,
-            scoringTeamId,
-            homeScore: runningHome,
-            awayScore: runningAway,
+            ...entry,
           },
         });
         scoreFlowCount++;
