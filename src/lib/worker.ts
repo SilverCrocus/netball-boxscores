@@ -12,6 +12,7 @@ import { pickStatFields } from '@/lib/stat-utils';
 
 const POLL_SIM = 2_000; // 2 seconds in simulation mode
 const POLL_LIVE = 30_000; // 30 seconds
+const POLL_PRE_MATCH = 60_000; // 1 minute — match starting within 30min
 const POLL_MATCH_DAY = 900_000; // 15 minutes
 const POLL_OFF_SEASON = 21_600_000; // 6 hours
 
@@ -20,10 +21,12 @@ let isRunning = false;
 
 export function getPollingInterval(
   hasLiveMatch: boolean,
-  isMatchDay: boolean
+  isMatchDay: boolean,
+  hasPreMatch: boolean
 ): number {
   if (process.env.SIMULATION_MODE === 'true') return POLL_SIM;
   if (hasLiveMatch) return POLL_LIVE;
+  if (hasPreMatch) return POLL_PRE_MATCH;
   if (isMatchDay) return POLL_MATCH_DAY;
   return POLL_OFF_SEASON;
 }
@@ -36,14 +39,28 @@ async function checkForLiveMatches(): Promise<boolean> {
 }
 
 async function checkIsMatchDay(): Promise<boolean> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Pin to AEST — Render servers run in UTC
+  const aestNow = new Date(new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' }));
+  aestNow.setHours(0, 0, 0, 0);
+  const aestTomorrow = new Date(aestNow);
+  aestTomorrow.setDate(aestTomorrow.getDate() + 1);
 
   const matchCount = await prisma.match.count({
     where: {
-      scheduledAt: { gte: today, lt: tomorrow },
+      scheduledAt: { gte: aestNow, lt: aestTomorrow },
+    },
+  });
+  return matchCount > 0;
+}
+
+async function checkPreMatch(): Promise<boolean> {
+  const now = new Date();
+  const thirtyMinsFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+
+  const matchCount = await prisma.match.count({
+    where: {
+      status: 'SCHEDULED',
+      scheduledAt: { gte: now, lte: thirtyMinsFromNow },
     },
   });
   return matchCount > 0;
@@ -251,11 +268,12 @@ async function scheduleNextPoll(): Promise<void> {
   if (!isRunning) return;
 
   const hasLive = await checkForLiveMatches();
-  const isMatchDay = await checkIsMatchDay();
-  const interval = getPollingInterval(hasLive, isMatchDay);
+  const hasPreMatch = !hasLive && await checkPreMatch();
+  const isMatchDay = !hasLive && !hasPreMatch && await checkIsMatchDay();
+  const interval = getPollingInterval(hasLive, isMatchDay, hasPreMatch);
 
   console.log(
-    `[Worker] Next poll in ${interval / 1000}s (live: ${hasLive}, matchDay: ${isMatchDay})`
+    `[Worker] Next poll in ${interval / 1000}s (live: ${hasLive}, preMatch: ${hasPreMatch}, matchDay: ${isMatchDay})`
   );
 
   pollTimer = setTimeout(async () => {
