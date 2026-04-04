@@ -91,48 +91,59 @@ export default async function HomePage() {
       {/* Upcoming Fixtures */}
       <section className="mb-20">
         <h2 className="text-xl font-bold font-headline text-primary mb-6">UPCOMING FIXTURES</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           {/* Featured Match */}
           {featured && (
             <Link
               href={`/match/${featured.id}`}
-              className="md:col-span-2 bg-gradient-to-br from-primary to-primary-container rounded-2xl p-8 text-white flex flex-col justify-between min-h-[300px] shadow-2xl"
+              className="md:col-span-3 relative overflow-hidden bg-gradient-to-br from-primary via-primary-container to-primary rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center gap-6 shadow-2xl transition-all duration-300 hover:shadow-[0_0_40px_rgba(163,230,53,0.15)] hover:scale-[1.01]"
             >
-              <div className="flex justify-between items-start">
+              {/* Decorative background elements */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-20 -right-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+                <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-lime-400/10 rounded-full blur-2xl" />
+                <img
+                  src="/netball-cleaned-white.png"
+                  alt=""
+                  className="absolute right-[-10%] top-1/2 -translate-y-1/2 w-[96%] max-w-[700px] opacity-[0.04]"
+                />
+              </div>
+              <div className="relative flex justify-between items-start">
                 <div className="space-y-1">
                   <span className="text-lime-400 font-black font-label text-xs uppercase tracking-widest">
-                    Next Match
+                    Next Match &middot; Round {featured.round}
                   </span>
-                  <h3 className="text-3xl font-black font-headline tracking-tighter italic uppercase">
-                    {featured.homeTeam.name} vs {featured.awayTeam.name}
+                  <h3 className="text-2xl md:text-4xl font-black font-headline tracking-tighter italic uppercase leading-tight">
+                    {featured.homeTeam.name} <span className="text-lime-400">vs</span><br />
+                    {featured.awayTeam.name}
                   </h3>
                 </div>
-                <div className="text-right">
-                  <span className="block text-lg font-bold font-headline">
+                <div className="text-right shrink-0 pl-4 mt-6">
+                  <span className="block text-xl font-bold font-headline whitespace-nowrap">
                     {formatMatchDateTime(featured.scheduledAt)}
                   </span>
                   {featured.venue && (
-                    <span className="text-[10px] uppercase font-label text-slate-400 block mt-1">
+                    <span className="text-xs uppercase font-label text-slate-300 block mt-1">
                       {featured.venue}
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-around py-8">
+              <div className="relative flex items-center justify-around py-4">
                 <div className="text-center">
-                  <div className="w-20 h-20 rounded-full flex items-center justify-center backdrop-blur-md mb-3 overflow-hidden">
-                    <TeamBadge team={featured.homeTeam} size={64} variant="home" />
+                  <div className="w-28 h-28 rounded-full flex items-center justify-center backdrop-blur-md mb-2 overflow-hidden">
+                    <TeamBadge team={featured.homeTeam} size={96} variant="home" />
                   </div>
-                  <span className="font-bold font-headline uppercase">
+                  <span className="font-bold font-headline uppercase text-sm">
                     {featured.homeTeam.name}
                   </span>
                 </div>
                 <div className="text-lime-400 font-black text-4xl italic px-4">VS</div>
                 <div className="text-center">
-                  <div className="w-20 h-20 rounded-full flex items-center justify-center backdrop-blur-md mb-3 overflow-hidden">
-                    <TeamBadge team={featured.awayTeam} size={64} variant="away" />
+                  <div className="w-28 h-28 rounded-full flex items-center justify-center backdrop-blur-md mb-2 overflow-hidden">
+                    <TeamBadge team={featured.awayTeam} size={96} variant="away" />
                   </div>
-                  <span className="font-bold font-headline uppercase">
+                  <span className="font-bold font-headline uppercase text-sm">
                     {featured.awayTeam.name}
                   </span>
                 </div>
@@ -141,31 +152,29 @@ export default async function HomePage() {
           )}
 
           {/* Side Fixtures */}
-          <div className="flex flex-col gap-4">
+          <div className="md:col-span-2 flex flex-col gap-4">
             {upcomingMatches.slice(featured ? 1 : 0, 4).map((match) => (
               <Link
                 key={match.id}
                 href={`/match/${match.id}`}
-                className="bg-surface-container rounded-xl p-4 flex items-center justify-between group hover:bg-surface-container-high transition-all"
+                className="bg-surface-container rounded-xl p-4 group hover:bg-surface-container-high transition-all flex-1 flex flex-col justify-center"
               >
-                <div className="flex items-center gap-3">
-                  <TeamBadge team={match.homeTeam} size={44} variant="home" />
-                  <div>
-                    <div className="text-sm font-bold font-headline text-primary">
-                      {match.homeTeam.name} v {match.awayTeam.name}
-                    </div>
-                    <div className="text-[10px] font-bold text-on-surface-variant uppercase font-label">
-                      {formatMatchDateTime(match.scheduledAt)}
-                    </div>
-                    <div className="text-[10px] text-on-surface-variant font-label">
-                      {match.venue}
-                    </div>
-                  </div>
-                  <TeamBadge team={match.awayTeam} size={44} variant="away" />
+                <div className="text-base font-bold font-headline text-primary">
+                  {match.homeTeam.name} v {match.awayTeam.name}
                 </div>
-                <span className="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">
-                  calendar_today
-                </span>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="text-sm font-bold text-on-surface-variant uppercase font-label">
+                    {formatMatchDateTime(match.scheduledAt)}
+                  </div>
+                  <div className="text-xs text-on-surface-variant font-label">
+                    {match.venue}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-2 px-6">
+                  <TeamBadge team={match.homeTeam} size={60} variant="home" />
+                  <span className="text-base font-bold text-outline-variant italic">VS</span>
+                  <TeamBadge team={match.awayTeam} size={60} variant="away" />
+                </div>
               </Link>
             ))}
           </div>

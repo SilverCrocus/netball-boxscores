@@ -1,10 +1,16 @@
 import { ImageResponse } from 'next/og';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 export const runtime = 'nodejs';
 export const size = { width: 180, height: 180 };
 export const contentType = 'image/png';
 
-export default function AppleIcon() {
+export default async function AppleIcon() {
+  const imageData = await readFile(join(process.cwd(), 'public/netball-cleaned-black.png'));
+  const base64 = imageData.toString('base64');
+  const dataUrl = `data:image/png;base64,${base64}`;
+
   return new ImageResponse(
     (
       <div
@@ -14,47 +20,16 @@ export default function AppleIcon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#0D1117',
+          background: 'white',
           borderRadius: 36,
         }}
       >
-        {/* Outer pulse ring */}
-        <div
-          style={{
-            position: 'absolute',
-            width: 156,
-            height: 156,
-            borderRadius: '50%',
-            border: '3px solid rgba(99, 102, 241, 0.3)',
-            display: 'flex',
-          }}
+        <img
+          src={dataUrl}
+          width={150}
+          height={150}
+          style={{ objectFit: 'contain' }}
         />
-        {/* Inner circle with gradient border */}
-        <div
-          style={{
-            width: 124,
-            height: 124,
-            borderRadius: '50%',
-            border: '4px solid #6366F1',
-            background: 'rgba(99, 102, 241, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <span
-            style={{
-              color: 'white',
-              fontSize: 72,
-              fontWeight: 800,
-              fontFamily: 'system-ui, sans-serif',
-              lineHeight: 1,
-              marginTop: -2,
-            }}
-          >
-            C
-          </span>
-        </div>
       </div>
     ),
     { ...size },

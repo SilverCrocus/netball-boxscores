@@ -9,7 +9,8 @@ export function Sidebar() {
 
   return (
     <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 bg-slate-900 py-8 z-40 shadow-xl">
-      <div className="px-6 mb-8">
+      <div className="px-6 mb-8 flex items-center gap-3">
+        <img src="/netball-cleaned-white.png" alt="" className="h-8 w-auto" />
         <span className="text-2xl font-black italic tracking-tighter text-white uppercase font-headline">
           CentrePass
         </span>
