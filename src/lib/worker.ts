@@ -211,8 +211,12 @@ async function broadcastChanges(
 
 /**
  * Detect LIVE matches that appear to have ended but CD never marked "complete".
- * If Q4+ and the elapsed time exceeds the quarter length (clock at 0), and the
- * match has been in this state for at least 2 poll cycles, mark as completed.
+ *
+ * Two detection paths:
+ * 1. **Fast** — Q4+ with <1 min remaining and no DB update for 30s.
+ *    Catches matches that finish normally but CD is slow to report "complete".
+ * 2. **Fallback** — Q4+ clock past quarter end and 90+ min since scheduledAt.
+ *    Catches matches where CD stopped sending data entirely.
  */
 async function detectStaleCompletedMatches(): Promise<
   Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }>
@@ -222,6 +226,7 @@ async function detectStaleCompletedMatches(): Promise<
   });
 
   const completed: Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }> = [];
+  const now = Date.now();
 
   for (const match of liveMatches) {
     const quarter = match.currentQuarter ?? 0;
@@ -231,28 +236,46 @@ async function detectStaleCompletedMatches(): Promise<
     if (isNaN(elapsed)) continue;
 
     const quarterLength = quarter > 4 ? 300 : 900; // ET = 5min, regular = 15min
-    if (elapsed < quarterLength) continue;
+    const remaining = quarterLength - elapsed;
+    const sinceUpdate = now - match.updatedAt.getTime();
 
-    // Clock has reached or passed the end of Q4+ — check if enough real time
-    // has passed since the match started. A netball match is ~75 min including
-    // stoppages. If 90+ min have passed since scheduledAt, the match is over.
-    const matchAge = Date.now() - match.scheduledAt.getTime();
-    const MIN_MATCH_DURATION = 90 * 60 * 1000; // 90 minutes
-    if (matchAge < MIN_MATCH_DURATION) continue;
+    // Fast path: under 1 minute remaining in Q4+ and no update for 30s
+    if (remaining < 60 && sinceUpdate >= 30_000) {
+      console.log(`[Worker] Match ended (fast): ${match.id} (Q${quarter}, ${remaining}s remaining, ${Math.round(sinceUpdate / 1000)}s since update)`);
 
-    console.log(`[Worker] Stale LIVE match detected: ${match.id} (Q${quarter}, ${elapsed}s elapsed, match age: ${Math.round(matchAge / 60000)}min)`);
+      await prisma.match.update({
+        where: { id: match.id },
+        data: { status: 'COMPLETED' },
+      });
 
-    await prisma.match.update({
-      where: { id: match.id },
-      data: { status: 'COMPLETED' },
-    });
+      completed.push({
+        matchId: match.id,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        finalQuarter: quarter,
+      });
+      continue;
+    }
 
-    completed.push({
-      matchId: match.id,
-      homeScore: match.homeScore,
-      awayScore: match.awayScore,
-      finalQuarter: quarter,
-    });
+    // Fallback: clock past quarter end and 90+ min since scheduled start
+    if (elapsed >= quarterLength) {
+      const matchAge = now - match.scheduledAt.getTime();
+      if (matchAge >= 90 * 60 * 1000) {
+        console.log(`[Worker] Stale LIVE match detected: ${match.id} (Q${quarter}, ${elapsed}s elapsed, match age: ${Math.round(matchAge / 60000)}min)`);
+
+        await prisma.match.update({
+          where: { id: match.id },
+          data: { status: 'COMPLETED' },
+        });
+
+        completed.push({
+          matchId: match.id,
+          homeScore: match.homeScore,
+          awayScore: match.awayScore,
+          finalQuarter: quarter,
+        });
+      }
+    }
   }
 
   return completed;
@@ -349,8 +372,23 @@ async function pollChampionData(): Promise<void> {
 
     const matches = await fetchFixture(COMP_ID);
 
+    // Build a set of SCHEDULED matches in our DB so we can backfill stats
+    // for matches the worker missed live (SCHEDULED → complete in CD)
+    const scheduledCDIds = new Set<number>();
+    const scheduledDbMatches = await prisma.match.findMany({
+      where: { status: 'SCHEDULED', championDataMatchId: { not: null } },
+      select: { championDataMatchId: true },
+    });
+    for (const m of scheduledDbMatches) {
+      if (m.championDataMatchId) scheduledCDIds.add(m.championDataMatchId);
+    }
+
     for (const matchData of matches) {
-      if (matchData.matchStatus.toLowerCase() !== 'playing') continue;
+      const cdStatus = matchData.matchStatus.toLowerCase();
+      const isPlaying = cdStatus === 'playing';
+      // Also process completed matches that we still have as SCHEDULED — backfill stats
+      const needsBackfill = cdStatus === 'complete' && scheduledCDIds.has(matchData.matchId);
+      if (!isPlaying && !needsBackfill) continue;
 
       let matchDetail;
       try {

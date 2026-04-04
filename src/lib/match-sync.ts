@@ -248,15 +248,20 @@ export async function applyChanges(
   }
 }
 
+/**
+ * Reconcile matches where CD reports "complete" but DB still has LIVE or SCHEDULED.
+ * Handles both the normal LIVE→COMPLETED transition and the case where the worker
+ * missed the live window entirely (SCHEDULED→COMPLETED).
+ */
 export async function reconcileCompletedMatches(
   fixtureMatches: CDFixtureMatch[]
 ): Promise<Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }>> {
-  const liveMatches = await prisma.match.findMany({
-    where: { status: 'LIVE' },
-    select: { id: true, championDataMatchId: true },
+  const unresolvedMatches = await prisma.match.findMany({
+    where: { status: { in: ['LIVE', 'SCHEDULED'] } },
+    select: { id: true, status: true, championDataMatchId: true },
   });
 
-  if (liveMatches.length === 0) return [];
+  if (unresolvedMatches.length === 0) return [];
 
   const fixtureMap = new Map(
     fixtureMatches.map((fm) => [fm.matchId, fm])
@@ -264,14 +269,14 @@ export async function reconcileCompletedMatches(
 
   const completed: Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }> = [];
 
-  for (const liveMatch of liveMatches) {
-    if (!liveMatch.championDataMatchId) continue;
+  for (const dbMatch of unresolvedMatches) {
+    if (!dbMatch.championDataMatchId) continue;
 
-    const fixture = fixtureMap.get(liveMatch.championDataMatchId);
+    const fixture = fixtureMap.get(dbMatch.championDataMatchId);
     if (!fixture || fixture.matchStatus.toLowerCase() !== 'complete') continue;
 
     await prisma.match.update({
-      where: { id: liveMatch.id },
+      where: { id: dbMatch.id },
       data: {
         status: 'COMPLETED',
         homeScore: fixture.homeSquadScore,
@@ -280,7 +285,7 @@ export async function reconcileCompletedMatches(
     });
 
     completed.push({
-      matchId: liveMatch.id,
+      matchId: dbMatch.id,
       homeScore: fixture.homeSquadScore,
       awayScore: fixture.awaySquadScore,
       finalQuarter: fixture.periodCompleted || fixture.period || 4,
