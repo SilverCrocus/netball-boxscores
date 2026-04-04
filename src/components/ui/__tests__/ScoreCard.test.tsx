@@ -26,17 +26,6 @@ const scheduledMatch = {
   scheduledAt: '2026-03-25T09:30:00Z',
 };
 
-const completedMatch = {
-  ...liveMatch,
-  id: '3',
-  status: 'COMPLETED' as const,
-  homeScore: 64,
-  awayScore: 58,
-  currentQuarter: null,
-  currentTime: null,
-  scheduledAt: '2026-04-05T05:00:00Z',
-};
-
 describe('ScoreCard', () => {
   it('renders both team names', () => {
     render(<ScoreCard match={liveMatch} />);
@@ -63,37 +52,5 @@ describe('ScoreCard', () => {
   it('does not show LIVE indicator for scheduled matches', () => {
     render(<ScoreCard match={scheduledMatch} />);
     expect(screen.queryByText('LIVE')).not.toBeInTheDocument();
-  });
-
-  it('renders with flex column layout for consistent card heights', () => {
-    const { container } = render(<ScoreCard match={liveMatch} />);
-    const link = container.querySelector('a');
-    expect(link?.className).toContain('flex');
-    expect(link?.className).toContain('flex-col');
-    expect(link?.className).toContain('h-full');
-  });
-
-  it('renders score section with flex-grow for vertical centering', () => {
-    const { container } = render(<ScoreCard match={liveMatch} />);
-    // The score display wrapper should have flex-1
-    const scoreSection = container.querySelector('[data-testid="score-display"]');
-    expect(scoreSection?.className).toContain('flex-1');
-  });
-
-  it('shows Final badge for completed matches by default', () => {
-    render(<ScoreCard match={completedMatch} />);
-    expect(screen.getByText('Final')).toBeInTheDocument();
-  });
-
-  it('hides Final badge when showFinalBadge is false', () => {
-    render(<ScoreCard match={completedMatch} showFinalBadge={false} />);
-    expect(screen.queryByText('Final')).not.toBeInTheDocument();
-  });
-
-  it('shows date/time when showFinalBadge is false for completed matches', () => {
-    render(<ScoreCard match={completedMatch} showFinalBadge={false} />);
-    // formatMatchDateTime produces "Sun, 5 Apr, 3:00 pm" for 2026-04-05T05:00:00Z
-    // Use full string to avoid matching the footer which also contains "Sun, 5 Apr"
-    expect(screen.getByText(/Sun, 5 Apr, 3:00\s*pm/)).toBeInTheDocument();
   });
 });

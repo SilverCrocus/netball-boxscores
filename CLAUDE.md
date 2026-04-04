@@ -67,13 +67,13 @@ When building components, reference these designs as the visual spec.
 ## Shared Components
 
 - **`TeamBadge`** (`src/components/ui/TeamBadge.tsx`): Renders team logo with letter fallback. Use this instead of inline letter placeholders. Props: `team` (name/abbreviation/logoUrl), `size` (px), `variant` ('home'|'away').
-- **`ScoreCard`** (`src/components/ui/ScoreCard.tsx`): Match result card with team badges, scores, date, round, and venue. Props: `match` (ScoreCardMatch), `showFinalBadge` (default `true` — when `false`, replaces "Final" pill with `formatMatchDateTime`). Uses flex-stretch layout (`flex flex-col h-full`) for consistent card heights in grids.
+- **`ScoreCard`** (`src/components/ui/ScoreCard.tsx`): Match result card with team badges, scores, date, round, and venue.
 
 ## Shared Utilities
 
 - **`src/lib/navigation.ts`**: `NAV_ITEMS` array — single source of truth for sidebar and bottom nav links. Each item has `href`, `label`, `icon`, and optional `sidebarLabel`. Also exports `isActive(pathname, href)` for nav highlight logic.
 - **`src/lib/api-auth.ts`**: `requireAuth()` (returns session or 401 response) and `badRequest(msg)` helpers for API routes.
-- **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatMatchDateTime(date)`, `formatShortDate(date)`, `computeAge(dob)` — shared date formatting and age computation. `formatMatchDateTime` combines date + time on one line (e.g., `"Sun, 5 Apr, 3:00 pm"`). All date/time functions pinned to `Australia/Sydney` timezone (not system/UTC).
+- **`src/lib/format.ts`**: `formatMatchDate(date)`, `formatMatchTime(date)`, `formatShortDate(date)`, `computeAge(dob)` — shared date formatting and age computation. All date/time functions pinned to `Australia/Sydney` timezone (not system/UTC).
 - **`src/lib/stat-utils.ts`**: Single source of truth for stat field operations. Exports: `STAT_FIELDS` (11 field names), `StatValues` (typed record), `pickStatFields(obj)` (extract stat fields from any object), `emptyStats()` (zero-initialized), `aggregateStats(items)` (sum across players, excludes minutesPlayed), `computeShootingPct(goals, attempts)`, `getStatValue(stat, field)` (dynamic accessor with computed shootingPct).
 - **`src/lib/db.ts`**: Prisma client + `excludeSimData` — shared Prisma `where` clause that filters out round-99 simulation data in production. Use this in all match queries instead of inline conditions.
 - **`src/lib/user-resource-route.ts`**: `createUserResourceHandlers(config)` — factory for user CRUD API routes (favorites, reminders, teams). Each route file is ~7 lines.
@@ -142,7 +142,6 @@ Dev-only system for testing the live scores pipeline without a real Champion Dat
 - **Prisma AI safety check:** `prisma migrate reset` and destructive commands require `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="yes"` env var when run from an AI agent. Use `npx prisma db push --force-reset` as an alternative.
 - **Server timezone:** Render servers run in UTC. All date formatting in `format.ts` is pinned to `Australia/Sydney` — do not use bare `toLocaleDateString()`/`toLocaleTimeString()` without `timeZone` option.
 - **Simulation data leak:** Simulation writes to the real database via the worker pipeline. If `SIMULATION_MODE=true` reaches production (or dev points at prod DB), sim data pollutes real data. The triple safeguard (server.ts + engine.ts + champion-data.ts) prevents this, but never deploy with `SIMULATION_MODE=true`.
-- **Worker fetch caching:** The worker runs in the same Node process as Next.js, so `fetch()` calls are patched and cached by Next.js. Worker fetches must use `cache: 'no-store'` — never `next: { revalidate }` — otherwise the worker gets stale Champion Data responses and detects no changes.
 - **Stat fields — never enumerate manually:** Use `STAT_FIELDS`, `pickStatFields()`, `emptyStats()`, `aggregateStats()`, or `extends StatValues` from `stat-utils.ts`. Never list the 11 stat fields inline — this was the #1 duplication source before the refactor.
 - **Shooting percentage — use `computeShootingPct()`:** Never inline `(goals / attempts) * 100`. Always import from `stat-utils.ts`.
 - **Sim data filter — use `excludeSimData`:** Import from `@/lib/db`. Never write inline `{ round: { not: 99 } }` conditions.

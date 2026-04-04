@@ -208,9 +208,8 @@ async function pollChampionData(): Promise<void> {
 
       const incoming = buildIncomingMatchState(matchData, matchDetail, dbMatch);
       const changes = await detectChanges(incoming);
-      const hasChanges = changes.scoreChanged || changes.statusChanged || changes.timeChanged;
 
-      if (changes.matchId && hasChanges) {
+      if (changes.matchId && (changes.scoreChanged || changes.statusChanged)) {
         await applyChanges(changes, incoming);
         await broadcastChanges(changes, matchDetail, dbMatch);
       }
