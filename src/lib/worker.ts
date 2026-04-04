@@ -372,8 +372,23 @@ async function pollChampionData(): Promise<void> {
 
     const matches = await fetchFixture(COMP_ID);
 
+    // Build a set of SCHEDULED matches in our DB so we can backfill stats
+    // for matches the worker missed live (SCHEDULED → complete in CD)
+    const scheduledCDIds = new Set<number>();
+    const scheduledDbMatches = await prisma.match.findMany({
+      where: { status: 'SCHEDULED', championDataMatchId: { not: null } },
+      select: { championDataMatchId: true },
+    });
+    for (const m of scheduledDbMatches) {
+      if (m.championDataMatchId) scheduledCDIds.add(m.championDataMatchId);
+    }
+
     for (const matchData of matches) {
-      if (matchData.matchStatus.toLowerCase() !== 'playing') continue;
+      const cdStatus = matchData.matchStatus.toLowerCase();
+      const isPlaying = cdStatus === 'playing';
+      // Also process completed matches that we still have as SCHEDULED — backfill stats
+      const needsBackfill = cdStatus === 'complete' && scheduledCDIds.has(matchData.matchId);
+      if (!isPlaying && !needsBackfill) continue;
 
       let matchDetail;
       try {
