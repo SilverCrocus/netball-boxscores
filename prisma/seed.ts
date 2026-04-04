@@ -20,7 +20,7 @@ const CD_TO_TSDB_NAME: Record<string, string> = {
 
 // Official SSN team primary brand colours
 const TEAM_COLOURS: Record<string, string> = {
-  "Melbourne Mavericks": "#465EB1",
+  "Melbourne Mavericks": "#53B5D6",
   "Adelaide Thunderbirds": "#D23B6C",
   "NSW Swifts": "#CF4333",
   "Sunshine Coast Lightning": "#F3BB49",
