@@ -11,6 +11,7 @@ import {
 } from '@/components/match/LivePlayByPlay';
 import type { StatsUpdatePayload, ScoreFlowAddPayload } from '@/types/socket';
 import { pickStatFields } from '@/lib/stat-utils';
+import { useLocalClock } from '@/hooks/useLocalClock';
 import type { PlayerStatRow } from '@/types/stats';
 import type { QuarterData } from '@/types/match';
 import type { TeamInfoWithId } from '@/types/team';
@@ -100,8 +101,11 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   const homeScore = score?.homeScore ?? match.homeScore;
   const awayScore = score?.awayScore ?? match.awayScore;
   const quarter = score?.currentQuarter ?? match.currentQuarter;
-  const time = score?.currentTime ?? match.currentTime;
+  const serverTime = score?.currentTime ?? match.currentTime;
   const isLive = matchStatus?.status === 'COMPLETED' ? false : (matchStatus?.status === 'LIVE' || match.status === 'LIVE');
+
+  // Tick the game clock locally between server updates
+  const time = useLocalClock(isLive ? serverTime : null) ?? serverTime;
 
   // ── Merge socket stats into player data ──
   const homePlayers = mergePlayerStats(match.homeTeam.players, playerStats);
