@@ -3,7 +3,12 @@
 import { useMemo } from 'react';
 import { useMatchSocket } from '@/hooks/useMatchSocket';
 import { LiveScoreHero } from '@/components/match/LiveScoreHero';
-import { ScoreProgressChart } from '@/components/match/ScoreProgressChart';
+import dynamic from 'next/dynamic';
+
+const ScoreProgressChart = dynamic(
+  () => import('@/components/match/ScoreProgressChart').then((m) => m.ScoreProgressChart),
+  { ssr: false },
+);
 import { LiveLineups } from '@/components/match/LiveLineups';
 import { MatchStatsComparison } from '@/components/match/MatchStatsComparison';
 import {
