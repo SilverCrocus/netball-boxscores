@@ -92,6 +92,7 @@ describe('match-sync', () => {
       matchId: 'match-1',
       scoreChanged: true,
       statusChanged: false,
+      timeChanged: false,
       newHomeScore: 32,
       newAwayScore: 28,
       newStatus: 'LIVE' as const,

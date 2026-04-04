@@ -196,7 +196,7 @@ export async function fetchMatchStats(
   matchId: number
 ): Promise<CDMatchStatsResponse> {
   const path = SIM_MODE ? `/${matchId}.json` : `/${compId}/${matchId}.json`;
-  const raw = await fetchFromChampionData<CDMatchStatsResponse | CDRawMatchStatsResponse>(path, 30);
+  const raw = await fetchFromChampionData<CDMatchStatsResponse | CDRawMatchStatsResponse>(path);
 
   // Sim format — already normalised
   if (!('matchStats' in raw)) return raw;

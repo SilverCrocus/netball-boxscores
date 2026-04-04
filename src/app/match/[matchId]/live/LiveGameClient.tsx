@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useMatchSocket } from '@/hooks/useMatchSocket';
 import { LiveScoreHero } from '@/components/match/LiveScoreHero';
 import { LiveLineups } from '@/components/match/LiveLineups';
@@ -41,6 +41,8 @@ interface LiveGameClientProps {
 
 // ─── Helpers ───
 
+const VALID_POSITIONS = new Set(['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']);
+
 function mergePlayerStats(
   players: PlayerStatRow[],
   socketStats: StatsUpdatePayload | null,
@@ -54,8 +56,12 @@ function mergePlayerStats(
     return {
       ...player,
       ...pickStatFields(update),
-      // Use live position from Champion Data if available
-      ...(update.currentPosition ? { position: update.currentPosition } : {}),
+      // Only apply live position if it's a valid standard netball position.
+      // CD can send empty/non-standard codes for benched players — keeping
+      // the DB position prevents players from vanishing from the lineup.
+      ...(update.currentPosition && VALID_POSITIONS.has(update.currentPosition)
+        ? { position: update.currentPosition }
+        : {}),
     };
   });
 }
@@ -119,66 +125,6 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
     quarter,
   );
 
-  // ── Scorer identification ──
-  // Track previous goal counts to detect who scored
-  const prevGoalsRef = useRef<Map<string, number>>(new Map());
-  const [scorerLog, setScorerLog] = useState<
-    Array<{ playerId: string; name: string; teamId: string }>
-  >([]);
-
-  // Initialize prev goals from SSR data
-  useEffect(() => {
-    const map = new Map<string, number>();
-    for (const p of [
-      ...match.homeTeam.players,
-      ...match.awayTeam.players,
-    ]) {
-      map.set(p.id, p.goals);
-    }
-    prevGoalsRef.current = map;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Detect new goals on stats update
-  useEffect(() => {
-    if (!playerStats) return;
-    const prev = prevGoalsRef.current;
-    const allPlayers = [
-      ...match.homeTeam.players,
-      ...match.awayTeam.players,
-    ];
-    const newScorers: Array<{
-      playerId: string;
-      name: string;
-      teamId: string;
-    }> = [];
-
-    for (const stat of playerStats.playerStats) {
-      const prevGoalCount = prev.get(stat.playerId) ?? 0;
-      if (stat.goals > prevGoalCount) {
-        const player = allPlayers.find((p) => p.id === stat.playerId);
-        const teamId = match.homeTeam.players.some(
-          (p) => p.id === stat.playerId,
-        )
-          ? match.homeTeam.id
-          : match.awayTeam.id;
-
-        // One entry per goal scored (handles multi-goal updates)
-        for (let i = 0; i < stat.goals - prevGoalCount; i++) {
-          newScorers.push({
-            playerId: stat.playerId,
-            name: player?.name ?? 'Unknown',
-            teamId,
-          });
-        }
-      }
-      prev.set(stat.playerId, stat.goals);
-    }
-
-    if (newScorers.length > 0) {
-      setScorerLog((prev) => [...prev, ...newScorers]);
-    }
-  }, [playerStats]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Merge initial + socket score flow, deduplicating ──
   const allScoreFlow = useMemo(() => {
     const initial = match.initialScoreFlow ?? [];
@@ -190,16 +136,30 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   }, [match.initialScoreFlow, scoreFlow]);
 
   // ── Build enriched feed entries ──
+  // Scorer detection is done synchronously here by comparing current
+  // live-merged player goals with the SSR snapshot. This avoids the
+  // timing issues of useEffect-based detection where the scorer log
+  // updates asynchronously after render.
   const feedEntries: FeedEntry[] = useMemo(() => {
-    // Split scorer log by team for ordered matching against NEW entries only.
-    // scorerLog only contains goals detected via socket stats diffs, so they
-    // correspond to score flow entries that arrived after the initial DB load.
-    const homeScorers = scorerLog.filter(
-      (s) => s.teamId === match.homeTeam.id,
-    );
-    const awayScorers = scorerLog.filter(
-      (s) => s.teamId === match.awayTeam.id,
-    );
+    // Build scorer lists by diffing current goals vs SSR initial goals.
+    // Only players whose goals increased since page load are scorers.
+    const homeScorers: Array<{ name: string; playerId: string }> = [];
+    const awayScorers: Array<{ name: string; playerId: string }> = [];
+
+    for (const player of homePlayers) {
+      const initial = match.homeTeam.players.find((p) => p.id === player.id);
+      const newGoals = player.goals - (initial?.goals ?? 0);
+      for (let i = 0; i < newGoals; i++) {
+        homeScorers.push({ name: player.name, playerId: player.id });
+      }
+    }
+    for (const player of awayPlayers) {
+      const initial = match.awayTeam.players.find((p) => p.id === player.id);
+      const newGoals = player.goals - (initial?.goals ?? 0);
+      for (let i = 0; i < newGoals; i++) {
+        awayScorers.push({ name: player.name, playerId: player.id });
+      }
+    }
 
     const initialCount = (match.initialScoreFlow ?? []).length;
     let homeIdx = 0;
@@ -244,7 +204,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         awayScore: flow.awayScore,
       };
     });
-  }, [allScoreFlow, scorerLog, match.homeTeam, match.awayTeam]);
+  }, [allScoreFlow, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow]);
 
   // ── Comparison stats (6 stats) ──
   const comparisonStats = [
