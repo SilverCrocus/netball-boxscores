@@ -26,17 +26,6 @@ export function formatShortDate(date: string | Date): string {
   });
 }
 
-export function formatMatchDateTime(date: string | Date): string {
-  const d = new Date(date);
-  const datePart = formatMatchDate(d);
-  const timePart = d.toLocaleTimeString(LOCALE, {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: TIMEZONE,
-  });
-  return `${datePart}, ${timePart}`;
-}
-
 export function formatHeight(height: string): string {
   const match = height.match(/(\d+)\s*ft\s*(\d+)\s*in/i);
   if (match) {
