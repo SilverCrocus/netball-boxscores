@@ -58,8 +58,36 @@ function splitAndSort(
   let bench: PlayerStatRow[];
 
   if (hasMinutesData) {
-    onCourt = players.filter((p) => p.minutesPlayed > 0);
-    bench = players.filter((p) => p.minutesPlayed <= 0);
+    // Players with minutes have been on court at some point.
+    // Deduplicate by position: only the last player at each position is on court.
+    // A player replacing another at the same position will have more recent minutes.
+    const withMinutes = players.filter((p) => p.minutesPlayed > 0);
+    const noMinutes = players.filter((p) => p.minutesPlayed <= 0);
+
+    // For each position, keep only the player with the fewest minutes
+    // (most recently subbed on — the replaced player will have more accumulated minutes)
+    // But actually, we can't distinguish reliably by minutes alone.
+    // Instead: keep only ONE player per position, preferring the one with fewer minutes
+    // (the sub), since the starter accumulates more before being replaced.
+    const positionMap = new Map<string, PlayerStatRow>();
+    for (const p of withMinutes) {
+      const pos = p.position;
+      const existing = positionMap.get(pos);
+      if (!existing) {
+        positionMap.set(pos, p);
+      } else {
+        // Keep the player with fewer minutes (more likely the current sub)
+        // Move the other to bench
+        if (p.minutesPlayed < existing.minutesPlayed) {
+          positionMap.set(pos, p);
+        }
+      }
+    }
+
+    onCourt = Array.from(positionMap.values());
+    // Everyone with minutes who isn't on court + everyone without minutes = bench
+    const onCourtIds = new Set(onCourt.map((p) => p.id));
+    bench = [...withMinutes.filter((p) => !onCourtIds.has(p.id)), ...noMinutes];
   } else {
     // Fallback: first 7 by position order are "on court"
     const byPos = [...players].sort(

@@ -172,6 +172,7 @@ async function broadcastChanges(
       .filter((ps) => playerIdMap.has(ps.playerId))
       .map((ps) => ({
         playerId: playerIdMap.get(ps.playerId)!,
+        currentPosition: ps.position ?? '',
         ...pickStatFields(ps),
       }));
 
