@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 
 interface LiveStatus {
   hasLive: boolean;
+  nearLive: boolean;
   minutesUntilNext: number | null;
 }
 
 export function useLiveStatus(): LiveStatus {
   const [status, setStatus] = useState<LiveStatus>({
     hasLive: false,
+    nearLive: false,
     minutesUntilNext: null,
   });
 
@@ -25,7 +27,11 @@ export function useLiveStatus(): LiveStatus {
           ? Math.max(0, Math.ceil((new Date(data.nextMatchAt).getTime() - Date.now()) / 60000))
           : null;
 
-        setStatus({ hasLive: data.hasLive, minutesUntilNext });
+        setStatus({
+          hasLive: data.hasLive,
+          nearLive: data.nearLive ?? false,
+          minutesUntilNext,
+        });
       } catch {
         // Silently fail — nav still works, just no countdown
       }

@@ -99,8 +99,8 @@ describe('HomePage', () => {
   it('renders "Next Match" label instead of "Match of the Day"', async () => {
     const page = await HomePage();
     render(page);
-    expect(screen.getByText('Next Match')).toBeInTheDocument();
-    expect(screen.queryByText('Match of the Day')).not.toBeInTheDocument();
+    expect(screen.getByText(/Next Match/)).toBeInTheDocument();
+    expect(screen.queryByText(/Match of the Day/)).not.toBeInTheDocument();
   });
 
   it('renders full team names in side fixtures', async () => {
