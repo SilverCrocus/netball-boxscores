@@ -40,15 +40,29 @@ async function checkForLiveMatches(): Promise<boolean> {
 }
 
 async function checkIsMatchDay(): Promise<boolean> {
-  // Pin to AEST — Render servers run in UTC
-  const aestNow = new Date(new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' }));
-  aestNow.setHours(0, 0, 0, 0);
-  const aestTomorrow = new Date(aestNow);
-  aestTomorrow.setDate(aestTomorrow.getDate() + 1);
+  // Pin to AEST/AEDT — Render servers run in UTC.
+  // Use Intl.DateTimeFormat to reliably get the current AEST date parts
+  // instead of the fragile new Date(toLocaleString()) pattern.
+  const formatter = new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Sydney',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(new Date());
+  const year = Number(parts.find((p) => p.type === 'year')!.value);
+  const month = Number(parts.find((p) => p.type === 'month')!.value) - 1;
+  const day = Number(parts.find((p) => p.type === 'day')!.value);
+
+  // Build start/end of today in AEST as UTC timestamps
+  // AEST is UTC+10, AEDT is UTC+11. We approximate with the formatter output
+  // and query with a ±1 hour buffer to handle DST transitions.
+  const aestStartOfDay = new Date(Date.UTC(year, month, day) - 11 * 60 * 60 * 1000);
+  const aestEndOfDay = new Date(Date.UTC(year, month, day + 1) - 10 * 60 * 60 * 1000);
 
   const matchCount = await prisma.match.count({
     where: {
-      scheduledAt: { gte: aestNow, lt: aestTomorrow },
+      scheduledAt: { gte: aestStartOfDay, lt: aestEndOfDay },
     },
   });
   return matchCount > 0;
@@ -57,11 +71,15 @@ async function checkIsMatchDay(): Promise<boolean> {
 async function checkPreMatch(): Promise<boolean> {
   const now = new Date();
   const thirtyMinsFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+  // Also cover matches that recently started but worker hasn't detected yet —
+  // without this, the worker drops from 1-min to 15-min polling right when
+  // the match starts, creating a blackout window.
+  const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000);
 
   const matchCount = await prisma.match.count({
     where: {
       status: 'SCHEDULED',
-      scheduledAt: { gte: now, lte: thirtyMinsFromNow },
+      scheduledAt: { gte: thirtyMinsAgo, lte: thirtyMinsFromNow },
     },
   });
   return matchCount > 0;
