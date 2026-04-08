@@ -106,7 +106,9 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 
 ## Live Tracking Pipeline
 
-Worker polls Champion Data every 30s (live), 1min (pre-match), 15min (match day), 6hr (off-season) → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
+Worker polls Champion Data every 30s (live), 1min (pre-match ±30min window), 15min (match day), 6hr (off-season) → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
+
+**Near-live fallback:** The `/live` page, `/api/live-status`, and nav components detect SCHEDULED matches within [-15min, +5min] of their `scheduledAt` as "near-live". This covers the gap between when a match starts on Champion Data and when the worker writes `LIVE` to the DB. Nav shows an amber pulse dot for near-live (vs red for confirmed live).
 
 **Key functions in the pipeline:**
 - **`pollChampionData()`** (`worker.ts`): Orchestrator — fetches fixtures, delegates to helpers, reconciles completed matches, detects stale matches.
@@ -173,6 +175,8 @@ Dev-only system for testing the live scores pipeline without a real Champion Dat
 - **Position-only changes need broadcast:** Worker must broadcast `stats:update` even when score/status/time didn't change, otherwise substitution swaps don't reach the client. `broadcastPlayerStats()` handles this case.
 - **Match completion fallback:** CD may stop sending data without marking "complete". `detectStaleCompletedMatches()` catches this: Q4+ clock at end + 90min since `scheduledAt` → auto-COMPLETED. Client-side `useLocalClock` also ticks past quarter end, triggering "Full Time" display before the server catches up.
 - **`useMatchSocket` mock must include `statEvents`:** Tests mocking `useMatchSocket` need `statEvents: []` in the return value, alongside `scoreFlow: []`.
+- **Pre-match polling window is ±30min:** `checkPreMatch()` looks at `[-30min, +30min]` from now, not just future matches. Without the past window, the worker drops from 1-min to 15-min polling right when a match starts (because `scheduledAt` moves into the past but DB still says SCHEDULED).
+- **`checkIsMatchDay()` uses `Intl.DateTimeFormat`:** Do not use `new Date(toLocaleString())` for timezone conversion — it's unreliable across Node.js versions. Use `Intl.DateTimeFormat.formatToParts()` instead.
 
 ## SEO & Domain
 
