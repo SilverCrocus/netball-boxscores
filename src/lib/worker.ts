@@ -1,430 +1,102 @@
 import { prisma } from '@/lib/db';
-import { fetchFixture, fetchMatchStats, mapMatchStatus } from '@/lib/champion-data';
-import { detectChanges, applyChanges, reconcileCompletedMatches } from '@/lib/match-sync';
-import { recalculateStandings } from '@/lib/standings';
+import { getLiveState } from '@/lib/live-state';
+import { ingestFromChampionData } from '@/lib/ingestion';
 import {
-  broadcastScoreUpdate,
-  broadcastMatchStatus,
-  broadcastStatsUpdate,
-  broadcastScoreFlowAdd,
-  broadcastStatEvent,
-} from '@/lib/socket-server';
-import { pickStatFields } from '@/lib/stat-utils';
+  validateMatchData,
+  detectChanges,
+  applyChanges,
+  reconcileCompletedMatches,
+  detectStaleCompletedMatches,
+} from '@/lib/processing';
+import {
+  broadcastMatchChanges,
+  broadcastPlayerStats,
+  broadcastInterceptEvents,
+  broadcastCompletion,
+} from '@/lib/broadcasting';
+import { recalculateStandings } from '@/lib/standings';
+import { recordPoll, setCurrentInterval } from '@/lib/worker-health';
 
-const POLL_SIM = 2_000; // 2 seconds in simulation mode
-const POLL_LIVE = 30_000; // 30 seconds
-const POLL_PRE_MATCH = 60_000; // 1 minute — match starting within 30min
-const POLL_MATCH_DAY = 900_000; // 15 minutes
-const POLL_OFF_SEASON = 21_600_000; // 6 hours
+// ── Polling intervals ──
+
+const POLL_SIM = 2_000;
+const POLL_LIVE = 30_000;
+const POLL_PRE_MATCH = 60_000;
+const POLL_MATCH_DAY = 120_000;
+const POLL_OFF_SEASON = 3_600_000;
 
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let isRunning = false;
 
 export function getPollingInterval(
-  hasLiveMatch: boolean,
+  hasLive: boolean,
   isMatchDay: boolean,
-  hasPreMatch: boolean
+  hasPreMatch: boolean,
 ): number {
   if (process.env.SIMULATION_MODE === 'true') return POLL_SIM;
-  if (hasLiveMatch) return POLL_LIVE;
+  if (hasLive) return POLL_LIVE;
   if (hasPreMatch) return POLL_PRE_MATCH;
   if (isMatchDay) return POLL_MATCH_DAY;
   return POLL_OFF_SEASON;
 }
 
-async function checkForLiveMatches(): Promise<boolean> {
-  const liveCount = await prisma.match.count({
-    where: { status: 'LIVE' },
-  });
-  return liveCount > 0;
-}
-
-async function checkIsMatchDay(): Promise<boolean> {
-  // Pin to AEST/AEDT — Render servers run in UTC.
-  // Use Intl.DateTimeFormat to reliably get the current AEST date parts
-  // instead of the fragile new Date(toLocaleString()) pattern.
-  const formatter = new Intl.DateTimeFormat('en-AU', {
-    timeZone: 'Australia/Sydney',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  const parts = formatter.formatToParts(new Date());
-  const year = Number(parts.find((p) => p.type === 'year')!.value);
-  const month = Number(parts.find((p) => p.type === 'month')!.value) - 1;
-  const day = Number(parts.find((p) => p.type === 'day')!.value);
-
-  // Build start/end of today in AEST as UTC timestamps
-  // AEST is UTC+10, AEDT is UTC+11. We approximate with the formatter output
-  // and query with a ±1 hour buffer to handle DST transitions.
-  const aestStartOfDay = new Date(Date.UTC(year, month, day) - 11 * 60 * 60 * 1000);
-  const aestEndOfDay = new Date(Date.UTC(year, month, day + 1) - 10 * 60 * 60 * 1000);
-
-  const matchCount = await prisma.match.count({
-    where: {
-      scheduledAt: { gte: aestStartOfDay, lt: aestEndOfDay },
-    },
-  });
-  return matchCount > 0;
-}
-
-async function checkPreMatch(): Promise<boolean> {
-  const now = new Date();
-  const thirtyMinsFromNow = new Date(now.getTime() + 30 * 60 * 1000);
-  // Also cover matches that recently started but worker hasn't detected yet —
-  // without this, the worker drops from 1-min to 15-min polling right when
-  // the match starts, creating a blackout window.
-  const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000);
-
-  const matchCount = await prisma.match.count({
-    where: {
-      status: 'SCHEDULED',
-      scheduledAt: { gte: thirtyMinsAgo, lte: thirtyMinsFromNow },
-    },
-  });
-  return matchCount > 0;
-}
-
-import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data';
-
-type DbMatchWithTeams = NonNullable<Awaited<ReturnType<typeof prisma.match.findUnique<{
-  where: { championDataMatchId: number };
-  include: { homeTeam: true; awayTeam: true };
-}>>>>;
-
-/**
- * Build the incoming match state object from Champion Data responses,
- * ready for change detection and DB persistence.
- */
-function buildIncomingMatchState(
-  matchData: CDFixtureMatch,
-  matchDetail: CDMatchStatsResponse,
-  dbMatch: DbMatchWithTeams | null
-) {
-  return {
-    matchId: matchData.matchId,
-    homeScore: matchDetail.matchInfo?.homeScore ?? 0,
-    awayScore: matchDetail.matchInfo?.awayScore ?? 0,
-    status: mapMatchStatus(matchData.matchStatus),
-    currentQuarter: matchDetail.matchInfo?.period ?? 0,
-    currentTime: `${matchDetail.matchInfo?.periodSeconds ?? 0}`,
-    quarterScores: matchDetail.periodScores?.map((ps) => ({
-      quarter: ps.period,
-      homeScore: ps.homeScore,
-      awayScore: ps.awayScore,
-    })),
-    playerStats: matchDetail.playerStats
-      ? [
-          ...(matchDetail.playerStats.home ?? []),
-          ...(matchDetail.playerStats.away ?? []),
-        ].map((ps) => ({
-          championDataPlayerId: ps.playerId,
-          ...pickStatFields(ps),
-        }))
-      : undefined,
-    scoreFlow: matchDetail.scoreFlow && dbMatch
-      ? matchDetail.scoreFlow.map((sf) => ({
-          period: sf.period,
-          periodSeconds: sf.periodSeconds,
-          squadId: sf.squadId,
-          scorepoints: sf.scorepoints,
-          homeScore: sf.homeScore,
-          awayScore: sf.awayScore,
-          scoringTeamPrismaId:
-            sf.squadId === dbMatch.homeTeam.championDataTeamId
-              ? dbMatch.homeTeamId
-              : dbMatch.awayTeamId,
-        }))
-      : undefined,
-  };
-}
-
-/**
- * Broadcast all relevant Socket.io events after changes have been
- * detected and persisted.
- */
-async function broadcastChanges(
-  changes: Awaited<ReturnType<typeof detectChanges>>,
-  matchDetail: CDMatchStatsResponse,
-  dbMatch: DbMatchWithTeams | null
-): Promise<void> {
-  if (!changes.matchId) return;
-
-  if (changes.scoreChanged) {
-    broadcastScoreUpdate(changes.matchId, {
-      matchId: changes.matchId,
-      homeScore: changes.newHomeScore,
-      awayScore: changes.newAwayScore,
-      currentQuarter: changes.currentQuarter,
-      currentTime: changes.currentTime,
-    });
-  }
-
-  if (changes.statusChanged) {
-    broadcastMatchStatus(changes.matchId, {
-      matchId: changes.matchId,
-      status: changes.newStatus as 'LIVE' | 'COMPLETED',
-      quarter: changes.currentQuarter,
-      time: changes.currentTime,
-    });
-  }
-
-  if (matchDetail.playerStats) {
-    const allPlayerStats = [
-      ...(matchDetail.playerStats.home ?? []),
-      ...(matchDetail.playerStats.away ?? []),
-    ];
-
-    const players = await prisma.player.findMany({
-      where: {
-        championDataPlayerId: {
-          in: allPlayerStats.map((ps) => ps.playerId),
-        },
-      },
-      select: { id: true, championDataPlayerId: true },
-    });
-    const playerIdMap = new Map(
-      players.map((p) => [p.championDataPlayerId, p.id]),
-    );
-
-    const statsPayload = allPlayerStats
-      .filter((ps) => playerIdMap.has(ps.playerId))
-      .map((ps) => ({
-        playerId: playerIdMap.get(ps.playerId)!,
-        currentPosition: ps.position ?? '',
-        ...pickStatFields(ps),
-      }));
-
-    if (statsPayload.length > 0) {
-      broadcastStatsUpdate(changes.matchId, {
-        matchId: changes.matchId,
-        playerStats: statsPayload,
-      });
-    }
-  }
-
-  // Broadcast score flow from DB so scorer attributions are included
-  if (matchDetail.scoreFlow && matchDetail.scoreFlow.length > 0) {
-    const dbScoreFlow = await prisma.scoreFlow.findMany({
-      where: { matchId: changes.matchId },
-      include: { scorerPlayer: { select: { id: true, name: true } } },
-      orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
-    });
-
-    for (const sf of dbScoreFlow) {
-      broadcastScoreFlowAdd(changes.matchId, {
-        matchId: changes.matchId,
-        period: sf.period,
-        periodSeconds: sf.periodSeconds,
-        scoringTeamId: sf.scoringTeamId,
-        homeScore: sf.homeScore,
-        awayScore: sf.awayScore,
-        scorePoints: sf.scorePoints,
-        scorerPlayerId: sf.scorerPlayer?.id,
-        scorerName: sf.scorerPlayer?.name,
-      });
-    }
-  }
-}
-
-/**
- * Detect LIVE matches that appear to have ended but CD never marked "complete".
- *
- * Two detection paths:
- * 1. **Fast** — Q4+ with <1 min remaining and no DB update for 30s.
- *    Catches matches that finish normally but CD is slow to report "complete".
- * 2. **Fallback** — Q4+ clock past quarter end and 90+ min since scheduledAt.
- *    Catches matches where CD stopped sending data entirely.
- */
-async function detectStaleCompletedMatches(): Promise<
-  Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }>
-> {
-  const liveMatches = await prisma.match.findMany({
-    where: { status: 'LIVE' },
-  });
-
-  const completed: Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }> = [];
-  const now = Date.now();
-
-  for (const match of liveMatches) {
-    const quarter = match.currentQuarter ?? 0;
-    if (quarter < 4) continue;
-
-    const elapsed = Number(match.currentTime);
-    if (isNaN(elapsed)) continue;
-
-    const quarterLength = quarter > 4 ? 300 : 900; // ET = 5min, regular = 15min
-    const remaining = quarterLength - elapsed;
-    const sinceUpdate = now - match.updatedAt.getTime();
-
-    // Fast path: under 1 minute remaining in Q4+ and no update for 30s
-    if (remaining < 60 && sinceUpdate >= 30_000) {
-      console.log(`[Worker] Match ended (fast): ${match.id} (Q${quarter}, ${remaining}s remaining, ${Math.round(sinceUpdate / 1000)}s since update)`);
-
-      await prisma.match.update({
-        where: { id: match.id },
-        data: { status: 'COMPLETED' },
-      });
-
-      completed.push({
-        matchId: match.id,
-        homeScore: match.homeScore,
-        awayScore: match.awayScore,
-        finalQuarter: quarter,
-      });
-      continue;
-    }
-
-    // Fallback: clock past quarter end and 90+ min since scheduled start
-    if (elapsed >= quarterLength) {
-      const matchAge = now - match.scheduledAt.getTime();
-      if (matchAge >= 90 * 60 * 1000) {
-        console.log(`[Worker] Stale LIVE match detected: ${match.id} (Q${quarter}, ${elapsed}s elapsed, match age: ${Math.round(matchAge / 60000)}min)`);
-
-        await prisma.match.update({
-          where: { id: match.id },
-          data: { status: 'COMPLETED' },
-        });
-
-        completed.push({
-          matchId: match.id,
-          homeScore: match.homeScore,
-          awayScore: match.awayScore,
-          finalQuarter: quarter,
-        });
-      }
-    }
-  }
-
-  return completed;
-}
-
-/**
- * Broadcast just player stats (including positions) without score/status/flow.
- * Used when positions change but no scoring activity occurred.
- */
-async function broadcastPlayerStats(
-  matchId: string,
-  matchDetail: CDMatchStatsResponse,
-): Promise<void> {
-  if (!matchDetail.playerStats) return;
-
-  const allPlayerStats = [
-    ...(matchDetail.playerStats.home ?? []),
-    ...(matchDetail.playerStats.away ?? []),
-  ];
-
-  const players = await prisma.player.findMany({
-    where: {
-      championDataPlayerId: { in: allPlayerStats.map((ps) => ps.playerId) },
-    },
-    select: { id: true, championDataPlayerId: true },
-  });
-  const playerIdMap = new Map(players.map((p) => [p.championDataPlayerId, p.id]));
-
-  const statsPayload = allPlayerStats
-    .filter((ps) => playerIdMap.has(ps.playerId))
-    .map((ps) => ({
-      playerId: playerIdMap.get(ps.playerId)!,
-      currentPosition: ps.position ?? '',
-      ...pickStatFields(ps),
-    }));
-
-  if (statsPayload.length > 0) {
-    broadcastStatsUpdate(matchId, { matchId, playerStats: statsPayload });
-  }
-}
-
-async function broadcastInterceptEvents(
-  matchId: string,
-  matchDetail: CDMatchStatsResponse,
-  dbMatch: DbMatchWithTeams,
-  oldInterceptMap: Map<string, number>,
-  quarter: number,
-  time: string,
-): Promise<void> {
-  const allPlayerStats = [
-    ...(matchDetail.playerStats.home ?? []),
-    ...(matchDetail.playerStats.away ?? []),
-  ];
-
-  const players = await prisma.player.findMany({
-    where: {
-      championDataPlayerId: { in: allPlayerStats.map((ps) => ps.playerId) },
-    },
-    select: { id: true, name: true, championDataPlayerId: true, teamId: true },
-  });
-  const playerMap = new Map(players.map((p) => [p.championDataPlayerId, p]));
-
-  for (const ps of allPlayerStats) {
-    const player = playerMap.get(ps.playerId);
-    if (!player) continue;
-    const oldIntercepts = oldInterceptMap.get(player.id) ?? 0;
-    const newIntercepts = (ps.intercepts ?? 0) - oldIntercepts;
-    if (newIntercepts <= 0) continue;
-
-    const isHome = player.teamId === dbMatch.homeTeamId;
-    const team = isHome ? dbMatch.homeTeam : dbMatch.awayTeam;
-
-    for (let i = 0; i < newIntercepts; i++) {
-      broadcastStatEvent(matchId, {
-        matchId,
-        type: 'intercept',
-        playerId: player.id,
-        playerName: player.name,
-        teamId: team.id,
-        teamName: team.name,
-        teamAbbreviation: team.abbreviation,
-        teamLogoUrl: team.logoUrl,
-        isHomeTeam: isHome,
-        quarter,
-        time,
-      });
-    }
-  }
-}
+// ── Main poll cycle ──
 
 async function pollChampionData(): Promise<void> {
   try {
     const COMP_ID = parseInt(process.env.SSN_COMPETITION_ID ?? '12949', 10);
 
-    const matches = await fetchFixture(COMP_ID);
-
-    // Build a set of SCHEDULED matches in our DB so we can backfill stats
-    // for matches the worker missed live (SCHEDULED → complete in CD)
-    const scheduledCDIds = new Set<number>();
-    const scheduledDbMatches = await prisma.match.findMany({
-      where: { status: 'SCHEDULED', championDataMatchId: { not: null } },
-      select: { championDataMatchId: true },
-    });
-    for (const m of scheduledDbMatches) {
-      if (m.championDataMatchId) scheduledCDIds.add(m.championDataMatchId);
+    // Phase 1: Ingest
+    const ingested = await ingestFromChampionData(COMP_ID);
+    if (ingested.fixture.length === 0 && ingested.matchDetails.size === 0) {
+      recordPoll('empty', 0);
+      return;
     }
 
-    for (const matchData of matches) {
-      const cdStatus = matchData.matchStatus.toLowerCase();
-      const isPlaying = cdStatus === 'playing';
-      // Also process completed matches that we still have as SCHEDULED — backfill stats
-      const needsBackfill = cdStatus === 'complete' && scheduledCDIds.has(matchData.matchId);
-      if (!isPlaying && !needsBackfill) continue;
+    // Load DB lookups for validation
+    const dbTeamsRaw = await prisma.team.findMany({
+      select: { id: true, name: true, championDataTeamId: true },
+    });
+    const dbTeams = new Map(
+      dbTeamsRaw
+        .filter((t) => t.championDataTeamId !== null)
+        .map((t) => [t.championDataTeamId!, { id: t.id, name: t.name }]),
+    );
+    const dbPlayersRaw = await prisma.player.findMany({
+      select: { id: true, name: true, championDataPlayerId: true, teamId: true },
+    });
+    const dbPlayers = new Map(
+      dbPlayersRaw
+        .filter((p) => p.championDataPlayerId !== null)
+        .map((p) => [p.championDataPlayerId!, { id: p.id, name: p.name, teamId: p.teamId }]),
+    );
 
-      let matchDetail;
-      try {
-        matchDetail = await fetchMatchStats(COMP_ID, matchData.matchId);
-      } catch {
+    let matchesProcessed = 0;
+
+    // Phase 2 + 3: Validate, Process, Broadcast per match
+    for (const [cdMatchId, matchDetail] of ingested.matchDetails) {
+      const fixtureMatch = ingested.fixture.find((f) => f.matchId === cdMatchId);
+      if (!fixtureMatch) continue;
+
+      const validation = validateMatchData(fixtureMatch, matchDetail, dbTeams, dbPlayers);
+
+      // Update PollLog status
+      const pollLogId = ingested.pollLogIds.find((_, i) => i > 0); // skip fixture log
+      if (pollLogId && !validation.valid) {
+        await prisma.pollLog.update({
+          where: { id: pollLogId },
+          data: { status: 'validation_error', errorMessage: validation.errors.join('; ') },
+        });
         continue;
       }
 
-      const dbMatch = await prisma.match.findUnique({
-        where: { championDataMatchId: matchData.matchId },
-        include: { homeTeam: true, awayTeam: true },
-      });
+      if (!validation.validatedData) continue;
 
-      const incoming = buildIncomingMatchState(matchData, matchDetail, dbMatch);
-      const changes = await detectChanges(incoming);
+      const startMs = Date.now();
+      const changes = await detectChanges(validation.validatedData);
       const hasChanges = changes.scoreChanged || changes.statusChanged || changes.timeChanged;
 
-      // Snapshot old intercept counts before applying changes (for intercept feed events)
+      // Snapshot intercepts before applying
       let oldInterceptMap: Map<string, number> | undefined;
       if (changes.matchId && matchDetail.playerStats) {
         const oldStats = await prisma.playerMatchStats.findMany({
@@ -434,90 +106,87 @@ async function pollChampionData(): Promise<void> {
         oldInterceptMap = new Map(oldStats.map((s) => [s.playerId, s.intercepts]));
       }
 
+      const dbMatch = changes.matchId
+        ? await prisma.match.findUnique({
+            where: { id: changes.matchId },
+            include: { homeTeam: true, awayTeam: true },
+          })
+        : null;
+
       if (changes.matchId && hasChanges) {
-        await applyChanges(changes, incoming);
-        await broadcastChanges(changes, matchDetail, dbMatch);
+        await applyChanges(changes, validation.validatedData);
+        await broadcastMatchChanges(changes, matchDetail, dbMatch);
       } else if (changes.matchId && matchDetail.playerStats) {
-        // Even without score/status/time changes, broadcast stats so position
-        // swaps (substitutions) reach the client immediately
         await broadcastPlayerStats(changes.matchId, matchDetail);
       }
 
-      // Broadcast intercept events for any new intercepts
       if (changes.matchId && oldInterceptMap && matchDetail.playerStats && dbMatch) {
         await broadcastInterceptEvents(
-          changes.matchId,
-          matchDetail,
-          dbMatch,
-          oldInterceptMap,
-          changes.currentQuarter,
-          changes.currentTime,
+          changes.matchId, matchDetail, dbMatch, oldInterceptMap,
+          changes.currentQuarter, changes.currentTime,
         );
       }
+
+      // Update PollLog to processed
+      if (pollLogId) {
+        await prisma.pollLog.update({
+          where: { id: pollLogId },
+          data: { status: 'processed', processingMs: Date.now() - startMs },
+        });
+      }
+
+      matchesProcessed++;
     }
 
-    // Check for stale LIVE matches: if CD stopped sending updates but never
-    // marked the match as "complete", detect based on Q4+ and clock at/past end
+    // Stale match detection
     const staleCompleted = await detectStaleCompletedMatches();
     for (const stale of staleCompleted) {
-      broadcastMatchStatus(stale.matchId, {
-        matchId: stale.matchId,
-        status: 'COMPLETED',
-        quarter: stale.finalQuarter,
-        time: '0',
-      });
-      broadcastScoreUpdate(stale.matchId, {
-        matchId: stale.matchId,
-        homeScore: stale.homeScore,
-        awayScore: stale.awayScore,
-        currentQuarter: stale.finalQuarter,
-        currentTime: '0',
-      });
+      broadcastCompletion(stale.matchId, stale.homeScore, stale.awayScore, stale.finalQuarter);
     }
 
-    // Reconcile matches that Champion Data marked complete but DB still has as LIVE
-    const completedMatches = await reconcileCompletedMatches(matches);
+    // Reconcile completed
+    const completedMatches = await reconcileCompletedMatches(ingested.fixture);
     for (const completed of completedMatches) {
-      broadcastMatchStatus(completed.matchId, {
-        matchId: completed.matchId,
-        status: 'COMPLETED',
-        quarter: completed.finalQuarter,
-        time: '0',
-      });
-      broadcastScoreUpdate(completed.matchId, {
-        matchId: completed.matchId,
-        homeScore: completed.homeScore,
-        awayScore: completed.awayScore,
-        currentQuarter: completed.finalQuarter,
-        currentTime: '0',
-      });
+      broadcastCompletion(completed.matchId, completed.homeScore, completed.awayScore, completed.finalQuarter);
     }
 
+    // Recalculate standings if any matches completed
     if (completedMatches.length > 0 || staleCompleted.length > 0) {
-      const totalCompleted = completedMatches.length + staleCompleted.length;
-      console.log(`[Worker] ${totalCompleted} match(es) completed — recalculating standings`);
+      console.log(`[Worker] ${completedMatches.length + staleCompleted.length} match(es) completed — recalculating standings`);
       try {
         await recalculateStandings();
       } catch (error) {
         console.error('[Worker] Standings recalculation failed:', error);
       }
     }
+
+    recordPoll('success', matchesProcessed);
   } catch (error) {
     console.error('[Worker] Poll error:', error);
+    recordPoll('error', 0);
   }
 }
+
+// ── Scheduling ──
 
 async function scheduleNextPoll(): Promise<void> {
   if (!isRunning) return;
 
-  const hasLive = await checkForLiveMatches();
-  const hasPreMatch = !hasLive && await checkPreMatch();
-  const isMatchDay = !hasLive && !hasPreMatch && await checkIsMatchDay();
-  const interval = getPollingInterval(hasLive, isMatchDay, hasPreMatch);
+  let interval = POLL_OFF_SEASON;
+  try {
+    const state = await getLiveState();
+    const hasLive = state.liveMatchIds.length > 0;
+    const hasPreMatch = state.imminentMatchIds.length > 0;
+    interval = getPollingInterval(hasLive, state.isMatchDay, hasPreMatch);
 
-  console.log(
-    `[Worker] Next poll in ${interval / 1000}s (live: ${hasLive}, preMatch: ${hasPreMatch}, matchDay: ${isMatchDay})`
-  );
+    console.log(
+      `[Worker] Next poll in ${interval / 1000}s (live: ${hasLive}, preMatch: ${hasPreMatch}, matchDay: ${state.isMatchDay})`,
+    );
+  } catch (error) {
+    console.error('[Worker] Failed to check live state, using fallback interval:', error);
+  }
+
+  setCurrentInterval(interval);
 
   pollTimer = setTimeout(async () => {
     await pollChampionData();
@@ -529,7 +198,6 @@ export async function startWorker(): Promise<void> {
   if (isRunning) return;
   isRunning = true;
   console.log('[Worker] Starting background worker');
-  // Poll immediately on startup, then schedule based on result
   await pollChampionData();
   scheduleNextPoll();
 }

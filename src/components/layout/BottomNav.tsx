@@ -7,8 +7,8 @@ import { useLiveStatus } from '@/hooks/useLiveStatus';
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { hasLive, nearLive, minutesUntilNext } = useLiveStatus();
-  const liveClickable = hasLive || nearLive;
+  const { hasLive, minutesUntilNext } = useLiveStatus();
+  const liveClickable = hasLive;
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-slate-950 rounded-t-2xl shadow-[0_-8px_24px_rgba(0,0,0,0.6)] border-t border-slate-800/50">
@@ -55,9 +55,6 @@ export function BottomNav() {
             </span>
             {isLiveItem && hasLive && (
               <span className="absolute top-0 right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            )}
-            {isLiveItem && nearLive && !hasLive && (
-              <span className="absolute top-0 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
             )}
             {isLiveItem && !liveClickable && minutesUntilNext !== null && (
               <span className="absolute -top-1 -right-1 text-[8px] text-lime-400 font-label font-bold">

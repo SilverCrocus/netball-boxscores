@@ -106,18 +106,18 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 
 ## Live Tracking Pipeline
 
-Worker polls Champion Data every 30s (live), 1min (pre-match), 15min (match day), 6hr (off-season) → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
+Three-phase pipeline: **Ingest** (fetch CD API + store PollLog) → **Process** (validate + transform + write DB) → **Broadcast** (socket events, delta-only score flow). Worker polls every 30s (live), 1min (pre-match), 2min (match day), 1hr (off-season).
 
-**Key functions in the pipeline:**
-- **`pollChampionData()`** (`worker.ts`): Orchestrator — fetches fixtures, delegates to helpers, reconciles completed matches, detects stale matches.
-- **`buildIncomingMatchState()`** (`worker.ts`): Builds normalized match state from CD fixture + detail data.
-- **`broadcastChanges()`** (`worker.ts`): Emits Socket.io events (`score:update`, `match:status`, `stats:update`, `scoreflow:add`). Score flow is broadcast from DB (not raw CD) so scorer attributions are included.
-- **`broadcastPlayerStats()`** (`worker.ts`): Broadcasts just player stats (including positions) when no score/status/time changed — catches position-only substitution swaps.
-- **`broadcastInterceptEvents()`** (`worker.ts`): Diffs intercept counts before/after stat updates and emits `stat:event` for each new intercept.
-- **`detectStaleCompletedMatches()`** (`worker.ts`): Fallback for when CD stops sending data without marking "complete" — if Q4+ clock is at/past end AND 90+ minutes since `scheduledAt`, auto-marks COMPLETED.
-- **`applyChanges()`** (`match-sync.ts`): Writes match state to DB. Includes **server-side scorer attribution** — snapshots player goals before upserting stats, computes diffs, and attributes scorers to new ScoreFlow entries via `scorerPlayerId`. Stores `scorePoints` (1=goal, 2=super shot) on ScoreFlow entries.
-- **`reconcileCompletedMatches()`** (`match-sync.ts`): Catches LIVE→COMPLETED transitions by cross-referencing DB vs CD fixture status. Uses `periodCompleted || period || 4` for final quarter (handles extra time).
+**Pipeline modules:**
+- **`ingestion.ts`**: `ingestFromChampionData(competitionId)` — fetches fixture + match details from Champion Data, stores raw JSON in `PollLog` for audit trail, handles 7-day PollLog cleanup and SCHEDULED→complete backfill detection.
+- **`processing.ts`**: `validateMatchData()` (team/player/time validation with clamping), `detectChanges()` (compares incoming vs DB), `applyChanges()` (writes match state to DB with server-side scorer attribution), `reconcileCompletedMatches()`, `detectStaleCompletedMatches()`. Types: `ProcessedMatchState`, `ValidationResult`, `ChangeResult`.
+- **`broadcasting.ts`**: `broadcastMatchChanges()` (orchestrator for score/status/stats/flow events), `broadcastScoreFlowDelta()` (delta-only via in-memory count tracker), `broadcastPlayerStats()`, `broadcastInterceptEvents()`, `broadcastCompletion()`.
+- **`worker.ts`**: Slim orchestrator (~170 lines) wiring ingestion → processing → broadcasting with `getLiveState()` for polling interval selection and `recordPoll()`/`setCurrentInterval()` for health tracking.
+- **`live-state.ts`**: `getLiveState()` — single source of truth for live detection. Returns `{ liveMatchIds, imminentMatchIds, nextMatchAt, isMatchDay }`. Replaces 5 scattered live-detection implementations.
+- **`worker-health.ts`**: Module-level health state (no DB writes). `recordPoll()`, `setCurrentInterval()`, `getWorkerHealth()`. Exposed via `/api/worker-health`.
 - **`transformRawCDMatchStats()`** (`champion-data.ts`): Transforms raw CD JSON → normalized types. Entry point for the CD transform pipeline.
+
+**PollLog audit table:** Stores raw API responses with status tracking (success/fetch_error/validation_error/processed) and processing time. 7-day retention with automatic cleanup.
 
 **Super shots:** CD score flow entries have `scorepoints` (1=normal, 2=super shot). Stored as `ScoreFlow.scorePoints` in DB. Broadcast in `scoreflow:add` socket payload. Client shows breakdown `(goals.superShots)` in LiveScoreHero and "Super" badge in the feed.
 
@@ -131,7 +131,7 @@ Worker polls Champion Data every 30s (live), 1min (pre-match), 15min (match day)
 
 Dev-only system for testing the live scores pipeline without a real Champion Data match. Located in `src/lib/simulation/`.
 
-**How it works:** Admin panel at `/admin/sim` creates temporary Match records (round 99, championDataMatchId 99001+), then the sim engine generates Champion Data-formatted JSON. The existing worker polls these sim endpoints (instead of real CD), writes to DB via match-sync, and broadcasts via Socket.io — exercising the full production pipeline.
+**How it works:** Admin panel at `/admin/sim` creates temporary Match records (round 99, championDataMatchId 99001+), then the sim engine generates Champion Data-formatted JSON. The existing worker polls these sim endpoints (instead of real CD), validates and writes to DB via the processing module, and broadcasts via Socket.io — exercising the full production pipeline.
 
 **Key files:**
 - `src/lib/simulation/engine.ts` — State machine, tick logic, DB setup/teardown, orphan cleanup
@@ -170,8 +170,8 @@ Dev-only system for testing the live scores pipeline without a real Champion Dat
 - **`aggregateStats()` excludes `minutesPlayed`:** Minutes played is per-player, not summable. The function deliberately skips it.
 - **Champion Data raw field names differ:** Raw CD uses `goalAttempts` not `attempts`, `generalPlayTurnovers` not `turnovers`. The `transformRawCDMatchStats()` layer handles the rename — don't access raw CD fields directly.
 - **Client-side API fetch caching:** Client-side `fetch()` to Next.js API routes must use `cache: 'no-store'` in production. Even with `dynamic = 'force-dynamic'` on the route, browsers or intermediate layers may cache GET responses. The `useLiveStatus` hook was broken on Render because of this.
-- **Position-only changes need broadcast:** Worker must broadcast `stats:update` even when score/status/time didn't change, otherwise substitution swaps don't reach the client. `broadcastPlayerStats()` handles this case.
-- **Match completion fallback:** CD may stop sending data without marking "complete". `detectStaleCompletedMatches()` catches this: Q4+ clock at end + 90min since `scheduledAt` → auto-COMPLETED. Client-side `useLocalClock` also ticks past quarter end, triggering "Full Time" display before the server catches up.
+- **Position-only changes need broadcast:** Worker must broadcast `stats:update` even when score/status/time didn't change, otherwise substitution swaps don't reach the client. `broadcastPlayerStats()` in `broadcasting.ts` handles this case.
+- **Match completion fallback:** CD may stop sending data without marking "complete". `detectStaleCompletedMatches()` in `processing.ts` catches this: Q4+ clock at end + 90min since `scheduledAt` → auto-COMPLETED. The UI shows exactly what the server provides (no client-side clock interpolation).
 - **`useMatchSocket` mock must include `statEvents`:** Tests mocking `useMatchSocket` need `statEvents: []` in the return value, alongside `scoreFlow: []`.
 
 ## SEO & Domain
