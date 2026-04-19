@@ -106,7 +106,13 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 
 ## Live Tracking Pipeline
 
+<<<<<<< HEAD
 Three-phase pipeline: **Ingest** (fetch CD API + store PollLog) → **Process** (validate + transform + write DB) → **Broadcast** (socket events, delta-only score flow). Worker polls every 30s (live), 1min (pre-match), 2min (match day), 1hr (off-season).
+=======
+Worker polls Champion Data every 30s (live), 1min (pre-match ±30min window), 15min (match day), 6hr (off-season) → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
+
+**Near-live fallback:** The `/live` page, `/api/live-status`, and nav components detect SCHEDULED matches within [-15min, +5min] of their `scheduledAt` as "near-live". This covers the gap between when a match starts on Champion Data and when the worker writes `LIVE` to the DB. Nav shows an amber pulse dot for near-live (vs red for confirmed live).
+>>>>>>> main
 
 **Pipeline modules:**
 - **`ingestion.ts`**: `ingestFromChampionData(competitionId)` — fetches fixture + match details from Champion Data, stores raw JSON in `PollLog` for audit trail, handles 7-day PollLog cleanup and SCHEDULED→complete backfill detection.
@@ -173,6 +179,8 @@ Dev-only system for testing the live scores pipeline without a real Champion Dat
 - **Position-only changes need broadcast:** Worker must broadcast `stats:update` even when score/status/time didn't change, otherwise substitution swaps don't reach the client. `broadcastPlayerStats()` in `broadcasting.ts` handles this case.
 - **Match completion fallback:** CD may stop sending data without marking "complete". `detectStaleCompletedMatches()` in `processing.ts` catches this: Q4+ clock at end + 90min since `scheduledAt` → auto-COMPLETED. The UI shows exactly what the server provides (no client-side clock interpolation).
 - **`useMatchSocket` mock must include `statEvents`:** Tests mocking `useMatchSocket` need `statEvents: []` in the return value, alongside `scoreFlow: []`.
+- **Pre-match polling window is ±30min:** `checkPreMatch()` looks at `[-30min, +30min]` from now, not just future matches. Without the past window, the worker drops from 1-min to 15-min polling right when a match starts (because `scheduledAt` moves into the past but DB still says SCHEDULED).
+- **`checkIsMatchDay()` uses `Intl.DateTimeFormat`:** Do not use `new Date(toLocaleString())` for timezone conversion — it's unreliable across Node.js versions. Use `Intl.DateTimeFormat.formatToParts()` instead.
 
 ## SEO & Domain
 
