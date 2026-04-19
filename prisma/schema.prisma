@@ -177,6 +177,21 @@ model ScoreFlow {
   @@index([matchId, period])
 }
 
+model PollLog {
+  id            String   @id @default(cuid())
+  polledAt      DateTime @default(now())
+  competitionId Int
+  cdMatchId     Int?
+  endpoint      String
+  rawResponse   Json
+  status        String
+  errorMessage  String?
+  processingMs  Int?
+
+  @@index([polledAt])
+  @@index([cdMatchId, polledAt])
+}
+
 // ───── Auth (NextAuth.js + Prisma Adapter) ─────
 
 model User {

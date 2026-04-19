@@ -42,6 +42,7 @@ describe("Prisma Schema", () => {
       "UserTeam",
       "UserReminder",
       "UserFavorite",
+      "PollLog",
     ];
     for (const model of requiredModels) {
       expect(schema).toContain(`model ${model}`);
