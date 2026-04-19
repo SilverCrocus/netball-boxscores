@@ -41,29 +41,29 @@ const players = [
 
 describe('PlayerStatsTable', () => {
   it('renders team name in header', () => {
-    render(<PlayerStatsTable teamName="Thunder" players={players} />);
+    render(<PlayerStatsTable team={{ name: 'Thunder', abbreviation: 'THU', logoUrl: null }} players={players} />);
     expect(screen.getByText(/THUNDER/i)).toBeInTheDocument();
   });
 
   it('renders all player names', () => {
-    render(<PlayerStatsTable teamName="Thunder" players={players} />);
+    render(<PlayerStatsTable team={{ name: 'Thunder', abbreviation: 'THU', logoUrl: null }} players={players} />);
     expect(screen.getByText('Elena Rodriguez')).toBeInTheDocument();
     expect(screen.getByText('Tasha Banks')).toBeInTheDocument();
   });
 
   it('renders position badges', () => {
-    render(<PlayerStatsTable teamName="Thunder" players={players} />);
+    render(<PlayerStatsTable team={{ name: 'Thunder', abbreviation: 'THU', logoUrl: null }} players={players} />);
     expect(screen.getByText('GS')).toBeInTheDocument();
     expect(screen.getByText('GK')).toBeInTheDocument();
   });
 
   it('renders goal stats', () => {
-    render(<PlayerStatsTable teamName="Thunder" players={players} />);
+    render(<PlayerStatsTable team={{ name: 'Thunder', abbreviation: 'THU', logoUrl: null }} players={players} />);
     expect(screen.getByText('42')).toBeInTheDocument();
   });
 
   it('renders column headers', () => {
-    render(<PlayerStatsTable teamName="Thunder" players={players} />);
+    render(<PlayerStatsTable team={{ name: 'Thunder', abbreviation: 'THU', logoUrl: null }} players={players} />);
     expect(screen.getByText('Goals')).toBeInTheDocument();
     expect(screen.getByText('Inter')).toBeInTheDocument();
     expect(screen.getByText('Reb')).toBeInTheDocument();

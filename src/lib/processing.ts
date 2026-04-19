@@ -122,12 +122,13 @@ export function validateMatchData(
     warnings.push(`Unknown player IDs: ${unknownPlayerIds.join(', ')}`);
   }
 
-  // Score flow monotonicity check
+  // Score flow monotonicity check (warn only — CD corrections can cause brief dips)
   if (detail.scoreFlow && detail.scoreFlow.length > 1) {
     let prevTotal = detail.scoreFlow[0].homeScore + detail.scoreFlow[0].awayScore;
     for (let i = 1; i < detail.scoreFlow.length; i++) {
       const total = detail.scoreFlow[i].homeScore + detail.scoreFlow[i].awayScore;
       if (total < prevTotal) {
+        warnings.push(`Non-monotonic score flow at index ${i}: total ${total} < prev ${prevTotal}`);
         scoreFlowValid = false;
         break;
       }
@@ -160,8 +161,8 @@ export function validateMatchData(
       })),
   };
 
-  // Only include score flow if monotonicity passed
-  if (scoreFlowValid && detail.scoreFlow && homeTeam && awayTeam) {
+  // Include score flow even if monotonicity check failed (CD corrections are common)
+  if (detail.scoreFlow && homeTeam && awayTeam) {
     validatedData.scoreFlow = detail.scoreFlow.map((sf) => ({
       period: sf.period,
       periodSeconds: sf.periodSeconds,

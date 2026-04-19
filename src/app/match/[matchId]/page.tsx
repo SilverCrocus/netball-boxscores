@@ -1,11 +1,14 @@
 import { cache } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { PlayerStatsTable } from '@/components/ui/PlayerStatsTable';
 import { QuarterScoreBar } from '@/components/ui/QuarterScoreBar';
-import { MatchMomentum } from '@/components/ui/MatchMomentum';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
+import { MatchMomentumChart } from '@/components/ui/MatchMomentumChart';
 import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd, SITE_URL } from '@/lib/seo';
 import { pickStatFields } from '@/lib/stat-utils';
 
@@ -13,8 +16,8 @@ const getMatch = cache((matchId: string) =>
   prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      homeTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true } },
-      awayTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true } },
+      homeTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
+      awayTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
       quarters: { orderBy: { quarter: 'asc' } },
       playerStats: { include: { player: true }, orderBy: { goals: 'desc' } },
       scoreFlow: { orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }] },
@@ -53,6 +56,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
   function toPlayerStatRow(ps: NonNullable<typeof match>['playerStats'][number]) {
     return {
       id: ps.id,
+      playerId: ps.player.id,
       name: ps.player.name,
       position: ps.player.position,
       photoUrl: ps.player.photoUrl,
@@ -90,44 +94,72 @@ export default async function MatchPage({ params }: MatchPageProps) {
 
       {/* Hero Header */}
       <section className="mb-12">
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              {isLive && <LiveIndicator />}
-              <span className="text-on-surface-variant text-xs font-semibold font-label tracking-widest uppercase">
-                Round {match.round} {match.venue && `\u2022 ${match.venue}`}
+        <div className="flex items-center gap-2 mb-4">
+          {isLive && <LiveIndicator />}
+          <span className="text-on-surface-variant text-xs font-semibold font-label tracking-widest uppercase">
+            Round {match.round} {match.venue && `\u2022 ${match.venue}`}
+          </span>
+        </div>
+
+        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+          {/* Home Team */}
+          <div className="flex items-center gap-4 flex-1 justify-end">
+            <div className="text-right">
+              <h1 className="text-2xl md:text-4xl font-black font-headline tracking-tighter text-primary-container leading-none uppercase">
+                {match.homeTeam.name}
+              </h1>
+            </div>
+            <TeamBadge team={match.homeTeam} size={80} variant="home" />
+          </div>
+
+          {/* Score */}
+          <div className="flex flex-col items-center">
+            <p className="text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest mb-1">
+              {isLive ? `Q${match.currentQuarter}` : 'Final'}
+            </p>
+            <div className="flex items-center gap-3 md:gap-5">
+              <span className="text-5xl md:text-7xl font-black font-headline text-primary-container">
+                {match.homeScore}
+              </span>
+              <span className="text-3xl font-bold text-outline-variant">-</span>
+              <span className="text-5xl md:text-7xl font-black font-headline text-secondary">
+                {match.awayScore}
               </span>
             </div>
-            <h1 className="text-4xl md:text-6xl font-black font-headline tracking-tighter text-primary-container leading-none uppercase">
-              {match.homeTeam.name} vs{' '}
-              <span className="text-secondary">{match.awayTeam.name}</span>
-            </h1>
           </div>
-          <div className="flex items-center gap-4 md:gap-8">
-            <div className="text-right">
-              <p className="text-xs font-bold font-label text-on-surface-variant uppercase tracking-widest">
-                {isLive ? `Q${match.currentQuarter}` : 'Final Score'}
-              </p>
-              <div className="flex items-center gap-3">
-                <span className="text-4xl font-black font-headline text-primary-container">
-                  {match.homeScore}
-                </span>
-                <span className="text-2xl font-bold text-outline-variant">-</span>
-                <span className="text-4xl font-black font-headline text-secondary">
-                  {match.awayScore}
-                </span>
-              </div>
+
+          {/* Away Team */}
+          <div className="flex items-center gap-4 flex-1">
+            <TeamBadge team={match.awayTeam} size={80} variant="away" />
+            <div>
+              <h2 className="text-2xl md:text-4xl font-black font-headline tracking-tighter text-secondary leading-none uppercase">
+                {match.awayTeam.name}
+              </h2>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Match Momentum */}
+      {match.scoreFlow.length > 0 && (
+        <div className="bg-surface-container-low rounded-xl p-6 mb-8">
+          <h4 className="text-primary-container font-headline font-bold text-sm uppercase tracking-tight mb-4">
+            Match Momentum
+          </h4>
+          <MatchMomentumChart
+            scoreFlow={match.scoreFlow}
+            homeTeam={match.homeTeam}
+            awayTeam={match.awayTeam}
+          />
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         {/* Left Column: Tables */}
         <div className="xl:col-span-3 space-y-8">
-          <PlayerStatsTable teamName={match.homeTeam.name} players={homePlayerStats} />
-          <PlayerStatsTable teamName={match.awayTeam.name} players={awayPlayerStats} />
+          <PlayerStatsTable team={match.homeTeam} players={homePlayerStats} />
+          <PlayerStatsTable team={match.awayTeam} players={awayPlayerStats} />
         </div>
 
         {/* Right Column: Sidebar */}
@@ -135,7 +167,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
           {/* MVP Card */}
           {mvp && (
             <div className="bg-surface-container-highest rounded-xl p-6 border-l-4 border-secondary">
-              <div className="flex justify-between items-start mb-6">
+              <div className="flex justify-between items-start mb-4">
                 <span className="bg-secondary text-white text-[10px] font-black px-2 py-1 rounded font-label uppercase tracking-tighter">
                   Match MVP
                 </span>
@@ -147,13 +179,30 @@ export default async function MatchPage({ params }: MatchPageProps) {
                 </span>
               </div>
               <div className="flex flex-col items-center text-center">
-                <h3 className="font-headline text-xl font-black text-primary-container uppercase">
-                  {mvp.player.name}
-                </h3>
+                {mvp.player.photoUrl ? (
+                  <Image
+                    src={mvp.player.photoUrl}
+                    alt={mvp.player.name}
+                    width={120}
+                    height={120}
+                    className="rounded-full object-cover w-[120px] h-[120px] mb-3 border-2 border-secondary/20"
+                  />
+                ) : (
+                  <div className="w-[120px] h-[120px] rounded-full bg-primary-container flex items-center justify-center mb-3">
+                    <span className="text-3xl font-black font-headline text-white">
+                      {mvp.player.name.split(' ').map((n) => n[0]).join('')}
+                    </span>
+                  </div>
+                )}
+                <Link href={`/player/${mvp.player.id}`} className="hover:underline">
+                  <h3 className="font-headline text-xl font-black text-primary-container uppercase">
+                    {mvp.player.name}
+                  </h3>
+                </Link>
                 <p className="font-label text-xs text-on-surface-variant font-bold uppercase tracking-widest mt-1">
                   {mvp.player.position}
                 </p>
-                <div className="grid grid-cols-2 w-full gap-4 mt-8">
+                <div className="grid grid-cols-2 w-full gap-4 mt-6">
                   <div className="bg-white rounded-lg p-3 shadow-sm">
                     <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
                       Goals
@@ -185,14 +234,6 @@ export default async function MatchPage({ params }: MatchPageProps) {
             </div>
           )}
 
-          {/* Match Momentum */}
-          {match.scoreFlow.length > 0 && (
-            <MatchMomentum
-              scoreFlow={match.scoreFlow}
-              homeTeam={match.homeTeam.name}
-              awayTeam={match.awayTeam.name}
-            />
-          )}
         </div>
       </div>
     </div>

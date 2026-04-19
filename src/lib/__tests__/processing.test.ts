@@ -118,7 +118,7 @@ describe('validateMatchData', () => {
     expect(result.warnings).toContainEqual(expect.stringContaining('9999'));
   });
 
-  it('returns critical error for non-monotonic score flow', () => {
+  it('warns on non-monotonic score flow but still includes data', () => {
     const badScoreFlow: CDMatchStatsResponse = {
       ...baseDetail,
       scoreFlow: [
@@ -129,6 +129,8 @@ describe('validateMatchData', () => {
     const result = validateMatchData(baseFixture, badScoreFlow, dbTeams, dbPlayers);
     expect(result.valid).toBe(true);
     expect(result.scoreFlowValid).toBe(false);
+    expect(result.warnings).toContainEqual(expect.stringContaining('Non-monotonic'));
+    expect(result.validatedData?.scoreFlow).toHaveLength(2);
   });
 
   it('clamps periodSeconds that exceed quarter length', () => {

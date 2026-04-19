@@ -1,22 +1,33 @@
+import Image from 'next/image';
+import Link from 'next/link';
 import type { PlayerStatRow } from '@/types/stats';
 import { computeShootingPct } from '@/lib/stat-utils';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 
 interface PlayerStatWithPhoto extends PlayerStatRow {
+  playerId?: string;
   photoUrl?: string | null;
 }
 
+interface StatsTeam {
+  name: string;
+  abbreviation: string;
+  logoUrl: string | null;
+}
+
 interface PlayerStatsTableProps {
-  teamName: string;
+  team: StatsTeam;
   players: PlayerStatWithPhoto[];
 }
 
-export function PlayerStatsTable({ teamName, players }: PlayerStatsTableProps) {
+export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
 
   return (
     <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
-      <div className="bg-primary-container px-6 py-4 flex justify-between items-center">
+      <div className="bg-primary-container px-6 py-4 flex items-center gap-3">
+        <TeamBadge team={team} size={32} variant="home" />
         <h3 className="text-white font-headline font-bold text-lg tracking-tight uppercase">
-          Player Performance - {teamName}
+          {team.name}
         </h3>
       </div>
       <div className="overflow-x-auto">
@@ -55,9 +66,32 @@ export function PlayerStatsTable({ teamName, players }: PlayerStatsTableProps) {
               return (
                 <tr key={player.id} className="hover:bg-surface-container/50 transition-colors">
                   <td className="px-6 py-4">
-                    <p className="font-bold font-headline text-primary-container text-sm">
-                      {player.name}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      {player.photoUrl ? (
+                        <Image
+                          src={player.photoUrl}
+                          alt={player.name}
+                          width={32}
+                          height={32}
+                          className="rounded-full object-cover w-8 h-8 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-bold text-primary-container">
+                            {player.name.split(' ').map((n) => n[0]).join('')}
+                          </span>
+                        </div>
+                      )}
+                      {player.playerId ? (
+                        <Link href={`/player/${player.playerId}`} className="font-bold font-headline text-primary-container text-sm hover:underline">
+                          {player.name}
+                        </Link>
+                      ) : (
+                        <p className="font-bold font-headline text-primary-container text-sm">
+                          {player.name}
+                        </p>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-4 text-center">
                     <span className="bg-primary-container text-white text-[10px] font-bold px-1.5 py-0.5 rounded font-label">
