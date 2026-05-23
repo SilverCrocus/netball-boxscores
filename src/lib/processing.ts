@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db';
-import { mapMatchStatus } from '@/lib/champion-data';
+import { mapMatchStatus, fetchMatchStats } from '@/lib/champion-data';
 import { pickStatFields, type StatValues } from '@/lib/stat-utils';
 import type { MatchStatus } from '@prisma/client';
 import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data';
@@ -337,6 +337,94 @@ export async function applyChanges(
   return scorersByTeam;
 }
 
+// ── Write final stats helper (shared by applyChanges and finalizeCompletedMatches) ──
+
+export async function writeFinalStats(
+  matchId: string,
+  detail: CDMatchStatsResponse,
+): Promise<void> {
+  const allPlayers = [
+    ...(detail.playerStats?.home ?? []),
+    ...(detail.playerStats?.away ?? []),
+  ];
+
+  // Quarter scores
+  if (detail.periodScores) {
+    for (const ps of detail.periodScores) {
+      await prisma.matchQuarter.upsert({
+        where: { matchId_quarter: { matchId, quarter: ps.period } },
+        update: { homeScore: ps.homeScore, awayScore: ps.awayScore },
+        create: { matchId, quarter: ps.period, homeScore: ps.homeScore, awayScore: ps.awayScore },
+      });
+    }
+  }
+
+  // Player stats
+  if (allPlayers.length > 0) {
+    const players = await prisma.player.findMany({
+      where: { championDataPlayerId: { in: allPlayers.map((p) => p.playerId) } },
+      select: { id: true, championDataPlayerId: true, teamId: true },
+    });
+    const playerMap = new Map(players.map((p) => [p.championDataPlayerId, p]));
+
+    const upserts = allPlayers
+      .filter((ps) => playerMap.has(ps.playerId))
+      .map((ps) => {
+        const player = playerMap.get(ps.playerId)!;
+        const statsData = pickStatFields(ps);
+        return prisma.playerMatchStats.upsert({
+          where: { playerId_matchId: { playerId: player.id, matchId } },
+          update: statsData,
+          create: { playerId: player.id, matchId, ...statsData },
+        });
+      });
+
+    await prisma.$transaction(upserts);
+  }
+
+  // Score flow
+  if (detail.scoreFlow && detail.scoreFlow.length > 0) {
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: { homeTeam: { select: { championDataTeamId: true, id: true } }, awayTeam: { select: { championDataTeamId: true, id: true } } },
+    });
+    if (!match) return;
+
+    const existing = await prisma.scoreFlow.findMany({
+      where: { matchId },
+      select: { period: true, periodSeconds: true },
+    });
+    const existingKeys = new Set(existing.map((sf) => `${sf.period}-${sf.periodSeconds}`));
+
+    for (const sf of detail.scoreFlow) {
+      const scoringTeamPrismaId =
+        sf.squadId === match.homeTeam.championDataTeamId
+          ? match.homeTeam.id
+          : match.awayTeam.id;
+
+      if (!existingKeys.has(`${sf.period}-${sf.periodSeconds}`)) {
+        await prisma.scoreFlow.create({
+          data: {
+            matchId,
+            period: sf.period,
+            periodSeconds: sf.periodSeconds,
+            scoringTeamId: scoringTeamPrismaId,
+            homeScore: sf.homeScore,
+            awayScore: sf.awayScore,
+            scorePoints: sf.scorepoints,
+            scorerPlayerId: null,
+          },
+        });
+      } else {
+        await prisma.scoreFlow.update({
+          where: { matchId_period_periodSeconds: { matchId, period: sf.period, periodSeconds: sf.periodSeconds } },
+          data: { homeScore: sf.homeScore, awayScore: sf.awayScore },
+        });
+      }
+    }
+  }
+}
+
 // ── Reconciliation (from match-sync.ts) ──
 
 export async function reconcileCompletedMatches(
@@ -390,8 +478,8 @@ export async function detectStaleCompletedMatches(): Promise<
     const remaining = quarterLength - elapsed;
     const sinceUpdate = now - match.updatedAt.getTime();
 
-    if (remaining < 60 && sinceUpdate >= 30_000) {
-      console.log(`[Processing] Match ended (fast): ${match.id}`);
+    if (remaining < 120 && sinceUpdate >= 60_000) {
+      console.log(`[Processing] Match ended (stale clock <2min remaining, no update for 60s): ${match.id}`);
       await prisma.match.update({ where: { id: match.id }, data: { status: 'COMPLETED' } });
       completed.push({ matchId: match.id, homeScore: match.homeScore, awayScore: match.awayScore, finalQuarter: quarter });
       continue;
@@ -408,4 +496,53 @@ export async function detectStaleCompletedMatches(): Promise<
   }
 
   return completed;
+}
+
+// ── Post-completion finalization ──
+
+export async function finalizeCompletedMatches(
+  fixtureMatches: CDFixtureMatch[],
+  competitionId: number,
+  newlyCompletedIds: string[],
+): Promise<Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }>> {
+  if (newlyCompletedIds.length === 0) return [];
+
+  const fixtureMap = new Map(fixtureMatches.map((fm) => [fm.matchId, fm]));
+  const finalized: Array<{ matchId: string; homeScore: number; awayScore: number; finalQuarter: number }> = [];
+
+  const matches = await prisma.match.findMany({
+    where: { id: { in: newlyCompletedIds }, championDataMatchId: { not: null } },
+    select: { id: true, championDataMatchId: true, homeScore: true, awayScore: true },
+  });
+
+  for (const match of matches) {
+    const fixture = fixtureMap.get(match.championDataMatchId!);
+    if (!fixture) continue;
+
+    const fixtureHome = fixture.homeSquadScore;
+    const fixtureAway = fixture.awaySquadScore;
+    const scoresChanged = match.homeScore !== fixtureHome || match.awayScore !== fixtureAway;
+
+    if (scoresChanged) {
+      console.log(
+        `[Processing] Finalizing scores for ${match.id}: ${match.homeScore}-${match.awayScore} → ${fixtureHome}-${fixtureAway}`,
+      );
+      await prisma.match.update({
+        where: { id: match.id },
+        data: { homeScore: fixtureHome, awayScore: fixtureAway },
+      });
+    }
+
+    try {
+      const detail = await fetchMatchStats(competitionId, match.championDataMatchId!);
+      await writeFinalStats(match.id, detail);
+    } catch (err) {
+      console.error(`[Processing] Failed to fetch final stats for ${match.id}:`, err);
+    }
+
+    const finalQuarter = fixture.periodCompleted || fixture.period || 4;
+    finalized.push({ matchId: match.id, homeScore: fixtureHome, awayScore: fixtureAway, finalQuarter });
+  }
+
+  return finalized;
 }
