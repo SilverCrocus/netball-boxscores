@@ -7,6 +7,7 @@ import {
   applyChanges,
   reconcileCompletedMatches,
   detectStaleCompletedMatches,
+  finalizeCompletedMatches,
 } from '@/lib/processing';
 import {
   broadcastMatchChanges,
@@ -138,21 +139,27 @@ async function pollChampionData(): Promise<void> {
       matchesProcessed++;
     }
 
-    // Stale match detection
+    // Phase: Completion detection (reconcile first — uses canonical fixture scores)
+    const reconciled = await reconcileCompletedMatches(ingested.fixture);
     const staleCompleted = await detectStaleCompletedMatches();
-    for (const stale of staleCompleted) {
-      broadcastCompletion(stale.matchId, stale.homeScore, stale.awayScore, stale.finalQuarter);
+
+    // Phase: Finalization (re-fetch canonical scores + final stats for all newly completed)
+    const allNewlyCompleted = [
+      ...reconciled.map((c) => c.matchId),
+      ...staleCompleted.map((c) => c.matchId),
+    ];
+    const finalized = await finalizeCompletedMatches(ingested.fixture, COMP_ID, allNewlyCompleted);
+
+    // Phase: Broadcast (prefer finalized scores over provisional ones)
+    const finalizedMap = new Map(finalized.map((f) => [f.matchId, f]));
+    for (const completed of [...reconciled, ...staleCompleted]) {
+      const final = finalizedMap.get(completed.matchId) ?? completed;
+      broadcastCompletion(final.matchId, final.homeScore, final.awayScore, final.finalQuarter);
     }
 
-    // Reconcile completed
-    const completedMatches = await reconcileCompletedMatches(ingested.fixture);
-    for (const completed of completedMatches) {
-      broadcastCompletion(completed.matchId, completed.homeScore, completed.awayScore, completed.finalQuarter);
-    }
-
-    // Recalculate standings if any matches completed
-    if (completedMatches.length > 0 || staleCompleted.length > 0) {
-      console.log(`[Worker] ${completedMatches.length + staleCompleted.length} match(es) completed — recalculating standings`);
+    // Phase: Standings
+    if (reconciled.length > 0 || staleCompleted.length > 0) {
+      console.log(`[Worker] ${reconciled.length + staleCompleted.length} match(es) completed — recalculating standings`);
       try {
         await recalculateStandings();
       } catch (error) {
