@@ -1,5 +1,4 @@
 import { cache } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -9,6 +8,7 @@ import { QuarterScoreBar } from '@/components/ui/QuarterScoreBar';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { MatchMomentumChart } from '@/components/ui/MatchMomentumChart';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd, SITE_URL } from '@/lib/seo';
 import { pickStatFields } from '@/lib/stat-utils';
 
@@ -179,21 +179,12 @@ export default async function MatchPage({ params }: MatchPageProps) {
                 </span>
               </div>
               <div className="flex flex-col items-center text-center">
-                {mvp.player.photoUrl ? (
-                  <Image
-                    src={mvp.player.photoUrl}
-                    alt={mvp.player.name}
-                    width={120}
-                    height={120}
-                    className="rounded-full object-cover w-[120px] h-[120px] mb-3 border-2 border-secondary/20"
-                  />
-                ) : (
-                  <div className="w-[120px] h-[120px] rounded-full bg-primary-container flex items-center justify-center mb-3">
-                    <span className="text-3xl font-black font-headline text-white">
-                      {mvp.player.name.split(' ').map((n) => n[0]).join('')}
-                    </span>
-                  </div>
-                )}
+                <PlayerAvatar
+                  name={mvp.player.name}
+                  photoUrl={mvp.player.photoUrl}
+                  size={120}
+                  className="mb-3 border-2 border-secondary/20"
+                />
                 <Link href={`/player/${mvp.player.id}`} className="hover:underline">
                   <h3 className="font-headline text-xl font-black text-primary-container uppercase">
                     {mvp.player.name}

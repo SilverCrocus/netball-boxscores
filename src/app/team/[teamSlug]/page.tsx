@@ -5,6 +5,7 @@ import { prisma, excludeSimData } from '@/lib/db';
 import Link from 'next/link';
 import Image from 'next/image';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { formatMatchDate, formatMatchTime, formatShortDate } from '@/lib/format';
 import { JsonLd, sportsTeamJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 
@@ -194,23 +195,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   <tr key={player.id} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded bg-primary-container overflow-hidden flex-shrink-0">
-                          {player.photoUrl ? (
-                            <Image
-                              src={player.photoUrl}
-                              alt={player.name}
-                              width={40}
-                              height={40}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <span className="text-white font-black italic font-headline text-sm">
-                                {player.name.charAt(0)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                        <PlayerAvatar name={player.name} photoUrl={player.photoUrl} size={40} className="rounded" />
                         <Link href={`/player/${player.id}`} className="font-body font-bold text-primary hover:text-secondary transition-colors">
                           {player.name}
                         </Link>

@@ -1,8 +1,8 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import type { PlayerStatRow } from '@/types/stats';
 import { computeShootingPct } from '@/lib/stat-utils';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 
 interface PlayerStatWithPhoto extends PlayerStatRow {
   playerId?: string;
@@ -67,21 +67,7 @@ export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
                 <tr key={player.id} className="hover:bg-surface-container/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      {player.photoUrl ? (
-                        <Image
-                          src={player.photoUrl}
-                          alt={player.name}
-                          width={32}
-                          height={32}
-                          className="rounded-full object-cover w-8 h-8 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center shrink-0">
-                          <span className="text-[10px] font-bold text-primary-container">
-                            {player.name.split(' ').map((n) => n[0]).join('')}
-                          </span>
-                        </div>
-                      )}
+                      <PlayerAvatar name={player.name} photoUrl={player.photoUrl} size={32} />
                       {player.playerId ? (
                         <Link href={`/player/${player.playerId}`} className="font-bold font-headline text-primary-container text-sm hover:underline">
                           {player.name}
