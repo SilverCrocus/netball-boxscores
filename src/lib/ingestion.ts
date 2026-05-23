@@ -56,12 +56,23 @@ export async function ingestFromChampionData(
     if (m.championDataMatchId) scheduledCDIds.add(m.championDataMatchId);
   }
 
+  const liveCDIds = new Set<number>();
+  const liveDbMatches = await prisma.match.findMany({
+    where: { status: 'LIVE', championDataMatchId: { not: null } },
+    select: { championDataMatchId: true },
+  });
+  for (const m of liveDbMatches) {
+    if (m.championDataMatchId) liveCDIds.add(m.championDataMatchId);
+  }
+
   for (const matchData of fixture) {
     const cdStatus = matchData.matchStatus.toLowerCase();
     const isPlaying = cdStatus === 'playing';
     const needsBackfill =
       cdStatus === 'complete' && scheduledCDIds.has(matchData.matchId);
-    if (!isPlaying && !needsBackfill) continue;
+    const needsFinalFetch =
+      cdStatus === 'complete' && liveCDIds.has(matchData.matchId);
+    if (!isPlaying && !needsBackfill && !needsFinalFetch) continue;
 
     try {
       const detail = await fetchMatchStats(competitionId, matchData.matchId);

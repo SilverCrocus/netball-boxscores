@@ -308,6 +308,8 @@ function TeamTable({
 }
 
 export function LiveLineups({ homeTeam, awayTeam }: LiveLineupsProps) {
+  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
+
   return (
     <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/15 overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-2">
@@ -316,11 +318,48 @@ export function LiveLineups({ homeTeam, awayTeam }: LiveLineupsProps) {
         </span>
         <h3 className="font-headline text-lg font-bold">Live Lineups</h3>
       </div>
-      <div className="grid grid-cols-2">
+
+      {/* Mobile team toggle */}
+      <div className="md:hidden px-4 pb-3">
+        <div className="flex rounded-full bg-surface-container p-1 gap-1">
+          <button
+            onClick={() => setSelectedTeam('home')}
+            className={`flex-1 px-3 py-1.5 rounded-full text-xs font-label font-bold transition-colors ${
+              selectedTeam === 'home'
+                ? 'bg-secondary text-white'
+                : 'text-on-surface-variant hover:bg-surface-container-high'
+            }`}
+          >
+            {homeTeam.abbreviation}
+          </button>
+          <button
+            onClick={() => setSelectedTeam('away')}
+            className={`flex-1 px-3 py-1.5 rounded-full text-xs font-label font-bold transition-colors ${
+              selectedTeam === 'away'
+                ? 'bg-primary-container text-white'
+                : 'text-on-surface-variant hover:bg-surface-container-high'
+            }`}
+          >
+            {awayTeam.abbreviation}
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop: side-by-side */}
+      <div className="hidden md:grid md:grid-cols-2">
         <TeamTable team={homeTeam} variant="home" />
         <div className="border-l border-outline-variant">
           <TeamTable team={awayTeam} variant="away" />
         </div>
+      </div>
+
+      {/* Mobile: single team */}
+      <div className="md:hidden">
+        {selectedTeam === 'home' ? (
+          <TeamTable team={homeTeam} variant="home" />
+        ) : (
+          <TeamTable team={awayTeam} variant="away" />
+        )}
       </div>
     </div>
   );

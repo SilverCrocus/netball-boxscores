@@ -109,9 +109,9 @@ describe('LiveGameClient', () => {
 
   it('should render player names in lineups', () => {
     render(<LiveGameClient match={mockMatch} />);
-    expect(screen.getByText('Sarah Jenkins')).toBeInTheDocument();
-    expect(screen.getByText('Jessica Chen')).toBeInTheDocument();
-    expect(screen.getByText('Linda Blair')).toBeInTheDocument();
+    expect(screen.getAllByText('Sarah Jenkins').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Jessica Chen').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Linda Blair').length).toBeGreaterThan(0);
   });
 
   it('should render Key Match Stats section', () => {

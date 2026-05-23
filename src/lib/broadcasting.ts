@@ -72,12 +72,22 @@ export async function broadcastMatchChanges(
   }
 
   if (changes.statusChanged) {
+    const isCompletion = changes.newStatus === 'COMPLETED';
     broadcastMatchStatus(changes.matchId, {
       matchId: changes.matchId,
       status: changes.newStatus as 'LIVE' | 'COMPLETED',
       quarter: changes.currentQuarter,
-      time: changes.currentTime,
+      time: isCompletion ? '0' : changes.currentTime,
     });
+    if (isCompletion) {
+      broadcastScoreUpdate(changes.matchId, {
+        matchId: changes.matchId,
+        homeScore: changes.newHomeScore,
+        awayScore: changes.newAwayScore,
+        currentQuarter: changes.currentQuarter,
+        currentTime: '0',
+      });
+    }
   }
 
   if (matchDetail.playerStats) {

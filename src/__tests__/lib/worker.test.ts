@@ -19,6 +19,7 @@ vi.mock('@/lib/processing', () => ({
   applyChanges: vi.fn(),
   reconcileCompletedMatches: vi.fn(),
   detectStaleCompletedMatches: vi.fn(),
+  finalizeCompletedMatches: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('@/lib/broadcasting', () => ({
