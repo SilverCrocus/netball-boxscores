@@ -1,8 +1,9 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import type { PlayerStatRow } from '@/types/stats';
 import { computeShootingPct } from '@/lib/stat-utils';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
+import { StatsLegend } from '@/components/ui/StatsLegend';
 
 interface PlayerStatWithPhoto extends PlayerStatRow {
   playerId?: string;
@@ -20,6 +21,43 @@ interface PlayerStatsTableProps {
   players: PlayerStatWithPhoto[];
 }
 
+type StatCategory = 'attack' | 'defence' | 'general';
+
+const CATEGORY_HEADER_COLORS: Record<StatCategory, string> = {
+  attack: 'text-secondary',
+  defence: 'text-cyan-600',
+  general: 'text-on-surface-variant',
+};
+
+const CATEGORY_CELL_COLORS: Record<StatCategory, string> = {
+  attack: 'text-secondary',
+  defence: 'text-cyan-700',
+  general: 'text-on-surface-variant',
+};
+
+interface ColumnDef {
+  abbr: string;
+  title: string;
+  category: StatCategory;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { abbr: 'MIN', title: 'Minutes Played', category: 'general' },
+  { abbr: 'G', title: 'Goals — goals scored', category: 'attack' },
+  { abbr: 'ATT', title: 'Attempts — shots at goal', category: 'attack' },
+  { abbr: 'G%', title: 'Goal Percentage — goals ÷ attempts', category: 'attack' },
+  { abbr: 'AST', title: 'Goal Assists — pass to the shooter who scores', category: 'attack' },
+  { abbr: 'FD', title: 'Feeds — passes into the goal circle', category: 'attack' },
+  { abbr: 'CPR', title: 'Centre Pass Receives — first pass after a centre pass', category: 'attack' },
+  { abbr: 'INT', title: 'Intercepts — gains possession from opponent\'s pass', category: 'defence' },
+  { abbr: 'DEF', title: 'Deflections — touches the ball without gaining possession', category: 'defence' },
+  { abbr: 'REB', title: 'Rebounds — retrieves ball after a missed shot', category: 'defence' },
+  { abbr: 'PEN', title: 'Penalties — penalties conceded (contact, obstruction, etc.)', category: 'general' },
+  { abbr: 'TO', title: 'Turnovers — loses possession to the other team', category: 'general' },
+];
+
+const TD_BASE = 'px-3 py-3 text-right font-label text-sm';
+
 export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
 
   return (
@@ -30,34 +68,26 @@ export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
           {team.name}
         </h3>
       </div>
+      <StatsLegend />
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-surface-container-low border-b border-outline-variant/20">
-              <th className="px-6 py-4 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest">
-                Player Name
+              <th className="px-4 py-3 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest sticky left-0 bg-surface-container-low z-10 min-w-[160px]">
+                Player
               </th>
-              <th className="px-4 py-4 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-center">
+              <th className="px-2 py-3 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-center sticky left-[160px] bg-surface-container-low z-10">
                 Pos
               </th>
-              <th className="px-4 py-4 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-right">
-                Goals
-              </th>
-              <th className="px-4 py-4 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-right">
-                Shots
-              </th>
-              <th className="px-4 py-4 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-right">
-                Shoot %
-              </th>
-              <th className="px-4 py-4 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-right">
-                Inter
-              </th>
-              <th className="px-4 py-4 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-right">
-                Deflect
-              </th>
-              <th className="px-4 py-4 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-right">
-                Reb
-              </th>
+              {COLUMNS.map((col) => (
+                <th
+                  key={col.abbr}
+                  title={col.title}
+                  className={`px-3 py-3 text-[10px] font-bold font-label uppercase tracking-widest text-right whitespace-nowrap cursor-default ${CATEGORY_HEADER_COLORS[col.category]}`}
+                >
+                  {col.abbr}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/10">
@@ -65,65 +95,81 @@ export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
               const pct = player.attempts > 0 ? Math.round(computeShootingPct(player.goals, player.attempts)) : null;
               return (
                 <tr key={player.id} className="hover:bg-surface-container/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      {player.photoUrl ? (
-                        <Image
-                          src={player.photoUrl}
-                          alt={player.name}
-                          width={32}
-                          height={32}
-                          className="rounded-full object-cover w-8 h-8 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center shrink-0">
-                          <span className="text-[10px] font-bold text-primary-container">
-                            {player.name.split(' ').map((n) => n[0]).join('')}
-                          </span>
-                        </div>
-                      )}
+                  <td className="px-4 py-3 sticky left-0 bg-surface-container-lowest z-10">
+                    <div className="flex items-center gap-2">
+                      <PlayerAvatar name={player.name} photoUrl={player.photoUrl} size={28} />
                       {player.playerId ? (
-                        <Link href={`/player/${player.playerId}`} className="font-bold font-headline text-primary-container text-sm hover:underline">
+                        <Link href={`/player/${player.playerId}`} className="font-bold font-headline text-primary-container text-sm hover:underline truncate max-w-[110px]">
                           {player.name}
                         </Link>
                       ) : (
-                        <p className="font-bold font-headline text-primary-container text-sm">
+                        <p className="font-bold font-headline text-primary-container text-sm truncate max-w-[110px]">
                           {player.name}
                         </p>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-2 py-3 text-center sticky left-[160px] bg-surface-container-lowest z-10">
                     <span className="bg-primary-container text-white text-[10px] font-bold px-1.5 py-0.5 rounded font-label">
                       {player.position}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right font-black font-headline text-primary-container">
+                  {/* MIN */}
+                  <td className={`${TD_BASE} ${CATEGORY_CELL_COLORS.general}`}>
+                    {Math.round(player.minutesPlayed)}
+                  </td>
+                  {/* G */}
+                  <td className={`${TD_BASE} font-black font-headline ${CATEGORY_CELL_COLORS.attack}`}>
                     {player.goals}
                   </td>
-                  <td className="px-4 py-4 text-right font-medium text-on-surface-variant">
+                  {/* ATT */}
+                  <td className={`${TD_BASE} ${CATEGORY_CELL_COLORS.attack}`}>
                     {player.attempts}
                   </td>
-                  <td className="px-4 py-4 text-right">
+                  {/* G% */}
+                  <td className={TD_BASE}>
                     {pct !== null ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="font-bold text-secondary">{pct}%</span>
-                        <div className="w-12 bg-surface-container-high h-1 rounded-full overflow-hidden">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className={`font-bold ${CATEGORY_CELL_COLORS.attack}`}>{pct}%</span>
+                        <div className="w-8 bg-surface-container-high h-1 rounded-full overflow-hidden">
                           <div className="bg-secondary h-full" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     ) : (
-                      <span className="font-bold text-outline">-</span>
+                      <span className="text-outline">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-4 text-right font-label font-semibold">
+                  {/* AST */}
+                  <td className={`${TD_BASE} font-semibold ${CATEGORY_CELL_COLORS.attack}`}>
+                    {player.goalAssists}
+                  </td>
+                  {/* FD */}
+                  <td className={`${TD_BASE} ${CATEGORY_CELL_COLORS.attack}`}>
+                    {player.feeds}
+                  </td>
+                  {/* CPR */}
+                  <td className={`${TD_BASE} ${CATEGORY_CELL_COLORS.attack}`}>
+                    {player.centrePassReceives}
+                  </td>
+                  {/* INT */}
+                  <td className={`${TD_BASE} font-semibold ${CATEGORY_CELL_COLORS.defence}`}>
                     {player.intercepts}
                   </td>
-                  <td className="px-4 py-4 text-right font-label font-semibold text-on-surface-variant">
+                  {/* DEF */}
+                  <td className={`${TD_BASE} ${CATEGORY_CELL_COLORS.defence}`}>
                     {player.deflections}
                   </td>
-                  <td className="px-4 py-4 text-right font-label font-semibold text-secondary">
+                  {/* REB */}
+                  <td className={`${TD_BASE} font-semibold ${CATEGORY_CELL_COLORS.defence}`}>
                     {player.rebounds}
+                  </td>
+                  {/* PEN */}
+                  <td className={`${TD_BASE} ${CATEGORY_CELL_COLORS.general}`}>
+                    {player.penalties}
+                  </td>
+                  {/* TO */}
+                  <td className={`${TD_BASE} ${CATEGORY_CELL_COLORS.general}`}>
+                    {player.turnovers}
                   </td>
                 </tr>
               );

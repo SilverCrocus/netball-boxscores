@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Position } from '@prisma/client';
 import type { PositionConfig } from './position-config';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { computeAge, formatHeight } from '@/lib/format';
 
 interface PlayerHeroProps {
@@ -49,21 +49,12 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
         <div className="flex-1 flex flex-col md:flex-row items-start md:items-end gap-8">
           {/* Player photo */}
           <div className="w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden bg-white/10 backdrop-blur-xl border-4 border-lime-400 flex-shrink-0 shadow-inner">
-            {player.photoUrl ? (
-              <Image
-                src={player.photoUrl}
-                alt={player.name}
-                width={176}
-                height={176}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="font-headline font-black text-7xl text-lime-400 italic tracking-tighter">
-                  {player.name.charAt(0)}
-                </span>
-              </div>
-            )}
+            <PlayerAvatar
+              name={player.name}
+              photoUrl={player.photoUrl}
+              size={176}
+              className="w-full h-full !rounded-none"
+            />
           </div>
 
           <div className="flex-1">
