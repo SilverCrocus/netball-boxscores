@@ -9,8 +9,10 @@ import { TeamBadge } from '@/components/ui/TeamBadge';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { MatchMomentumChart } from '@/components/ui/MatchMomentumChart';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
+import { MatchStatsComparison } from '@/components/match/MatchStatsComparison';
 import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd, SITE_URL } from '@/lib/seo';
-import { pickStatFields } from '@/lib/stat-utils';
+import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
+import { formatMatchDateTime } from '@/lib/format';
 
 const getMatch = cache((matchId: string) =>
   prisma.match.findUnique({
@@ -73,6 +75,26 @@ export default async function MatchPage({ params }: MatchPageProps) {
 
   const mvp = match.playerStats.length > 0 ? match.playerStats[0] : null;
 
+  const sumStat = (players: typeof homePlayerStats, key: keyof (typeof homePlayerStats)[number]) =>
+    players.reduce((sum, p) => sum + (Number(p[key]) || 0), 0);
+
+  const homeGoals = sumStat(homePlayerStats, 'goals');
+  const awayGoals = sumStat(awayPlayerStats, 'goals');
+  const homeAttempts = sumStat(homePlayerStats, 'attempts');
+  const awayAttempts = sumStat(awayPlayerStats, 'attempts');
+
+  const comparisonStats = [
+    { label: 'Goals', homeValue: homeGoals, awayValue: awayGoals },
+    { label: 'Goal %', homeValue: Math.round(computeShootingPct(homeGoals, homeAttempts)), awayValue: Math.round(computeShootingPct(awayGoals, awayAttempts)), format: 'percentage' as const },
+    { label: 'Intercepts', homeValue: sumStat(homePlayerStats, 'intercepts'), awayValue: sumStat(awayPlayerStats, 'intercepts') },
+    { label: 'Deflections', homeValue: sumStat(homePlayerStats, 'deflections'), awayValue: sumStat(awayPlayerStats, 'deflections') },
+    { label: 'Rebounds', homeValue: sumStat(homePlayerStats, 'rebounds'), awayValue: sumStat(awayPlayerStats, 'rebounds') },
+    { label: 'Feeds', homeValue: sumStat(homePlayerStats, 'feeds'), awayValue: sumStat(awayPlayerStats, 'feeds') },
+    { label: 'Goal Assists', homeValue: sumStat(homePlayerStats, 'goalAssists'), awayValue: sumStat(awayPlayerStats, 'goalAssists') },
+    { label: 'Turnovers', homeValue: sumStat(homePlayerStats, 'turnovers'), awayValue: sumStat(awayPlayerStats, 'turnovers') },
+    { label: 'Penalties', homeValue: sumStat(homePlayerStats, 'penalties'), awayValue: sumStat(awayPlayerStats, 'penalties') },
+  ];
+
   const isLive = match.status === 'LIVE';
 
   return (
@@ -97,7 +119,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
         <div className="flex items-center gap-2 mb-4">
           {isLive && <LiveIndicator />}
           <span className="text-on-surface-variant text-xs font-semibold font-label tracking-widest uppercase">
-            Round {match.round} {match.venue && `\u2022 ${match.venue}`}
+            Round {match.round} {match.venue && `\u2022 ${match.venue}`} &bull; {formatMatchDateTime(match.scheduledAt)}
           </span>
         </div>
 
@@ -151,6 +173,13 @@ export default async function MatchPage({ params }: MatchPageProps) {
             homeTeam={match.homeTeam}
             awayTeam={match.awayTeam}
           />
+        </div>
+      )}
+
+      {/* Team Stats Comparison */}
+      {homePlayerStats.length > 0 && awayPlayerStats.length > 0 && (
+        <div className="mb-8">
+          <MatchStatsComparison stats={comparisonStats} />
         </div>
       )}
 

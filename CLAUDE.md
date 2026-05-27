@@ -1,5 +1,9 @@
 # CentrePass — Suncorp Super Netball Scores Website
 
+## Git Policy (project override)
+
+Git commands ARE allowed in this repo. You may commit, push, pull, and perform other git operations when asked.
+
 Real SSN data displayed under the CentrePass brand at centrepass.io. Live scores, box scores, standings, fixtures, team profiles, player profiles, and on-court visualization.
 
 ## Architecture

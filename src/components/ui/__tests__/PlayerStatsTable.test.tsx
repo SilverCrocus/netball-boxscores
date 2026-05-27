@@ -64,8 +64,11 @@ describe('PlayerStatsTable', () => {
 
   it('renders column headers', () => {
     render(<PlayerStatsTable team={{ name: 'Thunder', abbreviation: 'THU', logoUrl: null }} players={players} />);
-    expect(screen.getByText('Goals')).toBeInTheDocument();
-    expect(screen.getByText('Inter')).toBeInTheDocument();
-    expect(screen.getByText('Reb')).toBeInTheDocument();
+    expect(screen.getByText('G')).toBeInTheDocument();
+    expect(screen.getByText('INT')).toBeInTheDocument();
+    expect(screen.getByText('REB')).toBeInTheDocument();
+    expect(screen.getByText('AST')).toBeInTheDocument();
+    expect(screen.getByText('FD')).toBeInTheDocument();
+    expect(screen.getByText('TO')).toBeInTheDocument();
   });
 });
