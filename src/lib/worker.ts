@@ -6,6 +6,7 @@ import {
   detectChanges,
   applyChanges,
   reconcileCompletedMatches,
+  reconcileStaleCompletedScores,
   detectStaleCompletedMatches,
   finalizeCompletedMatches,
 } from '@/lib/processing';
@@ -150,16 +151,29 @@ async function pollChampionData(): Promise<void> {
     ];
     const finalized = await finalizeCompletedMatches(ingested.fixture, COMP_ID, allNewlyCompleted);
 
+    // Phase: Drift correction — re-sync already-COMPLETED matches whose stored
+    // score lags CD's canonical final (e.g. a closing super shot). Excludes the
+    // matches just completed this poll (already finalized above).
+    const staleScores = (await reconcileStaleCompletedScores(ingested.fixture)).filter(
+      (s) => !allNewlyCompleted.includes(s.matchId),
+    );
+
     // Phase: Broadcast (prefer finalized scores over provisional ones)
     const finalizedMap = new Map(finalized.map((f) => [f.matchId, f]));
     for (const completed of [...reconciled, ...staleCompleted]) {
       const final = finalizedMap.get(completed.matchId) ?? completed;
       broadcastCompletion(final.matchId, final.homeScore, final.awayScore, final.finalQuarter);
     }
+    for (const corrected of staleScores) {
+      broadcastCompletion(corrected.matchId, corrected.homeScore, corrected.awayScore, 4);
+    }
 
-    // Phase: Standings
-    if (reconciled.length > 0 || staleCompleted.length > 0) {
-      console.log(`[Worker] ${reconciled.length + staleCompleted.length} match(es) completed — recalculating standings`);
+    // Phase: Standings — recalc when any match completed or a stale score was corrected
+    if (reconciled.length > 0 || staleCompleted.length > 0 || staleScores.length > 0) {
+      const reason = staleScores.length > 0 && reconciled.length + staleCompleted.length === 0
+        ? `${staleScores.length} stale score(s) corrected`
+        : `${reconciled.length + staleCompleted.length} match(es) completed`;
+      console.log(`[Worker] ${reason} — recalculating standings`);
       try {
         await recalculateStandings();
       } catch (error) {

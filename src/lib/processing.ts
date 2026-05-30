@@ -459,6 +459,54 @@ export async function reconcileCompletedMatches(
   return completed;
 }
 
+/**
+ * Re-sync the scores of already-COMPLETED matches against the canonical
+ * Champion Data fixture (homeSquadScore/awaySquadScore).
+ *
+ * The completion path only writes a final score once (when a match flips to
+ * COMPLETED). If that score was captured a beat before CD's true final — e.g. a
+ * closing super shot landing after the poll — the stored score stays stale
+ * forever, since nothing re-checks COMPLETED matches. This corrects that drift
+ * on every poll, so the ladder self-heals. Only the Match score fields are
+ * touched; quarter/score-flow/player stats are left to the normal pipeline.
+ *
+ * Returns the matches whose score was corrected (empty if none drifted).
+ */
+export async function reconcileStaleCompletedScores(
+  fixtureMatches: CDFixtureMatch[],
+): Promise<Array<{ matchId: string; homeScore: number; awayScore: number }>> {
+  const completedMatches = await prisma.match.findMany({
+    where: { status: 'COMPLETED', championDataMatchId: { not: null } },
+    select: { id: true, championDataMatchId: true, homeScore: true, awayScore: true },
+  });
+  if (completedMatches.length === 0) return [];
+
+  const fixtureMap = new Map(fixtureMatches.map((fm) => [fm.matchId, fm]));
+  const corrected: Array<{ matchId: string; homeScore: number; awayScore: number }> = [];
+
+  for (const dbMatch of completedMatches) {
+    const fixture = fixtureMap.get(dbMatch.championDataMatchId!);
+    if (!fixture || fixture.matchStatus.toLowerCase() !== 'complete') continue;
+
+    const { homeSquadScore, awaySquadScore } = fixture;
+    if (homeSquadScore === dbMatch.homeScore && awaySquadScore === dbMatch.awayScore) {
+      continue;
+    }
+
+    console.log(
+      `[Processing] Reconciling stale completed score for ${dbMatch.id}: ` +
+        `${dbMatch.homeScore}-${dbMatch.awayScore} → ${homeSquadScore}-${awaySquadScore}`,
+    );
+    await prisma.match.update({
+      where: { id: dbMatch.id },
+      data: { homeScore: homeSquadScore, awayScore: awaySquadScore },
+    });
+    corrected.push({ matchId: dbMatch.id, homeScore: homeSquadScore, awayScore: awaySquadScore });
+  }
+
+  return corrected;
+}
+
 // ── Stale match detection (from worker.ts) ──
 
 export async function detectStaleCompletedMatches(): Promise<

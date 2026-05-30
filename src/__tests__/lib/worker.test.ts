@@ -18,6 +18,7 @@ vi.mock('@/lib/processing', () => ({
   detectChanges: vi.fn(),
   applyChanges: vi.fn(),
   reconcileCompletedMatches: vi.fn(),
+  reconcileStaleCompletedScores: vi.fn().mockResolvedValue([]),
   detectStaleCompletedMatches: vi.fn(),
   finalizeCompletedMatches: vi.fn().mockResolvedValue([]),
 }));
