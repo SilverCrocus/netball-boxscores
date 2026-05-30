@@ -6,6 +6,26 @@ import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
+// Column headers with hover tooltips, matching the dotted-underline pattern
+// used on the live lineups / box-score tables (see LiveLineups.tsx).
+const COLUMNS = [
+  { label: 'Rank', tooltip: 'Rank — Current ladder position', align: 'left' as const, px: 'px-6' },
+  { label: 'Team', tooltip: 'Team', align: 'left' as const, px: 'px-6' },
+  { label: 'GP', tooltip: 'Games Played', align: 'center' as const, px: 'px-4' },
+  { label: 'W', tooltip: 'Wins', align: 'center' as const, px: 'px-4' },
+  { label: 'L', tooltip: 'Losses', align: 'center' as const, px: 'px-4' },
+  { label: 'D', tooltip: 'Draws', align: 'center' as const, px: 'px-4' },
+  { label: 'GF', tooltip: 'Goals For — Total goals scored', align: 'center' as const, px: 'px-4' },
+  { label: 'GA', tooltip: 'Goals Against — Total goals conceded', align: 'center' as const, px: 'px-4' },
+  { label: 'G%', tooltip: 'Goal Percentage — Goals for ÷ goals against × 100 (ladder tiebreaker)', align: 'center' as const, px: 'px-4' },
+  { label: 'Pts', tooltip: 'Points — 4 for a win, 2 for a draw, 0 for a loss', align: 'right' as const, px: 'px-6' },
+];
+
+const DOTTED_UNDERLINE = {
+  textDecoration: 'underline dotted rgba(67,71,78,0.4)',
+  textUnderlineOffset: '3px',
+} as const;
+
 export async function generateMetadata(): Promise<Metadata> {
   const year = new Date().getFullYear();
   return {
@@ -56,16 +76,18 @@ export default async function StandingsPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-surface-container-low text-on-surface-variant">
-                <th className="py-5 px-6 font-label text-xs font-bold uppercase tracking-widest">Rank</th>
-                <th className="py-5 px-6 font-label text-xs font-bold uppercase tracking-widest">Team</th>
-                <th className="py-5 px-4 font-label text-xs font-bold uppercase tracking-widest text-center">GP</th>
-                <th className="py-5 px-4 font-label text-xs font-bold uppercase tracking-widest text-center">W</th>
-                <th className="py-5 px-4 font-label text-xs font-bold uppercase tracking-widest text-center">L</th>
-                <th className="py-5 px-4 font-label text-xs font-bold uppercase tracking-widest text-center">D</th>
-                <th className="py-5 px-4 font-label text-xs font-bold uppercase tracking-widest text-center">GF</th>
-                <th className="py-5 px-4 font-label text-xs font-bold uppercase tracking-widest text-center">GA</th>
-                <th className="py-5 px-4 font-label text-xs font-bold uppercase tracking-widest text-center">G%</th>
-                <th className="py-5 px-6 font-label text-xs font-bold uppercase tracking-widest text-right">Pts</th>
+                {COLUMNS.map((col) => (
+                  <th
+                    key={col.label}
+                    title={col.tooltip}
+                    style={DOTTED_UNDERLINE}
+                    className={`py-5 ${col.px} font-label text-xs font-bold uppercase tracking-widest cursor-help ${
+                      col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''
+                    }`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container">

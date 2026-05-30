@@ -58,6 +58,20 @@ describe('StandingsPage', () => {
     expect(screen.getByText('Pts')).toBeInTheDocument();
   });
 
+  it('adds explanatory tooltips to column headers', async () => {
+    const page = await StandingsPage();
+    render(page);
+    expect(screen.getByText('GP')).toHaveAttribute('title', 'Games Played');
+    expect(screen.getByText('G%')).toHaveAttribute(
+      'title',
+      expect.stringContaining('Goal Percentage'),
+    );
+    expect(screen.getByText('Pts')).toHaveAttribute(
+      'title',
+      expect.stringContaining('4 for a win'),
+    );
+  });
+
   it('renders points values', async () => {
     const page = await StandingsPage();
     render(page);

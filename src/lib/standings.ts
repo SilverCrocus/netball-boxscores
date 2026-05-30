@@ -13,7 +13,8 @@ interface TeamRecord {
 /**
  * Recalculate standings from all COMPLETED matches.
  *
- * SSN points: 4 win, 2 draw, 0 loss, +2 bonus for winning by 16+ goals.
+ * SSN points: 4 win, 2 draw, 0 loss. No bonus points (the per-quarter bonus
+ * was scrapped after 2019; there is no margin-based bonus in SSN).
  * Goal percentage: (goalsFor / goalsAgainst) * 100 (0 if no goals against).
  * Sorted by points desc, then goal percentage desc.
  */
@@ -69,16 +70,10 @@ export async function recalculateStandings(): Promise<void> {
       home.wins++;
       home.points += 4;
       away.losses++;
-      if (m.homeScore - m.awayScore >= 16) {
-        home.points += 2;
-      }
     } else if (m.awayScore > m.homeScore) {
       away.wins++;
       away.points += 4;
       home.losses++;
-      if (m.awayScore - m.homeScore >= 16) {
-        away.points += 2;
-      }
     } else {
       home.draws++;
       away.draws++;
