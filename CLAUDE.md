@@ -2,7 +2,12 @@
 
 ## Git Policy (project override)
 
-Git commands ARE allowed in this repo. You may commit, push, pull, and perform other git operations when asked.
+Git commands ARE allowed in this repo (overrides the global "never run git" rule in `~/.claude/CLAUDE.md`). You may commit, push, pull, and perform other git operations when asked.
+
+- Branch naming for fixes uses `hotfix/` or `bugfix/` prefixes only.
+- Commit when work is complete and verified (tests passing). Keep commits focused.
+- Push to `origin` is permitted. Do not force-push to `main`.
+- Still surface anything destructive or irreversible (history rewrites, branch deletion, resets that discard work) before doing it.
 
 Real SSN data displayed under the CentrePass brand at centrepass.io. Live scores, box scores, standings, fixtures, team profiles, player profiles, and on-court visualization.
 
@@ -110,13 +115,7 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 
 ## Live Tracking Pipeline
 
-<<<<<<< HEAD
 Three-phase pipeline: **Ingest** (fetch CD API + store PollLog) → **Process** (validate + transform + write DB) → **Broadcast** (socket events, delta-only score flow). Worker polls every 30s (live), 1min (pre-match), 2min (match day), 1hr (off-season).
-=======
-Worker polls Champion Data every 30s (live), 1min (pre-match ±30min window), 15min (match day), 6hr (off-season) → detects changes → writes to DB via `match-sync.ts` → broadcasts via Socket.io.
-
-**Near-live fallback:** The `/live` page, `/api/live-status`, and nav components detect SCHEDULED matches within [-15min, +5min] of their `scheduledAt` as "near-live". This covers the gap between when a match starts on Champion Data and when the worker writes `LIVE` to the DB. Nav shows an amber pulse dot for near-live (vs red for confirmed live).
->>>>>>> main
 
 **Pipeline modules:**
 - **`ingestion.ts`**: `ingestFromChampionData(competitionId)` — fetches fixture + match details from Champion Data, stores raw JSON in `PollLog` for audit trail, handles 7-day PollLog cleanup and SCHEDULED→complete backfill detection.

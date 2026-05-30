@@ -80,13 +80,13 @@ describe('recalculateStandings', () => {
     });
   });
 
-  it('awards +2 bonus points for 16+ goal margin win', async () => {
+  it('awards no bonus points for large margin wins (SSN has no margin bonus)', async () => {
     mockFindUnique.mockResolvedValue(COMP);
     mockFindMany.mockResolvedValue([
-      // Team A wins by exactly 16 (bonus)
-      { homeTeamId: 'team-a', awayTeamId: 'team-b', homeScore: 66, awayScore: 50 },
-      // Team B wins by 15 (no bonus)
-      { homeTeamId: 'team-b', awayTeamId: 'team-a', homeScore: 65, awayScore: 50 },
+      // Team A wins by a huge margin — still only 4 pts (no bonus in SSN)
+      { homeTeamId: 'team-a', awayTeamId: 'team-b', homeScore: 80, awayScore: 50 },
+      // Team B wins by a small margin — also 4 pts
+      { homeTeamId: 'team-b', awayTeamId: 'team-a', homeScore: 65, awayScore: 64 },
     ]);
 
     await recalculateStandings();
@@ -95,8 +95,8 @@ describe('recalculateStandings', () => {
     const teamACall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-a');
     const teamBCall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-b');
 
-    // Team A: 1W with bonus = 6pts, Team B: 1W no bonus = 4pts
-    expect(teamACall.update.points).toBe(6);
+    // Both teams: 1W = 4pts. Margin is irrelevant — SSN awards no bonus points.
+    expect(teamACall.update.points).toBe(4);
     expect(teamBCall.update.points).toBe(4);
   });
 
