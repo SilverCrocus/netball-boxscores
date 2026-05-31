@@ -60,6 +60,13 @@ export default async function MatchPage({ params }: MatchPageProps) {
 
   if (!match) notFound();
 
+  const superShotsByPlayer = new Map<string, number>();
+  for (const sf of match.scoreFlow) {
+    if (sf.scorePoints === 2 && sf.scorerPlayer?.id) {
+      superShotsByPlayer.set(sf.scorerPlayer.id, (superShotsByPlayer.get(sf.scorerPlayer.id) || 0) + 1);
+    }
+  }
+
   function toPlayerStatRow(ps: NonNullable<typeof match>['playerStats'][number]) {
     return {
       id: ps.id,
@@ -67,6 +74,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
       name: ps.player.name,
       position: ps.player.position,
       photoUrl: ps.player.photoUrl,
+      superShots: superShotsByPlayer.get(ps.player.id) || 0,
       ...pickStatFields(ps),
     };
   }
