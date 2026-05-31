@@ -1,10 +1,22 @@
+import Link from 'next/link';
 import type { PlayerMatchStats } from '@prisma/client';
 import { getStatValue, computeShootingPct } from '@/lib/stat-utils';
 import type { PositionConfig, StatHighlight } from './position-config';
 
+interface CompetitionInfo {
+  id: string;
+  season: number;
+  name: string;
+}
+
 interface PlayerSeasonStatsProps {
   matchStats: PlayerMatchStats[];
   positionConfig: PositionConfig;
+  totalSuperShots?: number;
+  impactTotal?: number;
+  competitions?: CompetitionInfo[];
+  selectedSeason?: number;
+  playerId?: string;
 }
 
 function computeSeasonTotal(stats: PlayerMatchStats[], field: string): number {
@@ -105,15 +117,25 @@ const ALL_STAT_FIELDS = [
 export default function PlayerSeasonStats({
   matchStats,
   positionConfig,
+  totalSuperShots,
+  impactTotal,
+  competitions,
+  selectedSeason,
+  playerId,
 }: PlayerSeasonStatsProps) {
   if (matchStats.length === 0) {
     return (
       <div className="bg-surface-container-lowest rounded-2xl p-8 shadow-sm">
-        <h2 className="font-headline text-2xl font-black text-primary uppercase tracking-tight mb-4">
-          Season Stats
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-headline text-2xl font-black text-primary uppercase tracking-tight">
+            Season Stats
+          </h2>
+          {competitions && competitions.length > 1 && playerId && (
+            <SeasonSelector competitions={competitions} selectedSeason={selectedSeason} playerId={playerId} />
+          )}
+        </div>
         <p className="text-on-surface-variant font-body">
-          No match data available yet
+          No match data available for this season
         </p>
       </div>
     );
@@ -127,8 +149,13 @@ export default function PlayerSeasonStats({
         <h2 className="font-headline text-2xl font-black text-primary uppercase tracking-tight">
           Season Stats
         </h2>
-        <div className="px-3 py-1 bg-surface-container-high rounded text-xs font-bold uppercase tracking-widest">
-          {gamesPlayed} {gamesPlayed === 1 ? 'Game' : 'Games'}
+        <div className="flex items-center gap-3">
+          {competitions && competitions.length > 1 && playerId && (
+            <SeasonSelector competitions={competitions} selectedSeason={selectedSeason} playerId={playerId} />
+          )}
+          <div className="px-3 py-1 bg-surface-container-high rounded text-xs font-bold uppercase tracking-widest">
+            {gamesPlayed} {gamesPlayed === 1 ? 'Game' : 'Games'}
+          </div>
         </div>
       </div>
 
@@ -179,8 +206,48 @@ export default function PlayerSeasonStats({
               </div>
             );
           })}
+          {totalSuperShots != null && (
+            <div className="bg-surface-container-low rounded-lg p-3">
+              <p className="font-label text-xs text-on-surface-variant uppercase tracking-wider mb-1">
+                Super Shots
+              </p>
+              <p className="font-headline text-xl font-bold text-amber-600">
+                {(totalSuperShots / gamesPlayed).toFixed(1)}
+              </p>
+            </div>
+          )}
+          {impactTotal != null && (
+            <div className="bg-surface-container-low rounded-lg p-3 border border-secondary/20">
+              <p className="font-label text-xs text-on-surface-variant uppercase tracking-wider mb-1" title="Goals + Assists + Intercepts + Deflections + Rebounds - Turnovers - Penalties">
+                Impact
+              </p>
+              <p className="font-headline text-xl font-bold text-secondary">
+                {(impactTotal / gamesPlayed).toFixed(1)}
+              </p>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SeasonSelector({ competitions, selectedSeason, playerId }: { competitions: CompetitionInfo[]; selectedSeason?: number; playerId: string }) {
+  return (
+    <div className="flex gap-1">
+      {competitions.map((c) => (
+        <Link
+          key={c.id}
+          href={`/player/${playerId}?season=${c.season}`}
+          className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${
+            c.season === selectedSeason
+              ? 'bg-primary-container text-white'
+              : 'bg-surface-container-high text-on-surface-variant hover:text-primary-container'
+          }`}
+        >
+          {c.season}
+        </Link>
+      ))}
     </div>
   );
 }

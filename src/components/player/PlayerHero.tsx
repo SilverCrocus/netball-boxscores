@@ -15,6 +15,8 @@ interface PlayerHeroProps {
     team: {
       name: string;
       slug: string;
+      logoUrl: string | null;
+      primaryColor: string | null;
     };
     teamId: string;
   };
@@ -25,6 +27,7 @@ interface PlayerHeroProps {
 export function PlayerHero({ player, positionConfig, statHighlightValues }: PlayerHeroProps) {
   const [firstName, ...restName] = player.name.split(' ');
   const lastName = restName.join(' ');
+  const teamColor = player.team.primaryColor || '#a3e635';
 
   return (
     <section className="kinetic-gradient rounded-xl overflow-hidden relative p-8 md:p-12 text-white shadow-2xl">
@@ -48,7 +51,10 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
         {/* Left: photo + name + bio info */}
         <div className="flex-1 flex flex-col md:flex-row items-start md:items-end gap-8">
           {/* Player photo */}
-          <div className="w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden bg-white/10 backdrop-blur-xl border-4 border-lime-400 flex-shrink-0 shadow-inner">
+          <div
+            className="w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden bg-white/10 backdrop-blur-xl border-4 flex-shrink-0 shadow-inner"
+            style={{ borderColor: teamColor }}
+          >
             <PlayerAvatar
               name={player.name}
               photoUrl={player.photoUrl}
@@ -60,16 +66,19 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
           <div className="flex-1">
             {/* Position badge */}
             <div className="flex items-center gap-3 mb-3">
-              <span className="bg-lime-400/20 text-lime-400 px-3 py-1 rounded-full font-label text-sm font-bold tracking-widest uppercase">
+              <span
+                className="px-3 py-1 rounded-full font-label text-sm font-bold tracking-widest uppercase"
+                style={{ backgroundColor: `${teamColor}33`, color: teamColor }}
+              >
                 {player.position}
               </span>
             </div>
 
             {/* Player name */}
-            <h1 className="font-headline text-6xl md:text-7xl font-black italic tracking-tighter leading-none mb-4">
+            <h1 className="font-headline text-6xl md:text-7xl font-black italic tracking-tighter leading-none mb-4 text-white">
               {firstName}
               <br />
-              <span className="text-lime-400">{lastName}</span>
+              {lastName}
             </h1>
 
             {/* Bio info line */}
@@ -89,10 +98,17 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
                   <span>{formatHeight(player.height)}</span>
                 </>
               )}
-              <span className="text-slate-500">&bull;</span>
+              {player.team.logoUrl && (
+                <img
+                  src={player.team.logoUrl}
+                  alt={player.team.name}
+                  className="h-8 w-8 object-contain"
+                />
+              )}
               <Link
                 href={`/team/${player.team.slug}`}
-                className="text-lime-400 hover:text-lime-300 transition-colors font-bold"
+                className="hover:opacity-80 transition-colors font-bold"
+                style={{ color: teamColor }}
               >
                 {player.team.name}
               </Link>
@@ -105,7 +121,8 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
           {positionConfig.highlights.map((highlight, i) => (
             <div
               key={highlight.key}
-              className="bg-white/5 backdrop-blur-md px-5 py-4 rounded-xl border-l-4 border-lime-400 text-center min-w-[100px]"
+              className="bg-white/5 backdrop-blur-md px-5 py-4 rounded-xl border-l-4 text-center min-w-[100px]"
+              style={{ borderLeftColor: teamColor }}
             >
               <p className="font-label text-slate-400 text-xs uppercase tracking-widest mb-2">
                 {highlight.label}
