@@ -22,7 +22,7 @@ import { recordPoll, setCurrentInterval } from '@/lib/worker-health';
 // ── Polling intervals ──
 
 const POLL_SIM = 2_000;
-const POLL_LIVE = 30_000;
+const POLL_LIVE = 10_000;
 const POLL_PRE_MATCH = 60_000;
 const POLL_MATCH_DAY = 120_000;
 const POLL_OFF_SEASON = 3_600_000;
