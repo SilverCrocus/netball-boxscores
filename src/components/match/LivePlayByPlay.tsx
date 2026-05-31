@@ -7,7 +7,7 @@ import { TeamBadge } from '@/components/ui/TeamBadge';
 export interface FeedEntry {
   time: string;
   quarter: number;
-  eventType: 'goal' | 'intercept';
+  eventType: 'goal' | 'intercept' | 'deflection' | 'rebound' | 'turnover';
   scorerName?: string;
   scorerPlayerId?: string;
   playerName?: string;
@@ -20,6 +20,13 @@ export interface FeedEntry {
   awayScore?: number;
   scorePoints?: number;
 }
+
+const EVENT_STYLES: Record<string, { label: string; textColor: string; linkColor: string; icon: string; iconColor: string }> = {
+  intercept: { label: 'intercept', textColor: 'text-cyan-300', linkColor: 'text-cyan-300 decoration-cyan-300/25 hover:decoration-cyan-400 hover:text-cyan-400', icon: 'shield', iconColor: 'text-cyan-400/60' },
+  deflection: { label: 'deflection', textColor: 'text-violet-300', linkColor: 'text-violet-300 decoration-violet-300/25 hover:decoration-violet-400 hover:text-violet-400', icon: 'front_hand', iconColor: 'text-violet-400/60' },
+  rebound: { label: 'rebound', textColor: 'text-orange-300', linkColor: 'text-orange-300 decoration-orange-300/25 hover:decoration-orange-400 hover:text-orange-400', icon: 'replay', iconColor: 'text-orange-400/60' },
+  turnover: { label: 'turnover', textColor: 'text-red-300', linkColor: 'text-red-300 decoration-red-300/25 hover:decoration-red-400 hover:text-red-400', icon: 'swap_horiz', iconColor: 'text-red-400/60' },
+};
 
 interface LivePlayByPlayProps {
   entries: FeedEntry[];
@@ -109,14 +116,14 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
                       {entry.playerName && entry.playerId ? (
                         <Link
                           href={`/player/${entry.playerId}`}
-                          className="text-cyan-300 underline decoration-cyan-300/25 underline-offset-2 hover:decoration-cyan-400 hover:text-cyan-400"
+                          className={`underline underline-offset-2 ${EVENT_STYLES[entry.eventType]?.linkColor ?? 'text-cyan-300 decoration-cyan-300/25 hover:decoration-cyan-400 hover:text-cyan-400'}`}
                         >
                           {entry.playerName}
                         </Link>
                       ) : (
-                        <span className="text-cyan-300">{entry.teamName}</span>
+                        <span className={EVENT_STYLES[entry.eventType]?.textColor ?? 'text-cyan-300'}>{entry.teamName}</span>
                       )}{' '}
-                      <span className="text-white/50">intercept</span>
+                      <span className="text-white/50">{EVENT_STYLES[entry.eventType]?.label ?? entry.eventType}</span>
                     </p>
                   )}
                   <p className="font-label text-[10px] text-white/30 mt-0.5">
@@ -124,7 +131,7 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
                   </p>
                 </div>
 
-                {/* Score badge (only for goals) */}
+                {/* Score badge (goals) or event icon (other events) */}
                 {entry.eventType === 'goal' && entry.homeScore != null && entry.awayScore != null ? (
                   <span
                     className={`shrink-0 font-label text-[11px] font-extrabold px-2 py-0.5 rounded tracking-[0.5px] ${
@@ -136,8 +143,8 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
                     {entry.homeScore} &ndash; {entry.awayScore}
                   </span>
                 ) : (
-                  <span className="shrink-0 material-symbols-outlined text-cyan-400/60 text-[18px]">
-                    shield
+                  <span className={`shrink-0 material-symbols-outlined text-[18px] ${EVENT_STYLES[entry.eventType]?.iconColor ?? 'text-cyan-400/60'}`}>
+                    {EVENT_STYLES[entry.eventType]?.icon ?? 'shield'}
                   </span>
                 )}
               </div>

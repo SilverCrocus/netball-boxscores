@@ -129,15 +129,25 @@ export async function broadcastPlayerStats(
   }
 }
 
-// ── Intercept events broadcast ──
+// ── Stat events (intercepts, deflections, rebounds, turnovers) ──
 
-export async function broadcastInterceptEvents(
+const EVENT_TYPES = ['intercept', 'deflection', 'rebound', 'turnover'] as const;
+type EventType = typeof EVENT_TYPES[number];
+
+const STAT_TO_EVENT: { field: 'intercepts' | 'deflections' | 'rebounds' | 'turnovers'; type: EventType }[] = [
+  { field: 'intercepts', type: 'intercept' },
+  { field: 'deflections', type: 'deflection' },
+  { field: 'rebounds', type: 'rebound' },
+  { field: 'turnovers', type: 'turnover' },
+];
+
+export async function persistAndBroadcastStatEvents(
   matchId: string,
   matchDetail: CDMatchStatsResponse,
   dbMatch: DbMatchWithTeams,
-  oldInterceptMap: Map<string, number>,
-  quarter: number,
-  time: string,
+  oldStatMap: Map<string, Record<EventType, number>>,
+  period: number,
+  periodSeconds: number,
 ): Promise<void> {
   const allPlayerStats = [
     ...(matchDetail.playerStats.home ?? []),
@@ -150,31 +160,57 @@ export async function broadcastInterceptEvents(
   });
   const playerMap = new Map(players.map((p) => [p.championDataPlayerId, p]));
 
+  const eventsToCreate: { matchId: string; playerId: string; type: string; period: number; periodSeconds: number; teamId: string }[] = [];
+
   for (const ps of allPlayerStats) {
     const player = playerMap.get(ps.playerId);
     if (!player) continue;
-    const oldIntercepts = oldInterceptMap.get(player.id) ?? 0;
-    const newIntercepts = (ps.intercepts ?? 0) - oldIntercepts;
-    if (newIntercepts <= 0) continue;
 
-    const isHome = player.teamId === dbMatch.homeTeamId;
-    const team = isHome ? dbMatch.homeTeam : dbMatch.awayTeam;
+    const oldStats = oldStatMap.get(player.id) ?? { intercept: 0, deflection: 0, rebound: 0, turnover: 0 };
 
-    for (let i = 0; i < newIntercepts; i++) {
-      broadcastStatEvent(matchId, {
-        matchId,
-        type: 'intercept',
-        playerId: player.id,
-        playerName: player.name,
-        teamId: team.id,
-        teamName: team.name,
-        teamAbbreviation: team.abbreviation,
-        teamLogoUrl: team.logoUrl,
-        isHomeTeam: isHome,
-        quarter,
-        time,
-      });
+    for (const { field, type } of STAT_TO_EVENT) {
+      const current = (ps[field] ?? 0) as number;
+      const previous = oldStats[type];
+      const newCount = current - previous;
+      if (newCount <= 0) continue;
+
+      const isHome = player.teamId === dbMatch.homeTeamId;
+      const team = isHome ? dbMatch.homeTeam : dbMatch.awayTeam;
+
+      for (let i = 0; i < newCount; i++) {
+        // Offset each event by 1 second to satisfy unique constraint
+        const offsetSeconds = periodSeconds + i;
+        eventsToCreate.push({
+          matchId,
+          playerId: player.id,
+          type,
+          period,
+          periodSeconds: offsetSeconds,
+          teamId: team.id,
+        });
+
+        broadcastStatEvent(matchId, {
+          matchId,
+          type,
+          playerId: player.id,
+          playerName: player.name,
+          teamId: team.id,
+          teamName: team.name,
+          teamAbbreviation: team.abbreviation,
+          teamLogoUrl: team.logoUrl,
+          isHomeTeam: isHome,
+          quarter: period,
+          time: String(offsetSeconds),
+        });
+      }
     }
+  }
+
+  if (eventsToCreate.length > 0) {
+    await prisma.matchEvent.createMany({
+      data: eventsToCreate,
+      skipDuplicates: true,
+    });
   }
 }
 

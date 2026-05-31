@@ -12,6 +12,7 @@ interface TeamWithPlayers extends TeamInfo {
 interface LiveLineupsProps {
   homeTeam: TeamWithPlayers;
   awayTeam: TeamWithPlayers;
+  superShotsByPlayer?: Map<string, number>;
 }
 
 const POSITION_ORDER: Record<string, number> = {
@@ -35,7 +36,7 @@ const STAT_KEY: Record<StatColumn, keyof PlayerStatRow> = {
 };
 
 const COLUMN_TOOLTIPS: Record<StatColumn, string> = {
-  G: 'Goals — Successful shots scored',
+  G: 'Goals (Super Shots) — Successful shots scored',
   ATT: 'Attempts — Total shots taken',
   AST: 'Goal Assists — Passes to scorer',
   INT: 'Intercepts — Possessions won',
@@ -130,9 +131,11 @@ function splitAndSort(
 function TeamTable({
   team,
   variant,
+  superShotsByPlayer,
 }: {
   team: TeamWithPlayers;
   variant: 'home' | 'away';
+  superShotsByPlayer?: Map<string, number>;
 }) {
   const [sort, setSort] = useState<SortState>({
     column: 'player',
@@ -178,10 +181,8 @@ function TeamTable({
   const headerAlign = variant === 'away' ? 'justify-end text-right' : '';
 
   function renderRow(player: PlayerStatRow, isBench: boolean) {
-    const rowClass = isBench
-      ? 'opacity-45 hover:opacity-70 transition-opacity'
-      : 'hover:bg-surface-container-low transition-colors';
-    const badgeOpacity = isBench ? 'opacity-35' : '';
+    const rowClass = 'hover:bg-surface-container-low transition-colors';
+    const badgeOpacity = isBench ? 'opacity-50' : '';
 
     return (
       <tr key={player.id} className={rowClass}>
@@ -194,9 +195,7 @@ function TeamTable({
             </span>
             <Link
               href={`/player/${player.id}`}
-              className={`font-body text-[13px] font-semibold hover:text-secondary hover:underline ${
-                isBench ? 'text-on-surface-variant' : 'text-on-surface'
-              }`}
+              className="font-body text-[13px] font-semibold text-on-surface hover:text-secondary hover:underline"
             >
               {player.name}
             </Link>
@@ -204,12 +203,15 @@ function TeamTable({
         </td>
         <td
           className={`text-center px-1.5 py-2.5 border-b border-outline-variant/20 font-label text-[13px] ${
-            !isBench && isShooter(player.position)
+            isShooter(player.position)
               ? 'text-secondary font-extrabold'
               : 'text-on-surface-variant'
           }`}
         >
           {player.goals}
+          {superShotsByPlayer?.get(player.id) ? (
+            <span className="text-amber-500 font-bold text-[10px] ml-0.5">({superShotsByPlayer.get(player.id)})</span>
+          ) : null}
         </td>
         <td className="text-center px-1.5 py-2.5 border-b border-outline-variant/20 font-label text-[13px] text-on-surface-variant">
           {player.attempts}
@@ -307,7 +309,7 @@ function TeamTable({
   );
 }
 
-export function LiveLineups({ homeTeam, awayTeam }: LiveLineupsProps) {
+export function LiveLineups({ homeTeam, awayTeam, superShotsByPlayer }: LiveLineupsProps) {
   const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
 
   return (
@@ -347,18 +349,18 @@ export function LiveLineups({ homeTeam, awayTeam }: LiveLineupsProps) {
 
       {/* Desktop: side-by-side */}
       <div className="hidden md:grid md:grid-cols-2">
-        <TeamTable team={homeTeam} variant="home" />
+        <TeamTable team={homeTeam} variant="home" superShotsByPlayer={superShotsByPlayer} />
         <div className="border-l border-outline-variant">
-          <TeamTable team={awayTeam} variant="away" />
+          <TeamTable team={awayTeam} variant="away" superShotsByPlayer={superShotsByPlayer} />
         </div>
       </div>
 
       {/* Mobile: single team */}
       <div className="md:hidden">
         {selectedTeam === 'home' ? (
-          <TeamTable team={homeTeam} variant="home" />
+          <TeamTable team={homeTeam} variant="home" superShotsByPlayer={superShotsByPlayer} />
         ) : (
-          <TeamTable team={awayTeam} variant="away" />
+          <TeamTable team={awayTeam} variant="away" superShotsByPlayer={superShotsByPlayer} />
         )}
       </div>
     </div>

@@ -109,10 +109,10 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 `src/components/match/` — live game page components:
 - **`LiveScoreHero.tsx`**: Score display with team badges, quarter grid, game clock. Shows goals/super shots breakdown `(15.2)` when super shots exist. Detects half-time, full-time, and extra time states.
 - **`ScoreProgressChart.tsx`**: SVG step-line graph showing both teams' score progression over match time. Quarter dividers, Y-axis grid, team-colored lines. No external charting library.
-- **`LiveLineups.tsx`**: Side-by-side on-court/bench tables with sortable stat columns (G, ATT, AST, INT, FD). Detects current on-court player via `minutesPlayed` heuristic when multiple players share a position.
-- **`LivePlayByPlay.tsx`**: Reverse-chronological feed of scoring events and intercepts (live matches only). `FeedEntry` supports `eventType: 'goal' | 'intercept'`. Goals show scorer links, super shot badges, and running scores. Intercepts show player links with cyan styling.
-- **`MatchPlayByPlay.tsx`**: Static play-by-play feed for completed matches. Shows scoring events with player avatars (+ team badge overlay), scorer links, super shot badges, running scores, and quarter separators. Rows tinted with team `primaryColor` at 5% opacity + 3px left border accent at full saturation. Toggle button switches between newest-first and chronological order.
-- **`MatchStatsComparison.tsx`**: Horizontal bar chart for team-level stat comparison (Goals, Goal%, Intercepts, Deflections, Turnovers, Feeds, Goal Assists).
+- **`LiveLineups.tsx`**: Side-by-side on-court/bench tables with sortable stat columns (G, ATT, AST, INT, FD). Shows per-player super shots as amber `(N)` in goals column. Detects current on-court player via `minutesPlayed` heuristic when multiple players share a position. Bench players render at full opacity (subheading is sufficient context).
+- **`LivePlayByPlay.tsx`**: Reverse-chronological feed of scoring events and stat events. `FeedEntry` supports `eventType: 'goal' | 'intercept' | 'deflection' | 'rebound' | 'turnover'`. Goals show scorer links, super shot badges, and running scores. Stat events show player links with distinct colours (intercept: cyan, deflection: violet, rebound: orange, turnover: red) and icons.
+- **`MatchPlayByPlay.tsx`**: Static play-by-play feed for completed matches. Shows scoring events and stat events (from `MatchEvent` table) with player avatars (+ team badge overlay), player links, super shot badges, running scores, and quarter separators. Rows tinted with team `primaryColor` at 5% opacity + 3px left border accent at full saturation. Toggle button switches between newest-first and chronological order.
+- **`MatchStatsComparison.tsx`**: Horizontal bar chart for team-level stat comparison (Goals, Goal%, Intercepts, Deflections, Turnovers, Feeds, Goal Assists, Centre Pass Receives).
 
 ## Match Results Page Tabs
 
@@ -120,12 +120,12 @@ The completed match page (`/match/[matchId]`) uses a client-side tab bar (`Match
 
 ## Live Tracking Pipeline
 
-Three-phase pipeline: **Ingest** (fetch CD API + store PollLog) → **Process** (validate + transform + write DB) → **Broadcast** (socket events, delta-only score flow). Worker polls every 30s (live), 1min (pre-match), 2min (match day), 1hr (off-season).
+Three-phase pipeline: **Ingest** (fetch CD API + store PollLog) → **Process** (validate + transform + write DB) → **Broadcast** (socket events, delta-only score flow). Worker polls every 10s (live), 1min (pre-match), 2min (match day), 1hr (off-season).
 
 **Pipeline modules:**
 - **`ingestion.ts`**: `ingestFromChampionData(competitionId)` — fetches fixture + match details from Champion Data, stores raw JSON in `PollLog` for audit trail, handles 7-day PollLog cleanup and SCHEDULED→complete backfill detection.
 - **`processing.ts`**: `validateMatchData()` (team/player/time validation with clamping), `detectChanges()` (compares incoming vs DB), `applyChanges()` (writes match state to DB with server-side scorer attribution), `reconcileCompletedMatches()`, `detectStaleCompletedMatches()`. Types: `ProcessedMatchState`, `ValidationResult`, `ChangeResult`.
-- **`broadcasting.ts`**: `broadcastMatchChanges()` (orchestrator for score/status/stats/flow events), `broadcastScoreFlowDelta()` (delta-only via in-memory count tracker), `broadcastPlayerStats()`, `broadcastInterceptEvents()`, `broadcastCompletion()`.
+- **`broadcasting.ts`**: `broadcastMatchChanges()` (orchestrator for score/status/stats/flow events), `broadcastScoreFlowDelta()` (delta-only via in-memory count tracker), `broadcastPlayerStats()`, `persistAndBroadcastStatEvents()` (writes intercepts/deflections/rebounds/turnovers to `MatchEvent` table + broadcasts via socket), `broadcastCompletion()`.
 - **`worker.ts`**: Slim orchestrator (~170 lines) wiring ingestion → processing → broadcasting with `getLiveState()` for polling interval selection and `recordPoll()`/`setCurrentInterval()` for health tracking.
 - **`live-state.ts`**: `getLiveState()` — single source of truth for live detection. Returns `{ liveMatchIds, imminentMatchIds, nextMatchAt, isMatchDay }`. Replaces 5 scattered live-detection implementations.
 - **`worker-health.ts`**: Module-level health state (no DB writes). `recordPoll()`, `setCurrentInterval()`, `getWorkerHealth()`. Exposed via `/api/worker-health`.
@@ -139,7 +139,11 @@ Three-phase pipeline: **Ingest** (fetch CD API + store PollLog) → **Process** 
 
 **Scorer attribution:** Champion Data score flow entries don't include who scored — only which team. The worker infers scorers by diffing player goal counts between polls and matching them to new score flow entries. `ScoreFlow.scorerPlayerId` (nullable FK to Player) persists this in the DB. The client uses server-provided scorer info first, falling back to a client-side goal-diff heuristic for unattributed entries.
 
-**Socket events:** `score:update`, `match:status`, `stats:update`, `scoreflow:add`, `stat:event`. The `stat:event` carries notable play events (intercepts) with player/team info for the live feed.
+**Stat events (MatchEvent table):** Persists intercepts, deflections, rebounds, and turnovers with `matchId`, `playerId`, `type`, `period`, `periodSeconds`, `teamId`. Written by the worker on each poll via `persistAndBroadcastStatEvents()`. Live page loads from DB on render + merges new socket events. Completed match play-by-play includes these alongside goals. Unique constraint on `[matchId, playerId, type, period, periodSeconds]`.
+
+**Socket events:** `score:update`, `match:status`, `stats:update`, `scoreflow:add`, `stat:event`. The `stat:event` carries stat events (intercepts, deflections, rebounds, turnovers) with player/team info for the live feed.
+
+**Live quarter derivation:** Quarter breakdowns on the live page are derived from score flow data (not SSR snapshot), so they update in real-time as goals arrive without page refresh.
 
 **Socket lifecycle:** Client (`useMatchSocket.ts`) disconnects 2 seconds after receiving `match:status: COMPLETED` — the delay allows final stat updates to arrive.
 

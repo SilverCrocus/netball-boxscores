@@ -28,6 +28,10 @@ const getMatch = cache((matchId: string) =>
         orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
         include: { scorerPlayer: { select: { id: true, name: true, photoUrl: true } } },
       },
+      matchEvents: {
+        orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
+        include: { player: { select: { id: true, name: true, photoUrl: true } } },
+      },
     },
   })
 );
@@ -176,7 +180,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
       </section>
 
       <MatchTabs
-        hasPlayByPlay={match.scoreFlow.length > 0}
+        hasPlayByPlay={match.scoreFlow.length > 0 || match.matchEvents.length > 0}
         boxScore={
           <>
             {/* Match Momentum */}
@@ -276,17 +280,29 @@ export default async function MatchPage({ params }: MatchPageProps) {
         }
         playByPlay={
           <MatchPlayByPlay
-            entries={match.scoreFlow.map((sf) => ({
-              period: sf.period,
-              periodSeconds: sf.periodSeconds,
-              scoringTeamId: sf.scoringTeamId,
-              homeScore: sf.homeScore,
-              awayScore: sf.awayScore,
-              scorePoints: sf.scorePoints,
-              scorerPlayerId: sf.scorerPlayer?.id,
-              scorerName: sf.scorerPlayer?.name,
-              scorerPhotoUrl: sf.scorerPlayer?.photoUrl,
-            }))}
+            entries={[
+              ...match.scoreFlow.map((sf) => ({
+                period: sf.period,
+                periodSeconds: sf.periodSeconds,
+                eventType: 'goal' as const,
+                teamId: sf.scoringTeamId,
+                homeScore: sf.homeScore,
+                awayScore: sf.awayScore,
+                scorePoints: sf.scorePoints,
+                playerId: sf.scorerPlayer?.id,
+                playerName: sf.scorerPlayer?.name,
+                playerPhotoUrl: sf.scorerPlayer?.photoUrl,
+              })),
+              ...match.matchEvents.map((e) => ({
+                period: e.period,
+                periodSeconds: e.periodSeconds,
+                eventType: e.type as 'intercept' | 'deflection' | 'rebound' | 'turnover',
+                teamId: e.teamId,
+                playerId: e.player.id,
+                playerName: e.player.name,
+                playerPhotoUrl: e.player.photoUrl,
+              })),
+            ].sort((a, b) => a.period - b.period || a.periodSeconds - b.periodSeconds)}
             homeTeam={{ id: match.homeTeamId, ...match.homeTeam }}
             awayTeam={{ id: match.awayTeamId, ...match.awayTeam }}
           />

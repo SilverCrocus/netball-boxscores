@@ -13,7 +13,7 @@ import {
 import {
   broadcastMatchChanges,
   broadcastPlayerStats,
-  broadcastInterceptEvents,
+  persistAndBroadcastStatEvents,
   broadcastCompletion,
 } from '@/lib/broadcasting';
 import { recalculateStandings } from '@/lib/standings';
@@ -22,7 +22,7 @@ import { recordPoll, setCurrentInterval } from '@/lib/worker-health';
 // ── Polling intervals ──
 
 const POLL_SIM = 2_000;
-const POLL_LIVE = 30_000;
+const POLL_LIVE = 10_000;
 const POLL_PRE_MATCH = 60_000;
 const POLL_MATCH_DAY = 120_000;
 const POLL_OFF_SEASON = 3_600_000;
@@ -98,14 +98,19 @@ async function pollChampionData(): Promise<void> {
       const changes = await detectChanges(validation.validatedData);
       const hasChanges = changes.scoreChanged || changes.statusChanged || changes.timeChanged;
 
-      // Snapshot intercepts before applying
-      let oldInterceptMap: Map<string, number> | undefined;
+      // Snapshot stat event counts before applying
+      let oldStatMap: Map<string, { intercept: number; deflection: number; rebound: number; turnover: number }> | undefined;
       if (changes.matchId && matchDetail.playerStats) {
         const oldStats = await prisma.playerMatchStats.findMany({
           where: { matchId: changes.matchId },
-          select: { playerId: true, intercepts: true },
+          select: { playerId: true, intercepts: true, deflections: true, rebounds: true, turnovers: true },
         });
-        oldInterceptMap = new Map(oldStats.map((s) => [s.playerId, s.intercepts]));
+        oldStatMap = new Map(oldStats.map((s) => [s.playerId, {
+          intercept: s.intercepts,
+          deflection: s.deflections,
+          rebound: s.rebounds,
+          turnover: s.turnovers,
+        }]));
       }
 
       const dbMatch = changes.matchId
@@ -122,10 +127,11 @@ async function pollChampionData(): Promise<void> {
         await broadcastPlayerStats(changes.matchId, matchDetail);
       }
 
-      if (changes.matchId && oldInterceptMap && matchDetail.playerStats && dbMatch) {
-        await broadcastInterceptEvents(
-          changes.matchId, matchDetail, dbMatch, oldInterceptMap,
-          changes.currentQuarter, changes.currentTime,
+      if (changes.matchId && oldStatMap && matchDetail.playerStats && dbMatch) {
+        const periodSecs = parseInt(changes.currentTime, 10) || 0;
+        await persistAndBroadcastStatEvents(
+          changes.matchId, matchDetail, dbMatch, oldStatMap,
+          changes.currentQuarter, periodSecs,
         );
       }
 
