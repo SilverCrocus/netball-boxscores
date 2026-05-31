@@ -3,6 +3,7 @@
 import { useState, Fragment } from 'react';
 import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 
 export interface PlayByPlayEntry {
   period: number;
@@ -13,6 +14,7 @@ export interface PlayByPlayEntry {
   scorePoints: number;
   scorerPlayerId?: string | null;
   scorerName?: string | null;
+  scorerPhotoUrl?: string | null;
 }
 
 interface TeamInfo {
@@ -48,7 +50,7 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
         </h4>
         <button
           onClick={() => setChronological(!chronological)}
-          className="flex items-center gap-1 text-[11px] font-label font-bold text-on-surface-variant uppercase tracking-wider hover:text-primary-container transition-colors"
+          className="flex items-center gap-1 text-[11px] font-label font-bold text-on-surface-variant uppercase tracking-wider hover:text-primary-container transition-colors cursor-pointer"
         >
           <span className="material-symbols-outlined text-[16px]">
             {chronological ? 'arrow_downward' : 'arrow_upward'}
@@ -73,13 +75,34 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                   Quarter {separatorQuarter}
                 </div>
               )}
-              <div className="flex gap-3 px-5 py-3 border-b border-outline-variant/10 items-center hover:bg-surface-container-highest/30 transition-colors">
-                <div className="shrink-0">
-                  <TeamBadge
-                    team={team}
-                    size={28}
-                    variant={isHome ? 'home' : 'away'}
-                  />
+              <div className={`flex gap-3 px-5 py-3 border-b border-outline-variant/10 items-center transition-colors ${
+                isHome
+                  ? 'bg-primary-container/[0.04] hover:bg-primary-container/[0.08]'
+                  : 'bg-secondary/[0.04] hover:bg-secondary/[0.08]'
+              }`}>
+                <div className="shrink-0 relative">
+                  {entry.scorerName && entry.scorerPlayerId ? (
+                    <div className="relative">
+                      <PlayerAvatar
+                        name={entry.scorerName}
+                        photoUrl={entry.scorerPhotoUrl}
+                        size={32}
+                      />
+                      <div className="absolute -bottom-1 -right-1">
+                        <TeamBadge
+                          team={team}
+                          size={16}
+                          variant={isHome ? 'home' : 'away'}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <TeamBadge
+                      team={team}
+                      size={32}
+                      variant={isHome ? 'home' : 'away'}
+                    />
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">

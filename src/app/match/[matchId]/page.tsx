@@ -26,7 +26,7 @@ const getMatch = cache((matchId: string) =>
       playerStats: { include: { player: true }, orderBy: { goals: 'desc' } },
       scoreFlow: {
         orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
-        include: { scorerPlayer: { select: { id: true, name: true } } },
+        include: { scorerPlayer: { select: { id: true, name: true, photoUrl: true } } },
       },
     },
   })
@@ -277,6 +277,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
               scorePoints: sf.scorePoints,
               scorerPlayerId: sf.scorerPlayer?.id,
               scorerName: sf.scorerPlayer?.name,
+              scorerPhotoUrl: sf.scorerPlayer?.photoUrl,
             }))}
             homeTeam={{ id: match.homeTeamId, ...match.homeTeam }}
             awayTeam={{ id: match.awayTeamId, ...match.awayTeam }}

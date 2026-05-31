@@ -18,7 +18,7 @@ export function MatchTabs({ boxScore, playByPlay, hasPlayByPlay }: MatchTabsProp
       <div className="flex gap-6 border-b border-outline-variant/30 mb-8">
         <button
           onClick={() => setTab('boxscore')}
-          className={`pb-3 font-label text-sm font-bold uppercase tracking-widest transition-colors ${
+          className={`pb-3 font-label text-sm font-bold uppercase tracking-widest transition-colors cursor-pointer ${
             tab === 'boxscore'
               ? 'text-primary-container border-b-2 border-primary-container'
               : 'text-on-surface-variant hover:text-primary-container/70'
@@ -28,7 +28,7 @@ export function MatchTabs({ boxScore, playByPlay, hasPlayByPlay }: MatchTabsProp
         </button>
         <button
           onClick={() => setTab('playbyplay')}
-          className={`pb-3 font-label text-sm font-bold uppercase tracking-widest transition-colors ${
+          className={`pb-3 font-label text-sm font-bold uppercase tracking-widest transition-colors cursor-pointer ${
             tab === 'playbyplay'
               ? 'text-primary-container border-b-2 border-primary-container'
               : 'text-on-surface-variant hover:text-primary-container/70'
