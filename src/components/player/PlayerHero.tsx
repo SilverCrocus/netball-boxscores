@@ -102,7 +102,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
                 <img
                   src={player.team.logoUrl}
                   alt={player.team.name}
-                  className="h-5 w-5 object-contain"
+                  className="h-8 w-8 object-contain"
                 />
               )}
               <Link
