@@ -64,7 +64,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
           </div>
 
           <div className="flex-1">
-            {/* Position badge + team logo */}
+            {/* Position badge */}
             <div className="flex items-center gap-3 mb-3">
               <span
                 className="px-3 py-1 rounded-full font-label text-sm font-bold tracking-widest uppercase"
@@ -72,13 +72,6 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
               >
                 {player.position}
               </span>
-              {player.team.logoUrl && (
-                <img
-                  src={player.team.logoUrl}
-                  alt={player.team.name}
-                  className="h-8 w-8 object-contain opacity-80"
-                />
-              )}
             </div>
 
             {/* Player name */}
@@ -105,7 +98,13 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
                   <span>{formatHeight(player.height)}</span>
                 </>
               )}
-              <span className="text-slate-500">&bull;</span>
+              {player.team.logoUrl && (
+                <img
+                  src={player.team.logoUrl}
+                  alt={player.team.name}
+                  className="h-5 w-5 object-contain"
+                />
+              )}
               <Link
                 href={`/team/${player.team.slug}`}
                 className="hover:opacity-80 transition-colors font-bold"
