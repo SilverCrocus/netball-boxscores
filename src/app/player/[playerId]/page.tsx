@@ -13,14 +13,16 @@ import type { Metadata } from 'next';
 
 interface PlayerPageProps {
   params: Promise<{ playerId: string }>;
+  searchParams: Promise<{ season?: string }>;
 }
 
-const getPlayer = cache((playerId: string) =>
+const getPlayer = cache((playerId: string, competitionId?: string) =>
   prisma.player.findUnique({
     where: { id: playerId },
     include: {
       team: true,
       matchStats: {
+        where: competitionId ? { match: { competitionId } } : undefined,
         include: {
           match: {
             include: {
@@ -35,6 +37,21 @@ const getPlayer = cache((playerId: string) =>
   })
 );
 
+const getCompetitions = cache(() =>
+  prisma.competition.findMany({
+    select: { id: true, season: true, name: true },
+    orderBy: { season: 'desc' },
+  })
+);
+
+const getPlayerSuperShots = cache((playerId: string, matchIds: string[]) =>
+  prisma.scoreFlow.groupBy({
+    by: ['matchId'],
+    where: { scorerPlayerId: playerId, scorePoints: 2, matchId: { in: matchIds } },
+    _count: true,
+  })
+);
+
 export async function generateMetadata({ params }: PlayerPageProps): Promise<Metadata> {
   const { playerId } = await params;
   const player = await getPlayer(playerId);
@@ -45,6 +62,10 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
     title: `${player.name} - ${player.team.name}`,
     description: `${player.name} — ${player.position} for ${player.team.name}. Season stats, game log, and profile.`,
   };
+}
+
+function computeImpact(stats: { goals: number; goalAssists: number; intercepts: number; deflections: number; rebounds: number; turnovers: number; penalties: number }[]): number {
+  return stats.reduce((sum, s) => sum + s.goals + s.goalAssists + s.intercepts + s.deflections + s.rebounds - s.turnovers - s.penalties, 0);
 }
 
 type PlayerWithStats = NonNullable<Awaited<ReturnType<typeof getPlayer>>>;
@@ -70,14 +91,28 @@ function computeStatHighlightValues(
   });
 }
 
-export default async function PlayerPage({ params }: PlayerPageProps) {
+export default async function PlayerPage({ params, searchParams }: PlayerPageProps) {
   const { playerId } = await params;
-  const player = await getPlayer(playerId);
+  const { season } = await searchParams;
+
+  const competitions = await getCompetitions();
+  const currentCompetition = competitions[0];
+  const selectedCompetition = season
+    ? competitions.find((c) => c.season.toString() === season) || currentCompetition
+    : currentCompetition;
+
+  const player = await getPlayer(playerId, selectedCompetition?.id);
 
   if (!player) notFound();
 
   const config = getPositionConfig(player.position);
   const statHighlightValues = computeStatHighlightValues(player, config);
+
+  const matchIds = player.matchStats.map((ms) => ms.matchId);
+  const superShotsByMatch = await getPlayerSuperShots(playerId, matchIds);
+  const totalSuperShots = superShotsByMatch.reduce((sum, g) => sum + g._count, 0);
+  const impactTotal = computeImpact(player.matchStats);
+  const gamesPlayed = player.matchStats.length;
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -107,6 +142,11 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
           <PlayerSeasonStats
             matchStats={player.matchStats}
             positionConfig={config}
+            totalSuperShots={totalSuperShots}
+            impactTotal={impactTotal}
+            competitions={competitions}
+            selectedSeason={selectedCompetition?.season ?? currentCompetition?.season}
+            playerId={playerId}
           />
         </div>
         <div className="md:col-span-4">
