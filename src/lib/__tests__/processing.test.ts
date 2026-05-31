@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { validateMatchData } from '@/lib/processing';
+import { validateMatchData, reconcileStaleCompletedScores } from '@/lib/processing';
+import { prisma } from '@/lib/db';
 import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data';
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    match: { findUnique: vi.fn(), update: vi.fn() },
+    match: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
     matchQuarter: { upsert: vi.fn() },
     playerMatchStats: { findMany: vi.fn(), upsert: vi.fn() },
     scoreFlow: { findMany: vi.fn(), upsert: vi.fn() },
@@ -13,6 +14,11 @@ vi.mock('@/lib/db', () => ({
   },
   excludeSimData: {},
 }));
+
+const mockMatch = prisma.match as unknown as {
+  findMany: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -142,5 +148,78 @@ describe('validateMatchData', () => {
     expect(result.valid).toBe(true);
     expect(result.warnings).toContainEqual(expect.stringContaining('clamp'));
     expect(result.validatedData!.currentTime).toBe('960');
+  });
+});
+
+describe('reconcileStaleCompletedScores', () => {
+  // Minimal fixture entry carrying only the fields the function reads.
+  function fixtureEntry(
+    matchId: number,
+    homeSquadScore: number,
+    awaySquadScore: number,
+    matchStatus = 'complete',
+  ): CDFixtureMatch {
+    return { matchId, homeSquadScore, awaySquadScore, matchStatus } as CDFixtureMatch;
+  }
+
+  it('updates COMPLETED matches whose stored score drifted from the fixture', async () => {
+    mockMatch.findMany.mockResolvedValue([
+      { id: 'm1', championDataMatchId: 100, homeScore: 64, awayScore: 64 },
+    ]);
+    mockMatch.update.mockResolvedValue({});
+
+    const result = await reconcileStaleCompletedScores([fixtureEntry(100, 66, 64)]);
+
+    expect(mockMatch.update).toHaveBeenCalledWith({
+      where: { id: 'm1' },
+      data: { homeScore: 66, awayScore: 64 },
+    });
+    expect(result).toEqual([
+      { matchId: 'm1', homeScore: 66, awayScore: 64 },
+    ]);
+  });
+
+  it('does not update matches whose score already matches the fixture', async () => {
+    mockMatch.findMany.mockResolvedValue([
+      { id: 'm1', championDataMatchId: 100, homeScore: 70, awayScore: 48 },
+    ]);
+
+    const result = await reconcileStaleCompletedScores([fixtureEntry(100, 70, 48)]);
+
+    expect(mockMatch.update).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('ignores fixture entries that are not yet complete', async () => {
+    mockMatch.findMany.mockResolvedValue([
+      { id: 'm1', championDataMatchId: 100, homeScore: 30, awayScore: 28 },
+    ]);
+
+    const result = await reconcileStaleCompletedScores([
+      fixtureEntry(100, 40, 35, 'playing'),
+    ]);
+
+    expect(mockMatch.update).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('skips matches with no matching fixture entry', async () => {
+    mockMatch.findMany.mockResolvedValue([
+      { id: 'm1', championDataMatchId: 999, homeScore: 50, awayScore: 40 },
+    ]);
+
+    const result = await reconcileStaleCompletedScores([fixtureEntry(100, 66, 64)]);
+
+    expect(mockMatch.update).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when there are no completed matches', async () => {
+    mockMatch.findMany.mockResolvedValue([]);
+
+    const result = await reconcileStaleCompletedScores([fixtureEntry(100, 66, 64)]);
+
+    expect(mockMatch.update).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
   });
 });
