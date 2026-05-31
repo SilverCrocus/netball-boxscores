@@ -8,13 +8,14 @@ import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 export interface PlayByPlayEntry {
   period: number;
   periodSeconds: number;
-  scoringTeamId: string;
-  homeScore: number;
-  awayScore: number;
-  scorePoints: number;
-  scorerPlayerId?: string | null;
-  scorerName?: string | null;
-  scorerPhotoUrl?: string | null;
+  eventType: 'goal' | 'intercept' | 'deflection' | 'rebound' | 'turnover';
+  teamId: string;
+  homeScore?: number;
+  awayScore?: number;
+  scorePoints?: number;
+  playerId?: string | null;
+  playerName?: string | null;
+  playerPhotoUrl?: string | null;
 }
 
 interface TeamInfo {
@@ -27,6 +28,14 @@ interface TeamInfo {
 
 const FALLBACK_HOME = '#90b8f8';
 const FALLBACK_AWAY = '#7de891';
+
+const EVENT_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  goal: { label: 'scored', color: '', icon: '' },
+  intercept: { label: 'intercept', color: 'text-cyan-700', icon: 'shield' },
+  deflection: { label: 'deflection', color: 'text-violet-600', icon: 'front_hand' },
+  rebound: { label: 'rebound', color: 'text-orange-600', icon: 'replay' },
+  turnover: { label: 'turnover', color: 'text-red-600', icon: 'swap_horiz' },
+};
 
 interface MatchPlayByPlayProps {
   entries: PlayByPlayEntry[];
@@ -65,18 +74,18 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
 
       <div className="max-h-[700px] overflow-y-auto">
         {sorted.map((entry, i) => {
-          const isHome = entry.scoringTeamId === homeTeam.id;
+          const isHome = entry.teamId === homeTeam.id;
           const team = isHome ? homeTeam : awayTeam;
           const teamColor = isHome
             ? (homeTeam.primaryColor || FALLBACK_HOME)
             : (awayTeam.primaryColor || FALLBACK_AWAY);
           const prev = i > 0 ? sorted[i - 1] : null;
           const showSeparator = prev !== null && prev.period !== entry.period;
-
           const separatorQuarter = chronological ? entry.period : prev?.period;
+          const config = EVENT_CONFIG[entry.eventType];
 
           return (
-            <Fragment key={`${entry.period}-${entry.periodSeconds}`}>
+            <Fragment key={`${entry.eventType}-${entry.period}-${entry.periodSeconds}-${entry.playerId}`}>
               {showSeparator && (
                 <div className="px-4 py-2 text-center font-label text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-[1.5px] bg-surface-container-highest/30 border-y border-outline-variant/10">
                   Quarter {separatorQuarter}
@@ -90,11 +99,11 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                 }}
               >
                 <div className="shrink-0 relative">
-                  {entry.scorerName && entry.scorerPlayerId ? (
+                  {entry.playerName && entry.playerId ? (
                     <div className="relative">
                       <PlayerAvatar
-                        name={entry.scorerName}
-                        photoUrl={entry.scorerPhotoUrl}
+                        name={entry.playerName}
+                        photoUrl={entry.playerPhotoUrl}
                         size={32}
                       />
                       <div className="absolute -bottom-1 -right-1">
@@ -119,19 +128,19 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                     {formatTime(entry.periodSeconds)} &middot; Q{entry.period}
                   </p>
                   <p className="font-body text-sm font-semibold text-on-surface mt-0.5 leading-snug">
-                    {entry.scorerName && entry.scorerPlayerId ? (
+                    {entry.playerName && entry.playerId ? (
                       <Link
-                        href={`/player/${entry.scorerPlayerId}`}
+                        href={`/player/${entry.playerId}`}
                         className="text-on-surface underline decoration-on-surface/20 underline-offset-2 hover:decoration-primary-container hover:text-primary-container"
                       >
-                        {entry.scorerName}
+                        {entry.playerName}
                       </Link>
                     ) : (
                       <span>{team.name}</span>
                     )}
                     {' '}
-                    <span className="text-on-surface-variant">scored</span>
-                    {entry.scorePoints === 2 && (
+                    <span className={`text-on-surface-variant ${config.color}`}>{config.label}</span>
+                    {entry.eventType === 'goal' && entry.scorePoints === 2 && (
                       <span className="ml-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-400/15 px-1.5 py-0.5 rounded">
                         Super
                       </span>
@@ -139,15 +148,21 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                   </p>
                 </div>
 
-                <span
-                  className={`shrink-0 font-label text-[11px] font-extrabold px-2 py-0.5 rounded tracking-[0.5px] ${
-                    isHome
-                      ? 'bg-primary-container/20 text-primary-container'
-                      : 'bg-secondary/20 text-secondary'
-                  }`}
-                >
-                  {entry.homeScore} &ndash; {entry.awayScore}
-                </span>
+                {entry.eventType === 'goal' && entry.homeScore != null && entry.awayScore != null ? (
+                  <span
+                    className={`shrink-0 font-label text-[11px] font-extrabold px-2 py-0.5 rounded tracking-[0.5px] ${
+                      isHome
+                        ? 'bg-primary-container/20 text-primary-container'
+                        : 'bg-secondary/20 text-secondary'
+                    }`}
+                  >
+                    {entry.homeScore} &ndash; {entry.awayScore}
+                  </span>
+                ) : config.icon ? (
+                  <span className={`shrink-0 material-symbols-outlined text-[18px] ${config.color} opacity-50`}>
+                    {config.icon}
+                  </span>
+                ) : null}
               </div>
             </Fragment>
           );

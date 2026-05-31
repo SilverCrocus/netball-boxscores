@@ -38,6 +38,7 @@ vi.mock('@/lib/db', () => ({
           { period: 1, homeScore: 1, awayScore: 0 },
           { period: 1, homeScore: 2, awayScore: 1 },
         ],
+        matchEvents: [],
       }),
     },
   },
