@@ -110,8 +110,13 @@ Team roster rows (`/team/[teamSlug]`) link to `/player/[playerId]`.
 - **`LiveScoreHero.tsx`**: Score display with team badges, quarter grid, game clock. Shows goals/super shots breakdown `(15.2)` when super shots exist. Detects half-time, full-time, and extra time states.
 - **`ScoreProgressChart.tsx`**: SVG step-line graph showing both teams' score progression over match time. Quarter dividers, Y-axis grid, team-colored lines. No external charting library.
 - **`LiveLineups.tsx`**: Side-by-side on-court/bench tables with sortable stat columns (G, ATT, AST, INT, FD). Detects current on-court player via `minutesPlayed` heuristic when multiple players share a position.
-- **`LivePlayByPlay.tsx`**: Reverse-chronological feed of scoring events and intercepts. `FeedEntry` supports `eventType: 'goal' | 'intercept'`. Goals show scorer links, super shot badges, and running scores. Intercepts show player links with cyan styling.
+- **`LivePlayByPlay.tsx`**: Reverse-chronological feed of scoring events and intercepts (live matches only). `FeedEntry` supports `eventType: 'goal' | 'intercept'`. Goals show scorer links, super shot badges, and running scores. Intercepts show player links with cyan styling.
+- **`MatchPlayByPlay.tsx`**: Static play-by-play feed for completed matches. Shows scoring events with player avatars (+ team badge overlay), scorer links, super shot badges, running scores, and quarter separators. Rows tinted with team `primaryColor` at 5% opacity + 3px left border accent at full saturation. Toggle button switches between newest-first and chronological order.
 - **`MatchStatsComparison.tsx`**: Horizontal bar chart for team-level stat comparison (Goals, Goal%, Intercepts, Deflections, Turnovers, Feeds, Goal Assists).
+
+## Match Results Page Tabs
+
+The completed match page (`/match/[matchId]`) uses a client-side tab bar (`MatchTabs.tsx`) to toggle between "Box Score" and "Play by Play" views. The tab bar only renders when score flow data exists. Both views are server-rendered and passed as props — the client component only manages which is visible.
 
 ## Live Tracking Pipeline
 
