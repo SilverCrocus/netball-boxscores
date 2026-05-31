@@ -276,6 +276,16 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
     };
   }, [allScoreFlow, match.homeTeam.id]);
 
+  const superShotsByPlayer = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const flow of allScoreFlow) {
+      if (flow.scorePoints === 2 && flow.scorerPlayerId) {
+        map.set(flow.scorerPlayerId, (map.get(flow.scorerPlayerId) || 0) + 1);
+      }
+    }
+    return map;
+  }, [allScoreFlow]);
+
   // ── Comparison stats (6 stats) ──
   const homeGoals = sumStat(homePlayers, 'goals');
   const homeAttempts = sumStat(homePlayers, 'attempts');
@@ -353,6 +363,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
           <LiveLineups
             homeTeam={{ ...match.homeTeam, players: homePlayers }}
             awayTeam={{ ...match.awayTeam, players: awayPlayers }}
+            superShotsByPlayer={superShotsByPlayer}
           />
           <MatchStatsComparison stats={comparisonStats} />
         </div>
