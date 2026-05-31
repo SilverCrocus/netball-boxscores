@@ -351,6 +351,11 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       homeValue: sumStat(homePlayers, 'goalAssists'),
       awayValue: sumStat(awayPlayers, 'goalAssists'),
     },
+    {
+      label: 'Centre Pass Receives',
+      homeValue: sumStat(homePlayers, 'centrePassReceives'),
+      awayValue: sumStat(awayPlayers, 'centrePassReceives'),
+    },
   ];
 
   // ── Render ──
