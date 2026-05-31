@@ -26,7 +26,7 @@ vi.mock('@/lib/processing', () => ({
 vi.mock('@/lib/broadcasting', () => ({
   broadcastMatchChanges: vi.fn(),
   broadcastPlayerStats: vi.fn(),
-  broadcastInterceptEvents: vi.fn(),
+  persistAndBroadcastStatEvents: vi.fn(),
   broadcastCompletion: vi.fn(),
 }));
 

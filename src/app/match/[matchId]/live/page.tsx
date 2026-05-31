@@ -71,6 +71,18 @@ export default async function LiveGamePage({ params }: Props) {
           scorerPlayer: { select: { id: true, name: true } },
         },
       },
+      matchEvents: {
+        orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
+        select: {
+          type: true,
+          period: true,
+          periodSeconds: true,
+          playerId: true,
+          player: { select: { name: true } },
+          teamId: true,
+          team: { select: { name: true, abbreviation: true, logoUrl: true } },
+        },
+      },
     },
   });
 
@@ -121,6 +133,17 @@ export default async function LiveGamePage({ params }: Props) {
       scorePoints: sf.scorePoints,
       scorerPlayerId: sf.scorerPlayer?.id,
       scorerName: sf.scorerPlayer?.name,
+    })),
+    initialMatchEvents: match.matchEvents.map((e) => ({
+      type: e.type,
+      period: e.period,
+      periodSeconds: e.periodSeconds,
+      playerId: e.playerId,
+      playerName: e.player.name,
+      teamId: e.teamId,
+      teamName: e.team.name,
+      teamAbbreviation: e.team.abbreviation,
+      teamLogoUrl: e.team.logoUrl,
     })),
   };
 

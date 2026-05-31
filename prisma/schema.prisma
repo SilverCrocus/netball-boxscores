@@ -40,7 +40,8 @@ model Team {
   awayMatches        Match[]     @relation("AwayTeam")
   followers          UserTeam[]
   standings          Standing[]
-  scoredFlows        ScoreFlow[] @relation("ScoringTeam")
+  scoredFlows        ScoreFlow[]  @relation("ScoringTeam")
+  matchEvents        MatchEvent[] @relation("EventTeam")
 }
 
 model Standing {
@@ -92,6 +93,7 @@ model Player {
   team                 Team               @relation(fields: [teamId], references: [id])
   matchStats           PlayerMatchStats[]
   scoredFlows          ScoreFlow[]
+  matchEvents          MatchEvent[]
 }
 
 // ───── Matches ─────
@@ -123,6 +125,7 @@ model Match {
   quarters            MatchQuarter[]
   playerStats         PlayerMatchStats[]
   scoreFlow           ScoreFlow[]
+  matchEvents         MatchEvent[]
   reminders           UserReminder[]
   favorites           UserFavorite[]
 }
@@ -174,6 +177,22 @@ model ScoreFlow {
   scorerPlayer   Player? @relation(fields: [scorerPlayerId], references: [id])
 
   @@unique([matchId, period, periodSeconds])
+  @@index([matchId, period])
+}
+
+model MatchEvent {
+  id            String @id @default(cuid())
+  matchId       String
+  match         Match  @relation(fields: [matchId], references: [id])
+  playerId      String
+  player        Player @relation(fields: [playerId], references: [id])
+  type          String /// intercept, deflection, rebound, turnover
+  period        Int
+  periodSeconds Int
+  teamId        String
+  team          Team   @relation("EventTeam", fields: [teamId], references: [id])
+
+  @@unique([matchId, playerId, type, period, periodSeconds])
   @@index([matchId, period])
 }
 

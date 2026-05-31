@@ -48,7 +48,7 @@ export interface ScoreFlowAddPayload {
 
 export interface StatEventPayload {
   matchId: string;
-  type: 'intercept';
+  type: 'intercept' | 'deflection' | 'rebound' | 'turnover';
   playerId: string;
   playerName: string;
   teamId: string;

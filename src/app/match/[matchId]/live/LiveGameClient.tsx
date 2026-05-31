@@ -25,6 +25,18 @@ interface TeamData extends TeamInfoWithId {
   players: PlayerStatRow[];
 }
 
+interface MatchEventData {
+  type: string;
+  period: number;
+  periodSeconds: number;
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  teamName: string;
+  teamAbbreviation: string;
+  teamLogoUrl: string | null;
+}
+
 interface MatchData {
   id: string;
   round: number;
@@ -38,6 +50,7 @@ interface MatchData {
   awayTeam: TeamData;
   quarters: QuarterData[];
   initialScoreFlow?: ScoreFlowAddPayload[];
+  initialMatchEvents?: MatchEventData[];
 }
 
 interface LiveGameClientProps {
@@ -208,47 +221,49 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       };
     });
 
-    // Show all intercepts from the match (absolute count, not diff from page load).
-    // Use socket stat:event for timing when available.
-    const interceptEntries: FeedEntry[] = [];
-    const statEventMap = new Map(
-      statEvents
-        .filter((e) => e.type === 'intercept')
-        .map((e) => [e.playerId, e]),
-    );
-
-    const allTeamPlayers = [
-      ...homePlayers.map((p) => ({ ...p, isHome: true })),
-      ...awayPlayers.map((p) => ({ ...p, isHome: false })),
+    // Build stat event entries from persisted DB events + new socket events
+    const allEvents = [
+      ...(match.initialMatchEvents ?? []),
+      ...statEvents.map((e) => ({
+        type: e.type,
+        period: e.quarter ?? 1,
+        periodSeconds: parseInt(e.time, 10) || 0,
+        playerId: e.playerId,
+        playerName: e.playerName,
+        teamId: e.teamId ?? '',
+        teamName: e.teamName ?? '',
+        teamAbbreviation: e.teamAbbreviation ?? '',
+        teamLogoUrl: e.teamLogoUrl ?? null,
+      })),
     ];
-    for (const player of allTeamPlayers) {
-      if (player.intercepts <= 0) continue;
 
-      const team = player.isHome ? match.homeTeam : match.awayTeam;
-      const socketEvent = statEventMap.get(player.id);
+    // Deduplicate by unique key
+    const seen = new Set<string>();
+    const statEventEntries: FeedEntry[] = [];
+    for (const e of allEvents) {
+      const key = `${e.type}-${e.playerId}-${e.period}-${e.periodSeconds}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
 
-      for (let i = 0; i < player.intercepts; i++) {
-        const eventSecs = socketEvent ? parseInt(socketEvent.time, 10) || 0 : 0;
-        const eventQuarter = socketEvent?.quarter ?? (quarter ?? 1);
-        const mins = eventSecs > 0 ? Math.floor(eventSecs / 60) : 0;
-        const rem = eventSecs > 0 ? String(eventSecs % 60).padStart(2, '0') : '00';
+      const isHome = e.teamId === match.homeTeam.id;
+      const mins = Math.floor(e.periodSeconds / 60);
+      const secs = String(e.periodSeconds % 60).padStart(2, '0');
 
-        interceptEntries.push({
-          time: eventSecs > 0 ? `${mins}:${rem}` : '',
-          quarter: eventQuarter,
-          eventType: 'intercept',
-          playerName: player.name,
-          playerId: player.id,
-          teamAbbreviation: team.abbreviation,
-          teamName: team.name,
-          teamLogoUrl: team.logoUrl,
-          isHomeTeam: player.isHome,
-        });
-      }
+      statEventEntries.push({
+        time: `${mins}:${secs}`,
+        quarter: e.period,
+        eventType: e.type as FeedEntry['eventType'],
+        playerName: e.playerName,
+        playerId: e.playerId,
+        teamAbbreviation: e.teamAbbreviation,
+        teamName: e.teamName,
+        teamLogoUrl: e.teamLogoUrl,
+        isHomeTeam: isHome,
+      });
     }
 
-    return [...goalEntries, ...interceptEntries];
-  }, [allScoreFlow, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, statEvents, quarter]);
+    return [...goalEntries, ...statEventEntries];
+  }, [allScoreFlow, match.homeTeam, match.awayTeam, match.initialScoreFlow, match.initialMatchEvents, statEvents]);
 
   // ── Score breakdown (goals vs super shots) ──
   const { homeBreakdown, awayBreakdown } = useMemo(() => {
