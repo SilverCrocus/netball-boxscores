@@ -44,7 +44,7 @@ interface ColumnDef {
 
 const COLUMNS: ColumnDef[] = [
   { abbr: 'MIN', title: 'Minutes Played', category: 'general' },
-  { abbr: 'G', title: 'Goals — total goals (super shots in brackets)', category: 'attack' },
+  { abbr: 'G (SS)', title: 'Goals (Super Shots) — total goals with super shots in brackets', category: 'attack' },
   { abbr: 'ATT', title: 'Attempts — shots at goal', category: 'attack' },
   { abbr: 'G%', title: 'Goal Percentage — goals ÷ attempts', category: 'attack' },
   { abbr: 'AST', title: 'Goal Assists — pass to the shooter who scores', category: 'attack' },
