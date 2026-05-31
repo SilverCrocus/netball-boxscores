@@ -59,6 +59,12 @@ interface LiveGameClientProps {
 
 // ─── Helpers ───
 
+function parseTimeToSeconds(time: string): number {
+  const parts = time.split(':');
+  if (parts.length !== 2) return 0;
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
+
 const VALID_POSITIONS = new Set(['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']);
 
 function mergePlayerStats(
@@ -262,7 +268,14 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       });
     }
 
-    return [...goalEntries, ...statEventEntries];
+    const combined = [...goalEntries, ...statEventEntries];
+    combined.sort((a, b) => {
+      if (a.quarter !== b.quarter) return a.quarter - b.quarter;
+      const aSeconds = parseTimeToSeconds(a.time);
+      const bSeconds = parseTimeToSeconds(b.time);
+      return aSeconds - bSeconds;
+    });
+    return combined;
   }, [allScoreFlow, match.homeTeam, match.awayTeam, match.initialScoreFlow, match.initialMatchEvents, statEvents]);
 
   // ── Score breakdown (goals vs super shots) ──
