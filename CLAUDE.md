@@ -96,9 +96,9 @@ When building components, reference these designs as the visual spec.
 
 `src/components/player/` — position-adaptive template system:
 - **`position-config.ts`**: `getPositionConfig(position)` maps Position enum → group (shooter/defender/midcourt), stat highlights, game log columns, chart config. Single source of truth for position-specific rendering.
-- **`PlayerHero.tsx`**: Compact kinetic-gradient hero with ghost text watermark (last name, `text-white/[0.03]`). Content-driven height (no min-height). Photo, stacked name, position badge, bio line, stat highlight cards.
+- **`PlayerHero.tsx`**: Compact kinetic-gradient hero with ghost text watermark (last name, `text-white/[0.03]`). Content-driven height (no min-height). Photo (team-coloured border), white name, position badge, bio line with team logo + team name link (styled with `team.primaryColor`), stat highlight cards with team-coloured left border.
 - **`PlayerBioCard.tsx`**: Biography text card with read-more toggle. Only rendered when biography exists.
-- **`PlayerSeasonStats.tsx`**: Totals + per-game averages with trend indicators. Position-aware stat highlights.
+- **`PlayerSeasonStats.tsx`**: Totals + per-game averages with trend indicators. Position-aware stat highlights. Includes Super Shots per game (derived from ScoreFlow) and Impact rating per game (`goals + goalAssists + intercepts + deflections + rebounds - turnovers - penalties`). Season selector links shown when multiple competitions exist (`?season=` query param).
 - **`PlayerCharts.tsx`**: CSS/SVG charts — donut (shooters), stacked bar (defenders), feed distribution (midcourt). No external charting library.
 - **`PlayerGameLog.tsx`**: Match-by-match stats table with position-specific columns, opponent badges, W/L indicators.
 
@@ -133,7 +133,9 @@ Three-phase pipeline: **Ingest** (fetch CD API + store PollLog) → **Process** 
 
 **PollLog audit table:** Stores raw API responses with status tracking (success/fetch_error/validation_error/processed) and processing time. 7-day retention with automatic cleanup.
 
-**Super shots:** CD score flow entries have `scorepoints` (1=normal, 2=super shot). Stored as `ScoreFlow.scorePoints` in DB. Broadcast in `scoreflow:add` socket payload. Client shows breakdown `(goals.superShots)` in LiveScoreHero and "Super" badge in the feed.
+**Super shots:** CD score flow entries have `scorepoints` (1=normal, 2=super shot). Stored as `ScoreFlow.scorePoints` in DB. Broadcast in `scoreflow:add` socket payload. Client shows breakdown `(goals.superShots)` in LiveScoreHero and "Super" badge in the feed. `PlayerStatsTable` shows per-player super shots as amber `(N)` after goals in the "G (SS)" column — derived from ScoreFlow on the match page. Player profile shows super shots per game in season averages.
+
+**Player season filtering:** The player page accepts `?season=YYYY` query param to filter stats by competition. Defaults to the most recent competition. Season selector links render when multiple competitions exist in the DB. The `Competition` model has `id`, `season` (Int), and `name`.
 
 **Scorer attribution:** Champion Data score flow entries don't include who scored — only which team. The worker infers scorers by diffing player goal counts between polls and matching them to new score flow entries. `ScoreFlow.scorerPlayerId` (nullable FK to Player) persists this in the DB. The client uses server-provided scorer info first, falling back to a client-side goal-diff heuristic for unattributed entries.
 
