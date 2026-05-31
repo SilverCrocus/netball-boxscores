@@ -181,10 +181,8 @@ function TeamTable({
   const headerAlign = variant === 'away' ? 'justify-end text-right' : '';
 
   function renderRow(player: PlayerStatRow, isBench: boolean) {
-    const rowClass = isBench
-      ? 'opacity-45 hover:opacity-70 transition-opacity'
-      : 'hover:bg-surface-container-low transition-colors';
-    const badgeOpacity = isBench ? 'opacity-35' : '';
+    const rowClass = 'hover:bg-surface-container-low transition-colors';
+    const badgeOpacity = isBench ? 'opacity-50' : '';
 
     return (
       <tr key={player.id} className={rowClass}>
@@ -197,9 +195,7 @@ function TeamTable({
             </span>
             <Link
               href={`/player/${player.id}`}
-              className={`font-body text-[13px] font-semibold hover:text-secondary hover:underline ${
-                isBench ? 'text-on-surface-variant' : 'text-on-surface'
-              }`}
+              className="font-body text-[13px] font-semibold text-on-surface hover:text-secondary hover:underline"
             >
               {player.name}
             </Link>
@@ -207,7 +203,7 @@ function TeamTable({
         </td>
         <td
           className={`text-center px-1.5 py-2.5 border-b border-outline-variant/20 font-label text-[13px] ${
-            !isBench && isShooter(player.position)
+            isShooter(player.position)
               ? 'text-secondary font-extrabold'
               : 'text-on-surface-variant'
           }`}
