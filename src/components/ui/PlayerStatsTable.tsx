@@ -8,6 +8,7 @@ import { StatsLegend } from '@/components/ui/StatsLegend';
 interface PlayerStatWithPhoto extends PlayerStatRow {
   playerId?: string;
   photoUrl?: string | null;
+  superShots?: number;
 }
 
 interface StatsTeam {
@@ -43,7 +44,7 @@ interface ColumnDef {
 
 const COLUMNS: ColumnDef[] = [
   { abbr: 'MIN', title: 'Minutes Played', category: 'general' },
-  { abbr: 'G', title: 'Goals — goals scored', category: 'attack' },
+  { abbr: 'G (SS)', title: 'Goals (Super Shots) — total goals with super shots in brackets', category: 'attack' },
   { abbr: 'ATT', title: 'Attempts — shots at goal', category: 'attack' },
   { abbr: 'G%', title: 'Goal Percentage — goals ÷ attempts', category: 'attack' },
   { abbr: 'AST', title: 'Goal Assists — pass to the shooter who scores', category: 'attack' },
@@ -121,6 +122,9 @@ export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
                   {/* G */}
                   <td className={`${TD_BASE} font-black font-headline ${CATEGORY_CELL_COLORS.attack}`}>
                     {player.goals}
+                    {player.superShots ? (
+                      <span className="text-amber-600 font-bold text-[10px] ml-0.5">({player.superShots})</span>
+                    ) : null}
                   </td>
                   {/* ATT */}
                   <td className={`${TD_BASE} ${CATEGORY_CELL_COLORS.attack}`}>
