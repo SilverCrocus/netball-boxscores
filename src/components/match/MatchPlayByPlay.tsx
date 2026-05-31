@@ -22,7 +22,11 @@ interface TeamInfo {
   name: string;
   abbreviation: string;
   logoUrl: string | null;
+  primaryColor?: string | null;
 }
+
+const FALLBACK_HOME = '#90b8f8';
+const FALLBACK_AWAY = '#7de891';
 
 interface MatchPlayByPlayProps {
   entries: PlayByPlayEntry[];
@@ -63,6 +67,9 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
         {sorted.map((entry, i) => {
           const isHome = entry.scoringTeamId === homeTeam.id;
           const team = isHome ? homeTeam : awayTeam;
+          const teamColor = isHome
+            ? (homeTeam.primaryColor || FALLBACK_HOME)
+            : (awayTeam.primaryColor || FALLBACK_AWAY);
           const prev = i > 0 ? sorted[i - 1] : null;
           const showSeparator = prev !== null && prev.period !== entry.period;
 
@@ -75,11 +82,13 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                   Quarter {separatorQuarter}
                 </div>
               )}
-              <div className={`flex gap-3 px-5 py-3 border-b border-outline-variant/10 items-center transition-colors ${
-                isHome
-                  ? 'bg-primary-container/[0.04] hover:bg-primary-container/[0.08]'
-                  : 'bg-secondary/[0.04] hover:bg-secondary/[0.08]'
-              }`}>
+              <div
+                className="flex gap-3 px-5 py-3 border-b border-outline-variant/10 items-center transition-colors"
+                style={{
+                  backgroundColor: `${teamColor}0D`,
+                  borderLeft: `3px solid ${teamColor}`,
+                }}
+              >
                 <div className="shrink-0 relative">
                   {entry.scorerName && entry.scorerPlayerId ? (
                     <div className="relative">
