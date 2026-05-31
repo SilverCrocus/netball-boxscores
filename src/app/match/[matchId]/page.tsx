@@ -106,9 +106,10 @@ export default async function MatchPage({ params }: MatchPageProps) {
     { label: 'Intercepts', homeValue: sumStat(homePlayerStats, 'intercepts'), awayValue: sumStat(awayPlayerStats, 'intercepts') },
     { label: 'Deflections', homeValue: sumStat(homePlayerStats, 'deflections'), awayValue: sumStat(awayPlayerStats, 'deflections') },
     { label: 'Rebounds', homeValue: sumStat(homePlayerStats, 'rebounds'), awayValue: sumStat(awayPlayerStats, 'rebounds') },
+    { label: 'Turnovers', homeValue: sumStat(homePlayerStats, 'turnovers'), awayValue: sumStat(awayPlayerStats, 'turnovers') },
     { label: 'Feeds', homeValue: sumStat(homePlayerStats, 'feeds'), awayValue: sumStat(awayPlayerStats, 'feeds') },
     { label: 'Goal Assists', homeValue: sumStat(homePlayerStats, 'goalAssists'), awayValue: sumStat(awayPlayerStats, 'goalAssists') },
-    { label: 'Turnovers', homeValue: sumStat(homePlayerStats, 'turnovers'), awayValue: sumStat(awayPlayerStats, 'turnovers') },
+    { label: 'Centre Pass Receives', homeValue: sumStat(homePlayerStats, 'centrePassReceives'), awayValue: sumStat(awayPlayerStats, 'centrePassReceives') },
     { label: 'Penalties', homeValue: sumStat(homePlayerStats, 'penalties'), awayValue: sumStat(awayPlayerStats, 'penalties') },
   ];
 
