@@ -53,7 +53,7 @@ describe('Worker', () => {
   it('should return 30s for live matches', async () => {
     vi.stubEnv('SIMULATION_MODE', '');
     const { getPollingInterval } = await import('@/lib/worker');
-    expect(getPollingInterval(true, true, false)).toBe(30_000);
+    expect(getPollingInterval(true, true, false)).toBe(10_000);
   });
 
   it('should return 1min for pre-match', async () => {

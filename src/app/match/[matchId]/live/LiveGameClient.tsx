@@ -91,30 +91,46 @@ function mergePlayerStats(
 }
 
 function buildLiveQuarters(
-  ssrQuarters: QuarterData[],
+  scoreFlow: ScoreFlowAddPayload[],
   currentHomeScore: number,
   currentAwayScore: number,
   currentQuarter: number | null,
 ): QuarterData[] {
-  const completed = [...ssrQuarters];
+  if (!currentQuarter && scoreFlow.length === 0) return [];
 
-  if (!currentQuarter) return completed;
+  const maxPeriod = currentQuarter ?? Math.max(...scoreFlow.map((sf) => sf.period), 1);
+  const quarters: QuarterData[] = [];
 
-  // If the current quarter is already in the completed data, return as-is
-  if (completed.some((q) => q.quarter === currentQuarter)) return completed;
+  for (let q = 1; q <= maxPeriod; q++) {
+    const periodEntries = scoreFlow.filter((sf) => sf.period === q);
+    if (periodEntries.length > 0) {
+      const last = periodEntries[periodEntries.length - 1];
+      const prevQuarterEntries = scoreFlow.filter((sf) => sf.period < q);
+      const prevHome = prevQuarterEntries.length > 0
+        ? prevQuarterEntries[prevQuarterEntries.length - 1].homeScore
+        : 0;
+      const prevAway = prevQuarterEntries.length > 0
+        ? prevQuarterEntries[prevQuarterEntries.length - 1].awayScore
+        : 0;
+      quarters.push({
+        quarter: q,
+        homeScore: last.homeScore - prevHome,
+        awayScore: last.awayScore - prevAway,
+      });
+    } else if (q === maxPeriod) {
+      const prevHome = quarters.reduce((s, qr) => s + qr.homeScore, 0);
+      const prevAway = quarters.reduce((s, qr) => s + qr.awayScore, 0);
+      quarters.push({
+        quarter: q,
+        homeScore: currentHomeScore - prevHome,
+        awayScore: currentAwayScore - prevAway,
+      });
+    } else {
+      quarters.push({ quarter: q, homeScore: 0, awayScore: 0 });
+    }
+  }
 
-  // Derive current quarter score from total minus completed quarters
-  const completedHome = completed.reduce((s, q) => s + q.homeScore, 0);
-  const completedAway = completed.reduce((s, q) => s + q.awayScore, 0);
-
-  return [
-    ...completed,
-    {
-      quarter: currentQuarter,
-      homeScore: currentHomeScore - completedHome,
-      awayScore: currentAwayScore - completedAway,
-    },
-  ];
+  return quarters;
 }
 
 const sumStat = (players: PlayerStatRow[], key: keyof PlayerStatRow) =>
@@ -138,14 +154,6 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   const homePlayers = mergePlayerStats(match.homeTeam.players, playerStats);
   const awayPlayers = mergePlayerStats(match.awayTeam.players, playerStats);
 
-  // ── Derive quarter scores ──
-  const quarters = buildLiveQuarters(
-    match.quarters,
-    homeScore,
-    awayScore,
-    quarter,
-  );
-
   // ── Merge initial + socket score flow, deduplicating ──
   const allScoreFlow = useMemo(() => {
     const initial = match.initialScoreFlow ?? [];
@@ -155,6 +163,9 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
     );
     return [...initial, ...newEntries];
   }, [match.initialScoreFlow, scoreFlow]);
+
+  // ── Derive quarter scores from score flow (updates live as new goals arrive) ──
+  const quarters = buildLiveQuarters(allScoreFlow, homeScore, awayScore, quarter);
 
   // ── Build enriched feed entries ──
   // Server-provided scorer info (from DB / socket) is used when available.
