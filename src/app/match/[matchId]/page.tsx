@@ -10,6 +10,8 @@ import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { MatchMomentumChart } from '@/components/ui/MatchMomentumChart';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { MatchStatsComparison } from '@/components/match/MatchStatsComparison';
+import { MatchPlayByPlay } from '@/components/match/MatchPlayByPlay';
+import { MatchTabs } from './MatchTabs';
 import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd, SITE_URL } from '@/lib/seo';
 import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
 import { formatMatchDateTime } from '@/lib/format';
@@ -22,7 +24,10 @@ const getMatch = cache((matchId: string) =>
       awayTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
       quarters: { orderBy: { quarter: 'asc' } },
       playerStats: { include: { player: true }, orderBy: { goals: 'desc' } },
-      scoreFlow: { orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }] },
+      scoreFlow: {
+        orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
+        include: { scorerPlayer: { select: { id: true, name: true } } },
+      },
     },
   })
 );
@@ -162,100 +167,122 @@ export default async function MatchPage({ params }: MatchPageProps) {
         </div>
       </section>
 
-      {/* Match Momentum */}
-      {match.scoreFlow.length > 0 && (
-        <div className="bg-surface-container-low rounded-xl p-6 mb-8">
-          <h4 className="text-primary-container font-headline font-bold text-sm uppercase tracking-tight mb-4">
-            Match Momentum
-          </h4>
-          <MatchMomentumChart
-            scoreFlow={match.scoreFlow}
-            homeTeam={match.homeTeam}
-            awayTeam={match.awayTeam}
-          />
-        </div>
-      )}
-
-      {/* Team Stats Comparison */}
-      {homePlayerStats.length > 0 && awayPlayerStats.length > 0 && (
-        <div className="mb-8">
-          <MatchStatsComparison stats={comparisonStats} />
-        </div>
-      )}
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-        {/* Left Column: Tables */}
-        <div className="xl:col-span-3 space-y-8">
-          <PlayerStatsTable team={match.homeTeam} players={homePlayerStats} />
-          <PlayerStatsTable team={match.awayTeam} players={awayPlayerStats} />
-        </div>
-
-        {/* Right Column: Sidebar */}
-        <div className="space-y-6">
-          {/* MVP Card */}
-          {mvp && (
-            <div className="bg-surface-container-highest rounded-xl p-6 border-l-4 border-secondary">
-              <div className="flex justify-between items-start mb-4">
-                <span className="bg-secondary text-white text-[10px] font-black px-2 py-1 rounded font-label uppercase tracking-tighter">
-                  Match MVP
-                </span>
-                <span
-                  className="material-symbols-outlined text-secondary"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  star
-                </span>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <PlayerAvatar
-                  name={mvp.player.name}
-                  photoUrl={mvp.player.photoUrl}
-                  size={120}
-                  className="mb-3 border-2 border-secondary/20"
+      <MatchTabs
+        hasPlayByPlay={match.scoreFlow.length > 0}
+        boxScore={
+          <>
+            {/* Match Momentum */}
+            {match.scoreFlow.length > 0 && (
+              <div className="bg-surface-container-low rounded-xl p-6 mb-8">
+                <h4 className="text-primary-container font-headline font-bold text-sm uppercase tracking-tight mb-4">
+                  Match Momentum
+                </h4>
+                <MatchMomentumChart
+                  scoreFlow={match.scoreFlow}
+                  homeTeam={match.homeTeam}
+                  awayTeam={match.awayTeam}
                 />
-                <Link href={`/player/${mvp.player.id}`} className="hover:underline">
-                  <h3 className="font-headline text-xl font-black text-primary-container uppercase">
-                    {mvp.player.name}
-                  </h3>
-                </Link>
-                <p className="font-label text-xs text-on-surface-variant font-bold uppercase tracking-widest mt-1">
-                  {mvp.player.position}
-                </p>
-                <div className="grid grid-cols-2 w-full gap-4 mt-6">
-                  <div className="bg-white rounded-lg p-3 shadow-sm">
-                    <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
-                      Goals
-                    </span>
-                    <span className="text-2xl font-black font-headline text-secondary">
-                      {mvp.goals}
-                    </span>
+              </div>
+            )}
+
+            {/* Team Stats Comparison */}
+            {homePlayerStats.length > 0 && awayPlayerStats.length > 0 && (
+              <div className="mb-8">
+                <MatchStatsComparison stats={comparisonStats} />
+              </div>
+            )}
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+              {/* Left Column: Tables */}
+              <div className="xl:col-span-3 space-y-8">
+                <PlayerStatsTable team={match.homeTeam} players={homePlayerStats} />
+                <PlayerStatsTable team={match.awayTeam} players={awayPlayerStats} />
+              </div>
+
+              {/* Right Column: Sidebar */}
+              <div className="space-y-6">
+                {/* MVP Card */}
+                {mvp && (
+                  <div className="bg-surface-container-highest rounded-xl p-6 border-l-4 border-secondary">
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="bg-secondary text-white text-[10px] font-black px-2 py-1 rounded font-label uppercase tracking-tighter">
+                        Match MVP
+                      </span>
+                      <span
+                        className="material-symbols-outlined text-secondary"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        star
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center text-center">
+                      <PlayerAvatar
+                        name={mvp.player.name}
+                        photoUrl={mvp.player.photoUrl}
+                        size={120}
+                        className="mb-3 border-2 border-secondary/20"
+                      />
+                      <Link href={`/player/${mvp.player.id}`} className="hover:underline">
+                        <h3 className="font-headline text-xl font-black text-primary-container uppercase">
+                          {mvp.player.name}
+                        </h3>
+                      </Link>
+                      <p className="font-label text-xs text-on-surface-variant font-bold uppercase tracking-widest mt-1">
+                        {mvp.player.position}
+                      </p>
+                      <div className="grid grid-cols-2 w-full gap-4 mt-6">
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
+                            Goals
+                          </span>
+                          <span className="text-2xl font-black font-headline text-secondary">
+                            {mvp.goals}
+                          </span>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
+                            Reb
+                          </span>
+                          <span className="text-2xl font-black font-headline text-primary-container">
+                            {mvp.rebounds}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-white rounded-lg p-3 shadow-sm">
-                    <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
-                      Reb
-                    </span>
-                    <span className="text-2xl font-black font-headline text-primary-container">
-                      {mvp.rebounds}
-                    </span>
+                )}
+
+                {/* Quarter Score Bars */}
+                {match.quarters.length > 0 && (
+                  <div className="bg-surface-container-low rounded-xl p-6">
+                    <h4 className="text-primary-container font-headline font-bold text-sm uppercase tracking-tight mb-6">
+                      Quarter Breakdown
+                    </h4>
+                    <QuarterScoreBar quarters={match.quarters} />
                   </div>
-                </div>
+                )}
               </div>
             </div>
-          )}
-
-          {/* Quarter Score Bars */}
-          {match.quarters.length > 0 && (
-            <div className="bg-surface-container-low rounded-xl p-6">
-              <h4 className="text-primary-container font-headline font-bold text-sm uppercase tracking-tight mb-6">
-                Quarter Breakdown
-              </h4>
-              <QuarterScoreBar quarters={match.quarters} />
-            </div>
-          )}
-
-        </div>
-      </div>
+          </>
+        }
+        playByPlay={
+          <MatchPlayByPlay
+            entries={match.scoreFlow.map((sf) => ({
+              period: sf.period,
+              periodSeconds: sf.periodSeconds,
+              scoringTeamId: sf.scoringTeamId,
+              homeScore: sf.homeScore,
+              awayScore: sf.awayScore,
+              scorePoints: sf.scorePoints,
+              scorerPlayerId: sf.scorerPlayer?.id,
+              scorerName: sf.scorerPlayer?.name,
+            }))}
+            homeTeam={{ id: match.homeTeamId, ...match.homeTeam }}
+            awayTeam={{ id: match.awayTeamId, ...match.awayTeam }}
+          />
+        }
+      />
     </div>
   );
 }
