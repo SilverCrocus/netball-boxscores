@@ -208,9 +208,8 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       };
     });
 
-    // Derive intercept feed entries from player stats diff (survives re-mounts).
-    // Socket stat:event entries are used for timing; otherwise we show them
-    // with a generic timestamp from the current game clock.
+    // Show all intercepts from the match (absolute count, not diff from page load).
+    // Use socket stat:event for timing when available.
     const interceptEntries: FeedEntry[] = [];
     const statEventMap = new Map(
       statEvents
@@ -223,17 +222,12 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       ...awayPlayers.map((p) => ({ ...p, isHome: false })),
     ];
     for (const player of allTeamPlayers) {
-      const initial = player.isHome
-        ? match.homeTeam.players.find((p) => p.id === player.id)
-        : match.awayTeam.players.find((p) => p.id === player.id);
-      const newIntercepts = player.intercepts - (initial?.intercepts ?? 0);
-      if (newIntercepts <= 0) continue;
+      if (player.intercepts <= 0) continue;
 
       const team = player.isHome ? match.homeTeam : match.awayTeam;
       const socketEvent = statEventMap.get(player.id);
 
-      for (let i = 0; i < newIntercepts; i++) {
-        // Use socket event timing if available, otherwise use current quarter/time
+      for (let i = 0; i < player.intercepts; i++) {
         const eventSecs = socketEvent ? parseInt(socketEvent.time, 10) || 0 : 0;
         const eventQuarter = socketEvent?.quarter ?? (quarter ?? 1);
         const mins = eventSecs > 0 ? Math.floor(eventSecs / 60) : 0;
