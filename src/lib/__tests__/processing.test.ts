@@ -57,7 +57,7 @@ describe('validateMatchData', () => {
     finalShortCode: '',
   };
 
-  const baseDetail: CDMatchStatsResponse = {
+  const baseDetail = {
     matchInfo: {
       matchId: 100,
       round: 1,
@@ -79,7 +79,7 @@ describe('validateMatchData', () => {
     },
     playerStats: { home: [], away: [] },
     periodScores: [{ period: 1, homeScore: 30, awayScore: 25 }],
-  };
+  } as unknown as CDMatchStatsResponse;
 
   const dbTeams = new Map([
     [801, { id: 'team-1', name: 'Vixens' }],
@@ -118,14 +118,14 @@ describe('validateMatchData', () => {
         home: [{ playerId: 9999, displayName: 'Unknown', position: 'GS', squadId: 801, goals: 5, attempts: 7, goalAssists: 0, intercepts: 0, deflections: 0, rebounds: 0, penalties: 0, feeds: 0, centrePassReceives: 0, turnovers: 0, minutesPlayed: 30 }],
         away: [],
       },
-    };
+    } as unknown as CDMatchStatsResponse;
     const result = validateMatchData(baseFixture, detailWithPlayers, dbTeams, dbPlayers);
     expect(result.valid).toBe(true);
     expect(result.warnings).toContainEqual(expect.stringContaining('9999'));
   });
 
   it('warns on non-monotonic score flow but still includes data', () => {
-    const badScoreFlow: CDMatchStatsResponse = {
+    const badScoreFlow = {
       ...baseDetail,
       scoreFlow: [
         { period: 1, periodSeconds: 100, squadId: 801, scorepoints: 1, homeScore: 1, awayScore: 0 },

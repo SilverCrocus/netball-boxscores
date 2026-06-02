@@ -65,11 +65,21 @@ export default async function MatchPage({ params }: MatchPageProps) {
   if (!match) notFound();
 
   const superShotsByPlayer = new Map<string, number>();
+  let homeSuperShots = 0, awaySuperShots = 0;
+  let homeNormalGoals = 0, awayNormalGoals = 0;
   for (const sf of match.scoreFlow) {
-    if (sf.scorePoints === 2 && sf.scorerPlayer?.id) {
-      superShotsByPlayer.set(sf.scorerPlayer.id, (superShotsByPlayer.get(sf.scorerPlayer.id) || 0) + 1);
+    if (sf.scorePoints === 2) {
+      if (sf.scoringTeamId === match.homeTeamId) homeSuperShots++;
+      else awaySuperShots++;
+      if (sf.scorerPlayer?.id) {
+        superShotsByPlayer.set(sf.scorerPlayer.id, (superShotsByPlayer.get(sf.scorerPlayer.id) || 0) + 1);
+      }
+    } else {
+      if (sf.scoringTeamId === match.homeTeamId) homeNormalGoals++;
+      else awayNormalGoals++;
     }
   }
+  const hasSuperShots = homeSuperShots > 0 || awaySuperShots > 0;
 
   function toPlayerStatRow(ps: NonNullable<typeof match>['playerStats'][number]) {
     return {
@@ -158,13 +168,27 @@ export default async function MatchPage({ params }: MatchPageProps) {
               {isLive ? `Q${match.currentQuarter}` : 'Final'}
             </p>
             <div className="flex items-center gap-3 md:gap-5">
-              <span className="text-5xl md:text-7xl font-black font-headline text-primary-container">
-                {match.homeScore}
-              </span>
+              <div className="flex flex-col items-center">
+                <span className="text-5xl md:text-7xl font-black font-headline text-primary-container">
+                  {match.homeScore}
+                </span>
+                {hasSuperShots && (
+                  <span className="font-label text-[11px] text-on-surface-variant/60 font-medium mt-[-2px]">
+                    ({homeNormalGoals}.{homeSuperShots})
+                  </span>
+                )}
+              </div>
               <span className="text-3xl font-bold text-outline-variant">-</span>
-              <span className="text-5xl md:text-7xl font-black font-headline text-secondary">
-                {match.awayScore}
-              </span>
+              <div className="flex flex-col items-center">
+                <span className="text-5xl md:text-7xl font-black font-headline text-secondary">
+                  {match.awayScore}
+                </span>
+                {hasSuperShots && (
+                  <span className="font-label text-[11px] text-on-surface-variant/60 font-medium mt-[-2px]">
+                    ({awayNormalGoals}.{awaySuperShots})
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

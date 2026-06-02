@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db';
 import { mapMatchStatus, fetchMatchStats } from '@/lib/champion-data';
 import { pickStatFields, type StatValues } from '@/lib/stat-utils';
 import type { MatchStatus } from '@prisma/client';
-import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data';
+import type { CDFixtureMatch, CDMatchStatsResponse, CDTeamStats } from '@/types/champion-data';
 
 // ── Types ──
 
@@ -17,6 +17,27 @@ interface PlayerInfo {
   teamId: string;
 }
 
+interface ExtendedPlayerFields {
+  goal2: number;
+  attempt2: number;
+  netPoints: number;
+  points: number;
+  goalMisses: number;
+  feedWithAttempt: number;
+  gain: number;
+  pickups: number;
+  contactPenalties: number;
+  obstructionPenalties: number;
+  centrePassToGoalPerc: number;
+  quartersPlayed: number;
+  blocks: number;
+  tossUpWin: number;
+  secondPhaseReceive: number;
+  possessionChanges: number;
+  unforcedTurnovers: number;
+  interceptPassThrown: number;
+}
+
 export interface ProcessedMatchState {
   cdMatchId: number;
   homeScore: number;
@@ -25,7 +46,8 @@ export interface ProcessedMatchState {
   currentQuarter: number;
   currentTime: string;
   quarterScores?: Array<{ quarter: number; homeScore: number; awayScore: number }>;
-  playerStats?: Array<StatValues & { championDataPlayerId: number }>;
+  playerStats?: Array<StatValues & ExtendedPlayerFields & { championDataPlayerId: number }>;
+  teamStats?: { home: CDTeamStats; away: CDTeamStats };
   scoreFlow?: Array<{
     period: number;
     periodSeconds: number;
@@ -158,7 +180,26 @@ export function validateMatchData(
       .map((ps) => ({
         championDataPlayerId: ps.playerId,
         ...pickStatFields(ps),
+        goal2: ps.goal2,
+        attempt2: ps.attempt2,
+        netPoints: ps.netPoints,
+        points: ps.points,
+        goalMisses: ps.goalMisses,
+        feedWithAttempt: ps.feedWithAttempt,
+        gain: ps.gain,
+        pickups: ps.pickups,
+        contactPenalties: ps.contactPenalties,
+        obstructionPenalties: ps.obstructionPenalties,
+        centrePassToGoalPerc: ps.centrePassToGoalPerc,
+        quartersPlayed: ps.quartersPlayed,
+        blocks: ps.blocks,
+        tossUpWin: ps.tossUpWin,
+        secondPhaseReceive: ps.secondPhaseReceive,
+        possessionChanges: ps.possessionChanges,
+        unforcedTurnovers: ps.unforcedTurnovers,
+        interceptPassThrown: ps.interceptPassThrown,
       })),
+    teamStats: detail.teamStats ? { home: detail.teamStats.home, away: detail.teamStats.away } : undefined,
   };
 
   // Include score flow even if monotonicity check failed (CD corrections are common)
@@ -270,7 +311,27 @@ export async function applyChanges(
       .filter((ps) => playerMap.has(ps.championDataPlayerId))
       .map((ps) => {
         const player = playerMap.get(ps.championDataPlayerId)!;
-        const statsData = pickStatFields(ps);
+        const statsData = {
+          ...pickStatFields(ps),
+          goal2: ps.goal2,
+          attempt2: ps.attempt2,
+          netPoints: ps.netPoints,
+          points: ps.points,
+          goalMisses: ps.goalMisses,
+          feedWithAttempt: ps.feedWithAttempt,
+          gain: ps.gain,
+          pickups: ps.pickups,
+          contactPenalties: ps.contactPenalties,
+          obstructionPenalties: ps.obstructionPenalties,
+          centrePassToGoalPerc: ps.centrePassToGoalPerc,
+          quartersPlayed: ps.quartersPlayed,
+          blocks: ps.blocks,
+          tossUpWin: ps.tossUpWin,
+          secondPhaseReceive: ps.secondPhaseReceive,
+          possessionChanges: ps.possessionChanges,
+          unforcedTurnovers: ps.unforcedTurnovers,
+          interceptPassThrown: ps.interceptPassThrown,
+        };
         return prisma.playerMatchStats.upsert({
           where: { playerId_matchId: { playerId: player.id, matchId: changes.matchId } },
           update: statsData,
@@ -298,13 +359,13 @@ export async function applyChanges(
   if (incoming.scoreFlow && incoming.scoreFlow.length > 0) {
     const existing = await prisma.scoreFlow.findMany({
       where: { matchId: changes.matchId },
-      select: { period: true, periodSeconds: true },
+      select: { period: true, periodSeconds: true, scoringTeamId: true },
     });
-    const existingKeys = new Set(existing.map((sf) => `${sf.period}-${sf.periodSeconds}`));
+    const existingKeys = new Set(existing.map((sf) => `${sf.period}-${sf.periodSeconds}-${sf.scoringTeamId}`));
     const scorerIdx = new Map<string, number>();
 
     for (const sf of incoming.scoreFlow) {
-      const isNew = !existingKeys.has(`${sf.period}-${sf.periodSeconds}`);
+      const isNew = !existingKeys.has(`${sf.period}-${sf.periodSeconds}-${sf.scoringTeamPrismaId}`);
       let scorerPlayerId: string | undefined;
       if (isNew) {
         const queue = scorersByTeam.get(sf.scoringTeamPrismaId);
@@ -318,7 +379,7 @@ export async function applyChanges(
       }
 
       await prisma.scoreFlow.upsert({
-        where: { matchId_period_periodSeconds: { matchId: changes.matchId, period: sf.period, periodSeconds: sf.periodSeconds } },
+        where: { matchId_period_periodSeconds_scoringTeamId: { matchId: changes.matchId, period: sf.period, periodSeconds: sf.periodSeconds, scoringTeamId: sf.scoringTeamPrismaId } },
         update: { homeScore: sf.homeScore, awayScore: sf.awayScore },
         create: {
           matchId: changes.matchId,
@@ -371,7 +432,27 @@ export async function writeFinalStats(
       .filter((ps) => playerMap.has(ps.playerId))
       .map((ps) => {
         const player = playerMap.get(ps.playerId)!;
-        const statsData = pickStatFields(ps);
+        const statsData = {
+          ...pickStatFields(ps),
+          goal2: ps.goal2,
+          attempt2: ps.attempt2,
+          netPoints: ps.netPoints,
+          points: ps.points,
+          goalMisses: ps.goalMisses,
+          feedWithAttempt: ps.feedWithAttempt,
+          gain: ps.gain,
+          pickups: ps.pickups,
+          contactPenalties: ps.contactPenalties,
+          obstructionPenalties: ps.obstructionPenalties,
+          centrePassToGoalPerc: ps.centrePassToGoalPerc,
+          quartersPlayed: ps.quartersPlayed,
+          blocks: ps.blocks,
+          tossUpWin: ps.tossUpWin,
+          secondPhaseReceive: ps.secondPhaseReceive,
+          possessionChanges: ps.possessionChanges,
+          unforcedTurnovers: ps.unforcedTurnovers,
+          interceptPassThrown: ps.interceptPassThrown,
+        };
         return prisma.playerMatchStats.upsert({
           where: { playerId_matchId: { playerId: player.id, matchId } },
           update: statsData,
@@ -392,9 +473,9 @@ export async function writeFinalStats(
 
     const existing = await prisma.scoreFlow.findMany({
       where: { matchId },
-      select: { period: true, periodSeconds: true },
+      select: { period: true, periodSeconds: true, scoringTeamId: true },
     });
-    const existingKeys = new Set(existing.map((sf) => `${sf.period}-${sf.periodSeconds}`));
+    const existingKeys = new Set(existing.map((sf) => `${sf.period}-${sf.periodSeconds}-${sf.scoringTeamId}`));
 
     for (const sf of detail.scoreFlow) {
       const scoringTeamPrismaId =
@@ -402,7 +483,7 @@ export async function writeFinalStats(
           ? match.homeTeam.id
           : match.awayTeam.id;
 
-      if (!existingKeys.has(`${sf.period}-${sf.periodSeconds}`)) {
+      if (!existingKeys.has(`${sf.period}-${sf.periodSeconds}-${scoringTeamPrismaId}`)) {
         await prisma.scoreFlow.create({
           data: {
             matchId,
@@ -417,8 +498,59 @@ export async function writeFinalStats(
         });
       } else {
         await prisma.scoreFlow.update({
-          where: { matchId_period_periodSeconds: { matchId, period: sf.period, periodSeconds: sf.periodSeconds } },
+          where: { matchId_period_periodSeconds_scoringTeamId: { matchId, period: sf.period, periodSeconds: sf.periodSeconds, scoringTeamId: scoringTeamPrismaId } },
           data: { homeScore: sf.homeScore, awayScore: sf.awayScore },
+        });
+      }
+    }
+  }
+
+  // Team match stats
+  if (detail.teamStats) {
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: { homeTeam: { select: { id: true, championDataTeamId: true } }, awayTeam: { select: { id: true, championDataTeamId: true } } },
+    });
+    if (match) {
+      for (const [side, ts] of [['home', detail.teamStats.home], ['away', detail.teamStats.away]] as const) {
+        const teamId = side === 'home' ? match.homeTeam.id : match.awayTeam.id;
+        const data = {
+          isHome: side === 'home',
+          goals: ts.goals,
+          goalAttempts: ts.attempts,
+          goal2: ts.goal2,
+          attempt2: ts.attempt2,
+          points: ts.points,
+          goalAssists: ts.goalAssists,
+          intercepts: ts.intercepts,
+          deflections: ts.deflections,
+          rebounds: ts.rebounds,
+          penalties: ts.penalties,
+          contactPenalties: ts.contactPenalties,
+          obstructionPenalties: ts.obstructionPenalties,
+          feeds: ts.feeds,
+          feedWithAttempt: ts.feedWithAttempt,
+          centrePassReceives: ts.centrePassReceives,
+          turnovers: ts.turnovers,
+          gain: ts.gain,
+          timeout: ts.timeout,
+          timeInPossession: ts.timeInPossession,
+          timeToScore: ts.timeToScore,
+          goalsFromCentrePass: ts.goalsFromCentrePass,
+          goalsFromGain: ts.goalsFromGain,
+          centrePassToGoalPerc: ts.centrePassToGoalPerc,
+          gainToGoalPerc: ts.gainToGoalPerc,
+          possessionChanges: ts.possessionChanges,
+          netPoints: ts.netPoints,
+          goalMisses: ts.goalMisses,
+          blocks: ts.blocks,
+          pickups: ts.pickups,
+          tossUpWin: ts.tossUpWin,
+        };
+        await prisma.teamMatchStats.upsert({
+          where: { matchId_teamId: { matchId, teamId } },
+          update: data,
+          create: { matchId, teamId, ...data },
         });
       }
     }

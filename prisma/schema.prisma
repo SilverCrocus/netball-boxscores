@@ -40,8 +40,9 @@ model Team {
   awayMatches        Match[]     @relation("AwayTeam")
   followers          UserTeam[]
   standings          Standing[]
-  scoredFlows        ScoreFlow[]  @relation("ScoringTeam")
-  matchEvents        MatchEvent[] @relation("EventTeam")
+  scoredFlows        ScoreFlow[]      @relation("ScoringTeam")
+  matchEvents        MatchEvent[]     @relation("EventTeam")
+  teamMatchStats     TeamMatchStats[]
 }
 
 model Standing {
@@ -124,6 +125,7 @@ model Match {
   championDataMatchId Int?               @unique
   quarters            MatchQuarter[]
   playerStats         PlayerMatchStats[]
+  teamStats           TeamMatchStats[]
   scoreFlow           ScoreFlow[]
   matchEvents         MatchEvent[]
   reminders           UserReminder[]
@@ -142,24 +144,83 @@ model MatchQuarter {
 }
 
 model PlayerMatchStats {
-  id                 String @id @default(cuid())
-  playerId           String
-  player             Player @relation(fields: [playerId], references: [id])
-  matchId            String
-  match              Match  @relation(fields: [matchId], references: [id])
-  goals              Int    @default(0)
-  attempts           Int    @default(0)
-  goalAssists        Int    @default(0)
-  intercepts         Int    @default(0)
-  deflections        Int    @default(0)
-  rebounds           Int    @default(0)
-  penalties          Int    @default(0)
-  feeds              Int    @default(0)
-  centrePassReceives Int    @default(0)
-  turnovers          Int    @default(0)
-  minutesPlayed      Float  @default(0)
+  id                   String @id @default(cuid())
+  playerId             String
+  player               Player @relation(fields: [playerId], references: [id])
+  matchId              String
+  match                Match  @relation(fields: [matchId], references: [id])
+  goals                Int    @default(0)
+  attempts             Int    @default(0)
+  goalAssists          Int    @default(0)
+  intercepts           Int    @default(0)
+  deflections          Int    @default(0)
+  rebounds             Int    @default(0)
+  penalties            Int    @default(0)
+  feeds                Int    @default(0)
+  centrePassReceives   Int    @default(0)
+  turnovers            Int    @default(0)
+  minutesPlayed        Float  @default(0)
+  goal2                Int    @default(0)
+  attempt2             Int    @default(0)
+  netPoints            Float  @default(0)
+  points               Int    @default(0)
+  goalMisses           Int    @default(0)
+  feedWithAttempt      Int    @default(0)
+  gain                 Int    @default(0)
+  pickups              Int    @default(0)
+  contactPenalties     Int    @default(0)
+  obstructionPenalties Int    @default(0)
+  centrePassToGoalPerc Float  @default(0)
+  quartersPlayed       Int    @default(0)
+  blocks               Int    @default(0)
+  tossUpWin            Int    @default(0)
+  secondPhaseReceive   Int    @default(0)
+  possessionChanges    Int    @default(0)
+  unforcedTurnovers    Int    @default(0)
+  interceptPassThrown  Int    @default(0)
 
   @@unique([playerId, matchId])
+}
+
+model TeamMatchStats {
+  id                   String @id @default(cuid())
+  matchId              String
+  match                Match  @relation(fields: [matchId], references: [id])
+  teamId               String
+  team                 Team   @relation(fields: [teamId], references: [id])
+  isHome               Boolean
+  goals                Int    @default(0)
+  goalAttempts         Int    @default(0)
+  goal2                Int    @default(0)
+  attempt2             Int    @default(0)
+  points               Int    @default(0)
+  goalAssists          Int    @default(0)
+  intercepts           Int    @default(0)
+  deflections          Int    @default(0)
+  rebounds             Int    @default(0)
+  penalties            Int    @default(0)
+  contactPenalties     Int    @default(0)
+  obstructionPenalties Int    @default(0)
+  feeds                Int    @default(0)
+  feedWithAttempt      Int    @default(0)
+  centrePassReceives   Int    @default(0)
+  turnovers            Int    @default(0)
+  gain                 Int    @default(0)
+  timeout              Int    @default(0)
+  timeInPossession     Int    @default(0)
+  timeToScore          Int    @default(0)
+  goalsFromCentrePass  Int    @default(0)
+  goalsFromGain        Int    @default(0)
+  centrePassToGoalPerc Float  @default(0)
+  gainToGoalPerc       Float  @default(0)
+  possessionChanges    Int    @default(0)
+  netPoints            Float  @default(0)
+  goalMisses           Int    @default(0)
+  blocks               Int    @default(0)
+  pickups              Int    @default(0)
+  tossUpWin            Int    @default(0)
+
+  @@unique([matchId, teamId])
 }
 
 model ScoreFlow {
@@ -176,7 +237,7 @@ model ScoreFlow {
   scorerPlayerId String?
   scorerPlayer   Player? @relation(fields: [scorerPlayerId], references: [id])
 
-  @@unique([matchId, period, periodSeconds])
+  @@unique([matchId, period, periodSeconds, scoringTeamId])
   @@index([matchId, period])
 }
 

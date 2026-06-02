@@ -96,4 +96,28 @@ describe('ScoreCard', () => {
     // Use full string to avoid matching the footer which also contains "Sun, 5 Apr"
     expect(screen.getByText(/Sun, 5 Apr, 3:00\s*pm/)).toBeInTheDocument();
   });
+
+  it('shows super shot breakdown when present', () => {
+    render(<ScoreCard match={{
+      ...completedMatch,
+      homeBreakdown: { goals: 39, superShots: 6 },
+      awayBreakdown: { goals: 63, superShots: 3 },
+    }} />);
+    expect(screen.getByText('(39.6)')).toBeInTheDocument();
+    expect(screen.getByText('(63.3)')).toBeInTheDocument();
+  });
+
+  it('does not show breakdown when no super shots', () => {
+    render(<ScoreCard match={{
+      ...completedMatch,
+      homeBreakdown: { goals: 64, superShots: 0 },
+      awayBreakdown: { goals: 58, superShots: 0 },
+    }} />);
+    expect(screen.queryByText(/\(\d+\.\d+\)/)).not.toBeInTheDocument();
+  });
+
+  it('does not show breakdown when not provided', () => {
+    render(<ScoreCard match={completedMatch} />);
+    expect(screen.queryByText(/\(\d+\.\d+\)/)).not.toBeInTheDocument();
+  });
 });
