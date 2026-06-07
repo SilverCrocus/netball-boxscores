@@ -60,6 +60,7 @@ async function main() {
   // ─── Step 1: Clean existing data ───
   console.log("Cleaning existing data...");
   await prisma.scoreFlow.deleteMany();
+  await prisma.teamMatchStats.deleteMany();
   await prisma.playerMatchStats.deleteMany();
   await prisma.matchQuarter.deleteMany();
   await prisma.userFavorite.deleteMany();
@@ -316,15 +317,33 @@ async function main() {
         squadId: number;
         goals: number;
         goalAttempts: number;
+        goal2: number;
+        attempt2: number;
+        netPoints: number;
+        points: number;
         goalAssists: number;
         intercepts: number;
         deflections: number;
         rebounds: number;
         penalties: number;
+        contactPenalties: number;
+        obstructionPenalties: number;
         feeds: number;
+        feedWithAttempt: number;
         centrePassReceives: number;
         generalPlayTurnovers: number;
         minutesPlayed: number;
+        goalMisses: number;
+        gain: number;
+        pickups: number;
+        centrePassToGoalPerc: number;
+        quartersPlayed: number;
+        blocks: number;
+        tossUpWin: number;
+        secondPhaseReceive: number;
+        possessionChanges: number;
+        unforcedTurnovers: number;
+        interceptPassThrown: number;
         startingPositionCode: string;
         currentPositionCode: string;
       }>;
@@ -377,15 +396,33 @@ async function main() {
             matchId: prismaMatchId,
             goals: ps.goals ?? 0,
             attempts: ps.goalAttempts ?? 0,
+            goal2: ps.goal2 ?? 0,
+            attempt2: ps.attempt2 ?? 0,
+            netPoints: ps.netPoints ?? 0,
+            points: ps.points ?? 0,
             goalAssists: ps.goalAssists ?? 0,
             intercepts: ps.intercepts ?? 0,
             deflections: ps.deflections ?? 0,
             rebounds: ps.rebounds ?? 0,
             penalties: ps.penalties ?? 0,
+            contactPenalties: ps.contactPenalties ?? 0,
+            obstructionPenalties: ps.obstructionPenalties ?? 0,
             feeds: ps.feeds ?? 0,
+            feedWithAttempt: ps.feedWithAttempt ?? 0,
             centrePassReceives: ps.centrePassReceives ?? 0,
             turnovers: ps.generalPlayTurnovers ?? 0,
             minutesPlayed: ps.minutesPlayed ?? 0,
+            goalMisses: ps.goalMisses ?? 0,
+            gain: ps.gain ?? 0,
+            pickups: ps.pickups ?? 0,
+            centrePassToGoalPerc: ps.centrePassToGoalPerc ?? 0,
+            quartersPlayed: ps.quartersPlayed ?? 0,
+            blocks: ps.blocks ?? 0,
+            tossUpWin: ps.tossUpWin ?? 0,
+            secondPhaseReceive: ps.secondPhaseReceive ?? 0,
+            possessionChanges: ps.possessionChanges ?? 0,
+            unforcedTurnovers: ps.unforcedTurnovers ?? 0,
+            interceptPassThrown: ps.interceptPassThrown ?? 0,
           },
         });
         statsCount++;
@@ -398,8 +435,8 @@ async function main() {
         squadId: number;
         scorepoints: number;
       }>;
-      // Deduplicate: CD can have multiple events at the same (period, periodSeconds).
-      // Accumulate running scores, keep the last entry per unique key.
+      // Deduplicate: CD can send duplicate events for the same team at the same second.
+      // Key includes squadId so goals from different teams at the same timestamp are preserved.
       let runningHome = 0;
       let runningAway = 0;
       const deduped = new Map<string, { period: number; periodSeconds: number; scoringTeamId: string; homeScore: number; awayScore: number; scorePoints: number }>();
@@ -413,7 +450,7 @@ async function main() {
           runningAway += sf.scorepoints;
         }
 
-        const key = `${sf.period}:${sf.periodSeconds}`;
+        const key = `${sf.period}:${sf.periodSeconds}:${sf.squadId}`;
         deduped.set(key, {
           period: sf.period,
           periodSeconds: sf.periodSeconds,
@@ -432,6 +469,85 @@ async function main() {
           },
         });
         scoreFlowCount++;
+      }
+
+      // Create team match stats
+      const cdTeamStats = ms.teamStats?.team as Array<{
+        squadId: number;
+        goals?: number;
+        goalAttempts?: number;
+        goal2?: number;
+        attempt2?: number;
+        points?: number;
+        goalAssists?: number;
+        intercepts?: number;
+        deflections?: number;
+        rebounds?: number;
+        penalties?: number;
+        contactPenalties?: number;
+        obstructionPenalties?: number;
+        feeds?: number;
+        feedWithAttempt?: number;
+        centrePassReceives?: number;
+        generalPlayTurnovers?: number;
+        gain?: number;
+        timeout?: number;
+        timeInPossession?: number;
+        timeToScore?: number;
+        goalsFromCentrePass?: number;
+        goalsFromGain?: number;
+        centrePassToGoalPerc?: number;
+        gainToGoalPerc?: number;
+        possessionChanges?: number;
+        netPoints?: number;
+        goalMisses?: number;
+        blocks?: number;
+        pickups?: number;
+        tossUpWin?: number;
+      }> | undefined;
+
+      if (cdTeamStats) {
+        for (const ts of cdTeamStats) {
+          const teamId = squadIdToPrismaId.get(ts.squadId);
+          if (!teamId) continue;
+          await prisma.teamMatchStats.create({
+            data: {
+              matchId: prismaMatchId,
+              teamId,
+              isHome: ts.squadId === homeSquadId,
+              goals: ts.goals ?? 0,
+              goalAttempts: ts.goalAttempts ?? 0,
+              goal2: ts.goal2 ?? 0,
+              attempt2: ts.attempt2 ?? 0,
+              points: ts.points ?? 0,
+              goalAssists: ts.goalAssists ?? 0,
+              intercepts: ts.intercepts ?? 0,
+              deflections: ts.deflections ?? 0,
+              rebounds: ts.rebounds ?? 0,
+              penalties: ts.penalties ?? 0,
+              contactPenalties: ts.contactPenalties ?? 0,
+              obstructionPenalties: ts.obstructionPenalties ?? 0,
+              feeds: ts.feeds ?? 0,
+              feedWithAttempt: ts.feedWithAttempt ?? 0,
+              centrePassReceives: ts.centrePassReceives ?? 0,
+              turnovers: ts.generalPlayTurnovers ?? 0,
+              gain: ts.gain ?? 0,
+              timeout: ts.timeout ?? 0,
+              timeInPossession: ts.timeInPossession ?? 0,
+              timeToScore: ts.timeToScore ?? 0,
+              goalsFromCentrePass: ts.goalsFromCentrePass ?? 0,
+              goalsFromGain: ts.goalsFromGain ?? 0,
+              centrePassToGoalPerc: ts.centrePassToGoalPerc ?? 0,
+              gainToGoalPerc: ts.gainToGoalPerc ?? 0,
+              possessionChanges: ts.possessionChanges ?? 0,
+              netPoints: ts.netPoints ?? 0,
+              goalMisses: ts.goalMisses ?? 0,
+              blocks: ts.blocks ?? 0,
+              pickups: ts.pickups ?? 0,
+              tossUpWin: ts.tossUpWin ?? 0,
+            },
+          });
+        }
       }
 
       console.log(

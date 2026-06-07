@@ -18,8 +18,11 @@ export default async function HomePage() {
     venue: string;
     round: number;
     currentQuarter: number | null;
+    homeTeamId: string;
+    awayTeamId: string;
     homeTeam: { name: string; abbreviation: string; logoUrl: string | null };
     awayTeam: { name: string; abbreviation: string; logoUrl: string | null };
+    scoreFlow: { scoringTeamId: string; scorePoints: number }[];
   }> = [];
 
   try {
@@ -28,11 +31,33 @@ export default async function HomePage() {
       include: {
         homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
         awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
+        scoreFlow: { select: { scoringTeamId: true, scorePoints: true } },
       },
       orderBy: { scheduledAt: 'asc' },
     });
   } catch {
     // DB unavailable (e.g. Supabase free tier paused) — show empty state
+  }
+
+  function computeBreakdown(match: typeof matches[number]) {
+    let homeGoals = 0, homeSuperShots = 0;
+    let awayGoals = 0, awaySuperShots = 0;
+    for (const sf of match.scoreFlow) {
+      const isHome = sf.scoringTeamId === match.homeTeamId;
+      if (sf.scorePoints === 2) {
+        if (isHome) homeSuperShots++;
+        else awaySuperShots++;
+      } else {
+        if (isHome) homeGoals++;
+        else awayGoals++;
+      }
+    }
+    return {
+      homeBreakdown: homeSuperShots > 0 || awaySuperShots > 0
+        ? { goals: homeGoals, superShots: homeSuperShots } : null,
+      awayBreakdown: homeSuperShots > 0 || awaySuperShots > 0
+        ? { goals: awayGoals, superShots: awaySuperShots } : null,
+    };
   }
 
   const liveMatches = matches.filter((m) => m.status === 'LIVE');
@@ -83,7 +108,7 @@ export default async function HomePage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {liveMatches.map((match) => (
-              <ScoreCard key={match.id} match={match} />
+              <ScoreCard key={match.id} match={{ ...match, ...computeBreakdown(match) }} />
             ))}
           </div>
         </section>
@@ -198,7 +223,7 @@ export default async function HomePage() {
                 {roundMatches.map((match) => (
                   <ScoreCard
                     key={match.id}
-                    match={{ ...match, round: undefined }}
+                    match={{ ...match, round: undefined, ...computeBreakdown(match) }}
                     showFinalBadge={false}
                   />
                 ))}

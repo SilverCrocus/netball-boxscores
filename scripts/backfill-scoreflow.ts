@@ -76,8 +76,8 @@ async function backfillScoreFlow(matchId: string) {
   const existingKeys = new Set(
     (await prisma.scoreFlow.findMany({
       where: { matchId },
-      select: { period: true, periodSeconds: true },
-    })).map((sf) => `${sf.period}-${sf.periodSeconds}`),
+      select: { period: true, periodSeconds: true, scoringTeamId: true },
+    })).map((sf) => `${sf.period}-${sf.periodSeconds}-${sf.scoringTeamId}`),
   );
 
   let created = 0;
@@ -85,15 +85,16 @@ async function backfillScoreFlow(matchId: string) {
 
   for (const entry of entries) {
     const scoringTeamId = entry.squadId === homeCDId ? homeTeamId : awayTeamId;
-    const key = `${entry.period}-${entry.periodSeconds}`;
+    const key = `${entry.period}-${entry.periodSeconds}-${scoringTeamId}`;
     const isNew = !existingKeys.has(key);
 
     await prisma.scoreFlow.upsert({
       where: {
-        matchId_period_periodSeconds: {
+        matchId_period_periodSeconds_scoringTeamId: {
           matchId,
           period: entry.period,
           periodSeconds: entry.periodSeconds,
+          scoringTeamId,
         },
       },
       update: {

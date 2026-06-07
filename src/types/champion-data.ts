@@ -99,14 +99,34 @@ export interface CDTeamStats {
   squadId: number;
   goals: number;
   attempts: number;
+  goal2: number;
+  attempt2: number;
+  points: number;
   goalAssists: number;
   intercepts: number;
   deflections: number;
   rebounds: number;
   penalties: number;
+  contactPenalties: number;
+  obstructionPenalties: number;
   feeds: number;
+  feedWithAttempt: number;
   centrePassReceives: number;
   turnovers: number;
+  gain: number;
+  timeout: number;
+  timeInPossession: number;
+  timeToScore: number;
+  goalsFromCentrePass: number;
+  goalsFromGain: number;
+  centrePassToGoalPerc: number;
+  gainToGoalPerc: number;
+  possessionChanges: number;
+  netPoints: number;
+  goalMisses: number;
+  blocks: number;
+  pickups: number;
+  tossUpWin: number;
 }
 
 export interface CDPlayerStats {
@@ -116,15 +136,33 @@ export interface CDPlayerStats {
   squadId: number;
   goals: number;
   attempts: number;
+  goal2: number;
+  attempt2: number;
+  netPoints: number;
+  points: number;
   goalAssists: number;
   intercepts: number;
   deflections: number;
   rebounds: number;
   penalties: number;
+  contactPenalties: number;
+  obstructionPenalties: number;
   feeds: number;
+  feedWithAttempt: number;
   centrePassReceives: number;
   turnovers: number;
   minutesPlayed: number;
+  goalMisses: number;
+  gain: number;
+  pickups: number;
+  centrePassToGoalPerc: number;
+  quartersPlayed: number;
+  blocks: number;
+  tossUpWin: number;
+  secondPhaseReceive: number;
+  possessionChanges: number;
+  unforcedTurnovers: number;
+  interceptPassThrown: number;
 }
 
 export interface CDPeriodScore {
@@ -162,14 +200,33 @@ export interface CDRawTeamStats {
   points?: number;
   goals?: number;
   goalAttempts?: number;
+  goal2?: number;
+  attempt2?: number;
   goalAssists?: number;
   intercepts?: number;
   deflections?: number;
   rebounds?: number;
   penalties?: number;
+  contactPenalties?: number;
+  obstructionPenalties?: number;
   feeds?: number;
+  feedWithAttempt?: number;
   centrePassReceives?: number;
   generalPlayTurnovers?: number;
+  gain?: number;
+  timeout?: number;
+  timeInPossession?: number;
+  timeToScore?: number;
+  goalsFromCentrePass?: number;
+  goalsFromGain?: number;
+  centrePassToGoalPerc?: number;
+  gainToGoalPerc?: number;
+  possessionChanges?: number;
+  netPoints?: number;
+  goalMisses?: number;
+  blocks?: number;
+  pickups?: number;
+  tossUpWin?: number;
 }
 
 export interface CDRawPlayerStats {
@@ -180,15 +237,33 @@ export interface CDRawPlayerStats {
   squadId: number;
   goals?: number;
   goalAttempts?: number;
+  goal2?: number;
+  attempt2?: number;
+  netPoints?: number;
+  points?: number;
   goalAssists?: number;
   intercepts?: number;
   deflections?: number;
   rebounds?: number;
   penalties?: number;
+  contactPenalties?: number;
+  obstructionPenalties?: number;
   feeds?: number;
+  feedWithAttempt?: number;
   centrePassReceives?: number;
   generalPlayTurnovers?: number;
   minutesPlayed?: number;
+  goalMisses?: number;
+  gain?: number;
+  pickups?: number;
+  centrePassToGoalPerc?: number;
+  quartersPlayed?: number;
+  blocks?: number;
+  tossUpWin?: number;
+  secondPhaseReceive?: number;
+  possessionChanges?: number;
+  unforcedTurnovers?: number;
+  interceptPassThrown?: number;
 }
 
 export interface CDRawScoreFlowEntry {

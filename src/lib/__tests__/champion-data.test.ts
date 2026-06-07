@@ -7,7 +7,6 @@ import {
 } from "@/lib/champion-data";
 import type {
   CDFixtureResponse,
-  CDMatchStatsResponse,
   CDFixtureMatch,
   CDPlayerStats,
 } from "@/types/champion-data";
@@ -61,7 +60,7 @@ const mockFixtureResponse: CDFixtureResponse = {
   },
 };
 
-const mockMatchStatsResponse: CDMatchStatsResponse = {
+const mockMatchStatsResponse = {
   matchInfo: {
     matchId: 115001,
     round: 1,
@@ -239,7 +238,7 @@ describe("Champion Data Service", () => {
 
   describe("transformPlayerStats", () => {
     it("transforms CDPlayerStats to Prisma-compatible format", () => {
-      const cdPlayer: CDPlayerStats = mockMatchStatsResponse.playerStats.home[0];
+      const cdPlayer = mockMatchStatsResponse.playerStats.home[0] as CDPlayerStats;
       const result = transformPlayerStats(cdPlayer);
 
       expect(result).toEqual({

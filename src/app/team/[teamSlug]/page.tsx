@@ -79,17 +79,23 @@ export default async function TeamPage({ params }: TeamPageProps) {
       <section className="kinetic-gradient rounded-xl overflow-hidden relative min-h-[400px] flex items-center p-8 md:p-12 text-white shadow-2xl">
         <div className="relative z-10 w-full grid md:grid-cols-2 gap-12 items-center">
           <div className="flex items-center gap-8">
-            <div className="w-32 h-32 md:w-48 md:h-48 bg-white/10 backdrop-blur-xl border-4 border-lime-400 rounded-full flex items-center justify-center transform -rotate-12 shadow-inner overflow-hidden">
+            <div
+              className="w-32 h-32 md:w-48 md:h-48 bg-white/10 backdrop-blur-xl border-4 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden"
+              style={{ borderColor: team.primaryColor || '#a3e635' }}
+            >
               {team.logoUrl ? (
                 <Image
                   src={team.logoUrl}
                   alt={team.name}
                   width={192}
                   height={192}
-                  className="w-full h-full object-contain p-3"
+                  className="w-full h-full object-contain p-4"
                 />
               ) : (
-                <span className="font-headline font-black text-7xl md:text-9xl text-lime-400 italic tracking-tighter text-shadow-glow">
+                <span
+                  className="font-headline font-black text-7xl md:text-9xl italic tracking-tighter"
+                  style={{ color: team.primaryColor || '#a3e635' }}
+                >
                   {team.abbreviation.charAt(0)}
                 </span>
               )}
@@ -112,23 +118,23 @@ export default async function TeamPage({ params }: TeamPageProps) {
           </div>
           {standing && (
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4 border-lime-400">
+              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
                 <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Record</span>
                 <span className="font-headline font-bold text-4xl text-white">
                   {standing.wins}-{standing.losses}-{standing.draws}
                 </span>
               </div>
-              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4 border-lime-400">
+              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
                 <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Points</span>
-                <span className="font-headline font-bold text-4xl text-lime-400">{standing.points}</span>
+                <span className="font-headline font-bold text-4xl" style={{ color: team.primaryColor || '#a3e635' }}>{standing.points}</span>
               </div>
-              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4 border-lime-400">
-                <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Goal %</span>
-                <span className="font-headline font-bold text-4xl text-white">{standing.goalPercentage.toFixed(1)}%</span>
-              </div>
-              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4 border-lime-400">
+              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
                 <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Goals For</span>
                 <span className="font-headline font-bold text-4xl text-white">{standing.goalsFor}</span>
+              </div>
+              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
+                <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Goals Against</span>
+                <span className="font-headline font-bold text-4xl text-white">{standing.goalsAgainst}</span>
               </div>
             </div>
           )}

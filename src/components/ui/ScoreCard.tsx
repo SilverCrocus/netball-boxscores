@@ -4,6 +4,11 @@ import { TeamBadge } from './TeamBadge';
 import { formatMatchDate, formatMatchTime, formatGameClock, formatMatchDateTime } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
 
+interface ScoreBreakdown {
+  goals: number;
+  superShots: number;
+}
+
 interface ScoreCardMatch {
   id: string;
   homeTeam: TeamInfo;
@@ -16,6 +21,8 @@ interface ScoreCardMatch {
   round?: number;
   venue?: string;
   scheduledAt?: string | Date;
+  homeBreakdown?: ScoreBreakdown | null;
+  awayBreakdown?: ScoreBreakdown | null;
 }
 
 interface ScoreCardProps {
@@ -73,9 +80,23 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
           </div>
 
           <div className="flex items-center gap-4 text-4xl font-black font-headline tracking-tighter">
-            <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{match.homeScore}</span>
+            <div className="flex flex-col items-center">
+              <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{match.homeScore}</span>
+              {match.homeBreakdown && match.homeBreakdown.superShots > 0 && (
+                <span className="font-label text-[10px] text-on-surface-variant/60 font-medium mt-[-2px]">
+                  ({match.homeBreakdown.goals}.{match.homeBreakdown.superShots})
+                </span>
+              )}
+            </div>
             <span className="text-outline-variant text-2xl">-</span>
-            <span className={awayWon ? 'text-secondary' : homeWon ? 'text-slate-400' : 'text-primary'}>{match.awayScore}</span>
+            <div className="flex flex-col items-center">
+              <span className={awayWon ? 'text-secondary' : homeWon ? 'text-slate-400' : 'text-primary'}>{match.awayScore}</span>
+              {match.awayBreakdown && match.awayBreakdown.superShots > 0 && (
+                <span className="font-label text-[10px] text-on-surface-variant/60 font-medium mt-[-2px]">
+                  ({match.awayBreakdown.goals}.{match.awayBreakdown.superShots})
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col items-center flex-1 text-center">
