@@ -6,10 +6,15 @@
  * - Model remaining-game uncertainty as N(0, sigma * sqrt(time_remaining_fraction))
  * - P(win) = normalCDF(projected_margin / sigma)
  *
+ * Pre-match prior derived from season results (avg goal differential per team).
+ * Early in the game, the prior dominates; it fades as live data takes over.
+ *
  * SSN-specific parameters derived from 2024-2025 season data:
  * - Average ~128 total goals per game (~64 per team, ~1.07/min/team)
  * - Standard deviation of final margins ≈ 13 goals
  */
+
+import { prisma, excludeSimData } from '@/lib/db';
 
 const QUARTER_SECONDS = 900;
 const GAME_DURATION_SECONDS = 4 * QUARTER_SECONDS; // 3600s = 60 min
@@ -41,6 +46,15 @@ function normalCDF(x: number): number {
   return 0.5 * (1.0 + sign * y);
 }
 
+export interface PreMatchPrior {
+  /** Expected margin advantage for home team (goals), from season data */
+  expectedMargin: number;
+  /** Home team avg goals per game */
+  homeAvgGoals: number;
+  /** Away team avg goals per game */
+  awayAvgGoals: number;
+}
+
 export interface WinProbabilityInput {
   homeScore: number;
   awayScore: number;
@@ -56,6 +70,8 @@ export interface WinProbabilityInput {
     scorePoints?: number;
   }>;
   homeTeamId: string;
+  /** Pre-match team strength prior (null if no season data) */
+  prior: PreMatchPrior | null;
 }
 
 export interface WinProbabilityResult {
@@ -68,7 +84,7 @@ export interface WinProbabilityResult {
 export function calculateWinProbability(
   input: WinProbabilityInput,
 ): WinProbabilityResult | null {
-  const { homeScore, awayScore, quarter, periodSeconds, scoreFlow, homeTeamId } =
+  const { homeScore, awayScore, quarter, periodSeconds, scoreFlow, homeTeamId, prior } =
     input;
 
   if (!quarter || quarter < 1) return null;
@@ -97,13 +113,16 @@ export function calculateWinProbability(
   // Current score differential (positive = home leading)
   const currentDiff = homeScore - awayScore;
 
+  // Base rates from prior (season averages) or league average
+  const priorHomeRate = prior ? prior.homeAvgGoals / 60 : LEAGUE_AVG_RATE;
+  const priorAwayRate = prior ? prior.awayAvgGoals / 60 : LEAGUE_AVG_RATE;
+
   // Compute per-team scoring rates from score flow
   const elapsedMinutes = elapsed / 60;
   let homeRate: number;
   let awayRate: number;
 
   if (elapsedMinutes > 3 && scoreFlow.length > 0) {
-    // Count points scored (accounting for super shots worth 2)
     let homePoints = 0;
     let awayPoints = 0;
     for (const entry of scoreFlow) {
@@ -117,20 +136,25 @@ export function calculateWinProbability(
     const observedHomeRate = homePoints / elapsedMinutes;
     const observedAwayRate = awayPoints / elapsedMinutes;
 
-    // Blend with league average — more weight to observed as game progresses
+    // Blend observed rates with prior — prior dominates early, observed dominates late
     // alpha ramps from 0.3 at 3min to 0.95 at 30min
     const alpha = Math.min(0.95, 0.3 + (elapsedMinutes - 3) * (0.65 / 27));
-    homeRate = alpha * observedHomeRate + (1 - alpha) * LEAGUE_AVG_RATE;
-    awayRate = alpha * observedAwayRate + (1 - alpha) * LEAGUE_AVG_RATE;
+    homeRate = alpha * observedHomeRate + (1 - alpha) * priorHomeRate;
+    awayRate = alpha * observedAwayRate + (1 - alpha) * priorAwayRate;
   } else {
-    homeRate = LEAGUE_AVG_RATE;
-    awayRate = LEAGUE_AVG_RATE;
+    homeRate = priorHomeRate;
+    awayRate = priorAwayRate;
   }
 
-  // Project final margin
+  // Project final margin, incorporating prior expected margin early in game
   const minutesRemaining = secondsRemaining / 60;
-  const projectedMargin =
-    currentDiff + (homeRate - awayRate) * minutesRemaining;
+  let projectedMargin = currentDiff + (homeRate - awayRate) * minutesRemaining;
+
+  // Blend in prior expected margin (fades as game progresses)
+  if (prior) {
+    const priorWeight = Math.max(0, 1 - elapsed / (GAME_DURATION_SECONDS * 0.5));
+    projectedMargin += prior.expectedMargin * priorWeight;
+  }
 
   // Uncertainty: shrinks with sqrt of time fraction remaining
   const timeFraction = secondsRemaining / GAME_DURATION_SECONDS;
@@ -151,4 +175,67 @@ export function calculateWinProbability(
   else confidence = 'high';
 
   return { homeWinPct, awayWinPct, drawPct: 0, confidence };
+}
+
+export async function computeTeamStrengthPrior(
+  homeTeamId: string,
+  awayTeamId: string,
+  currentMatchId: string,
+): Promise<PreMatchPrior | null> {
+  const completedMatches = await prisma.match.findMany({
+    where: {
+      ...excludeSimData,
+      status: 'COMPLETED',
+      id: { not: currentMatchId },
+      OR: [
+        { homeTeamId: { in: [homeTeamId, awayTeamId] } },
+        { awayTeamId: { in: [homeTeamId, awayTeamId] } },
+      ],
+    },
+    select: {
+      homeTeamId: true,
+      awayTeamId: true,
+      homeScore: true,
+      awayScore: true,
+    },
+  });
+
+  let homeGoalsFor = 0, homeGoalsAgainst = 0, homeGames = 0;
+  let awayGoalsFor = 0, awayGoalsAgainst = 0, awayGames = 0;
+
+  for (const m of completedMatches) {
+    if (m.homeTeamId === homeTeamId) {
+      homeGoalsFor += m.homeScore;
+      homeGoalsAgainst += m.awayScore;
+      homeGames++;
+    } else if (m.awayTeamId === homeTeamId) {
+      homeGoalsFor += m.awayScore;
+      homeGoalsAgainst += m.homeScore;
+      homeGames++;
+    }
+    if (m.homeTeamId === awayTeamId) {
+      awayGoalsFor += m.homeScore;
+      awayGoalsAgainst += m.awayScore;
+      awayGames++;
+    } else if (m.awayTeamId === awayTeamId) {
+      awayGoalsFor += m.awayScore;
+      awayGoalsAgainst += m.homeScore;
+      awayGames++;
+    }
+  }
+
+  if (homeGames < 3 || awayGames < 3) return null;
+
+  const homeAvgGoals = homeGoalsFor / homeGames;
+  const awayAvgGoals = awayGoalsFor / awayGames;
+  const homeAvgConceded = homeGoalsAgainst / homeGames;
+  const awayAvgConceded = awayGoalsAgainst / awayGames;
+
+  // Expected margin: home's expected scoring - away's expected scoring
+  // Each team's expected score = avg of (their attack vs opponent's defence)
+  const homeExpected = (homeAvgGoals + awayAvgConceded) / 2;
+  const awayExpected = (awayAvgGoals + homeAvgConceded) / 2;
+  const expectedMargin = homeExpected - awayExpected;
+
+  return { expectedMargin, homeAvgGoals: homeExpected, awayAvgGoals: awayExpected };
 }

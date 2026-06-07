@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { prisma } from '@/lib/db';
+import { prisma, excludeSimData } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { LiveGameClient } from './LiveGameClient';
 import { pickStatFields, emptyStats } from '@/lib/stat-utils';
+import { computeTeamStrengthPrior } from '@/lib/win-probability';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -107,6 +108,13 @@ export default async function LiveGamePage({ params }: Props) {
     };
   }
 
+  // Compute pre-match team strength prior from season results
+  const preMatchPrior = await computeTeamStrengthPrior(
+    match.homeTeamId,
+    match.awayTeamId,
+    match.id,
+  );
+
   const serialized = {
     id: match.id,
     round: match.round,
@@ -145,6 +153,7 @@ export default async function LiveGamePage({ params }: Props) {
       teamAbbreviation: e.team.abbreviation,
       teamLogoUrl: e.team.logoUrl,
     })),
+    preMatchPrior,
   };
 
   return <LiveGameClient match={serialized} />;

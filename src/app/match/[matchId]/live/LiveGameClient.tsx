@@ -18,7 +18,7 @@ import {
 } from '@/components/match/LivePlayByPlay';
 import type { StatsUpdatePayload, ScoreFlowAddPayload } from '@/types/socket';
 import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
-import { calculateWinProbability } from '@/lib/win-probability';
+import { calculateWinProbability, type PreMatchPrior } from '@/lib/win-probability';
 import type { PlayerStatRow } from '@/types/stats';
 import type { QuarterData } from '@/types/match';
 import type { TeamInfoWithId } from '@/types/team';
@@ -53,6 +53,7 @@ interface MatchData {
   quarters: QuarterData[];
   initialScoreFlow?: ScoreFlowAddPayload[];
   initialMatchEvents?: MatchEventData[];
+  preMatchPrior?: PreMatchPrior | null;
 }
 
 interface LiveGameClientProps {
@@ -337,8 +338,9 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       periodSeconds,
       scoreFlow: allScoreFlow,
       homeTeamId: match.homeTeam.id,
+      prior: match.preMatchPrior ?? null,
     });
-  }, [homeScore, awayScore, quarter, time, allScoreFlow, match.homeTeam.id]);
+  }, [homeScore, awayScore, quarter, time, allScoreFlow, match.homeTeam.id, match.preMatchPrior]);
 
   const comparisonStats = [
     {
