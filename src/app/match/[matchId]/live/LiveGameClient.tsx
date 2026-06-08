@@ -11,12 +11,14 @@ const ScoreProgressChart = dynamic(
 );
 import { LiveLineups } from '@/components/match/LiveLineups';
 import { MatchStatsComparison } from '@/components/match/MatchStatsComparison';
+import { WinProbabilityBar } from '@/components/match/WinProbabilityBar';
 import {
   LivePlayByPlay,
   type FeedEntry,
 } from '@/components/match/LivePlayByPlay';
 import type { StatsUpdatePayload, ScoreFlowAddPayload } from '@/types/socket';
 import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
+import { calculateWinProbability, type PreMatchPrior } from '@/lib/win-probability';
 import type { PlayerStatRow } from '@/types/stats';
 import type { QuarterData } from '@/types/match';
 import type { TeamInfoWithId } from '@/types/team';
@@ -51,6 +53,7 @@ interface MatchData {
   quarters: QuarterData[];
   initialScoreFlow?: ScoreFlowAddPayload[];
   initialMatchEvents?: MatchEventData[];
+  preMatchPrior?: PreMatchPrior | null;
 }
 
 interface LiveGameClientProps {
@@ -325,6 +328,20 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   const awayGoals = sumStat(awayPlayers, 'goals');
   const awayAttempts = sumStat(awayPlayers, 'attempts');
 
+  // ── Win probability ──
+  const winProbability = useMemo(() => {
+    const periodSeconds = time ? parseInt(time, 10) || 0 : 0;
+    return calculateWinProbability({
+      homeScore,
+      awayScore,
+      quarter,
+      periodSeconds,
+      scoreFlow: allScoreFlow,
+      homeTeamId: match.homeTeam.id,
+      prior: match.preMatchPrior ?? null,
+    });
+  }, [homeScore, awayScore, quarter, time, allScoreFlow, match.homeTeam.id, match.preMatchPrior]);
+
   const comparisonStats = [
     {
       label: 'Goals',
@@ -395,6 +412,14 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         awayTeam={match.awayTeam}
         currentQuarter={quarter}
       />
+
+      {isLive && winProbability && (
+        <WinProbabilityBar
+          probability={winProbability}
+          homeTeam={match.homeTeam}
+          awayTeam={match.awayTeam}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
