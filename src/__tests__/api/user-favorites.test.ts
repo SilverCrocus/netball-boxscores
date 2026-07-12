@@ -4,6 +4,7 @@ vi.mock('@/lib/db', () => ({
   prisma: {
     userFavorite: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
     },
@@ -74,5 +75,40 @@ describe('User Favorites API', () => {
     });
     const response = await POST(request);
     expect(response.status).toBe(400);
+  });
+
+  it('treats duplicate POST as an idempotent success', async () => {
+    const { getServerSession } = await import('next-auth');
+    const { prisma } = await import('@/lib/db');
+    (getServerSession as any).mockResolvedValue({ user: { id: 'user-1' } });
+    (prisma.userFavorite.create as any).mockRejectedValue({ code: 'P2002' });
+    (prisma.userFavorite.findUnique as any).mockResolvedValue({
+      userId: 'user-1', matchId: 'match-1',
+    });
+
+    const { POST } = await import('@/app/api/user/favorites/route');
+    const response = await POST(new Request('http://localhost/api/user/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ matchId: 'match-1' }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ userId: 'user-1', matchId: 'match-1' });
+  });
+
+  it('treats deleting a missing favorite as an idempotent success', async () => {
+    const { getServerSession } = await import('next-auth');
+    const { prisma } = await import('@/lib/db');
+    (getServerSession as any).mockResolvedValue({ user: { id: 'user-1' } });
+    (prisma.userFavorite.delete as any).mockRejectedValue({ code: 'P2025' });
+
+    const { DELETE } = await import('@/app/api/user/favorites/route');
+    const response = await DELETE(new Request('http://localhost/api/user/favorites', {
+      method: 'DELETE',
+      body: JSON.stringify({ matchId: 'match-1' }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true });
   });
 });

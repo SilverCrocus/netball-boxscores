@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useMatchSocket } from '@/hooks/useMatchSocket';
+import { mergeScoreFlows } from '@/lib/score-flow';
 import { LiveScoreHero } from '@/components/match/LiveScoreHero';
 import dynamic from 'next/dynamic';
 
@@ -160,11 +161,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   // ── Merge initial + socket score flow, deduplicating ──
   const allScoreFlow = useMemo(() => {
     const initial = match.initialScoreFlow ?? [];
-    const seen = new Set(initial.map((sf) => `${sf.period}-${sf.periodSeconds}`));
-    const newEntries = scoreFlow.filter(
-      (sf) => !seen.has(`${sf.period}-${sf.periodSeconds}`),
-    );
-    return [...initial, ...newEntries];
+    return mergeScoreFlows(initial, scoreFlow);
   }, [match.initialScoreFlow, scoreFlow]);
 
   // ── Derive quarter scores from score flow (updates live as new goals arrive) ──
@@ -290,7 +287,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       return aSeconds - bSeconds;
     });
     return combined;
-  }, [allScoreFlow, match.homeTeam, match.awayTeam, match.initialScoreFlow, match.initialMatchEvents, statEvents]);
+  }, [allScoreFlow, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, match.initialMatchEvents, statEvents]);
 
   // ── Score breakdown (goals vs super shots) ──
   const { homeBreakdown, awayBreakdown } = useMemo(() => {

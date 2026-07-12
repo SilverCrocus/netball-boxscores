@@ -47,7 +47,12 @@ export interface ProcessedMatchState {
   currentTime: string;
   quarterScores?: Array<{ quarter: number; homeScore: number; awayScore: number }>;
   playerStats?: Array<StatValues & ExtendedPlayerFields & { championDataPlayerId: number }>;
-  teamStats?: { home: CDTeamStats; away: CDTeamStats };
+  teamStats?: {
+    home: CDTeamStats;
+    away: CDTeamStats;
+    homeTeamPrismaId: string;
+    awayTeamPrismaId: string;
+  };
   scoreFlow?: Array<{
     period: number;
     periodSeconds: number;
@@ -83,6 +88,42 @@ export interface ChangeResult {
 
 const MAX_QUARTER_SECONDS = 960; // 15min (900s) + 60s buffer
 const MAX_ET_SECONDS = 360;      // 5min (300s) + 60s buffer
+
+function toTeamStatsData(stats: CDTeamStats, isHome: boolean) {
+  return {
+    isHome,
+    goals: stats.goals,
+    goalAttempts: stats.attempts,
+    goal2: stats.goal2,
+    attempt2: stats.attempt2,
+    points: stats.points,
+    goalAssists: stats.goalAssists,
+    intercepts: stats.intercepts,
+    deflections: stats.deflections,
+    rebounds: stats.rebounds,
+    penalties: stats.penalties,
+    contactPenalties: stats.contactPenalties,
+    obstructionPenalties: stats.obstructionPenalties,
+    feeds: stats.feeds,
+    feedWithAttempt: stats.feedWithAttempt,
+    centrePassReceives: stats.centrePassReceives,
+    turnovers: stats.turnovers,
+    gain: stats.gain,
+    timeout: stats.timeout,
+    timeInPossession: stats.timeInPossession,
+    timeToScore: stats.timeToScore,
+    goalsFromCentrePass: stats.goalsFromCentrePass,
+    goalsFromGain: stats.goalsFromGain,
+    centrePassToGoalPerc: stats.centrePassToGoalPerc,
+    gainToGoalPerc: stats.gainToGoalPerc,
+    possessionChanges: stats.possessionChanges,
+    netPoints: stats.netPoints,
+    goalMisses: stats.goalMisses,
+    blocks: stats.blocks,
+    pickups: stats.pickups,
+    tossUpWin: stats.tossUpWin,
+  };
+}
 
 export function validateMatchData(
   fixture: CDFixtureMatch,
@@ -199,7 +240,12 @@ export function validateMatchData(
         unforcedTurnovers: ps.unforcedTurnovers,
         interceptPassThrown: ps.interceptPassThrown,
       })),
-    teamStats: detail.teamStats ? { home: detail.teamStats.home, away: detail.teamStats.away } : undefined,
+    teamStats: detail.teamStats && homeTeam && awayTeam ? {
+      home: detail.teamStats.home,
+      away: detail.teamStats.away,
+      homeTeamPrismaId: homeTeam.id,
+      awayTeamPrismaId: awayTeam.id,
+    } : undefined,
   };
 
   // Include score flow even if monotonicity check failed (CD corrections are common)
@@ -356,6 +402,21 @@ export async function applyChanges(
     }
   }
 
+  if (incoming.teamStats) {
+    const teamStats = [
+      { teamId: incoming.teamStats.homeTeamPrismaId, stats: incoming.teamStats.home, isHome: true },
+      { teamId: incoming.teamStats.awayTeamPrismaId, stats: incoming.teamStats.away, isHome: false },
+    ];
+    for (const { teamId, stats, isHome } of teamStats) {
+      const data = toTeamStatsData(stats, isHome);
+      await prisma.teamMatchStats.upsert({
+        where: { matchId_teamId: { matchId: changes.matchId, teamId } },
+        update: data,
+        create: { matchId: changes.matchId, teamId, ...data },
+      });
+    }
+  }
+
   if (incoming.scoreFlow && incoming.scoreFlow.length > 0) {
     const existing = await prisma.scoreFlow.findMany({
       where: { matchId: changes.matchId },
@@ -380,7 +441,11 @@ export async function applyChanges(
 
       await prisma.scoreFlow.upsert({
         where: { matchId_period_periodSeconds_scoringTeamId: { matchId: changes.matchId, period: sf.period, periodSeconds: sf.periodSeconds, scoringTeamId: sf.scoringTeamPrismaId } },
-        update: { homeScore: sf.homeScore, awayScore: sf.awayScore },
+        update: {
+          homeScore: sf.homeScore,
+          awayScore: sf.awayScore,
+          scorePoints: sf.scorepoints,
+        },
         create: {
           matchId: changes.matchId,
           period: sf.period,
@@ -499,7 +564,11 @@ export async function writeFinalStats(
       } else {
         await prisma.scoreFlow.update({
           where: { matchId_period_periodSeconds_scoringTeamId: { matchId, period: sf.period, periodSeconds: sf.periodSeconds, scoringTeamId: scoringTeamPrismaId } },
-          data: { homeScore: sf.homeScore, awayScore: sf.awayScore },
+          data: {
+            homeScore: sf.homeScore,
+            awayScore: sf.awayScore,
+            scorePoints: sf.scorepoints,
+          },
         });
       }
     }
@@ -514,39 +583,7 @@ export async function writeFinalStats(
     if (match) {
       for (const [side, ts] of [['home', detail.teamStats.home], ['away', detail.teamStats.away]] as const) {
         const teamId = side === 'home' ? match.homeTeam.id : match.awayTeam.id;
-        const data = {
-          isHome: side === 'home',
-          goals: ts.goals,
-          goalAttempts: ts.attempts,
-          goal2: ts.goal2,
-          attempt2: ts.attempt2,
-          points: ts.points,
-          goalAssists: ts.goalAssists,
-          intercepts: ts.intercepts,
-          deflections: ts.deflections,
-          rebounds: ts.rebounds,
-          penalties: ts.penalties,
-          contactPenalties: ts.contactPenalties,
-          obstructionPenalties: ts.obstructionPenalties,
-          feeds: ts.feeds,
-          feedWithAttempt: ts.feedWithAttempt,
-          centrePassReceives: ts.centrePassReceives,
-          turnovers: ts.turnovers,
-          gain: ts.gain,
-          timeout: ts.timeout,
-          timeInPossession: ts.timeInPossession,
-          timeToScore: ts.timeToScore,
-          goalsFromCentrePass: ts.goalsFromCentrePass,
-          goalsFromGain: ts.goalsFromGain,
-          centrePassToGoalPerc: ts.centrePassToGoalPerc,
-          gainToGoalPerc: ts.gainToGoalPerc,
-          possessionChanges: ts.possessionChanges,
-          netPoints: ts.netPoints,
-          goalMisses: ts.goalMisses,
-          blocks: ts.blocks,
-          pickups: ts.pickups,
-          tossUpWin: ts.tossUpWin,
-        };
+        const data = toTeamStatsData(ts, side === 'home');
         await prisma.teamMatchStats.upsert({
           where: { matchId_teamId: { matchId, teamId } },
           update: data,

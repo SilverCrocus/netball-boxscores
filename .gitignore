@@ -51,3 +51,6 @@ next-env.d.ts
 .env
 .superpowers/
 .mcp.json
+
+# local Codex configuration may contain API credentials
+/.codex/config.toml

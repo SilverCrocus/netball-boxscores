@@ -1,18 +1,23 @@
 import { prisma } from '@/lib/db';
 import { fetchFixture, fetchMatchStats } from '@/lib/champion-data';
+import type { Prisma } from '@prisma/client';
 import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data';
 
 export interface IngestedData {
   fixture: CDFixtureMatch[];
   matchDetails: Map<number, CDMatchStatsResponse>;
   pollLogIds: string[];
+  matchPollLogIds: Map<number, string>;
+  detailFetchErrors: number;
 }
 
 export async function ingestFromChampionData(
   competitionId: number,
 ): Promise<IngestedData> {
   const pollLogIds: string[] = [];
+  const matchPollLogIds = new Map<number, string>();
   const matchDetails = new Map<number, CDMatchStatsResponse>();
+  let detailFetchErrors = 0;
 
   // Cleanup old PollLog entries (7-day retention)
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -28,7 +33,7 @@ export async function ingestFromChampionData(
       data: {
         competitionId,
         endpoint: 'fixture',
-        rawResponse: fixture as any,
+        rawResponse: fixture as unknown as Prisma.InputJsonValue,
         status: 'success',
       },
     });
@@ -43,7 +48,7 @@ export async function ingestFromChampionData(
         errorMessage: error instanceof Error ? error.message : String(error),
       },
     });
-    return { fixture: [], matchDetails, pollLogIds };
+    throw error;
   }
 
   // Determine which matches need detail fetching
@@ -82,12 +87,14 @@ export async function ingestFromChampionData(
           competitionId,
           cdMatchId: matchData.matchId,
           endpoint: 'match-detail',
-          rawResponse: detail as any,
+          rawResponse: detail as unknown as Prisma.InputJsonValue,
           status: 'success',
         },
       });
       pollLogIds.push(log.id);
+      matchPollLogIds.set(matchData.matchId, log.id);
     } catch (error) {
+      detailFetchErrors++;
       await prisma.pollLog.create({
         data: {
           competitionId,
@@ -101,5 +108,5 @@ export async function ingestFromChampionData(
     }
   }
 
-  return { fixture, matchDetails, pollLogIds };
+  return { fixture, matchDetails, pollLogIds, matchPollLogIds, detailFetchErrors };
 }

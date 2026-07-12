@@ -151,7 +151,7 @@ async function main() {
   let alreadyHadPhoto = 0;
   let matched = 0;
   let searched = 0;
-  let unmatched: string[] = [];
+  const unmatched: string[] = [];
 
   for (const dbPlayer of dbPlayers) {
     // Check alias first

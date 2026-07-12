@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 // Mock socket.io-client
 const mockSocket = {
@@ -74,6 +74,47 @@ describe('useMatchSocket', () => {
     );
     expect(registeredEvents).toContain('connect');
     expect(registeredEvents).toContain('disconnect');
+  });
+
+  it('keeps simultaneous scores by opposing teams and deduplicates exact repeats', () => {
+    const { result } = renderHook(() => useMatchSocket('match-123'));
+    const scoreFlowHandler = mockSocket.on.mock.calls.find(
+      (call: unknown[]) => call[0] === 'scoreflow:add',
+    )?.[1] as (payload: Record<string, unknown>) => void;
+    const base = {
+      matchId: 'match-123',
+      period: 2,
+      periodSeconds: 301,
+      scorePoints: 1,
+    };
+
+    act(() => {
+      scoreFlowHandler({ ...base, scoringTeamId: 'home-team', homeScore: 20, awayScore: 19 });
+      scoreFlowHandler({ ...base, scoringTeamId: 'away-team', homeScore: 20, awayScore: 20 });
+      scoreFlowHandler({ ...base, scoringTeamId: 'home-team', homeScore: 20, awayScore: 19 });
+    });
+
+    expect(result.current.scoreFlow.map((entry) => entry.scoringTeamId)).toEqual([
+      'home-team',
+      'away-team',
+    ]);
+
+    act(() => {
+      scoreFlowHandler({ ...base, scoringTeamId: 'home-team', homeScore: 21, awayScore: 19, scorePoints: 2 });
+      scoreFlowHandler({ ...base, scoringTeamId: 'away-team', homeScore: 21, awayScore: 20 });
+    });
+
+    expect(result.current.scoreFlow).toHaveLength(2);
+    expect(result.current.scoreFlow[0]).toMatchObject({
+      scoringTeamId: 'home-team',
+      homeScore: 21,
+      scorePoints: 2,
+    });
+    expect(result.current.scoreFlow[1]).toMatchObject({
+      scoringTeamId: 'away-team',
+      homeScore: 21,
+      awayScore: 20,
+    });
   });
 
   it('should clean up all event listeners on unmount', () => {

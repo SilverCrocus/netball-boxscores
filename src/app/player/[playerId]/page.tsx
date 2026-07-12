@@ -112,7 +112,6 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
   const superShotsByMatch = await getPlayerSuperShots(playerId, matchIds);
   const totalSuperShots = superShotsByMatch.reduce((sum, g) => sum + g._count, 0);
   const impactTotal = computeImpact(player.matchStats);
-  const gamesPlayed = player.matchStats.length;
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">

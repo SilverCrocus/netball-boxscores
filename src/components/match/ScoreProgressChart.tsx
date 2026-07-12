@@ -47,12 +47,12 @@ export function ScoreProgressChart({
   awayTeam,
   currentQuarter,
 }: ScoreProgressChartProps) {
-  if (scoreFlow.length === 0) return null;
-
   const homeColor = homeTeam.primaryColor || FALLBACK_HOME;
   const awayColor = awayTeam.primaryColor || FALLBACK_AWAY;
 
-  const maxQuarter = currentQuarter ?? Math.max(...scoreFlow.map((sf) => sf.period), 4);
+  const maxQuarter = currentQuarter ?? (
+    scoreFlow.length > 0 ? Math.max(...scoreFlow.map((sf) => sf.period), 4) : 4
+  );
   const totalTime = maxQuarter <= 4
     ? 4 * QUARTER_LENGTH
     : 4 * QUARTER_LENGTH + (maxQuarter - 4) * ET_LENGTH;
@@ -93,6 +93,8 @@ export function ScoreProgressChart({
   const xTicks = quarterDividers.map((d) => d.time);
 
   const maxScore = Math.max(...data.map((d) => Math.max(d.home, d.away)), 1);
+
+  if (scoreFlow.length === 0) return null;
 
   return (
     <div className="bg-surface-container-lowest rounded-xl px-4 pt-3 pb-1 shadow-sm border border-outline-variant/15">

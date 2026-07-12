@@ -40,12 +40,12 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
   return (
     <Link
       href={matchHref}
-      className={`flex flex-col h-full bg-surface-container-lowest rounded-xl p-6 shadow-sm relative overflow-hidden group transition-all hover:shadow-md ${
+      className={`flex h-full min-w-0 flex-col overflow-hidden rounded-xl bg-surface-container-lowest p-4 shadow-sm transition-all group relative hover:shadow-md sm:p-6 ${
         isLive ? 'border-l-4 border-secondary' : 'border-l-4 border-transparent'
       }`}
     >
       {/* Status badge */}
-      <div className="flex justify-between items-start mb-6">
+      <div className="mb-5 flex min-w-0 items-start justify-between gap-2 sm:mb-6">
         {isLive && match.currentQuarter && (
           <span className="bg-primary-container text-white px-3 py-1 rounded-full text-[10px] font-bold font-label tracking-widest uppercase">
             {(match.currentQuarter ?? 0) > 4 ? 'ET' : `Q${match.currentQuarter}`} {match.currentTime && `\u2022 ${formatGameClock(match.currentTime, match.currentQuarter)}`}
@@ -71,15 +71,15 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
 
       {/* Score display */}
       <div data-testid="score-display" className="flex-1 flex flex-col justify-center">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col items-center flex-1 text-center">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
+          <div className="flex min-w-0 flex-col items-center text-center">
             <TeamBadge team={match.homeTeam} size={48} variant="home" className="mb-2" />
-            <span className="text-sm font-bold font-headline text-primary uppercase">
+            <span className="w-full text-xs font-bold font-headline leading-tight text-primary uppercase break-words [overflow-wrap:anywhere] sm:text-sm">
               {match.homeTeam.name}
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-4xl font-black font-headline tracking-tighter">
+          <div className="flex items-center gap-1 text-3xl font-black font-headline tracking-tighter sm:gap-3 sm:text-4xl">
             <div className="flex flex-col items-center">
               <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{match.homeScore}</span>
               {match.homeBreakdown && match.homeBreakdown.superShots > 0 && (
@@ -99,9 +99,9 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             </div>
           </div>
 
-          <div className="flex flex-col items-center flex-1 text-center">
+          <div className="flex min-w-0 flex-col items-center text-center">
             <TeamBadge team={match.awayTeam} size={48} variant="away" className="mb-2" />
-            <span className="text-sm font-bold font-headline text-primary uppercase">
+            <span className="w-full text-xs font-bold font-headline leading-tight text-primary uppercase break-words [overflow-wrap:anywhere] sm:text-sm">
               {match.awayTeam.name}
             </span>
           </div>
@@ -110,8 +110,8 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
 
       {/* Footer */}
       {(match.round || match.venue) && (
-        <div className="mt-6 pt-4 border-t border-surface-container flex justify-between items-center">
-          <span className="text-[10px] font-medium text-on-surface-variant uppercase font-label">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-surface-container pt-4">
+          <span className="min-w-0 flex-1 text-[10px] font-medium text-on-surface-variant uppercase font-label break-words">
             {match.scheduledAt && formatMatchDate(match.scheduledAt)}
             {match.round && ` \u2022 Round ${match.round}`}
             {match.venue && ` \u2022 ${match.venue}`}

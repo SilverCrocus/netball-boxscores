@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import MatchPage from '../page';
 
@@ -31,7 +31,14 @@ vi.mock('@/lib/db', () => ({
             player: { id: 'p1', name: 'Elena Rodriguez', position: 'GS', photoUrl: null, teamId: 'home-team' },
             goals: 42, attempts: 45, goalAssists: 0, intercepts: 0,
             deflections: 1, rebounds: 4, penalties: 0, feeds: 2,
-            centrePassReceives: 0, turnovers: 1, minutesPlayed: 60,
+            centrePassReceives: 0, turnovers: 1, minutesPlayed: 60, netPoints: 55,
+          },
+          {
+            id: 'ps2',
+            player: { id: 'p2', name: 'Jade Clarke', position: 'C', photoUrl: null, teamId: 'away-team' },
+            goals: 2, attempts: 2, goalAssists: 20, intercepts: 4,
+            deflections: 6, rebounds: 1, penalties: 3, feeds: 35,
+            centrePassReceives: 18, turnovers: 2, minutesPlayed: 60, netPoints: 96,
           },
         ],
         scoreFlow: [
@@ -63,5 +70,14 @@ describe('MatchPage', () => {
     const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
     render(page);
     expect(screen.getAllByText('Elena Rodriguez').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('selects Match MVP by net points rather than goals', async () => {
+    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+    render(page);
+    const mvpCard = screen.getByText('Match MVP').parentElement?.parentElement;
+
+    expect(mvpCard).not.toBeNull();
+    expect(within(mvpCard!).getByText('Jade Clarke')).toBeInTheDocument();
   });
 });

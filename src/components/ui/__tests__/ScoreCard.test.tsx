@@ -80,6 +80,20 @@ describe('ScoreCard', () => {
     expect(scoreSection?.className).toContain('flex-1');
   });
 
+  it('keeps long team names inside the responsive score grid', () => {
+    render(<ScoreCard match={{
+      ...completedMatch,
+      homeTeam: { ...completedMatch.homeTeam, name: 'Manchester Thunder Netball Club' },
+      awayTeam: { ...completedMatch.awayTeam, name: 'London Mavericks Netball Club' },
+    }} />);
+
+    expect(screen.getByText('Manchester Thunder Netball Club')).toHaveClass('break-words');
+    expect(screen.getByText('London Mavericks Netball Club')).toHaveClass('break-words');
+    expect(screen.getByTestId('score-display').firstElementChild).toHaveClass(
+      'grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]',
+    );
+  });
+
   it('shows Final badge for completed matches by default', () => {
     render(<ScoreCard match={completedMatch} />);
     expect(screen.getByText('Final')).toBeInTheDocument();

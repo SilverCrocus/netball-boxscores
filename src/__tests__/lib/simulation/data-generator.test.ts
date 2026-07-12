@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { SimMatch, SimState } from '@/lib/simulation/types';
+import type { SimMatch } from '@/lib/simulation/types';
 import { buildFixtureResponse, buildMatchStatsResponse } from '@/lib/simulation/data-generator';
 
 function makeSimMatch(overrides: Partial<SimMatch> = {}): SimMatch {

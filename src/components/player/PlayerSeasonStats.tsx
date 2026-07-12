@@ -33,14 +33,15 @@ function computeSeasonMax(stats: PlayerMatchStats[], field: string): number {
   return Math.max(...stats.map((s) => getStatValue(s, field)));
 }
 
-function computeTrend(
+export function computeTrend(
   stats: PlayerMatchStats[],
   field: string,
 ): { value: string; positive: boolean } | null {
   if (stats.length < 2) return null;
 
-  const current = getStatValue(stats[stats.length - 1], field);
-  const previous = getStatValue(stats[stats.length - 2], field);
+  // Player page queries match stats newest-first.
+  const current = getStatValue(stats[0], field);
+  const previous = getStatValue(stats[1], field);
 
   if (previous === 0) {
     if (current === 0) return null;
@@ -55,20 +56,38 @@ function computeTrend(
   };
 }
 
+export function computeProgressPercentage(
+  total: number,
+  singleGameMax: number,
+  gamesPlayed: number,
+  isPercentage: boolean,
+): number {
+  if (isPercentage) return Math.min(Math.max(total, 0), 100);
+  if (singleGameMax <= 0 || gamesPlayed <= 0) return 0;
+  return Math.min(Math.max((total / (singleGameMax * gamesPlayed)) * 100, 0), 100);
+}
+
 function StatHighlightCard({
   highlight,
   total,
   max,
   trend,
   format,
+  gamesPlayed,
 }: {
   highlight: StatHighlight;
   total: number;
   max: number;
   trend: { value: string; positive: boolean } | null;
   format?: 'percentage' | 'number';
+  gamesPlayed: number;
 }) {
-  const progressPct = max > 0 ? Math.min((total / max) * 100, 100) : 0;
+  const progressPct = computeProgressPercentage(
+    total,
+    max,
+    gamesPlayed,
+    format === 'percentage',
+  );
   const displayValue = format === 'percentage' ? `${total.toFixed(1)}%` : total.toString();
 
   return (
@@ -177,6 +196,7 @@ export default function PlayerSeasonStats({
               max={progressMax}
               trend={trend}
               format={highlight.format}
+              gamesPlayed={gamesPlayed}
             />
           );
         })}

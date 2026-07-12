@@ -90,9 +90,12 @@ describe('Auth Configuration', () => {
       (p: any) => p.id === 'credentials'
     ) as any;
     const result = await credentialsProvider.options.authorize(
-      { email: 'test@example.com', password: 'correct' },
+      { email: ' Test@Example.COM ', password: 'correct' },
       {} as any
     );
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { email: 'test@example.com' },
+    });
     expect(result).toEqual({
       id: '1',
       email: 'test@example.com',

@@ -101,7 +101,7 @@ function splitAndSort(
   const onCourtIds = new Set(onCourt.map((p) => p.id));
   const bench = players.filter((p) => !onCourtIds.has(p.id));
 
-  let sorted = [...onCourt];
+  const sorted = [...onCourt];
 
   if (sort.direction === 'default') {
     // Default: GS → GK

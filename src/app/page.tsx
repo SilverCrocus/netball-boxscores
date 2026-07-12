@@ -5,58 +5,76 @@ import { formatMatchDateTime } from '@/lib/format';
 import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { Countdown } from '@/components/ui/Countdown';
 import Link from 'next/link';
+import Image from 'next/image';
+import type { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
+const homepageMatchSelect = {
+  id: true,
+  status: true,
+  scheduledAt: true,
+  homeScore: true,
+  awayScore: true,
+  venue: true,
+  round: true,
+  currentQuarter: true,
+  currentTime: true,
+  homeTeamId: true,
+  awayTeamId: true,
+  homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
+  awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
+  teamStats: { select: { teamId: true, goals: true, goal2: true } },
+} satisfies Prisma.MatchSelect;
+
+type HomepageMatch = Prisma.MatchGetPayload<{ select: typeof homepageMatchSelect }>;
+
 export default async function HomePage() {
-  let matches: Array<{
-    id: string;
-    status: 'LIVE' | 'COMPLETED' | 'SCHEDULED';
-    scheduledAt: Date;
-    homeScore: number;
-    awayScore: number;
-    venue: string;
-    round: number;
-    currentQuarter: number | null;
-    homeTeamId: string;
-    awayTeamId: string;
-    homeTeam: { name: string; abbreviation: string; logoUrl: string | null };
-    awayTeam: { name: string; abbreviation: string; logoUrl: string | null };
-    scoreFlow: { scoringTeamId: string; scorePoints: number }[];
-  }> = [];
+  let matches: HomepageMatch[] = [];
+  let databaseUnavailable = false;
 
   try {
-    matches = await prisma.match.findMany({
-      where: excludeSimData,
-      include: {
-        homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
-        awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
-        scoreFlow: { select: { scoringTeamId: true, scorePoints: true } },
-      },
-      orderBy: { scheduledAt: 'asc' },
+    const competition = await prisma.competition.findFirst({
+      orderBy: { season: 'desc' },
+      select: { id: true },
     });
+
+    if (competition) {
+      const baseWhere = { ...excludeSimData, competitionId: competition.id };
+      const [live, upcoming, completed] = await Promise.all([
+        prisma.match.findMany({
+          where: { ...baseWhere, status: 'LIVE' },
+          select: homepageMatchSelect,
+          orderBy: { scheduledAt: 'asc' },
+        }),
+        prisma.match.findMany({
+          where: { ...baseWhere, status: 'SCHEDULED' },
+          select: homepageMatchSelect,
+          orderBy: { scheduledAt: 'asc' },
+          take: 4,
+        }),
+        prisma.match.findMany({
+          where: { ...baseWhere, status: 'COMPLETED' },
+          select: homepageMatchSelect,
+          orderBy: [{ round: 'desc' }, { scheduledAt: 'asc' }],
+        }),
+      ]);
+      matches = [...live, ...upcoming, ...completed];
+    }
   } catch {
-    // DB unavailable (e.g. Supabase free tier paused) — show empty state
+    databaseUnavailable = true;
   }
 
-  function computeBreakdown(match: typeof matches[number]) {
-    let homeGoals = 0, homeSuperShots = 0;
-    let awayGoals = 0, awaySuperShots = 0;
-    for (const sf of match.scoreFlow) {
-      const isHome = sf.scoringTeamId === match.homeTeamId;
-      if (sf.scorePoints === 2) {
-        if (isHome) homeSuperShots++;
-        else awaySuperShots++;
-      } else {
-        if (isHome) homeGoals++;
-        else awayGoals++;
-      }
-    }
+  function computeBreakdown(match: HomepageMatch) {
+    const home = match.teamStats.find((stat) => stat.teamId === match.homeTeamId);
+    const away = match.teamStats.find((stat) => stat.teamId === match.awayTeamId);
+    const hasSuperShots = (home?.goal2 ?? 0) > 0 || (away?.goal2 ?? 0) > 0;
+
     return {
-      homeBreakdown: homeSuperShots > 0 || awaySuperShots > 0
-        ? { goals: homeGoals, superShots: homeSuperShots } : null,
-      awayBreakdown: homeSuperShots > 0 || awaySuperShots > 0
-        ? { goals: awayGoals, superShots: awaySuperShots } : null,
+      homeBreakdown: hasSuperShots && home
+        ? { goals: Math.max(0, home.goals - home.goal2), superShots: home.goal2 } : null,
+      awayBreakdown: hasSuperShots && away
+        ? { goals: Math.max(0, away.goals - away.goal2), superShots: away.goal2 } : null,
     };
   }
 
@@ -99,6 +117,33 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {databaseUnavailable && (
+        <section
+          role="alert"
+          className="mb-16 rounded-2xl border border-error/30 bg-error/5 px-6 py-10 text-center"
+        >
+          <span className="material-symbols-outlined mb-3 text-4xl text-error" aria-hidden="true">
+            cloud_off
+          </span>
+          <h2 className="font-headline text-2xl font-bold text-primary">Scores temporarily unavailable</h2>
+          <p className="mx-auto mt-2 max-w-lg font-label text-sm text-on-surface-variant">
+            CentrePass could not reach the match database. Please try again in a few minutes.
+          </p>
+        </section>
+      )}
+
+      {!databaseUnavailable && matches.length === 0 && (
+        <section className="mb-16 rounded-2xl bg-surface-container-lowest px-6 py-12 text-center shadow-sm">
+          <span className="material-symbols-outlined mb-3 text-4xl text-secondary" aria-hidden="true">
+            event_upcoming
+          </span>
+          <h2 className="font-headline text-2xl font-bold text-primary">No fixtures yet</h2>
+          <p className="mx-auto mt-2 max-w-lg font-label text-sm text-on-surface-variant">
+            The latest season is set up, but its match schedule has not been published.
+          </p>
+        </section>
+      )}
+
       {/* Live Matches */}
       {liveMatches.length > 0 && (
         <section className="mb-16">
@@ -115,6 +160,7 @@ export default async function HomePage() {
       )}
 
       {/* Upcoming Fixtures */}
+      {upcomingMatches.length > 0 && (
       <section className="mb-20">
         <h2 className="text-xl font-bold font-headline text-primary mb-6">UPCOMING FIXTURES</h2>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
@@ -128,27 +174,30 @@ export default async function HomePage() {
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-20 -right-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
                 <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-lime-400/10 rounded-full blur-2xl" />
-                <img
+                <Image
                   src="/netball-cleaned-white.png"
                   alt=""
-                  className="absolute right-[-10%] top-1/2 -translate-y-1/2 w-[96%] max-w-[700px] opacity-[0.04]"
+                  width={700}
+                  height={634}
+                  className="absolute right-[-10%] top-1/2 h-auto w-[96%] max-w-[700px] -translate-y-1/2 opacity-[0.04]"
+                  style={{ height: 'auto' }}
                 />
               </div>
-              <div className="relative flex justify-between items-start">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3">
+              <div className="relative flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-lime-400 font-black font-label text-xs uppercase tracking-widest">
                       Next Match &middot; Round {featured.round}
                     </span>
                     <Countdown scheduledAt={featured.scheduledAt.toISOString()} />
                   </div>
-                  <h3 className="text-2xl md:text-4xl font-black font-headline tracking-tighter italic uppercase leading-tight">
+                  <h3 className="text-2xl font-black font-headline leading-tight tracking-tighter italic uppercase break-words [overflow-wrap:anywhere] md:text-4xl">
                     {featured.homeTeam.name} <span className="text-lime-400">vs</span><br />
                     {featured.awayTeam.name}
                   </h3>
                 </div>
-                <div className="text-right shrink-0 pl-4 mt-6">
-                  <span className="block text-xl font-bold font-headline whitespace-nowrap">
+                <div className="shrink-0 text-left sm:mt-6 sm:pl-4 sm:text-right">
+                  <span className="block text-lg font-bold font-headline sm:text-xl sm:whitespace-nowrap">
                     {formatMatchDateTime(featured.scheduledAt)}
                   </span>
                   {featured.venue && (
@@ -163,7 +212,7 @@ export default async function HomePage() {
                   <div className="w-28 h-28 rounded-full flex items-center justify-center backdrop-blur-md mb-2 overflow-hidden">
                     <TeamBadge team={featured.homeTeam} size={96} variant="home" />
                   </div>
-                  <span className="font-bold font-headline uppercase text-sm">
+                  <span className="w-full font-bold font-headline text-xs leading-tight uppercase break-words [overflow-wrap:anywhere] sm:text-sm">
                     {featured.homeTeam.name}
                   </span>
                 </div>
@@ -172,7 +221,7 @@ export default async function HomePage() {
                   <div className="w-28 h-28 rounded-full flex items-center justify-center backdrop-blur-md mb-2 overflow-hidden">
                     <TeamBadge team={featured.awayTeam} size={96} variant="away" />
                   </div>
-                  <span className="font-bold font-headline uppercase text-sm">
+                  <span className="w-full font-bold font-headline text-xs leading-tight uppercase break-words [overflow-wrap:anywhere] sm:text-sm">
                     {featured.awayTeam.name}
                   </span>
                 </div>
@@ -188,7 +237,7 @@ export default async function HomePage() {
                 href={`/match/${match.id}`}
                 className="bg-surface-container rounded-xl p-4 group hover:bg-surface-container-high transition-all flex-1 flex flex-col justify-center"
               >
-                <div className="text-base font-bold font-headline text-primary">
+                <div className="text-base font-bold font-headline text-primary break-words [overflow-wrap:anywhere]">
                   {match.homeTeam.name} v {match.awayTeam.name}
                 </div>
                 <div className="flex items-center justify-between mt-1">
@@ -209,6 +258,7 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Results grouped by round */}
       {resultsByRound.size > 0 && (

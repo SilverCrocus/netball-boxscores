@@ -11,6 +11,7 @@ import type {
   ScoreFlowAddPayload,
   StatEventPayload,
 } from '@/types/socket';
+import { mergeScoreFlows } from '@/lib/score-flow';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -83,13 +84,7 @@ export function useMatchSocket(matchId: string): MatchSocketState {
     socket.on('scoreflow:add', (payload) => {
       if (payload.matchId === matchId) {
         setState((prev) => {
-          // Deduplicate by period+periodSeconds
-          const key = `${payload.period}-${payload.periodSeconds}`;
-          const exists = prev.scoreFlow.some(
-            (sf) => `${sf.period}-${sf.periodSeconds}` === key,
-          );
-          if (exists) return prev;
-          return { ...prev, scoreFlow: [...prev.scoreFlow, payload] };
+          return { ...prev, scoreFlow: mergeScoreFlows(prev.scoreFlow, [payload]) };
         });
       }
     });

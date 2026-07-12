@@ -8,7 +8,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-
 // ───── Competition & Teams ─────
 
 model Competition {
@@ -24,25 +23,27 @@ model Competition {
 }
 
 model Team {
-  id                 String      @id @default(cuid())
+  id                 String           @id @default(cuid())
   name               String
-  slug               String      @unique
+  slug               String           @unique
   abbreviation       String
   logoUrl            String?
   bannerUrl          String?
   primaryColor       String?
   secondaryColor     String?
-  championDataTeamId Int?        @unique
+  championDataTeamId Int?             @unique
   competitionId      String
-  competition        Competition @relation(fields: [competitionId], references: [id])
+  competition        Competition      @relation(fields: [competitionId], references: [id])
   players            Player[]
-  homeMatches        Match[]     @relation("HomeTeam")
-  awayMatches        Match[]     @relation("AwayTeam")
+  homeMatches        Match[]          @relation("HomeTeam")
+  awayMatches        Match[]          @relation("AwayTeam")
   followers          UserTeam[]
   standings          Standing[]
   scoredFlows        ScoreFlow[]      @relation("ScoringTeam")
   matchEvents        MatchEvent[]     @relation("EventTeam")
   teamMatchStats     TeamMatchStats[]
+
+  @@index([competitionId])
 }
 
 model Standing {
@@ -64,6 +65,7 @@ model Standing {
 
   @@unique([competitionId, teamId])
   @@index([competitionId, rank])
+  @@index([teamId])
 }
 
 // ───── Players ─────
@@ -86,7 +88,7 @@ model Player {
   championDataPlayerId Int?               @unique
   nationality          String?
   dateOfBirth          DateTime?
-  height               String?            /// imperial format e.g. "6 ft 1 in"
+  height               String? /// imperial format e.g. "6 ft 1 in"
   birthLocation        String?
   biography            String?            @db.Text
   theSportsDbId        String?            @unique
@@ -95,6 +97,8 @@ model Player {
   matchStats           PlayerMatchStats[]
   scoredFlows          ScoreFlow[]
   matchEvents          MatchEvent[]
+
+  @@index([teamId, name])
 }
 
 // ───── Matches ─────
@@ -130,6 +134,10 @@ model Match {
   matchEvents         MatchEvent[]
   reminders           UserReminder[]
   favorites           UserFavorite[]
+
+  @@index([competitionId, status, scheduledAt])
+  @@index([homeTeamId, scheduledAt])
+  @@index([awayTeamId, scheduledAt])
 }
 
 model MatchQuarter {
@@ -180,47 +188,49 @@ model PlayerMatchStats {
   interceptPassThrown  Int    @default(0)
 
   @@unique([playerId, matchId])
+  @@index([matchId])
 }
 
 model TeamMatchStats {
-  id                   String @id @default(cuid())
+  id                   String  @id @default(cuid())
   matchId              String
-  match                Match  @relation(fields: [matchId], references: [id])
+  match                Match   @relation(fields: [matchId], references: [id])
   teamId               String
-  team                 Team   @relation(fields: [teamId], references: [id])
+  team                 Team    @relation(fields: [teamId], references: [id])
   isHome               Boolean
-  goals                Int    @default(0)
-  goalAttempts         Int    @default(0)
-  goal2                Int    @default(0)
-  attempt2             Int    @default(0)
-  points               Int    @default(0)
-  goalAssists          Int    @default(0)
-  intercepts           Int    @default(0)
-  deflections          Int    @default(0)
-  rebounds             Int    @default(0)
-  penalties            Int    @default(0)
-  contactPenalties     Int    @default(0)
-  obstructionPenalties Int    @default(0)
-  feeds                Int    @default(0)
-  feedWithAttempt      Int    @default(0)
-  centrePassReceives   Int    @default(0)
-  turnovers            Int    @default(0)
-  gain                 Int    @default(0)
-  timeout              Int    @default(0)
-  timeInPossession     Int    @default(0)
-  timeToScore          Int    @default(0)
-  goalsFromCentrePass  Int    @default(0)
-  goalsFromGain        Int    @default(0)
-  centrePassToGoalPerc Float  @default(0)
-  gainToGoalPerc       Float  @default(0)
-  possessionChanges    Int    @default(0)
-  netPoints            Float  @default(0)
-  goalMisses           Int    @default(0)
-  blocks               Int    @default(0)
-  pickups              Int    @default(0)
-  tossUpWin            Int    @default(0)
+  goals                Int     @default(0)
+  goalAttempts         Int     @default(0)
+  goal2                Int     @default(0)
+  attempt2             Int     @default(0)
+  points               Int     @default(0)
+  goalAssists          Int     @default(0)
+  intercepts           Int     @default(0)
+  deflections          Int     @default(0)
+  rebounds             Int     @default(0)
+  penalties            Int     @default(0)
+  contactPenalties     Int     @default(0)
+  obstructionPenalties Int     @default(0)
+  feeds                Int     @default(0)
+  feedWithAttempt      Int     @default(0)
+  centrePassReceives   Int     @default(0)
+  turnovers            Int     @default(0)
+  gain                 Int     @default(0)
+  timeout              Int     @default(0)
+  timeInPossession     Int     @default(0)
+  timeToScore          Int     @default(0)
+  goalsFromCentrePass  Int     @default(0)
+  goalsFromGain        Int     @default(0)
+  centrePassToGoalPerc Float   @default(0)
+  gainToGoalPerc       Float   @default(0)
+  possessionChanges    Int     @default(0)
+  netPoints            Float   @default(0)
+  goalMisses           Int     @default(0)
+  blocks               Int     @default(0)
+  pickups              Int     @default(0)
+  tossUpWin            Int     @default(0)
 
   @@unique([matchId, teamId])
+  @@index([teamId])
 }
 
 model ScoreFlow {
@@ -239,6 +249,8 @@ model ScoreFlow {
 
   @@unique([matchId, period, periodSeconds, scoringTeamId])
   @@index([matchId, period])
+  @@index([scoringTeamId])
+  @@index([scorerPlayerId])
 }
 
 model MatchEvent {
@@ -255,6 +267,8 @@ model MatchEvent {
 
   @@unique([matchId, playerId, type, period, periodSeconds])
   @@index([matchId, period])
+  @@index([playerId])
+  @@index([teamId])
 }
 
 model PollLog {
@@ -303,6 +317,7 @@ model Account {
   session_state     String?
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -311,6 +326,8 @@ model Session {
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expires      DateTime
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -318,7 +335,7 @@ model VerificationToken {
   token      String   @unique
   expires    DateTime
 
-  @@unique([identifier, token])
+  @@id([identifier, token])
 }
 
 // ───── User Personalization ─────
@@ -330,6 +347,7 @@ model UserTeam {
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@id([userId, teamId])
+  @@index([teamId])
 }
 
 model UserReminder {
@@ -339,6 +357,7 @@ model UserReminder {
   match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
   @@id([userId, matchId])
+  @@index([matchId])
 }
 
 model UserFavorite {
@@ -348,4 +367,5 @@ model UserFavorite {
   match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
   @@id([userId, matchId])
+  @@index([matchId])
 }

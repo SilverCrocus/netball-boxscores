@@ -19,18 +19,6 @@ const getTeam = cache((teamSlug: string) =>
     include: {
       players: { orderBy: { name: 'asc' } },
       standings: { take: 1 },
-      homeMatches: {
-        where: excludeSimData,
-        include: { awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } } },
-        orderBy: { scheduledAt: 'desc' },
-        take: 10,
-      },
-      awayMatches: {
-        where: excludeSimData,
-        include: { homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } } },
-        orderBy: { scheduledAt: 'desc' },
-        take: 10,
-      },
     },
   })
 );
@@ -55,13 +43,36 @@ export default async function TeamPage({ params }: TeamPageProps) {
   if (!team) notFound();
 
   const standing = team.standings[0];
-  const allMatches = [
-    ...team.homeMatches.map((m) => ({ ...m, opponent: m.awayTeam.name, opponentTeam: m.awayTeam, isHome: true })),
-    ...team.awayMatches.map((m) => ({ ...m, opponent: m.homeTeam.name, opponentTeam: m.homeTeam, isHome: false })),
-  ].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
-
-  const recentResults = allMatches.filter((m) => m.status === 'COMPLETED').slice(0, 5);
-  const upcoming = allMatches.filter((m) => m.status === 'SCHEDULED').reverse().slice(0, 3);
+  const matchWhere = {
+    ...excludeSimData,
+    OR: [{ homeTeamId: team.id }, { awayTeamId: team.id }],
+  };
+  const teamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
+  const [recentMatches, upcomingMatches] = await Promise.all([
+    prisma.match.findMany({
+      where: { ...matchWhere, status: 'COMPLETED' },
+      include: { homeTeam: { select: teamSelect }, awayTeam: { select: teamSelect } },
+      orderBy: { scheduledAt: 'desc' },
+      take: 5,
+    }),
+    prisma.match.findMany({
+      where: {
+        ...matchWhere,
+        status: 'SCHEDULED',
+        scheduledAt: { gte: new Date() },
+      },
+      include: { homeTeam: { select: teamSelect }, awayTeam: { select: teamSelect } },
+      orderBy: { scheduledAt: 'asc' },
+      take: 3,
+    }),
+  ]);
+  const withOpponent = (match: (typeof recentMatches)[number]) => {
+    const isHome = match.homeTeamId === team.id;
+    const opponentTeam = isHome ? match.awayTeam : match.homeTeam;
+    return { ...match, isHome, opponent: opponentTeam.name, opponentTeam };
+  };
+  const recentResults = recentMatches.map(withOpponent);
+  const upcoming = upcomingMatches.map(withOpponent);
 
   return (
     <div className="max-w-7xl mx-auto space-y-12">
@@ -76,11 +87,11 @@ export default async function TeamPage({ params }: TeamPageProps) {
         { name: team.name, url: `/team/${team.slug}` },
       ])} />
       {/* Hero */}
-      <section className="kinetic-gradient rounded-xl overflow-hidden relative min-h-[400px] flex items-center p-8 md:p-12 text-white shadow-2xl">
-        <div className="relative z-10 w-full grid md:grid-cols-2 gap-12 items-center">
-          <div className="flex items-center gap-8">
+      <section className="kinetic-gradient relative flex min-h-[400px] items-center overflow-hidden rounded-xl p-4 text-white shadow-2xl sm:p-8 md:p-12">
+        <div className="relative z-10 grid w-full min-w-0 items-center gap-8 md:grid-cols-2 md:gap-12">
+          <div className="flex min-w-0 flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8">
             <div
-              className="w-32 h-32 md:w-48 md:h-48 bg-white/10 backdrop-blur-xl border-4 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden"
+              className="flex h-28 w-28 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 bg-white/10 shadow-inner backdrop-blur-xl sm:h-32 sm:w-32 md:h-48 md:w-48"
               style={{ borderColor: team.primaryColor || '#a3e635' }}
             >
               {team.logoUrl ? (
@@ -100,13 +111,13 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 </span>
               )}
             </div>
-            <div>
+            <div className="min-w-0 max-w-full">
               {standing && (
                 <div className="inline-flex items-center px-3 py-1 rounded-full bg-secondary text-white font-label text-xs font-bold tracking-widest uppercase mb-4">
                   League Ranking #{standing.rank}
                 </div>
               )}
-              <h1 className="font-headline font-black text-5xl md:text-7xl italic leading-none mb-4 uppercase">
+              <h1 className="mb-4 max-w-full font-headline text-4xl font-black italic leading-none uppercase break-words [overflow-wrap:anywhere] sm:text-5xl md:text-7xl">
                 {team.name.split(' ').map((word, i) => (
                   <span key={i}>
                     {word}
@@ -117,22 +128,22 @@ export default async function TeamPage({ params }: TeamPageProps) {
             </div>
           </div>
           {standing && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
+            <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
+              <div className="min-w-0 rounded-xl border-l-4 bg-white/5 p-4 backdrop-blur-md sm:p-6" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
                 <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Record</span>
                 <span className="font-headline font-bold text-4xl text-white">
                   {standing.wins}-{standing.losses}-{standing.draws}
                 </span>
               </div>
-              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
+              <div className="min-w-0 rounded-xl border-l-4 bg-white/5 p-4 backdrop-blur-md sm:p-6" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
                 <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Points</span>
                 <span className="font-headline font-bold text-4xl" style={{ color: team.primaryColor || '#a3e635' }}>{standing.points}</span>
               </div>
-              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
+              <div className="min-w-0 rounded-xl border-l-4 bg-white/5 p-4 backdrop-blur-md sm:p-6" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
                 <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Goals For</span>
                 <span className="font-headline font-bold text-4xl text-white">{standing.goalsFor}</span>
               </div>
-              <div className="bg-white/5 backdrop-blur-md p-6 rounded-xl border-l-4" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
+              <div className="min-w-0 rounded-xl border-l-4 bg-white/5 p-4 backdrop-blur-md sm:p-6" style={{ borderLeftColor: team.primaryColor || '#a3e635' }}>
                 <span className="font-label text-slate-400 text-sm uppercase tracking-widest block mb-2">Goals Against</span>
                 <span className="font-headline font-bold text-4xl text-white">{standing.goalsAgainst}</span>
               </div>
@@ -156,16 +167,20 @@ export default async function TeamPage({ params }: TeamPageProps) {
               const teamScore = m.isHome ? m.homeScore : m.awayScore;
               const oppScore = m.isHome ? m.awayScore : m.homeScore;
               const won = teamScore > oppScore;
+              const drawn = teamScore === oppScore;
+              const result = drawn ? 'D' : won ? 'W' : 'L';
+              const borderColor = drawn ? 'border-outline-variant' : won ? 'border-secondary' : 'border-error';
+              const badgeColor = drawn ? 'bg-outline-variant' : won ? 'bg-secondary' : 'bg-error';
               return (
                 <Link
                   key={m.id}
                   href={`/match/${m.id}`}
                   className={`flex-shrink-0 flex items-center gap-3 px-6 py-4 bg-surface-container-lowest rounded-xl shadow-sm border-b-2 ${
-                    won ? 'border-secondary' : 'border-error'
+                    borderColor
                   }`}
                 >
-                  <span className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${won ? 'bg-secondary' : 'bg-error'}`}>
-                    {won ? 'W' : 'L'}
+                  <span className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${badgeColor}`}>
+                    {result}
                   </span>
                   <TeamBadge team={m.opponentTeam} size={32} variant="away" />
                   <div>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { SimMatch, SimState } from '@/lib/simulation/types';
+import type { SimMatch } from '@/lib/simulation/types';
 
 // Mock prisma for DB setup
 vi.mock('@/lib/db', () => ({

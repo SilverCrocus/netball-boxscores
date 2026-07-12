@@ -44,7 +44,7 @@ export function getPollingInterval(
 
 // ── Main poll cycle ──
 
-async function pollChampionData(): Promise<void> {
+export async function pollChampionData(): Promise<void> {
   try {
     const COMP_ID = parseInt(process.env.SSN_COMPETITION_ID ?? '12949', 10);
 
@@ -83,7 +83,7 @@ async function pollChampionData(): Promise<void> {
       const validation = validateMatchData(fixtureMatch, matchDetail, dbTeams, dbPlayers);
 
       // Update PollLog status
-      const pollLogId = ingested.pollLogIds.find((_, i) => i > 0); // skip fixture log
+      const pollLogId = ingested.matchPollLogIds.get(cdMatchId);
       if (pollLogId && !validation.valid) {
         await prisma.pollLog.update({
           where: { id: pollLogId },
@@ -120,11 +120,13 @@ async function pollChampionData(): Promise<void> {
           })
         : null;
 
-      if (changes.matchId && hasChanges) {
+      if (changes.matchId) {
         await applyChanges(changes, validation.validatedData);
-        await broadcastMatchChanges(changes, matchDetail, dbMatch);
-      } else if (changes.matchId && matchDetail.playerStats) {
-        await broadcastPlayerStats(changes.matchId, matchDetail);
+        if (hasChanges) {
+          await broadcastMatchChanges(changes, matchDetail, dbMatch);
+        } else if (matchDetail.playerStats) {
+          await broadcastPlayerStats(changes.matchId, matchDetail);
+        }
       }
 
       if (changes.matchId && oldStatMap && matchDetail.playerStats && dbMatch) {
@@ -187,7 +189,7 @@ async function pollChampionData(): Promise<void> {
       }
     }
 
-    recordPoll('success', matchesProcessed);
+    recordPoll(ingested.detailFetchErrors > 0 ? 'partial' : 'success', matchesProcessed);
   } catch (error) {
     console.error('[Worker] Poll error:', error);
     recordPoll('error', 0);

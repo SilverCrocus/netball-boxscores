@@ -5,7 +5,6 @@ import {
   setupSimMatches,
   teardownSimMatches,
   tickAllMatches,
-  tickMatch,
 } from './engine';
 import { buildFixtureResponse, buildMatchStatsResponse } from './data-generator';
 import { STATE_ORDER } from './types';

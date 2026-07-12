@@ -9,27 +9,43 @@ import {
 } from '@/lib/socket-server';
 import type { CDMatchStatsResponse } from '@/types/champion-data';
 import type { ChangeResult } from '@/lib/processing';
+import { getScoreFlowIdentity } from '@/lib/score-flow';
 
 // ── Score flow delta tracking ──
 
-const matchScoreFlowCounts = new Map<string, number>();
+const matchScoreFlowSnapshots = new Map<string, Map<string, string>>();
 
 export function resetScoreFlowTracking(): void {
-  matchScoreFlowCounts.clear();
+  matchScoreFlowSnapshots.clear();
 }
 
 export async function broadcastScoreFlowDelta(matchId: string): Promise<void> {
   const allEntries = await prisma.scoreFlow.findMany({
     where: { matchId },
     include: { scorerPlayer: { select: { id: true, name: true } } },
-    orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
+    orderBy: [
+      { period: 'asc' },
+      { periodSeconds: 'asc' },
+      { homeScore: 'asc' },
+      { awayScore: 'asc' },
+      { scoringTeamId: 'asc' },
+    ],
   });
 
-  const lastCount = matchScoreFlowCounts.get(matchId) ?? 0;
-  const newEntries = allEntries.slice(lastCount);
-  matchScoreFlowCounts.set(matchId, allEntries.length);
+  const previous = matchScoreFlowSnapshots.get(matchId) ?? new Map<string, string>();
+  const next = new Map<string, string>();
 
-  for (const sf of newEntries) {
+  for (const sf of allEntries) {
+    const identity = getScoreFlowIdentity(sf);
+    const signature = JSON.stringify([
+      sf.homeScore,
+      sf.awayScore,
+      sf.scorePoints,
+      sf.scorerPlayer?.id ?? null,
+    ]);
+    next.set(identity, signature);
+    if (previous.get(identity) === signature) continue;
+
     broadcastScoreFlowAdd(matchId, {
       matchId,
       period: sf.period,
@@ -42,6 +58,8 @@ export async function broadcastScoreFlowDelta(matchId: string): Promise<void> {
       scorerName: sf.scorerPlayer?.name,
     });
   }
+
+  matchScoreFlowSnapshots.set(matchId, next);
 }
 
 // ── Match changes broadcast ──
@@ -57,8 +75,10 @@ type DbMatchWithTeams = {
 export async function broadcastMatchChanges(
   changes: ChangeResult,
   matchDetail: CDMatchStatsResponse,
-  dbMatch: DbMatchWithTeams | null,
+  _dbMatch: DbMatchWithTeams | null,
 ): Promise<void> {
+  // Retained for caller compatibility while match-change broadcasts use the validated delta.
+  void _dbMatch;
   if (!changes.matchId) return;
 
   if (changes.scoreChanged) {
@@ -131,8 +151,7 @@ export async function broadcastPlayerStats(
 
 // ── Stat events (intercepts, deflections, rebounds, turnovers) ──
 
-const EVENT_TYPES = ['intercept', 'deflection', 'rebound', 'turnover'] as const;
-type EventType = typeof EVENT_TYPES[number];
+type EventType = 'intercept' | 'deflection' | 'rebound' | 'turnover';
 
 const STAT_TO_EVENT: { field: 'intercepts' | 'deflections' | 'rebounds' | 'turnovers'; type: EventType }[] = [
   { field: 'intercepts', type: 'intercept' },

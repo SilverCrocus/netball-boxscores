@@ -64,4 +64,23 @@ describe('broadcastScoreFlowDelta', () => {
 
     expect(broadcastScoreFlowAdd).toHaveBeenCalledTimes(1);
   });
+
+  it('rebroadcasts a correction to an existing score-flow identity', async () => {
+    mockScoreFlowFindMany.mockResolvedValue([
+      { id: '1', period: 1, periodSeconds: 100, scoringTeamId: 't1', homeScore: 1, awayScore: 0, scorePoints: 1, scorerPlayer: null },
+    ] as any);
+    await broadcastScoreFlowDelta('match-1');
+    vi.mocked(broadcastScoreFlowAdd).mockClear();
+
+    mockScoreFlowFindMany.mockResolvedValue([
+      { id: '1', period: 1, periodSeconds: 100, scoringTeamId: 't1', homeScore: 2, awayScore: 0, scorePoints: 2, scorerPlayer: null },
+    ] as any);
+    await broadcastScoreFlowDelta('match-1');
+
+    expect(broadcastScoreFlowAdd).toHaveBeenCalledOnce();
+    expect(broadcastScoreFlowAdd).toHaveBeenCalledWith('match-1', expect.objectContaining({
+      scorePoints: 2,
+      homeScore: 2,
+    }));
+  });
 });

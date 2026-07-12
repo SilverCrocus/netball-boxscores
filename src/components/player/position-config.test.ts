@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getPositionConfig, type PositionGroup } from './position-config';
+import { getPositionConfig } from './position-config';
 
 describe('getPositionConfig', () => {
   it('maps GS to shooter group', () => {
