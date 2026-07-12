@@ -2,6 +2,8 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import MatchPage from '../page';
 
+vi.mock('@/components/match/MatchActions', () => ({ MatchActions: () => null }));
+
 vi.mock('@/lib/db', () => ({
   prisma: {
     match: {
@@ -42,10 +44,10 @@ vi.mock('@/lib/db', () => ({
           },
         ],
         scoreFlow: [
-          { period: 1, homeScore: 1, awayScore: 0 },
-          { period: 1, homeScore: 2, awayScore: 1 },
+          { id: 'sf1', period: 1, periodSeconds: 10, scoringTeamId: 'home-team', homeScore: 1, awayScore: 0, scorePoints: 1, scorerPlayerId: 'p1' },
+          { id: 'sf2', period: 1, periodSeconds: 20, scoringTeamId: 'away-team', homeScore: 2, awayScore: 1, scorePoints: 1, scorerPlayerId: 'p2' },
         ],
-        matchEvents: [],
+        _count: { matchEvents: 0 },
       }),
     },
   },
@@ -81,5 +83,19 @@ describe('MatchPage', () => {
     expect(within(mvpCard!).getByText('Jade Clarke')).toBeInTheDocument();
     expect(within(mvpCard!).getByText('96')).toBeInTheDocument();
     expect(screen.queryByText('Match MVP')).not.toBeInTheDocument();
+  });
+
+  it('uses an explicit initial payload and excludes match events', async () => {
+    const { prisma } = await import('@/lib/db');
+    await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+
+    const query = vi.mocked(prisma.match.findUnique).mock.calls.at(-1)?.[0];
+    expect(query?.select).not.toHaveProperty('matchEvents');
+    expect(query?.select).toEqual(expect.objectContaining({
+      _count: { select: { matchEvents: true } },
+      playerStats: expect.objectContaining({
+        select: expect.objectContaining({ player: expect.any(Object) }),
+      }),
+    }));
   });
 });

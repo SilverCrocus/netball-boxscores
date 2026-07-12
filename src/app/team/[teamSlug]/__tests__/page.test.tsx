@@ -5,6 +5,30 @@ import TeamPage from '../page';
 vi.mock('@/lib/db', () => ({
   excludeSimData: {},
   prisma: {
+    competition: {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: 'competition-2026',
+          season: 2026,
+          name: 'Suncorp Super Netball',
+          seasonStart: new Date('2026-03-01T00:00:00Z'),
+          seasonEnd: new Date('2026-07-31T00:00:00Z'),
+        },
+      ]),
+    },
+    standing: {
+      findUnique: vi.fn().mockResolvedValue({
+        rank: 1,
+        played: 12,
+        wins: 11,
+        losses: 1,
+        draws: 0,
+        goalsFor: 645,
+        goalsAgainst: 412,
+        goalPercentage: 156.5,
+        points: 44,
+      }),
+    },
     team: {
       findUnique: vi.fn().mockResolvedValue({
         id: 't1',
@@ -90,17 +114,29 @@ describe('TeamPage', () => {
     await TeamPage({ params: Promise.resolve({ teamSlug: 'vipers-athletics' }) });
 
     expect(prisma.match.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ status: 'COMPLETED' }),
+      where: expect.objectContaining({
+        competitionId: 'competition-2026',
+        status: 'COMPLETED',
+      }),
       orderBy: { scheduledAt: 'desc' },
       take: 5,
     }));
     expect(prisma.match.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
+        competitionId: 'competition-2026',
         status: 'SCHEDULED',
         scheduledAt: { gte: expect.any(Date) },
       }),
       orderBy: { scheduledAt: 'asc' },
       take: 3,
     }));
+    expect(prisma.standing.findUnique).toHaveBeenCalledWith({
+      where: {
+        competitionId_teamId: {
+          competitionId: 'competition-2026',
+          teamId: 't1',
+        },
+      },
+    });
   });
 });

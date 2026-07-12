@@ -1,0 +1,36 @@
+import { NextResponse } from 'next/server';
+import { resolveCompetition } from '@/lib/competitions';
+import { getCompletedMatchesPage } from '@/lib/home-feed';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const season = searchParams.get('season') ?? undefined;
+  const cursor = searchParams.get('cursor') ?? undefined;
+
+  try {
+    const { competition } = await resolveCompetition(season);
+
+    if (!competition) {
+      return NextResponse.json(
+        { error: { code: 'NO_COMPETITION', message: 'No competition is available.', retryable: false } },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(await getCompletedMatchesPage(competition.id, cursor));
+  } catch (error) {
+    if (error instanceof Error && error.message === 'INVALID_CURSOR') {
+      return NextResponse.json(
+        { error: { code: 'INVALID_CURSOR', message: 'The results cursor is invalid.', retryable: false } },
+        { status: 400 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: { code: 'RESULTS_UNAVAILABLE', message: 'Earlier results are temporarily unavailable.', retryable: true } },
+      { status: 503 },
+    );
+  }
+}

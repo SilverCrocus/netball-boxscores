@@ -57,6 +57,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
             style={{ borderColor: teamColor }}
           >
             <PlayerAvatar
+              decorative
               name={player.name}
               photoUrl={player.photoUrl}
               size={176}

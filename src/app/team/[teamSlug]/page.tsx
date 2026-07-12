@@ -1,31 +1,28 @@
-import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { prisma, excludeSimData } from '@/lib/db';
 import Link from 'next/link';
 import Image from 'next/image';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { formatMatchDate, formatMatchTime, formatShortDate } from '@/lib/format';
 import { JsonLd, sportsTeamJsonLd, breadcrumbJsonLd } from '@/lib/seo';
+import { resolveCompetition } from '@/lib/competitions';
+import {
+  getRecentTeamMatches,
+  getTeamBySlug,
+  getTeamStanding,
+  getUpcomingTeamMatches,
+} from '@/lib/cached-queries';
+import { timedQuery } from '@/lib/server-timing';
 
 interface TeamPageProps {
   params: Promise<{ teamSlug: string }>;
+  searchParams?: Promise<{ season?: string }>;
 }
-
-const getTeam = cache((teamSlug: string) =>
-  prisma.team.findUnique({
-    where: { slug: teamSlug },
-    include: {
-      players: { orderBy: { name: 'asc' } },
-      standings: { take: 1 },
-    },
-  })
-);
 
 export async function generateMetadata({ params }: TeamPageProps): Promise<Metadata> {
   const { teamSlug } = await params;
-  const team = await getTeam(teamSlug);
+  const team = await getTeamBySlug(teamSlug);
 
   if (!team) return { title: 'Team Not Found' };
 
@@ -35,36 +32,28 @@ export async function generateMetadata({ params }: TeamPageProps): Promise<Metad
   };
 }
 
-export default async function TeamPage({ params }: TeamPageProps) {
+export default async function TeamPage({ params, searchParams = Promise.resolve({}) }: TeamPageProps) {
   const { teamSlug } = await params;
+  const { season } = await searchParams;
 
-  const team = await getTeam(teamSlug);
+  const [team, { competition }] = await Promise.all([
+    timedQuery('team_profile', () => getTeamBySlug(teamSlug)),
+    timedQuery('competition_lookup', () => resolveCompetition(season)),
+  ]);
 
   if (!team) notFound();
 
-  const standing = team.standings[0];
-  const matchWhere = {
-    ...excludeSimData,
-    OR: [{ homeTeamId: team.id }, { awayTeamId: team.id }],
-  };
-  const teamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
-  const [recentMatches, upcomingMatches] = await Promise.all([
-    prisma.match.findMany({
-      where: { ...matchWhere, status: 'COMPLETED' },
-      include: { homeTeam: { select: teamSelect }, awayTeam: { select: teamSelect } },
-      orderBy: { scheduledAt: 'desc' },
-      take: 5,
-    }),
-    prisma.match.findMany({
-      where: {
-        ...matchWhere,
-        status: 'SCHEDULED',
-        scheduledAt: { gte: new Date() },
-      },
-      include: { homeTeam: { select: teamSelect }, awayTeam: { select: teamSelect } },
-      orderBy: { scheduledAt: 'asc' },
-      take: 3,
-    }),
+  const standingPromise = competition
+    ? timedQuery('team_standing', () => getTeamStanding(competition.id, team.id))
+    : Promise.resolve(null);
+  const [standing, recentMatches, upcomingMatches] = await Promise.all([
+    standingPromise,
+    competition
+      ? timedQuery('team_recent_matches', () => getRecentTeamMatches(competition.id, team.id))
+      : Promise.resolve([]),
+    competition
+      ? timedQuery('team_upcoming_matches', () => getUpcomingTeamMatches(competition.id, team.id))
+      : Promise.resolve([]),
   ]);
   const withOpponent = (match: (typeof recentMatches)[number]) => {
     const isHome = match.homeTeamId === team.id;
@@ -117,13 +106,8 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   League Ranking #{standing.rank}
                 </div>
               )}
-              <h1 className="mb-4 max-w-full font-headline text-4xl font-black italic leading-none uppercase break-words [overflow-wrap:anywhere] sm:text-5xl md:text-7xl">
-                {team.name.split(' ').map((word, i) => (
-                  <span key={i}>
-                    {word}
-                    {i < team.name.split(' ').length - 1 && <br />}
-                  </span>
-                ))}
+              <h1 className="mb-4 max-w-full font-headline text-[clamp(2.25rem,6vw,4.5rem)] font-black italic leading-[0.95] uppercase break-words [overflow-wrap:anywhere]">
+                {team.name}
               </h1>
             </div>
           </div>
@@ -162,7 +146,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
             </h2>
             <span className="font-label text-on-surface-variant text-sm font-semibold">Last 5 Games</span>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-2">
+          <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2" aria-label="Recent team form">
             {recentResults.map((m) => {
               const teamScore = m.isHome ? m.homeScore : m.awayScore;
               const oppScore = m.isHome ? m.awayScore : m.homeScore;
@@ -175,7 +159,8 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 <Link
                   key={m.id}
                   href={`/match/${m.id}`}
-                  className={`flex-shrink-0 flex items-center gap-3 px-6 py-4 bg-surface-container-lowest rounded-xl shadow-sm border-b-2 ${
+                  prefetch={false}
+                  className={`flex-shrink-0 snap-start flex items-center gap-3 px-6 py-4 bg-surface-container-lowest rounded-xl shadow-sm border-b-2 ${
                     borderColor
                   }`}
                 >
@@ -216,8 +201,8 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   <tr key={player.id} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <PlayerAvatar name={player.name} photoUrl={player.photoUrl} size={40} className="rounded" />
-                        <Link href={`/player/${player.id}`} className="font-body font-bold text-primary hover:text-secondary transition-colors">
+                        <PlayerAvatar decorative name={player.name} photoUrl={player.photoUrl} size={40} className="rounded" />
+                        <Link prefetch={false} href={`/player/${player.id}`} className="font-body font-bold text-primary hover:text-secondary transition-colors">
                           {player.name}
                         </Link>
                       </div>
@@ -228,9 +213,9 @@ export default async function TeamPage({ params }: TeamPageProps) {
                       </span>
                     </td>
                     <td className="p-4 w-12">
-                      <Link href={`/player/${player.id}`} className="text-outline-variant group-hover:text-secondary transition-colors">
-                        <span className="material-symbols-outlined text-xl">chevron_right</span>
-                      </Link>
+                      <span aria-hidden="true" className="material-symbols-outlined text-xl text-outline-variant transition-colors group-hover:text-secondary">
+                        chevron_right
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -249,6 +234,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
               <Link
                 key={m.id}
                 href={`/match/${m.id}`}
+                prefetch={false}
                 className="block bg-surface-container-lowest p-5 rounded-xl border-l-4 border-secondary shadow-sm"
               >
                 <div className="flex justify-between items-start mb-2">

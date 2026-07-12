@@ -4,27 +4,10 @@ import { useState, Fragment } from 'react';
 import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
+import type { MatchTimelineEntry } from '@/types/match-timeline';
+import type { TeamInfoWithId } from '@/types/team';
 
-export interface PlayByPlayEntry {
-  period: number;
-  periodSeconds: number;
-  eventType: 'goal' | 'intercept' | 'deflection' | 'rebound' | 'turnover';
-  teamId: string;
-  homeScore?: number;
-  awayScore?: number;
-  scorePoints?: number;
-  playerId?: string | null;
-  playerName?: string | null;
-  playerPhotoUrl?: string | null;
-}
-
-interface TeamInfo {
-  id: string;
-  name: string;
-  abbreviation: string;
-  logoUrl: string | null;
-  primaryColor?: string | null;
-}
+export type PlayByPlayEntry = MatchTimelineEntry;
 
 const FALLBACK_HOME = '#90b8f8';
 const FALLBACK_AWAY = '#7de891';
@@ -39,8 +22,8 @@ const EVENT_CONFIG: Record<string, { label: string; color: string; icon: string 
 
 interface MatchPlayByPlayProps {
   entries: PlayByPlayEntry[];
-  homeTeam: TeamInfo;
-  awayTeam: TeamInfo;
+  homeTeam: TeamInfoWithId;
+  awayTeam: TeamInfoWithId;
 }
 
 function formatTime(seconds: number): string {
@@ -58,14 +41,15 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
     <div className="bg-surface-container-low rounded-xl overflow-hidden">
       <div className="px-6 py-4 border-b border-outline-variant/20 flex items-center justify-between">
         <h4 className="text-primary-container font-headline font-bold text-sm uppercase tracking-tight flex items-center gap-2">
-          <span className="material-symbols-outlined text-sm">sports_score</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-sm">sports_score</span>
           Play by Play
         </h4>
         <button
+          type="button"
           onClick={() => setChronological(!chronological)}
           className="flex items-center gap-1 text-[11px] font-label font-bold text-on-surface-variant uppercase tracking-wider hover:text-primary-container transition-colors cursor-pointer"
         >
-          <span className="material-symbols-outlined text-[16px]">
+          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
             {chronological ? 'arrow_downward' : 'arrow_upward'}
           </span>
           {chronological ? 'Oldest first' : 'Newest first'}
@@ -85,7 +69,7 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
           const config = EVENT_CONFIG[entry.eventType];
 
           return (
-            <Fragment key={`${entry.eventType}-${entry.period}-${entry.periodSeconds}-${entry.playerId}`}>
+            <Fragment key={entry.id}>
               {showSeparator && (
                 <div className="px-4 py-2 text-center font-label text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-[1.5px] bg-surface-container-highest/30 border-y border-outline-variant/10">
                   Quarter {separatorQuarter}
@@ -102,6 +86,7 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                   {entry.playerName && entry.playerId ? (
                     <div className="relative">
                       <PlayerAvatar
+                        decorative
                         name={entry.playerName}
                         photoUrl={entry.playerPhotoUrl}
                         size={32}
@@ -130,6 +115,7 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                   <p className="font-body text-sm font-semibold text-on-surface mt-0.5 leading-snug">
                     {entry.playerName && entry.playerId ? (
                       <Link
+                        prefetch={false}
                         href={`/player/${entry.playerId}`}
                         className="text-on-surface underline decoration-on-surface/20 underline-offset-2 hover:decoration-primary-container hover:text-primary-container"
                       >
@@ -159,7 +145,7 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                     {entry.homeScore} &ndash; {entry.awayScore}
                   </span>
                 ) : config.icon ? (
-                  <span className={`shrink-0 material-symbols-outlined text-[18px] ${config.color} opacity-50`}>
+                  <span aria-hidden="true" className={`shrink-0 material-symbols-outlined text-[18px] ${config.color} opacity-50`}>
                     {config.icon}
                   </span>
                 ) : null}

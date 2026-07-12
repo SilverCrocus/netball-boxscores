@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 interface PlayerBioCardProps {
   biography: string | null;
@@ -10,6 +10,7 @@ const TRUNCATE_LENGTH = 300;
 
 export function PlayerBioCard({ biography }: PlayerBioCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const biographyId = useId();
 
   if (!biography) return null;
 
@@ -23,13 +24,15 @@ export function PlayerBioCard({ biography }: PlayerBioCardProps) {
       <h2 className="font-headline text-2xl font-black text-primary uppercase tracking-tight mb-4">
         About
       </h2>
-      <p className="font-body text-on-surface-variant leading-relaxed">
+      <p id={biographyId} className="font-body text-on-surface-variant leading-relaxed">
         {displayText}
       </p>
       {isLong && (
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          aria-controls={biographyId}
           className="mt-3 font-body text-sm font-semibold text-secondary hover:text-secondary/80 transition-colors"
         >
           {expanded ? 'Read less' : 'Read more'}

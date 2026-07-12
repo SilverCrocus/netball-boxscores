@@ -4,6 +4,12 @@ import { AppShell } from '../AppShell';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({ data: null, status: 'unauthenticated' }),
+  signOut: vi.fn(),
 }));
 
 vi.mock('next/link', () => ({

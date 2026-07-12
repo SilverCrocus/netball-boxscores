@@ -8,6 +8,7 @@ export default function SignUpPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -56,18 +57,21 @@ export default function SignUpPage() {
 
         <div className="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-outline-variant/15">
           {error && (
-            <div className="bg-error-container text-on-error-container px-4 py-3 rounded-lg mb-6 font-label text-sm">
+            <div role="alert" className="bg-error-container text-on-error-container px-4 py-3 rounded-lg mb-6 font-label text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
+              <label htmlFor="signup-name" className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
                 Name
               </label>
               <input
                 type="text"
+                id="signup-name"
+                name="name"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-4 py-3 rounded-lg border border-outline-variant bg-surface-container-low font-body text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary"
@@ -76,11 +80,14 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
+              <label htmlFor="signup-email" className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
                 Email
               </label>
               <input
                 type="email"
+                id="signup-email"
+                name="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 rounded-lg border border-outline-variant bg-surface-container-low font-body text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary"
@@ -89,18 +96,33 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
+              <label htmlFor="signup-password" className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-outline-variant bg-surface-container-low font-body text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary"
-                minLength={8}
-                required
-              />
-              <p className="font-label text-[10px] text-on-surface-variant mt-1">
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="signup-password"
+                  name="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 pr-16 font-body text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary"
+                  aria-describedby="signup-password-help"
+                  minLength={8}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-0 right-0 px-4 font-label text-xs font-bold text-secondary"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <p id="signup-password-help" className="font-label text-[10px] text-on-surface-variant mt-1">
                 Minimum 8 characters
               </p>
             </div>

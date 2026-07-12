@@ -42,6 +42,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
   return (
     <Link
       href={matchHref}
+      prefetch={false}
       className={`flex h-full min-w-0 flex-col overflow-hidden rounded-xl bg-surface-container-lowest p-4 shadow-sm transition-all group relative hover:shadow-md sm:p-6 ${
         isLive ? 'border-l-4 border-secondary' : 'border-l-4 border-transparent'
       }`}
@@ -120,7 +121,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
           </span>
           <span className="text-secondary font-bold text-xs flex items-center gap-1 group-hover:gap-2 transition-all">
             {isLive ? 'See Live Stats' : 'View Stats'}
-            <span className="material-symbols-outlined text-sm">chevron_right</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-sm">chevron_right</span>
           </span>
         </div>
       )}

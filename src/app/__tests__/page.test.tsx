@@ -2,15 +2,17 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import HomePage from '../page';
 
-const { findCompetitionMock, findMatchesMock } = vi.hoisted(() => ({
-  findCompetitionMock: vi.fn(),
+vi.mock('@/components/home/MyTeams', () => ({ MyTeams: () => null }));
+
+const { findCompetitionsMock, findMatchesMock } = vi.hoisted(() => ({
+  findCompetitionsMock: vi.fn(),
   findMatchesMock: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
   excludeSimData: {},
   prisma: {
-    competition: { findFirst: findCompetitionMock },
+    competition: { findMany: findCompetitionsMock },
     match: {
       findMany: findMatchesMock,
     },
@@ -105,16 +107,22 @@ const MATCHES = [
 
 describe('HomePage', () => {
   beforeEach(() => {
-    findCompetitionMock.mockReset().mockResolvedValue({ id: 'competition-2026' });
+    findCompetitionsMock.mockReset().mockResolvedValue([{
+      id: 'competition-2026',
+      name: 'Suncorp Super Netball',
+      season: 2026,
+      seasonStart: new Date('2026-03-01T00:00:00Z'),
+      seasonEnd: new Date('2026-07-31T00:00:00Z'),
+    }]);
     findMatchesMock.mockReset().mockImplementation(({ where }: { where: { status: string } }) =>
       Promise.resolve(MATCHES.filter((match) => match.status === where.status)),
     );
   });
 
-  it('renders TODAY\'S PULSE heading', async () => {
+  it('renders a state-aware live heading', async () => {
     const page = await HomePage();
     render(page);
-    expect(screen.getByText("TODAY'S PULSE")).toBeInTheDocument();
+    expect(screen.getByText('LIVE NOW')).toBeInTheDocument();
   });
 
   it('renders LIVE ACTION section when live matches exist', async () => {
@@ -202,7 +210,7 @@ describe('HomePage', () => {
     expect(screen.queryByText('(62.2)')).not.toBeInTheDocument();
   });
 
-  it('limits fixture loading while retaining every completed current-season result', async () => {
+  it('limits fixture and initial results loading', async () => {
     await HomePage();
 
     const scheduledQuery = findMatchesMock.mock.calls.find(
@@ -213,7 +221,7 @@ describe('HomePage', () => {
     )?.[0];
 
     expect(scheduledQuery.take).toBe(4);
-    expect(completedQuery.take).toBeUndefined();
+    expect(completedQuery.take).toBe(9);
     expect(completedQuery.where.competitionId).toBe('competition-2026');
     expect(completedQuery.select.scoreFlow).toBeUndefined();
     expect(completedQuery.select.teamStats).toBeDefined();
@@ -229,7 +237,7 @@ describe('HomePage', () => {
   });
 
   it('distinguishes database failures from a true empty season', async () => {
-    findCompetitionMock.mockRejectedValue(new Error('database unavailable'));
+    findCompetitionsMock.mockRejectedValue(new Error('database unavailable'));
 
     render(await HomePage());
 

@@ -102,9 +102,9 @@ export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
                 <tr key={player.id} className="hover:bg-surface-container/50 transition-colors">
                   <td className="sticky left-0 z-20 bg-surface-container-lowest px-4 py-3 shadow-[8px_0_12px_-12px_rgba(15,23,42,0.65)]">
                     <div className="flex items-center gap-2">
-                      <PlayerAvatar name={player.name} photoUrl={player.photoUrl} size={28} />
+                      <PlayerAvatar decorative name={player.name} photoUrl={player.photoUrl} size={28} />
                       {player.playerId ? (
-                        <Link href={`/player/${player.playerId}`} className="font-bold font-headline text-primary-container text-sm hover:underline truncate max-w-[110px]">
+                        <Link prefetch={false} href={`/player/${player.playerId}`} className="font-bold font-headline text-primary-container text-sm hover:underline truncate max-w-[110px]">
                           {player.name}
                         </Link>
                       ) : (

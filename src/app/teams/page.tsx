@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
-import { prisma } from '@/lib/db';
 import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
-
-export const dynamic = 'force-dynamic';
+import { getTeams } from '@/lib/cached-queries';
+import { timedQuery } from '@/lib/server-timing';
 
 export const metadata: Metadata = {
   title: 'All Teams - Suncorp Super Netball',
@@ -13,16 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function TeamsPage() {
-  const teams = await prisma.team.findMany({
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      abbreviation: true,
-      logoUrl: true,
-    },
-    orderBy: { name: 'asc' },
-  });
+  const teams = await timedQuery('team_directory', getTeams);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -44,6 +34,7 @@ export default async function TeamsPage() {
           <Link
             key={team.id}
             href={`/team/${team.slug}`}
+            prefetch={false}
             className="bg-surface-container-lowest rounded-xl p-6 shadow-sm hover:shadow-md transition-all group"
           >
             <div className="flex flex-col items-center text-center gap-4">
@@ -56,7 +47,7 @@ export default async function TeamsPage() {
                   {team.abbreviation}
                 </p>
               </div>
-              <span className="material-symbols-outlined text-outline-variant group-hover:text-secondary transition-colors">
+              <span aria-hidden="true" className="material-symbols-outlined text-outline-variant group-hover:text-secondary transition-colors">
                 chevron_right
               </span>
             </div>

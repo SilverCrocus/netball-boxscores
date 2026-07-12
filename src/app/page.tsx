@@ -5,99 +5,57 @@ import { formatMatchDateTime } from '@/lib/format';
 import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { Countdown } from '@/components/ui/Countdown';
 import { formatMatchStage } from '@/lib/match-label';
+import { HomeResults } from '@/components/home/HomeResults';
+import { MyTeams } from '@/components/home/MyTeams';
+import {
+  computeBreakdown,
+  deriveHomeHeader,
+  getCompletedMatchesPage,
+  homepageMatchSelect,
+  type HomepageMatch,
+} from '@/lib/home-feed';
+import { resolveCompetition } from '@/lib/competitions';
+import { timedQuery } from '@/lib/server-timing';
 import Link from 'next/link';
 import Image from 'next/image';
-import type { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
-const homepageMatchSelect = {
-  id: true,
-  status: true,
-  scheduledAt: true,
-  homeScore: true,
-  awayScore: true,
-  venue: true,
-  round: true,
-  finalCode: true,
-  currentQuarter: true,
-  currentTime: true,
-  homeTeamId: true,
-  awayTeamId: true,
-  homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
-  awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
-  teamStats: { select: { teamId: true, goals: true, goal2: true } },
-} satisfies Prisma.MatchSelect;
-
-type HomepageMatch = Prisma.MatchGetPayload<{ select: typeof homepageMatchSelect }>;
-
 export default async function HomePage() {
-  let matches: HomepageMatch[] = [];
+  let liveMatches: HomepageMatch[] = [];
+  let upcomingMatches: HomepageMatch[] = [];
+  let completedPage = { groups: [], nextCursor: null } as Awaited<ReturnType<typeof getCompletedMatchesPage>>;
+  let season: number | null = null;
   let databaseUnavailable = false;
 
   try {
-    const competition = await prisma.competition.findFirst({
-      orderBy: { season: 'desc' },
-      select: { id: true },
-    });
+    const { competition } = await timedQuery('competition_lookup', () => resolveCompetition());
 
     if (competition) {
+      season = competition.season;
       const baseWhere = { ...excludeSimData, competitionId: competition.id };
-      const [live, upcoming, completed] = await Promise.all([
-        prisma.match.findMany({
+      [liveMatches, upcomingMatches, completedPage] = await Promise.all([
+        timedQuery('home_live_matches', () => prisma.match.findMany({
           where: { ...baseWhere, status: 'LIVE' },
           select: homepageMatchSelect,
           orderBy: { scheduledAt: 'asc' },
-        }),
-        prisma.match.findMany({
+        })),
+        timedQuery('home_upcoming_matches', () => prisma.match.findMany({
           where: { ...baseWhere, status: 'SCHEDULED' },
           select: homepageMatchSelect,
           orderBy: { scheduledAt: 'asc' },
           take: 4,
-        }),
-        prisma.match.findMany({
-          where: { ...baseWhere, status: 'COMPLETED' },
-          select: homepageMatchSelect,
-          orderBy: { scheduledAt: 'desc' },
-        }),
+        })),
+        timedQuery('home_completed_history', () => getCompletedMatchesPage(competition.id)),
       ]);
-      matches = [...live, ...upcoming, ...completed];
     }
   } catch {
     databaseUnavailable = true;
   }
 
-  function computeBreakdown(match: HomepageMatch) {
-    const home = match.teamStats.find((stat) => stat.teamId === match.homeTeamId);
-    const away = match.teamStats.find((stat) => stat.teamId === match.awayTeamId);
-    const hasSuperShots = (home?.goal2 ?? 0) > 0 || (away?.goal2 ?? 0) > 0;
-
-    return {
-      homeBreakdown: hasSuperShots && home
-        ? { goals: Math.max(0, home.goals - home.goal2), superShots: home.goal2 } : null,
-      awayBreakdown: hasSuperShots && away
-        ? { goals: Math.max(0, away.goals - away.goal2), superShots: away.goal2 } : null,
-    };
-  }
-
-  const liveMatches = matches.filter((m) => m.status === 'LIVE');
-  const upcomingMatches = matches.filter((m) => m.status === 'SCHEDULED');
-  const sortedCompleted = matches
-    .filter((m) => m.status === 'COMPLETED')
-    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
-
-  // Group regular rounds and finals stages, newest first.
-  const resultsByStage = new Map<string, typeof sortedCompleted>();
-  for (const match of sortedCompleted) {
-    const label = formatMatchStage(match.round, match.finalCode);
-    const group = resultsByStage.get(label) ?? [];
-    group.push(match);
-    resultsByStage.set(label, group);
-  }
-  for (const group of resultsByStage.values()) {
-    group.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-  }
   const featured = upcomingMatches[0];
+  const header = deriveHomeHeader(season, liveMatches, upcomingMatches, completedPage.groups);
+  const hasMatches = liveMatches.length > 0 || upcomingMatches.length > 0 || completedPage.groups.length > 0;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -110,11 +68,16 @@ export default async function HomePage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <span className="text-secondary font-bold font-label text-sm uppercase tracking-widest">
-              Game Day Hub
+              {header.eyebrow}
             </span>
             <h1 className="text-4xl md:text-6xl font-black font-headline tracking-tighter text-primary mt-2">
-              TODAY&apos;S PULSE
+              {header.heading}
             </h1>
+            {header.description && (
+              <p className="mt-3 max-w-2xl font-body text-on-surface-variant">
+                {header.description}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -134,7 +97,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {!databaseUnavailable && matches.length === 0 && (
+      {!databaseUnavailable && !hasMatches && (
         <section className="mb-16 rounded-2xl bg-surface-container-lowest px-6 py-12 text-center shadow-sm">
           <span className="material-symbols-outlined mb-3 text-4xl text-secondary" aria-hidden="true">
             event_upcoming
@@ -170,6 +133,7 @@ export default async function HomePage() {
           {featured && (
             <Link
               href={`/match/${featured.id}`}
+              prefetch={false}
               className="md:col-span-3 relative overflow-hidden bg-gradient-to-br from-primary via-primary-container to-primary rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center gap-6 shadow-2xl transition-all duration-300 hover:shadow-[0_0_40px_rgba(163,230,53,0.15)] hover:scale-[1.01]"
             >
               {/* Decorative background elements */}
@@ -179,8 +143,8 @@ export default async function HomePage() {
                 <Image
                   src="/netball-cleaned-white.png"
                   alt=""
-                  width={700}
-                  height={634}
+                  width={500}
+                  height={453}
                   className="absolute right-[-10%] top-1/2 h-auto w-[96%] max-w-[700px] -translate-y-1/2 opacity-[0.04]"
                   style={{ height: 'auto' }}
                 />
@@ -237,6 +201,7 @@ export default async function HomePage() {
               <Link
                 key={match.id}
                 href={`/match/${match.id}`}
+                prefetch={false}
                 className="bg-surface-container rounded-xl p-4 group hover:bg-surface-container-high transition-all flex-1 flex flex-col justify-center"
               >
                 <div className="text-base font-bold font-headline text-primary break-words [overflow-wrap:anywhere]">
@@ -262,27 +227,14 @@ export default async function HomePage() {
       </section>
       )}
 
-      {/* Results grouped by regular round or finals stage */}
-      {resultsByStage.size > 0 && (
-        <section className="mb-16">
-          <h2 className="text-xl font-bold font-headline text-primary mb-6">RESULTS</h2>
-          {Array.from(resultsByStage.entries()).map(([stage, stageMatches]) => (
-            <div key={stage} className="mb-8">
-              <h3 className="text-sm font-semibold text-on-surface-variant mb-3 pb-2 border-b border-outline-variant">
-                {stage}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {stageMatches.map((match) => (
-                  <ScoreCard
-                    key={match.id}
-                    match={{ ...match, round: undefined, ...computeBreakdown(match) }}
-                    showFinalBadge={false}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </section>
+      <MyTeams />
+
+      {season !== null && (
+        <HomeResults
+          initialGroups={completedPage.groups}
+          initialNextCursor={completedPage.nextCursor}
+          season={season}
+        />
       )}
     </div>
   );

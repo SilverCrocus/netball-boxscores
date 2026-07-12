@@ -1,0 +1,1270 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Implementation specification for CentrePass quality-of-life, performance, accessibility, and product improvements.">
+  <link rel="icon" href="data:,">
+  <title>CentrePass QOL & Performance — Implementation Specification</title>
+  <style>
+    @font-face {
+      font-family: "CentrePass Display";
+      src: url("../../../src/assets/fonts/Lexend-Bold.ttf") format("truetype");
+      font-weight: 700 900;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "CentrePass Body";
+      src: url("../../../src/assets/fonts/Manrope-Regular.ttf") format("truetype");
+      font-weight: 300 700;
+      font-display: swap;
+    }
+
+    :root {
+      --ink: #061126;
+      --ink-soft: #42506a;
+      --paper: #f5f7f2;
+      --paper-raised: #ffffff;
+      --paper-soft: #e9eee6;
+      --line: #ced7ca;
+      --navy: #000613;
+      --navy-2: #001f3f;
+      --lime: #75ff68;
+      --lime-deep: #006e0a;
+      --pink: #d9467e;
+      --amber: #f0a11a;
+      --red: #ba1a1a;
+      --shadow: 0 18px 60px rgba(0, 18, 41, 0.11);
+      --radius: 22px;
+      --display: "CentrePass Display", "Arial Black", sans-serif;
+      --body: "CentrePass Body", ui-sans-serif, system-ui, sans-serif;
+    }
+
+    html[data-theme="dark"] {
+      --ink: #f2f6ef;
+      --ink-soft: #b5c2d1;
+      --paper: #080d18;
+      --paper-raised: #101827;
+      --paper-soft: #182234;
+      --line: #2d3b51;
+      --shadow: 0 18px 70px rgba(0, 0, 0, 0.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      color-scheme: light;
+    }
+
+    html[data-theme="dark"] { color-scheme: dark; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 88% 7%, rgba(117, 255, 104, 0.12), transparent 28rem),
+        linear-gradient(180deg, var(--paper) 0%, color-mix(in srgb, var(--paper), var(--navy) 4%) 100%);
+      color: var(--ink);
+      font-family: var(--body);
+      font-size: 16px;
+      line-height: 1.65;
+      transition: background-color 180ms ease, color 180ms ease;
+    }
+
+    a { color: inherit; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 10px;
+      left: 10px;
+      transform: translateY(-160%);
+      border-radius: 999px;
+      background: var(--lime);
+      color: var(--navy);
+      padding: 10px 16px;
+      font-weight: 800;
+    }
+
+    .skip-link:focus { transform: translateY(0); }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      min-height: 560px;
+      background:
+        linear-gradient(120deg, rgba(0, 6, 19, 0.98), rgba(0, 31, 63, 0.92)),
+        var(--navy);
+      color: #fff;
+      isolation: isolate;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      width: 620px;
+      height: 620px;
+      right: -140px;
+      top: -220px;
+      border: 92px solid rgba(117, 255, 104, 0.11);
+      border-radius: 50%;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      width: 50vw;
+      height: 160px;
+      right: -10vw;
+      bottom: -80px;
+      background: var(--lime);
+      transform: rotate(-7deg);
+      opacity: 0.92;
+    }
+
+    .hero-inner {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 72px 0 96px;
+    }
+
+    .brand-row,
+    .hero-meta,
+    .actions,
+    .status-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .brand {
+      font-family: var(--display);
+      font-size: 1rem;
+      font-style: italic;
+      letter-spacing: -0.04em;
+      text-transform: uppercase;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 2px solid rgba(255,255,255,0.55);
+      border-radius: 50%;
+      color: var(--lime);
+      font-family: var(--display);
+      font-size: 12px;
+    }
+
+    .eyebrow {
+      margin: 68px 0 12px;
+      color: var(--lime);
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+
+    h1, h2, h3, h4 {
+      margin-top: 0;
+      font-family: var(--display);
+      line-height: 1.05;
+      letter-spacing: -0.045em;
+    }
+
+    h1 {
+      max-width: 960px;
+      margin-bottom: 24px;
+      font-size: clamp(3.1rem, 8vw, 7.1rem);
+      text-transform: uppercase;
+    }
+
+    h1 span { color: var(--lime); }
+
+    .hero-summary {
+      max-width: 780px;
+      margin: 0 0 34px;
+      color: #d7e1ee;
+      font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      padding: 6px 12px;
+      color: #f6f8fb;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .chip.approved {
+      border-color: rgba(117,255,104,0.45);
+      background: rgba(117,255,104,0.14);
+      color: var(--lime);
+    }
+
+    .action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      padding: 10px 16px;
+      color: #fff;
+      font-weight: 800;
+      text-decoration: none;
+      transition: transform 150ms ease, background 150ms ease;
+    }
+
+    .action:hover { transform: translateY(-2px); background: rgba(255,255,255,0.14); }
+    .action.primary { border-color: var(--lime); background: var(--lime); color: var(--navy); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr);
+      gap: 52px;
+      width: min(1260px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 54px 0 110px;
+    }
+
+    .toc {
+      align-self: start;
+      position: sticky;
+      top: 24px;
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--paper-raised), transparent 5%);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .toc-label {
+      margin: 0 0 12px;
+      color: var(--ink-soft);
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .toc a {
+      display: block;
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+      font-weight: 750;
+      line-height: 1.25;
+      text-decoration: none;
+    }
+
+    .toc a:hover,
+    .toc a[aria-current="true"] {
+      background: var(--paper-soft);
+      color: var(--lime-deep);
+    }
+
+    .content { min-width: 0; }
+
+    section[id] {
+      scroll-margin-top: 24px;
+      margin-bottom: 34px;
+    }
+
+    .section-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper-raised);
+      box-shadow: var(--shadow);
+      padding: clamp(24px, 5vw, 48px);
+    }
+
+    .kicker {
+      margin-bottom: 10px;
+      color: var(--lime-deep);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin-bottom: 22px;
+      font-size: clamp(2rem, 5vw, 3.65rem);
+      text-transform: uppercase;
+    }
+
+    h3 {
+      margin: 34px 0 12px;
+      font-size: clamp(1.28rem, 2.2vw, 1.75rem);
+    }
+
+    h4 {
+      margin: 24px 0 8px;
+      font-size: 1.05rem;
+    }
+
+    p { margin: 0 0 16px; }
+    ul, ol { margin: 12px 0 20px; padding-left: 1.25rem; }
+    li + li { margin-top: 7px; }
+
+    .lede {
+      max-width: 850px;
+      color: var(--ink-soft);
+      font-size: 1.12rem;
+    }
+
+    .decision {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.6fr);
+      gap: 20px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--navy), var(--navy-2));
+      padding: 28px;
+      color: #fff;
+    }
+
+    .decision strong {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--lime);
+      font-family: var(--display);
+      font-size: clamp(1.45rem, 3vw, 2.2rem);
+      line-height: 1.05;
+      text-transform: uppercase;
+    }
+
+    .decision-score {
+      display: grid;
+      place-items: center;
+      min-height: 150px;
+      border: 1px solid rgba(117,255,104,0.4);
+      border-radius: 14px;
+      background: rgba(117,255,104,0.08);
+      text-align: center;
+    }
+
+    .decision-score span {
+      display: block;
+      color: var(--lime);
+      font-family: var(--display);
+      font-size: 3rem;
+      line-height: 1;
+    }
+
+    .metric-grid,
+    .priority-grid,
+    .phase-grid,
+    .file-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .priority-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .phase-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .file-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .metric,
+    .priority,
+    .phase,
+    .file-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper-raised);
+      padding: 20px;
+    }
+
+    .metric span,
+    .priority-tag,
+    .phase-number,
+    .file-card span {
+      display: block;
+      color: var(--ink-soft);
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 8px;
+      color: var(--ink);
+      font-family: var(--display);
+      font-size: clamp(1.6rem, 3vw, 2.35rem);
+      line-height: 1;
+    }
+
+    .metric small { color: var(--ink-soft); }
+
+    .priority { position: relative; overflow: hidden; }
+    .priority::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--lime-deep); }
+    .priority.high::before { background: var(--pink); }
+    .priority h3 { margin-top: 12px; }
+
+    .phase {
+      min-height: 190px;
+      background: linear-gradient(180deg, var(--paper-raised), var(--paper-soft));
+    }
+
+    .phase-number { color: var(--lime-deep); }
+    .phase h3 { margin: 14px 0 10px; font-size: 1.25rem; }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      margin: 20px 0;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 620px;
+      border-collapse: collapse;
+      background: var(--paper-raised);
+    }
+
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--navy);
+      color: #fff;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .requirement {
+      border-left: 4px solid var(--lime-deep);
+      border-radius: 0 14px 14px 0;
+      background: var(--paper-soft);
+      padding: 18px 20px;
+      margin: 16px 0;
+    }
+
+    .requirement strong { font-family: var(--display); }
+
+    .acceptance {
+      margin-top: 24px;
+      border: 1px solid color-mix(in srgb, var(--lime-deep), transparent 45%);
+      border-radius: 15px;
+      background: color-mix(in srgb, var(--lime), transparent 91%);
+      padding: 18px 20px;
+    }
+
+    .acceptance h3 { margin-top: 0; color: var(--lime-deep); font-size: 1.05rem; letter-spacing: 0; }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper-raised);
+      margin: 12px 0;
+      padding: 0 18px;
+    }
+
+    summary {
+      padding: 16px 0;
+      font-family: var(--display);
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    details > div { padding: 0 0 18px; }
+
+    code {
+      border-radius: 6px;
+      background: var(--paper-soft);
+      padding: 2px 6px;
+      font-size: 0.88em;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    pre {
+      overflow: auto;
+      border-radius: 15px;
+      background: var(--navy);
+      padding: 20px;
+      color: #eaf2ff;
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .file-card { min-width: 0; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 24px 0;
+    }
+
+    .flow div {
+      position: relative;
+      border-radius: 14px;
+      background: var(--navy);
+      padding: 18px;
+      color: #fff;
+      text-align: center;
+      font-family: var(--display);
+      font-size: 0.85rem;
+    }
+
+    .flow div:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      z-index: 2;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--lime-deep);
+      font-size: 1.5rem;
+    }
+
+    .footer {
+      padding: 42px 20px;
+      background: var(--navy);
+      color: #cbd7e7;
+      text-align: center;
+    }
+
+    .footer strong { color: var(--lime); font-family: var(--display); }
+
+    :focus-visible {
+      outline: 3px solid var(--pink);
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 1050px) {
+      .layout { grid-template-columns: 220px minmax(0, 1fr); gap: 28px; }
+      .metric-grid, .phase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .decision { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .hero { min-height: auto; }
+      .hero-inner { padding: 36px 0 74px; }
+      .eyebrow { margin-top: 48px; }
+      h1 { font-size: clamp(2.7rem, 15vw, 4.6rem); }
+      .layout { display: block; width: min(100% - 24px, 720px); padding-top: 18px; }
+      .toc { position: static; max-height: none; margin-bottom: 20px; }
+      .toc nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .section-card { border-radius: 18px; padding: 24px 20px; }
+      .metric-grid, .priority-grid, .phase-grid, .file-grid { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      .flow div:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -18px; transform: translateX(50%); }
+      .actions { align-items: stretch; }
+      .action { flex: 1 1 180px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+
+    @media print {
+      :root, html[data-theme="dark"] {
+        --ink: #000;
+        --ink-soft: #333;
+        --paper: #fff;
+        --paper-raised: #fff;
+        --paper-soft: #f2f2f2;
+        --line: #bbb;
+        --shadow: none;
+      }
+      body { background: #fff; font-size: 11pt; }
+      .hero { min-height: auto; background: #061126 !important; print-color-adjust: exact; }
+      .hero-inner { padding: 32px 0; }
+      .eyebrow { margin-top: 30px; }
+      h1 { font-size: 40pt; }
+      .actions, .toc { display: none !important; }
+      .layout { display: block; width: 100%; padding: 24px 0; }
+      .section-card { break-inside: avoid-page; border-radius: 0; padding: 24px 0; }
+      .metric-grid, .priority-grid, .phase-grid { break-inside: avoid-page; }
+      a { text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to specification</a>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="brand-row">
+        <div class="brand-mark" aria-hidden="true">CP</div>
+        <div class="brand">CentrePass</div>
+      </div>
+
+      <p class="eyebrow">Implementation underway · 12 July 2026</p>
+      <h1>Faster. Clearer. <span>Ready to grow.</span></h1>
+      <p class="hero-summary">
+        The first local release package now delivers the highest-impact speed, correctness, accessibility,
+        match-detail, account, personalization, and search improvements without an unnecessary rewrite.
+      </p>
+
+      <div class="status-row" aria-label="Document status">
+        <span class="chip approved">First release package complete locally</span>
+        <span class="chip">Next.js + TypeScript retained</span>
+        <span class="chip">278 automated tests passing</span>
+        <span class="chip">Worker split evidence-gated</span>
+      </div>
+
+      <div class="actions" style="margin-top: 28px">
+        <a class="action primary" href="./2026-07-12-centrepass-qol-performance-product-improvements.md">Open Markdown source</a>
+        <button class="action" id="theme-toggle" type="button" aria-pressed="false">Use dark reading mode</button>
+        <button class="action" type="button" onclick="window.print()">Print / save PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="toc" aria-label="Specification navigation">
+      <p class="toc-label">On this page</p>
+      <nav>
+        <a href="#summary">Executive summary</a>
+        <a href="#baseline">Audit baseline</a>
+        <a href="#goals">Goals & budgets</a>
+        <a href="#roadmap">Release roadmap</a>
+        <a href="#home">Homepage</a>
+        <a href="#standings">Season correctness</a>
+        <a href="#live">Live Hub</a>
+        <a href="#accessibility">Accessibility</a>
+        <a href="#performance">Caching & SSR</a>
+        <a href="#match">Match detail</a>
+        <a href="#profiles">Profiles & media</a>
+        <a href="#account">Account & search</a>
+        <a href="#worker">Worker & Rust</a>
+        <a href="#contracts">Contracts & files</a>
+        <a href="#testing">Testing & rollout</a>
+        <a href="#done">Definition of done</a>
+      </nav>
+    </aside>
+
+    <main class="content" id="main">
+      <section class="section-card" id="summary">
+        <p class="kicker">Executive summary</p>
+        <h2>Optimise the work before changing the language.</h2>
+        <p class="lede">
+          The audit found a strong sports product underneath an overly heavy first load and several unfinished journeys.
+          The biggest wins come from bounded queries, caching, on-demand event data, responsive corrections, and exposing
+          capabilities that already exist in the repository.
+        </p>
+
+        <div class="decision" style="margin-top: 28px">
+          <div>
+            <strong>Decision: stay with TypeScript</strong>
+            <p>
+              The measured delay is predominantly database and server-rendering latency. Rust does not reduce the number
+              of rows queried, events serialized, DOM nodes rendered, or database round trips. It remains a future option
+              only behind a captured CPU profile and a material benchmark win.
+            </p>
+          </div>
+          <div class="decision-score" aria-label="Rust priority is not now">
+            <div><span>NO</span>Rust rewrite now</div>
+          </div>
+        </div>
+
+        <div class="priority-grid" style="margin-top: 24px">
+          <article class="priority high">
+            <span class="priority-tag">First release</span>
+            <h3>Return and render less</h3>
+            <p>Cap homepage history, scope seasons correctly, and stop shipping play-by-play before it is opened.</p>
+          </article>
+          <article class="priority high">
+            <span class="priority-tag">First release</span>
+            <h3>Finish the journeys</h3>
+            <p>Give Live a real empty state and make account, follows, favourites, and reminders discoverable.</p>
+          </article>
+          <article class="priority">
+            <span class="priority-tag">Second release</span>
+            <h3>Cache stable sports data</h3>
+            <p>Cache teams, competitions, standings, completed history, and completed match detail at honest TTLs.</p>
+          </article>
+          <article class="priority">
+            <span class="priority-tag">Second release</span>
+            <h3>Polish responsive behaviour</h3>
+            <p>Fix team-name wrapping, mobile standings, carousel affordances, media fallbacks, and table discovery.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-card" id="baseline">
+        <p class="kicker">Measured production evidence</p>
+        <h2>Audit baseline</h2>
+        <p class="lede">Captured from Sydney against production on 12 July 2026. Use these values as comparison receipts, not universal Web Vitals.</p>
+
+        <div class="metric-grid" style="margin-top: 24px">
+          <div class="metric"><span>Homepage navigation</span><strong>3.60 s</strong><small>uncached observed run</small></div>
+          <div class="metric"><span>Homepage headers</span><strong>3.22 s</strong><small>approximate TTFB</small></div>
+          <div class="metric"><span>Homepage DOM</span><strong>6,630</strong><small>nodes on initial page</small></div>
+          <div class="metric"><span>Mobile page height</span><strong>15,891 px</strong><small>390 × 844 viewport</small></div>
+          <div class="metric"><span>Homepage media</span><strong>121</strong><small>image elements</small></div>
+          <div class="metric"><span>Match navigation</span><strong>2.78 s</strong><small>uncached observed run</small></div>
+          <div class="metric"><span>Chart chunk</span><strong>368 KB</strong><small>largest raw built chunk</small></div>
+          <div class="metric"><span>Automated tests</span><strong>233</strong><small>all passing at audit</small></div>
+        </div>
+
+        <div class="requirement">
+          <strong>Diagnosis.</strong> The homepage queries and renders the full completed season. Match detail eagerly loads
+          timeline data. Several stable routes are forced dynamic. These are I/O, payload, and rendering problems—not evidence
+          of a CPU-bound language problem.
+        </div>
+      </section>
+
+      <section class="section-card" id="goals">
+        <p class="kicker">Release contract</p>
+        <h2>Goals & performance budgets</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Metric</th><th>Target</th><th>Why it matters</th></tr></thead>
+            <tbody>
+              <tr><td>Cached homepage TTFB p50</td><td>&lt; 800 ms</td><td>Fast first response for the main entry route</td></tr>
+              <tr><td>Cached homepage TTFB p95</td><td>&lt; 1,500 ms</td><td>Protect the slower but normal path</td></tr>
+              <tr><td>Cached teams/standings p50</td><td>&lt; 500 ms</td><td>These are stable, small datasets</td></tr>
+              <tr><td>Homepage DOM</td><td>&lt; 2,000 nodes</td><td>Reduce layout, paint, and assistive-tech cost</td></tr>
+              <tr><td>Initial completed cards</td><td>≤ 8</td><td>Useful history without the entire season</td></tr>
+              <tr><td>Initial match events</td><td>0</td><td>Events load only after Play by Play opens</td></tr>
+              <tr><td>Event request size</td><td>≤ 75 entries</td><td>Bound network, serialization, and rendering</td></tr>
+              <tr><td>Console health</td><td>0 relevant errors/warnings</td><td>Protect interaction reliability</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Product outcomes</h3>
+        <ul>
+          <li>Understand the current competition state in the first viewport.</li>
+          <li>Find a match, team, player, round, or season without scanning the whole year.</li>
+          <li>Keep stable data cached while live data remains current.</li>
+          <li>Expose account and personalization features already present in the codebase.</li>
+          <li>Make every missing image and inactive state understandable rather than blank.</li>
+        </ul>
+      </section>
+
+      <section class="section-card" id="roadmap">
+        <p class="kicker">Independently deployable releases</p>
+        <h2>Four-phase roadmap</h2>
+        <div class="phase-grid">
+          <article class="phase"><span class="phase-number">Phase 1</span><h3>Correctness & QOL</h3><p>Bound the homepage, correct season scoping, build the Live Hub, and repair semantics.</p></article>
+          <article class="phase"><span class="phase-number">Phase 2</span><h3>Performance & polish</h3><p>Cache stable data, load events/charts on demand, fix responsive profiles and media.</p></article>
+          <article class="phase"><span class="phase-number">Phase 3</span><h3>Product completion</h3><p>Expose account, follows, favourites, reminders, search, glossary, and sharing.</p></article>
+          <article class="phase"><span class="phase-number">Phase 4</span><h3>Runtime isolation</h3><p>Split the worker only when live-round measurements prove contention or ownership risk.</p></article>
+        </div>
+
+        <div class="flow" aria-label="Implementation sequence">
+          <div>Query less</div>
+          <div>Render less</div>
+          <div>Cache & defer</div>
+          <div>Measure what remains</div>
+        </div>
+      </section>
+
+      <section class="section-card" id="home">
+        <p class="kicker">Phase 1 · Entry experience</p>
+        <h2>Homepage feed</h2>
+        <p class="lede">The homepage becomes a current sports hub, not a rendered archive of the whole season.</p>
+
+        <h3>Initial content order</h3>
+        <ol>
+          <li>All live matches.</li>
+          <li>Up to four upcoming fixtures.</li>
+          <li>The latest completed stage or round.</li>
+          <li>Additional recent results up to eight completed cards total.</li>
+          <li>A deliberate <strong>View previous rounds</strong> action.</li>
+        </ol>
+
+        <h3>State-aware heading</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Competition state</th><th>Heading</th><th>Support</th></tr></thead>
+            <tbody>
+              <tr><td>Live</td><td>LIVE NOW</td><td>Match count and direct CTA</td></tr>
+              <tr><td>Match within seven days</td><td>UPCOMING</td><td>Local time and countdown</td></tr>
+              <tr><td>In season</td><td>LATEST RESULTS</td><td>Latest completed round</td></tr>
+              <tr><td>Grand Final complete</td><td>CHAMPIONS CROWNED</td><td>Winner, final score, recap</td></tr>
+              <tr><td>No schedule</td><td>FIXTURES COMING SOON</td><td>Existing explanation</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Filters and pagination</h3>
+        <ul>
+          <li>Season, team, stage/round, and Upcoming/Results controls.</li>
+          <li>URL search parameters preserve sharing and browser navigation.</li>
+          <li>Cursor pagination based on <code>scheduledAt</code> and <code>id</code>.</li>
+          <li>Maximum eight matches per history request.</li>
+          <li>Explicit loading, retry, empty, and polite live-region states.</li>
+        </ul>
+
+        <div class="acceptance">
+          <h3>Acceptance gate</h3>
+          <ul>
+            <li>The initial completed query is hard-bounded to eight.</li>
+            <li>The production DOM is below 2,000 nodes.</li>
+            <li>Postseason state identifies the Grand Final winner from data.</li>
+            <li>Every filter deep-links and restores correctly.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section-card" id="standings">
+        <p class="kicker">Phase 1 · Correctness</p>
+        <h2>Season-scoped standings</h2>
+        <div class="requirement"><strong>Invariant.</strong> No standings query may execute without a selected competition ID.</div>
+        <ul>
+          <li>Use a shared latest/selected competition helper across standings, teams, players, and home filters.</li>
+          <li>Derive the displayed year from the competition row; remove hardcoded `2026` presentation.</li>
+          <li>Team rank and record use the same selected/default competition.</li>
+          <li>Invalid season parameters fall back safely and canonicalize the URL.</li>
+          <li>Test multiple competitions containing the same teams.</li>
+        </ul>
+
+        <h3>Mobile ladder</h3>
+        <p>Below the medium breakpoint, use readable ladder cards rather than requiring horizontal table discovery. Each card shows rank, team, games played, W–L–D, goal percentage, and points.</p>
+
+        <div class="acceptance">
+          <h3>Acceptance gate</h3>
+          <ul>
+            <li>Header year, standings rows, and team-profile record always agree.</li>
+            <li>Essential mobile values require no horizontal scrolling.</li>
+            <li>Desktop table semantics and definitions remain intact.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section-card" id="live">
+        <p class="kicker">Phase 1 · Empty-state product design</p>
+        <h2>Live is always useful</h2>
+        <p>The Live navigation remains readable and clickable even when no match is underway.</p>
+        <details open>
+          <summary>No live match</summary>
+          <div>
+            <ul>
+              <li>Show “No match is live right now.”</li>
+              <li>Show the next scheduled match and local countdown.</li>
+              <li>Show the latest result and followed-team context when available.</li>
+              <li>Offer reminder/sign-in and all-fixtures actions.</li>
+            </ul>
+          </div>
+        </details>
+        <details>
+          <summary>One live match</summary>
+          <div><p>Redirect directly to its live match page, preserving the current fast path.</p></div>
+        </details>
+        <details>
+          <summary>Several live matches</summary>
+          <div><p>Render a live-match chooser rather than silently selecting the first database row.</p></div>
+        </details>
+
+        <div class="acceptance">
+          <h3>Acceptance gate</h3>
+          <ul>
+            <li><code>/live</code> never redirects home solely because no match is live.</li>
+            <li>No-live, one-live, and multiple-live states have tests.</li>
+            <li>Imminent copy says “Starts in” and never falsely claims live status.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section-card" id="accessibility">
+        <p class="kicker">Phase 1 · Interaction contract</p>
+        <h2>Accessibility semantics</h2>
+        <div class="priority-grid">
+          <article class="priority">
+            <span class="priority-tag">Forms</span>
+            <h3>Name every control</h3>
+            <p>Connect labels, add names/autocomplete, alert errors, preserve focus, and make Google a non-submit action.</p>
+          </article>
+          <article class="priority">
+            <span class="priority-tag">Match detail</span>
+            <h3>Implement real tabs</h3>
+            <p>Use tablist/tab/tabpanel semantics, selection state, stable IDs, and Arrow/Home/End keyboard behaviour.</p>
+          </article>
+          <article class="priority">
+            <span class="priority-tag">Content controls</span>
+            <h3>Expose state</h3>
+            <p>Biography expanders use <code>aria-expanded</code>; follows use <code>aria-pressed</code>; loading uses live regions.</p>
+          </article>
+          <article class="priority">
+            <span class="priority-tag">Navigation & icons</span>
+            <h3>Remove ambiguity</h3>
+            <p>Hide decorative ligatures from accessibility APIs and remove duplicated unnamed roster chevrons.</p>
+          </article>
+        </div>
+
+        <div class="acceptance">
+          <h3>Acceptance gate</h3>
+          <ul>
+            <li>Every form control has a non-empty accessible name.</li>
+            <li>Colour is never the only tab or active-state signal.</li>
+            <li>Primary flows work with keyboard alone and reduced motion.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section-card" id="performance">
+        <p class="kicker">Phase 2 · Server performance</p>
+        <h2>Cache stable data, measure live data</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th>Policy</th><th>Maximum staleness</th></tr></thead>
+            <tbody>
+              <tr><td>Teams / competition list</td><td>Shared server cache</td><td>1 hour</td></tr>
+              <tr><td>Completed history / detail</td><td>Shared server cache</td><td>15 minutes</td></tr>
+              <tr><td>Standings / upcoming</td><td>Shared server cache</td><td>60 seconds</td></tr>
+              <tr><td>Live scores/state</td><td>No-store + sockets</td><td>Live</td></tr>
+              <tr><td>User preferences</td><td>Private</td><td>Current user</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Implementation rules</h3>
+        <ul>
+          <li>Prefer explicit server query wrappers and TTLs; never share-cache user data.</li>
+          <li>Remove forced dynamic rendering from teams and standings only after cache-safe wrappers exist.</li>
+          <li>Separate stable homepage history from live/upcoming state.</li>
+          <li>Use Suspense only with stable fallback geometry and measurable first-paint value.</li>
+        </ul>
+
+        <h3>Server timing</h3>
+        <p>Record named durations for competition, live, upcoming, history, match base, score flow, events, player profile, and total render. Expose safe aggregate values through structured logs or <code>Server-Timing</code>.</p>
+      </section>
+
+      <section class="section-card" id="match">
+        <p class="kicker">Phase 2 · Payload design</p>
+        <h2>Match detail on demand</h2>
+        <h3>Initial box-score payload</h3>
+        <ul>
+          <li>Match identity, status, score, teams, quarters, explicit player-stat fields, and summary values.</li>
+          <li>Only the score-flow fields required for Match Momentum.</li>
+          <li>No <code>matchEvents</code> before Play by Play is activated.</li>
+        </ul>
+
+        <h3>Timeline endpoint</h3>
+        <pre><code>GET /api/matches/{matchId}/events
+  ?limit=75
+  &amp;cursor=...
+  &amp;quarter=4
+  &amp;type=turnover
+  &amp;team=...</code></pre>
+        <ul>
+          <li>Newest first, maximum 75, cursor-paginated.</li>
+          <li>Quarter, event type, and team filters.</li>
+          <li>Typed 400/404/retryable failure states.</li>
+          <li>Live socket entries respect the user's active filters.</li>
+        </ul>
+
+        <h3>Charts and mobile tables</h3>
+        <ul>
+          <li>Dynamically import Recharts-backed screens and reserve their height.</li>
+          <li>Provide a textual/table fallback.</li>
+          <li>Sticky Player column, edge fade, and “Swipe for more stats” hint on mobile.</li>
+          <li>Show compact Key Stats before the full matrix.</li>
+        </ul>
+
+        <div class="acceptance">
+          <h3>Acceptance gate</h3>
+          <ul>
+            <li>Network capture proves zero event transfer before tab activation.</li>
+            <li>All initial Prisma relations use explicit selects.</li>
+            <li>Event filters and pagination pass completed/live tests.</li>
+            <li>Chart loading causes no layout jump.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section-card" id="profiles">
+        <p class="kicker">Phase 2 · Responsive and media quality</p>
+        <h2>Profiles that hold together</h2>
+        <h3>Team profile</h3>
+        <ul>
+          <li>Remove forced line breaks after each word; use fluid, phrase-aware wrapping.</li>
+          <li>Maximum three lines at 320 px and two lines on desktop.</li>
+          <li>Recent Form gains scroll snapping, directional controls, edge cue, and View all results.</li>
+        </ul>
+
+        <h3>Player profile</h3>
+        <ul>
+          <li>Missing or unusable portrait always produces high-contrast initials.</li>
+          <li>Percentage changes state their comparison baseline.</li>
+          <li>Impact, NetPoints, Gains, CPR, FD, and super-shot notation use shared definitions.</li>
+          <li>Biography provenance is recorded and contradictory enrichment is flagged.</li>
+        </ul>
+
+        <h3>Canonical team assets</h3>
+        <p>Store normalized local assets for the eight league teams under <code>public/teams/{slug}</code>. Keep upstream URLs for provenance/fallback, then use abbreviation tiles as the final safe fallback.</p>
+
+        <div class="acceptance">
+          <h3>Acceptance gate</h3>
+          <ul>
+            <li>All team badges are legible on light and dark cards.</li>
+            <li>Missing portraits show initials in both themes.</li>
+            <li>Team headings work at 320, 390, 768, 1024, and 1440 px.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section-card" id="account">
+        <p class="kicker">Phase 3 · Product completion</p>
+        <h2>Account, personalization & search</h2>
+        <details open>
+          <summary>Account discovery</summary>
+          <div>
+            <ul>
+              <li>Desktop sidebar bottom section shows Sign in or avatar, Settings, and Sign out.</li>
+              <li>Mobile gains a deliberate More/account destination rather than a crowded silent addition.</li>
+              <li>Settings becomes reachable without manually entering its URL.</li>
+            </ul>
+          </div>
+        </details>
+        <details open>
+          <summary>Followed teams</summary>
+          <div>
+            <ul>
+              <li>Signed-in homepage shows My Teams after live/upcoming and before general results.</li>
+              <li>Each followed team shows its next fixture and latest result.</li>
+              <li>Optimistic follow/unfollow rolls back and explains failures.</li>
+              <li>Personal content remains outside the shared public cache.</li>
+            </ul>
+          </div>
+        </details>
+        <details>
+          <summary>Favourites and reminders</summary>
+          <div>
+            <ul>
+              <li>Match cards/detail expose favourite and scheduled reminder actions.</li>
+              <li>Signed-out actions preserve a callback to the originating match.</li>
+              <li>Settings lists saved matches and active reminders.</li>
+              <li>Copy remains honest: in-app reminders until push delivery exists.</li>
+            </ul>
+          </div>
+        </details>
+        <details>
+          <summary>Global search</summary>
+          <div>
+            <ul>
+              <li>Grouped player, team, and match results.</li>
+              <li>Two-character minimum, debounced requests, five results per group.</li>
+              <li>Keyboard navigation, highlighted matches, and bounded explicit-column queries.</li>
+            </ul>
+          </div>
+        </details>
+
+        <h3>Follow-on features</h3>
+        <ul>
+          <li>Shared stat glossary.</li>
+          <li>Canonical share actions and `.ics` calendar export.</li>
+          <li>Historical team/player season comparison.</li>
+          <li>PWA/push notifications only as a complete later permission and delivery project.</li>
+        </ul>
+      </section>
+
+      <section class="section-card" id="worker">
+        <p class="kicker">Phase 4 · Conditional architecture</p>
+        <h2>Worker isolation & Rust gate</h2>
+        <h3>When to split the worker</h3>
+        <ul>
+          <li>Polling materially increases web-request p95.</li>
+          <li>Web CPU stays above 70% during representative live periods.</li>
+          <li>A poll routinely exceeds its scheduling interval.</li>
+          <li>Horizontal web scaling or duplicate-poller ownership becomes necessary.</li>
+          <li>Worker failures cause web restarts or missed updates.</li>
+        </ul>
+
+        <h3>TypeScript separation design</h3>
+        <ol>
+          <li>Create a dedicated Render background worker from the existing modules.</li>
+          <li>Use a PostgreSQL advisory lock for single ownership.</li>
+          <li>Publish committed deltas through PostgreSQL LISTEN/NOTIFY first.</li>
+          <li>Have the web process subscribe and forward through Socket.io.</li>
+          <li>Recover canonical state from the database after missed notifications/reconnects.</li>
+          <li>Remove in-process <code>startWorker()</code> only after cross-process broadcast is proven.</li>
+        </ol>
+
+        <div class="requirement">
+          <strong>Rust gate.</strong> Require a CPU profile, representative benchmark, TypeScript baseline, isolated Rust prototype,
+          at least a 3× throughput or material cost/latency improvement, and an ownership plan. Without those receipts, stay with TypeScript.
+        </div>
+      </section>
+
+      <section class="section-card" id="contracts">
+        <p class="kicker">Implementation map</p>
+        <h2>Contracts & expected files</h2>
+        <h3>New API contracts</h3>
+        <pre><code>interface MatchFeedResponse {
+  groups: Array&lt;{
+    label: string;
+    matches: MatchCardData[];
+  }&gt;;
+  nextCursor: string | null;
+}
+
+interface MatchTimelineResponse {
+  entries: PlayByPlayEntry[];
+  nextCursor: string | null;
+  totalKnown?: number;
+}
+
+interface ApiErrorResponse {
+  error: {
+    code: string;
+    message: string;
+    retryable: boolean;
+  };
+}</code></pre>
+
+        <h3>Expected new files</h3>
+        <div class="file-grid">
+          <div class="file-card"><span>Data</span><code>src/lib/competitions.ts</code><br><code>src/lib/home-feed.ts</code><br><code>src/lib/stat-glossary.ts</code></div>
+          <div class="file-card"><span>Routes</span><code>src/app/api/matches/route.ts</code><br><code>src/app/api/matches/[matchId]/events/route.ts</code></div>
+          <div class="file-card"><span>UI</span><code>HomeFeedControls.tsx</code><br><code>PersonalizedTeamRail.tsx</code><br><code>MobileStandings.tsx</code></div>
+          <div class="file-card"><span>Quality</span><code>AccountMenu.tsx</code><br><code>GlobalSearch.tsx</code><br><code>scripts/audit-media-assets.ts</code></div>
+        </div>
+
+        <h3>Primary existing files</h3>
+        <p><code>src/app/page.tsx</code>, standings, live, match, team/player profile, navigation, auth, settings, badges/avatars, live-state, and—only after the gate—worker/server/Render configuration.</p>
+      </section>
+
+      <section class="section-card" id="testing">
+        <p class="kicker">Proof before rollout</p>
+        <h2>Testing & deployment</h2>
+        <h3>Required browser flows</h3>
+        <ol>
+          <li>Home → filter team → load earlier results → open match.</li>
+          <li>Match → Play by Play → filter → load older events.</li>
+          <li>Standings → change season → open team.</li>
+          <li>Live with no game → next fixture/reminder.</li>
+          <li>Signed-out favourite → sign in callback → favourite saved.</li>
+          <li>Settings → follow/unfollow → personalized home changes.</li>
+          <li>Keyboard-only traversal through all primary controls.</li>
+        </ol>
+
+        <h3>Required viewports</h3>
+        <p><code>1440 × 900</code>, <code>1024 × 768</code>, <code>390 × 844</code>, and <code>320 × 568</code>.</p>
+
+        <h3>Deployment sequence</h3>
+        <ol>
+          <li>Instrumentation and season-scoping tests.</li>
+          <li>Bounded homepage and Live Hub.</li>
+          <li>Cache wrappers.</li>
+          <li>On-demand events and chart loading.</li>
+          <li>Responsive/media/accessibility polish.</li>
+          <li>Account discovery and personalization.</li>
+          <li>Observe a live round before any worker split.</li>
+        </ol>
+
+        <div class="acceptance">
+          <h3>Every browser flow proves</h3>
+          <ul>
+            <li>Correct page identity and meaningful content.</li>
+            <li>No framework overlay or relevant console error.</li>
+            <li>The intended interaction and resulting state.</li>
+            <li>Desktop and mobile screenshot evidence.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section-card" id="done">
+        <p class="kicker">Programme exit criteria</p>
+        <h2>Definition of done</h2>
+        <ul>
+          <li>Phases 1–3 acceptance criteria pass.</li>
+          <li>The homepage no longer renders the full season initially.</li>
+          <li>Standings and team records are season-correct.</li>
+          <li>Live has a useful no-live state.</li>
+          <li>Play-by-play is on-demand and paginated.</li>
+          <li>Named accessibility risks are corrected and keyboard-tested.</li>
+          <li>Profile layouts and media fallbacks are visually verified.</li>
+          <li>Account and personalization are discoverable and functional.</li>
+          <li>Performance results are recorded against the audit baseline.</li>
+          <li><code>npm run check</code>, <code>npm run build</code>, and Graphify refresh pass.</li>
+          <li>Rust remains explicitly evidence-gated.</li>
+          <li>Any deferred Phase 4 work has an explicit decision record.</li>
+        </ul>
+
+        <div class="decision" style="margin-top: 28px">
+          <div>
+            <strong>The implementation principle</strong>
+            <p>Query less. Render less. Cache stable data. Defer optional code and data. Measure what remains. Change runtime ownership—or language—only when the receipts justify it.</p>
+          </div>
+          <div class="decision-score"><div><span>4</span>deployable phases</div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p><strong>CentrePass</strong> · QOL, Performance & Product Improvements · Approved 12 July 2026</p>
+    <p>The Markdown file is the canonical detailed source. This HTML document is its readable companion.</p>
+  </footer>
+
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const toggle = document.getElementById('theme-toggle');
+      const links = [...document.querySelectorAll('.toc a')];
+      const sections = links
+        .map((link) => document.querySelector(link.getAttribute('href')))
+        .filter(Boolean);
+
+      toggle.addEventListener('click', () => {
+        const dark = root.dataset.theme !== 'dark';
+        root.dataset.theme = dark ? 'dark' : 'light';
+        toggle.setAttribute('aria-pressed', String(dark));
+        toggle.textContent = dark ? 'Use light reading mode' : 'Use dark reading mode';
+      });
+
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+          const visible = entries
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+          if (!visible) return;
+          links.forEach((link) => {
+            const current = link.getAttribute('href') === `#${visible.target.id}`;
+            if (current) link.setAttribute('aria-current', 'true');
+            else link.removeAttribute('aria-current');
+          });
+        }, { rootMargin: '-10% 0px -72% 0px', threshold: [0.05, 0.3] });
+
+        sections.forEach((section) => observer.observe(section));
+      }
+    })();
+  </script>
+</body>
+</html>

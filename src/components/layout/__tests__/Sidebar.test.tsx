@@ -4,6 +4,12 @@ import { Sidebar } from '../Sidebar';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({ data: null, status: 'unauthenticated' }),
+  signOut: vi.fn(),
 }));
 
 vi.mock('next/link', () => ({
@@ -29,6 +35,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Live')).toBeInTheDocument();
     expect(screen.getByText('Standings')).toBeInTheDocument();
     expect(screen.getByText('Teams')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', '/auth/signin');
   });
 
   it('renders correct hrefs', () => {

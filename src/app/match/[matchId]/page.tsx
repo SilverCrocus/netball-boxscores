@@ -10,31 +10,75 @@ import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { MatchMomentumChart } from '@/components/ui/MatchMomentumChart';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { MatchStatsComparison } from '@/components/match/MatchStatsComparison';
-import { MatchPlayByPlay } from '@/components/match/MatchPlayByPlay';
+import { MatchTimeline } from '@/components/match/MatchTimeline';
+import { MatchActions } from '@/components/match/MatchActions';
 import { MatchTabs } from './MatchTabs';
 import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
 import { formatMatchDateTime } from '@/lib/format';
 import { formatMatchStage } from '@/lib/match-label';
+import { timedQuery } from '@/lib/server-timing';
 
 const getMatch = cache((matchId: string) =>
-  prisma.match.findUnique({
+  timedQuery('match_base', () => prisma.match.findUnique({
     where: { id: matchId },
-    include: {
+    select: {
+      id: true,
+      status: true,
+      homeScore: true,
+      awayScore: true,
+      currentQuarter: true,
+      currentTime: true,
+      round: true,
+      finalCode: true,
+      venue: true,
+      scheduledAt: true,
+      homeTeamId: true,
+      awayTeamId: true,
       homeTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
       awayTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
-      quarters: { orderBy: { quarter: 'asc' } },
-      playerStats: { include: { player: true }, orderBy: { goals: 'desc' } },
+      quarters: {
+        select: { quarter: true, homeScore: true, awayScore: true },
+        orderBy: { quarter: 'asc' },
+      },
+      playerStats: {
+        select: {
+          id: true,
+          goals: true,
+          attempts: true,
+          goalAssists: true,
+          intercepts: true,
+          deflections: true,
+          rebounds: true,
+          penalties: true,
+          feeds: true,
+          centrePassReceives: true,
+          turnovers: true,
+          minutesPlayed: true,
+          netPoints: true,
+          gain: true,
+          player: {
+            select: { id: true, name: true, position: true, photoUrl: true, teamId: true },
+          },
+        },
+        orderBy: { goals: 'desc' },
+      },
       scoreFlow: {
+        select: {
+          id: true,
+          period: true,
+          periodSeconds: true,
+          scoringTeamId: true,
+          homeScore: true,
+          awayScore: true,
+          scorePoints: true,
+          scorerPlayerId: true,
+        },
         orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
-        include: { scorerPlayer: { select: { id: true, name: true, photoUrl: true } } },
       },
-      matchEvents: {
-        orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
-        include: { player: { select: { id: true, name: true, photoUrl: true } } },
-      },
+      _count: { select: { matchEvents: true } },
     },
-  })
+  }))
 );
 
 interface MatchPageProps {
@@ -73,8 +117,8 @@ export default async function MatchPage({ params }: MatchPageProps) {
     if (sf.scorePoints === 2) {
       if (sf.scoringTeamId === match.homeTeamId) homeSuperShots++;
       else awaySuperShots++;
-      if (sf.scorerPlayer?.id) {
-        superShotsByPlayer.set(sf.scorerPlayer.id, (superShotsByPlayer.get(sf.scorerPlayer.id) || 0) + 1);
+      if (sf.scorerPlayerId) {
+        superShotsByPlayer.set(sf.scorerPlayerId, (superShotsByPlayer.get(sf.scorerPlayerId) || 0) + 1);
       }
     } else {
       if (sf.scoringTeamId === match.homeTeamId) homeNormalGoals++;
@@ -210,8 +254,10 @@ export default async function MatchPage({ params }: MatchPageProps) {
         </div>
       </section>
 
+      <MatchActions matchId={match.id} status={match.status} />
+
       <MatchTabs
-        hasPlayByPlay={match.scoreFlow.length > 0 || match.matchEvents.length > 0}
+        hasPlayByPlay={match.scoreFlow.length > 0 || match._count.matchEvents > 0}
         boxScore={
           <>
             {/* Match Momentum */}
@@ -253,6 +299,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
                         Top NetPoints
                       </span>
                       <span
+                        aria-hidden="true"
                         className="material-symbols-outlined text-secondary"
                         style={{ fontVariationSettings: "'FILL' 1" }}
                       >
@@ -261,12 +308,13 @@ export default async function MatchPage({ params }: MatchPageProps) {
                     </div>
                     <div className="flex flex-col items-center text-center">
                       <PlayerAvatar
+                        decorative
                         name={mvp.player.name}
                         photoUrl={mvp.player.photoUrl}
                         size={120}
                         className="mb-3 border-2 border-secondary/20"
                       />
-                      <Link href={`/player/${mvp.player.id}`} className="hover:underline">
+                      <Link prefetch={false} href={`/player/${mvp.player.id}`} className="hover:underline">
                         <h3 className="font-headline text-xl font-black text-primary-container uppercase">
                           {mvp.player.name}
                         </h3>
@@ -321,30 +369,8 @@ export default async function MatchPage({ params }: MatchPageProps) {
           </>
         }
         playByPlay={
-          <MatchPlayByPlay
-            entries={[
-              ...match.scoreFlow.map((sf) => ({
-                period: sf.period,
-                periodSeconds: sf.periodSeconds,
-                eventType: 'goal' as const,
-                teamId: sf.scoringTeamId,
-                homeScore: sf.homeScore,
-                awayScore: sf.awayScore,
-                scorePoints: sf.scorePoints,
-                playerId: sf.scorerPlayer?.id,
-                playerName: sf.scorerPlayer?.name,
-                playerPhotoUrl: sf.scorerPlayer?.photoUrl,
-              })),
-              ...match.matchEvents.map((e) => ({
-                period: e.period,
-                periodSeconds: e.periodSeconds,
-                eventType: e.type as 'intercept' | 'deflection' | 'rebound' | 'turnover',
-                teamId: e.teamId,
-                playerId: e.player.id,
-                playerName: e.player.name,
-                playerPhotoUrl: e.player.photoUrl,
-              })),
-            ].sort((a, b) => a.period - b.period || a.periodSeconds - b.periodSeconds)}
+          <MatchTimeline
+            matchId={match.id}
             homeTeam={{ id: match.homeTeamId, ...match.homeTeam }}
             awayTeam={{ id: match.awayTeamId, ...match.awayTeam }}
           />

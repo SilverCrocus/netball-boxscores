@@ -8,9 +8,10 @@ interface PlayerAvatarProps {
   photoUrl?: string | null;
   size?: number;
   className?: string;
+  decorative?: boolean;
 }
 
-export function PlayerAvatar({ name, photoUrl, size = 32, className = '' }: PlayerAvatarProps) {
+export function PlayerAvatar({ name, photoUrl, size = 32, className = '', decorative = false }: PlayerAvatarProps) {
   const [imgError, setImgError] = useState(false);
 
   const initials = name.split(' ').map((n) => n[0]).join('');
@@ -18,11 +19,15 @@ export function PlayerAvatar({ name, photoUrl, size = 32, className = '' }: Play
   if (!photoUrl || imgError) {
     return (
       <div
-        className={`rounded-full bg-primary-container/20 flex items-center justify-center shrink-0 ${className}`}
+        role={decorative ? undefined : 'img'}
+        aria-label={decorative ? undefined : name}
+        aria-hidden={decorative || undefined}
+        className={`flex shrink-0 items-center justify-center rounded-full bg-primary-container text-white ring-1 ring-white/30 ${className}`}
         style={{ width: size, height: size }}
       >
         <span
-          className="font-bold text-primary-container"
+          aria-hidden="true"
+          className="font-bold text-white"
           style={{ fontSize: size * 0.32 }}
         >
           {initials}
@@ -34,7 +39,7 @@ export function PlayerAvatar({ name, photoUrl, size = 32, className = '' }: Play
   return (
     <Image
       src={photoUrl}
-      alt={name}
+      alt={decorative ? '' : name}
       width={size}
       height={size}
       className={`rounded-full object-cover shrink-0 ${className}`}

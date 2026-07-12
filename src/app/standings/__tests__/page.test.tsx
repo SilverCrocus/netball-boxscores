@@ -4,6 +4,17 @@ import StandingsPage from '../page';
 
 vi.mock('@/lib/db', () => ({
   prisma: {
+    competition: {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: 'competition-2026',
+          season: 2026,
+          name: 'Suncorp Super Netball',
+          seasonStart: new Date('2026-03-01T00:00:00Z'),
+          seasonEnd: new Date('2026-07-31T00:00:00Z'),
+        },
+      ]),
+    },
     standing: {
       findMany: vi.fn().mockResolvedValue([
         {
@@ -38,44 +49,44 @@ vi.mock('@/lib/db', () => ({
 }));
 
 describe('StandingsPage', () => {
+  const props = { searchParams: Promise.resolve({}) };
+
   it('renders standings heading', async () => {
-    const page = await StandingsPage();
+    const page = await StandingsPage(props);
     render(page);
     expect(screen.getByText(/Standings/i)).toBeInTheDocument();
   });
 
   it('renders team names', async () => {
-    const page = await StandingsPage();
+    const page = await StandingsPage(props);
     render(page);
-    expect(screen.getByText('Vipers Athletics')).toBeInTheDocument();
-    expect(screen.getByText('Starlight Gems')).toBeInTheDocument();
+    expect(screen.getAllByText('Vipers Athletics')).toHaveLength(2);
+    expect(screen.getAllByText('Starlight Gems')).toHaveLength(2);
   });
 
   it('renders column headers', async () => {
-    const page = await StandingsPage();
+    const page = await StandingsPage(props);
     render(page);
     expect(screen.getByText('GP')).toBeInTheDocument();
-    expect(screen.getByText('Pts')).toBeInTheDocument();
+    expect(screen.getAllByText('Pts')).toHaveLength(3);
   });
 
   it('adds explanatory tooltips to column headers', async () => {
-    const page = await StandingsPage();
+    const page = await StandingsPage(props);
     render(page);
-    expect(screen.getByText('GP')).toHaveAttribute('title', 'Games Played');
-    expect(screen.getByText('G%')).toHaveAttribute(
-      'title',
-      expect.stringContaining('Goal Percentage'),
+    expect(screen.getByTitle('Games Played')).toHaveTextContent('GP');
+    expect(screen.getByTitle(/Goal Percentage/)).toHaveTextContent(
+      'G%',
     );
-    expect(screen.getByText('Pts')).toHaveAttribute(
-      'title',
-      expect.stringContaining('4 for a win'),
+    expect(screen.getByTitle(/4 for a win/)).toHaveTextContent(
+      'Pts',
     );
   });
 
   it('renders points values', async () => {
-    const page = await StandingsPage();
+    const page = await StandingsPage(props);
     render(page);
-    expect(screen.getByText('44')).toBeInTheDocument();
-    expect(screen.getByText('40')).toBeInTheDocument();
+    expect(screen.getAllByText('44')).toHaveLength(2);
+    expect(screen.getAllByText('40')).toHaveLength(2);
   });
 });

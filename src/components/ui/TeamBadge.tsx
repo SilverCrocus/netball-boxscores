@@ -1,4 +1,7 @@
+'use client';
+
 import Image from 'next/image';
+import { useState } from 'react';
 
 interface TeamBadgeProps {
   team: {
@@ -12,17 +15,20 @@ interface TeamBadgeProps {
 }
 
 export function TeamBadge({ team, size, variant = 'home', className = '' }: TeamBadgeProps) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const fallbackBg = variant === 'home' ? 'bg-primary-container' : 'bg-surface-container-high';
   const fallbackText = variant === 'home' ? 'text-white' : 'text-primary';
+  const usableLogoUrl = team.logoUrl && team.logoUrl !== failedUrl ? team.logoUrl : null;
 
-  if (team.logoUrl) {
+  if (usableLogoUrl) {
     return (
       <Image
-        src={team.logoUrl}
+        src={usableLogoUrl}
         alt={`${team.name} badge`}
         width={size}
         height={size}
         className={`object-contain ${className}`}
+        onError={() => setFailedUrl(usableLogoUrl)}
       />
     );
   }
@@ -31,10 +37,12 @@ export function TeamBadge({ team, size, variant = 'home', className = '' }: Team
   const textSize = size >= 64 ? 'text-3xl' : size >= 40 ? 'text-lg' : 'text-sm';
   return (
     <div
+      role="img"
+      aria-label={`${team.name} badge`}
       className={`flex items-center justify-center rounded-lg font-black italic font-headline ${fallbackBg} ${fallbackText} ${textSize} ${className}`}
       style={{ width: size, height: size }}
     >
-      {team.abbreviation.charAt(0)}
+      {team.abbreviation.slice(0, 3)}
     </div>
   );
 }

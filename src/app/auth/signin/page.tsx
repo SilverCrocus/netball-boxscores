@@ -11,6 +11,7 @@ function SignInForm() {
   const callbackUrl = searchParams.get('callbackUrl') || '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -19,19 +20,23 @@ function SignInForm() {
     setLoading(true);
     setError('');
 
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-      callbackUrl,
-    });
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+        callbackUrl,
+      });
 
-    setLoading(false);
-
-    if (result?.error) {
-      setError('Invalid email or password');
-    } else if (result?.url) {
-      router.push(result.url);
+      if (result?.error) {
+        setError('Invalid email or password');
+      } else if (result?.url) {
+        router.push(result.url);
+      }
+    } catch {
+      setError('Sign in is temporarily unavailable. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,18 +53,21 @@ function SignInForm() {
 
       <div className="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-outline-variant/15">
         {error && (
-          <div className="bg-error-container text-on-error-container px-4 py-3 rounded-lg mb-6 font-label text-sm">
+          <div role="alert" className="bg-error-container text-on-error-container px-4 py-3 rounded-lg mb-6 font-label text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
+            <label htmlFor="signin-email" className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
               Email
             </label>
             <input
               type="email"
+              id="signin-email"
+              name="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-lg border border-outline-variant bg-surface-container-low font-body text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary"
@@ -68,16 +76,30 @@ function SignInForm() {
           </div>
 
           <div>
-            <label className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
+            <label htmlFor="signin-password" className="block font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
               Password
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-outline-variant bg-surface-container-low font-body text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="signin-password"
+                name="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 pr-16 font-body text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 px-4 font-label text-xs font-bold text-secondary"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
 
           <button
@@ -101,10 +123,11 @@ function SignInForm() {
         </div>
 
         <button
+          type="button"
           onClick={() => signIn('google', { callbackUrl })}
           className="w-full flex items-center justify-center gap-3 bg-surface-container-high text-on-surface py-3 rounded-lg font-label font-bold hover:bg-surface-container-highest transition-colors"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <svg aria-hidden="true" focusable="false" className="w-5 h-5" viewBox="0 0 24 24">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -142,7 +165,7 @@ function SignInForm() {
 export default function SignInPage() {
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-4">
-      <Suspense fallback={<div className="text-on-surface-variant">Loading...</div>}>
+      <Suspense fallback={<div role="status" className="text-on-surface-variant">Loading sign in…</div>}>
         <SignInForm />
       </Suspense>
     </div>
