@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { applyChanges, validateMatchData, reconcileStaleCompletedScores } from '@/lib/processing';
+import {
+  applyChanges,
+  validateMatchData,
+  reconcileStaleCompletedScores,
+  syncFixtureMatches,
+} from '@/lib/processing';
 import { prisma } from '@/lib/db';
 import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data';
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    match: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    competition: { findUnique: vi.fn() },
+    team: { findMany: vi.fn() },
+    match: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), upsert: vi.fn() },
     matchQuarter: { upsert: vi.fn() },
     player: { findMany: vi.fn() },
     playerMatchStats: { findMany: vi.fn(), upsert: vi.fn() },
@@ -112,6 +119,45 @@ describe('applyChanges', () => {
     expect(prisma.scoreFlow.upsert).toHaveBeenCalledWith(expect.objectContaining({
       update: expect.objectContaining({ scorePoints: 2 }),
     }));
+  });
+});
+
+describe('syncFixtureMatches', () => {
+  it('stores finals in the season competition with their source and stage', async () => {
+    vi.mocked(prisma.competition.findUnique).mockResolvedValue({ id: 'season-2026' } as any);
+    vi.mocked(prisma.team.findMany).mockResolvedValue([
+      { id: 'home', championDataTeamId: 801 },
+      { id: 'away', championDataTeamId: 804 },
+    ] as any);
+
+    const synced = await syncFixtureMatches([{
+      matchId: 129500301,
+      roundNumber: 3,
+      finalCode: 'GRAND',
+      homeSquadId: 801,
+      awaySquadId: 804,
+      venueName: 'John Cain Arena',
+      utcStartTime: '2026-07-04T09:30:00Z',
+      matchStatus: 'complete',
+      homeSquadScore: 61,
+      awaySquadScore: 40,
+    } as CDFixtureMatch], 12949, 12950);
+
+    expect(synced).toBe(1);
+    expect(prisma.match.upsert).toHaveBeenCalledWith({
+      where: { championDataMatchId: 129500301 },
+      update: expect.objectContaining({
+        competitionId: 'season-2026',
+        sourceCompetitionId: 12950,
+        finalCode: 'GRAND',
+      }),
+      create: expect.objectContaining({
+        championDataMatchId: 129500301,
+        sourceCompetitionId: 12950,
+        finalCode: 'GRAND',
+        status: 'COMPLETED',
+      }),
+    });
   });
 });
 

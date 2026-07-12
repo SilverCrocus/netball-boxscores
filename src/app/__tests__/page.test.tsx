@@ -161,6 +161,34 @@ describe('HomePage', () => {
     expect(round5.compareDocumentPosition(round4) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('shows finals stages ahead of the regular-season rounds', async () => {
+    const grandFinal = {
+      ...MATCHES[3],
+      id: 'grand-final',
+      round: 3,
+      finalCode: 'GRAND',
+      scheduledAt: new Date('2026-07-04T09:30:00Z'),
+    };
+    const round14 = {
+      ...MATCHES[4],
+      id: 'round-14',
+      round: 14,
+      finalCode: null,
+      scheduledAt: new Date('2026-06-14T06:00:00Z'),
+    };
+    findMatchesMock.mockImplementation(({ where }: { where: { status: string } }) =>
+      Promise.resolve(where.status === 'COMPLETED' ? [grandFinal, round14] : []),
+    );
+
+    render(await HomePage());
+
+    const grandFinalHeading = screen.getByText('Grand Final');
+    const round14Heading = screen.getByText('Round 14');
+    expect(
+      grandFinalHeading.compareDocumentPosition(round14Heading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('does not show Final badge in results', async () => {
     const page = await HomePage();
     render(page);

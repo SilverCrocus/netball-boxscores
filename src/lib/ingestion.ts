@@ -52,32 +52,35 @@ export async function ingestFromChampionData(
   }
 
   // Determine which matches need detail fetching
-  const scheduledCDIds = new Set<number>();
-  const scheduledDbMatches = await prisma.match.findMany({
-    where: { status: 'SCHEDULED', championDataMatchId: { not: null } },
-    select: { championDataMatchId: true },
+  const existingMatches = new Map<number, { status: string; playerStats: number }>();
+  const existingDbMatches = await prisma.match.findMany({
+    where: { championDataMatchId: { not: null } },
+    select: {
+      championDataMatchId: true,
+      status: true,
+      _count: { select: { playerStats: true } },
+    },
   });
-  for (const m of scheduledDbMatches) {
-    if (m.championDataMatchId) scheduledCDIds.add(m.championDataMatchId);
-  }
-
-  const liveCDIds = new Set<number>();
-  const liveDbMatches = await prisma.match.findMany({
-    where: { status: 'LIVE', championDataMatchId: { not: null } },
-    select: { championDataMatchId: true },
-  });
-  for (const m of liveDbMatches) {
-    if (m.championDataMatchId) liveCDIds.add(m.championDataMatchId);
+  for (const match of existingDbMatches) {
+    if (match.championDataMatchId) {
+      existingMatches.set(match.championDataMatchId, {
+        status: match.status,
+        playerStats: match._count.playerStats,
+      });
+    }
   }
 
   for (const matchData of fixture) {
     const cdStatus = matchData.matchStatus.toLowerCase();
     const isPlaying = cdStatus === 'playing';
-    const needsBackfill =
-      cdStatus === 'complete' && scheduledCDIds.has(matchData.matchId);
-    const needsFinalFetch =
-      cdStatus === 'complete' && liveCDIds.has(matchData.matchId);
-    if (!isPlaying && !needsBackfill && !needsFinalFetch) continue;
+    const existing = existingMatches.get(matchData.matchId);
+    const needsCompletedBackfill = cdStatus === 'complete' && (
+      existing === undefined ||
+      existing.status === 'SCHEDULED' ||
+      existing.status === 'LIVE' ||
+      existing.playerStats === 0
+    );
+    if (!isPlaying && !needsCompletedBackfill) continue;
 
     try {
       const detail = await fetchMatchStats(competitionId, matchData.matchId);

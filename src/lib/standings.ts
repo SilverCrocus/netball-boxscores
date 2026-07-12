@@ -34,6 +34,7 @@ export async function recalculateStandings(): Promise<void> {
     where: {
       competitionId: competition.id,
       status: 'COMPLETED',
+      finalCode: null,
       ...excludeSimData,
     },
     select: {

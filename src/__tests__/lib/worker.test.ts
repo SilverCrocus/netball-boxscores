@@ -21,6 +21,7 @@ vi.mock('@/lib/ingestion', () => ({
 
 vi.mock('@/lib/processing', () => ({
   validateMatchData: vi.fn(),
+  syncFixtureMatches: vi.fn().mockResolvedValue(0),
   detectChanges: vi.fn(),
   applyChanges: vi.fn(),
   reconcileCompletedMatches: vi.fn(),
@@ -48,6 +49,8 @@ vi.mock('@/lib/worker-health', () => ({
 describe('Worker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Most worker unit tests exercise one source; a dedicated test below covers finals.
+    vi.stubEnv('SSN_FINALS_COMPETITION_ID', '12949');
   });
 
   afterEach(() => {
@@ -188,5 +191,52 @@ describe('Worker', () => {
     await pollChampionData();
 
     expect(recordPoll).toHaveBeenCalledWith('partial', 0);
+  });
+
+  it('syncs both the regular-season and finals fixtures into one season', async () => {
+    vi.stubEnv('SSN_FINALS_COMPETITION_ID', '12950');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const processing = await import('@/lib/processing');
+    const { prisma } = await import('@/lib/db');
+    const { pollChampionData } = await import('@/lib/worker');
+
+    vi.mocked(ingestFromChampionData)
+      .mockResolvedValueOnce({
+        fixture: [{ matchId: 101 } as any],
+        matchDetails: new Map(),
+        pollLogIds: [],
+        matchPollLogIds: new Map(),
+        detailFetchErrors: 0,
+      })
+      .mockResolvedValueOnce({
+        fixture: [{ matchId: 201, finalCode: 'SEMI' } as any],
+        matchDetails: new Map(),
+        pollLogIds: [],
+        matchPollLogIds: new Map(),
+        detailFetchErrors: 0,
+      });
+    vi.mocked(prisma.team.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.player.findMany).mockResolvedValue([]);
+    vi.mocked(processing.reconcileCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
+
+    await pollChampionData();
+
+    expect(ingestFromChampionData).toHaveBeenNthCalledWith(1, 12949);
+    expect(ingestFromChampionData).toHaveBeenNthCalledWith(2, 12950);
+    expect(processing.syncFixtureMatches).toHaveBeenNthCalledWith(
+      1,
+      [{ matchId: 101 }],
+      12949,
+      12949,
+    );
+    expect(processing.syncFixtureMatches).toHaveBeenNthCalledWith(
+      2,
+      [{ matchId: 201, finalCode: 'SEMI' }],
+      12949,
+      12950,
+    );
   });
 });

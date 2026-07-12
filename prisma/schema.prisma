@@ -125,6 +125,8 @@ model Match {
   awayScore           Int                @default(0)
   currentQuarter      Int?
   currentTime         String?
+  sourceCompetitionId Int?
+  finalCode           String?
   updatedAt           DateTime           @updatedAt
   championDataMatchId Int?               @unique
   quarters            MatchQuarter[]

@@ -84,6 +84,74 @@ export interface ChangeResult {
   currentTime: string;
 }
 
+/**
+ * Keep the local schedule aligned with an upstream Champion Data fixture.
+ * Finals are published under a separate upstream competition, but belong to
+ * the same CentrePass season and therefore share the regular competition row.
+ */
+export async function syncFixtureMatches(
+  fixtureMatches: CDFixtureMatch[],
+  seasonCompetitionId: number,
+  sourceCompetitionId: number,
+): Promise<number> {
+  if (fixtureMatches.length === 0) return 0;
+
+  const competition = await prisma.competition.findUnique({
+    where: { championDataId: seasonCompetitionId },
+    select: { id: true },
+  });
+  if (!competition) {
+    console.warn(`[Processing] Competition ${seasonCompetitionId} not found — fixture sync skipped`);
+    return 0;
+  }
+
+  const teams = await prisma.team.findMany({
+    where: { championDataTeamId: { not: null } },
+    select: { id: true, championDataTeamId: true },
+  });
+  const teamIds = new Map(
+    teams.map((team) => [team.championDataTeamId!, team.id]),
+  );
+
+  const writes = fixtureMatches.flatMap((fixture) => {
+    const homeTeamId = teamIds.get(fixture.homeSquadId);
+    const awayTeamId = teamIds.get(fixture.awaySquadId);
+    if (!homeTeamId || !awayTeamId) {
+      console.warn(`[Processing] Match ${fixture.matchId} skipped — team mapping missing`);
+      return [];
+    }
+
+    const staticData = {
+      competitionId: competition.id,
+      homeTeamId,
+      awayTeamId,
+      round: fixture.roundNumber,
+      venue: fixture.venueName,
+      scheduledAt: new Date(fixture.utcStartTime),
+      sourceCompetitionId,
+      finalCode: fixture.finalCode || null,
+    };
+
+    return [prisma.match.upsert({
+      where: { championDataMatchId: fixture.matchId },
+      // Live score/status changes must remain visible to detectChanges so the
+      // socket layer can broadcast them. Fixture sync only refreshes metadata
+      // on existing rows; full state is used when a match is first discovered.
+      update: staticData,
+      create: {
+        championDataMatchId: fixture.matchId,
+        ...staticData,
+        status: mapMatchStatus(fixture.matchStatus),
+        homeScore: fixture.homeSquadScore ?? 0,
+        awayScore: fixture.awaySquadScore ?? 0,
+      },
+    })];
+  });
+
+  await prisma.$transaction(writes);
+  return writes.length;
+}
+
 // ── Validation ──
 
 const MAX_QUARTER_SECONDS = 960; // 15min (900s) + 60s buffer
@@ -729,7 +797,13 @@ export async function finalizeCompletedMatches(
 
   const matches = await prisma.match.findMany({
     where: { id: { in: newlyCompletedIds }, championDataMatchId: { not: null } },
-    select: { id: true, championDataMatchId: true, homeScore: true, awayScore: true },
+    select: {
+      id: true,
+      championDataMatchId: true,
+      sourceCompetitionId: true,
+      homeScore: true,
+      awayScore: true,
+    },
   });
 
   for (const match of matches) {
@@ -751,7 +825,10 @@ export async function finalizeCompletedMatches(
     }
 
     try {
-      const detail = await fetchMatchStats(competitionId, match.championDataMatchId!);
+      const detail = await fetchMatchStats(
+        match.sourceCompetitionId ?? competitionId,
+        match.championDataMatchId!,
+      );
       await writeFinalStats(match.id, detail);
     } catch (err) {
       console.error(`[Processing] Failed to fetch final stats for ${match.id}:`, err);
