@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/src/app/match/[matchId]/page.tsx": {
-    "mtime": 1783861662.8837848,
-    "ast_hash": "0e609becce5c1a31bb869a689264ea6e",
+    "mtime": 1783865498.572096,
+    "ast_hash": "928713d9f5e2026050531ee87e28967d",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/src/app/match/[matchId]/court/CourtClient.tsx": {
@@ -245,8 +245,8 @@
     "semantic_hash": "ea0076f1aa7351ceed4d569724ac74a6"
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/src/app/match/[matchId]/__tests__/page.test.tsx": {
-    "mtime": 1783861189.9010139,
-    "ast_hash": "81a6374e6f2aad75d7c119c7c80eb6a8",
+    "mtime": 1783865498.572572,
+    "ast_hash": "c5c742acafadd41b57a7f81063605538",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/src/app/match/[matchId]/live/LiveGameClient.tsx": {
@@ -1265,8 +1265,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md": {
-    "mtime": 1783861586.9789138,
-    "ast_hash": "90397624d8021a0c8307b3a5e73564f7",
+    "mtime": 1783863432.146494,
+    "ast_hash": "d7fc5fddd49a46f4871a8c0b65d14a92",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.html": {
@@ -1392,6 +1392,16 @@
   "/Users/diyagamah/Documents/personal/netball-boxscores/src/lib/__tests__/match-timeline.test.ts": {
     "mtime": 1783860211.8484929,
     "ast_hash": "32975eb6fac3aadfd920d74d07497e96",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/src/lib/mvp-stats.ts": {
+    "mtime": 1783865498.5706534,
+    "ast_hash": "44a7b20cdaebf9478c7d0ca548b0d5ef",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/src/lib/__tests__/mvp-stats.test.ts": {
+    "mtime": 1783865498.570968,
+    "ast_hash": "49962e6709bd9f0cd6b3f161d461516e",
     "semantic_hash": ""
   }
 }

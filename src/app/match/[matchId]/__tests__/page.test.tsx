@@ -82,6 +82,8 @@ describe('MatchPage', () => {
     expect(mvpCard).not.toBeNull();
     expect(within(mvpCard!).getByText('Jade Clarke')).toBeInTheDocument();
     expect(within(mvpCard!).getByText('96')).toBeInTheDocument();
+    expect(within(mvpCard!).getByText('Goal Ast')).toBeInTheDocument();
+    expect(within(mvpCard!).getByText('Feeds')).toBeInTheDocument();
     expect(screen.queryByText('Match MVP')).not.toBeInTheDocument();
   });
 

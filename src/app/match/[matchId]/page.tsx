@@ -18,6 +18,7 @@ import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
 import { formatMatchDateTime } from '@/lib/format';
 import { formatMatchStage } from '@/lib/match-label';
 import { timedQuery } from '@/lib/server-timing';
+import { getMvpSupportingStats } from '@/lib/mvp-stats';
 
 const getMatch = cache((matchId: string) =>
   timedQuery('match_base', () => prisma.match.findUnique({
@@ -150,6 +151,9 @@ export default async function MatchPage({ params }: MatchPageProps) {
     (best, candidate) => !best || candidate.netPoints > best.netPoints ? candidate : best,
     null,
   );
+  const mvpSupportingStats = mvp
+    ? getMvpSupportingStats({ ...mvp, position: mvp.player.position })
+    : [];
 
   const sumStat = (players: typeof homePlayerStats, key: keyof (typeof homePlayerStats)[number]) =>
     players.reduce((sum, p) => sum + (Number(p[key]) || 0), 0);
@@ -334,22 +338,16 @@ export default async function MatchPage({ params }: MatchPageProps) {
                             {mvp.netPoints}
                           </span>
                         </div>
-                        <div className="bg-white rounded-lg p-3 shadow-sm">
-                          <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
-                            Goal Ast
-                          </span>
-                          <span className="text-2xl font-black font-headline text-primary-container">
-                            {mvp.goalAssists}
-                          </span>
-                        </div>
-                        <div className="bg-white rounded-lg p-3 shadow-sm">
-                          <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
-                            Gains
-                          </span>
-                          <span className="text-2xl font-black font-headline text-primary-container">
-                            {mvp.gain}
-                          </span>
-                        </div>
+                        {mvpSupportingStats.map((stat) => (
+                          <div key={stat.label} className="bg-white rounded-lg p-3 shadow-sm">
+                            <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
+                              {stat.label}
+                            </span>
+                            <span className="text-2xl font-black font-headline text-primary-container">
+                              {stat.value}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

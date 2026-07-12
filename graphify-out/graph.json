@@ -1868,7 +1868,7 @@
       "source_file": "server.ts",
       "source_location": "L1",
       "id": "server_ts",
-      "community": 24,
+      "community": 74,
       "norm_label": "server.ts"
     },
     {
@@ -1877,7 +1877,7 @@
       "source_file": "server.ts",
       "source_location": "L10",
       "id": "netball_boxscores_server_port",
-      "community": 24,
+      "community": 74,
       "norm_label": "port"
     },
     {
@@ -1886,7 +1886,7 @@
       "source_file": "server.ts",
       "source_location": "L12",
       "id": "netball_boxscores_server_app",
-      "community": 24,
+      "community": 74,
       "norm_label": "app"
     },
     {
@@ -1895,7 +1895,7 @@
       "source_file": "server.ts",
       "source_location": "L13",
       "id": "netball_boxscores_server_handle",
-      "community": 24,
+      "community": 74,
       "norm_label": "handle"
     },
     {
@@ -3740,7 +3740,7 @@
       "source_file": "src/types/match.ts",
       "source_location": "L1",
       "id": "src_types_match_ts",
-      "community": 206,
+      "community": 220,
       "norm_label": "match.ts"
     },
     {
@@ -3749,7 +3749,7 @@
       "source_file": "src/types/match.ts",
       "source_location": "L2",
       "id": "types_match_quarterdata",
-      "community": 206,
+      "community": 220,
       "norm_label": "quarterdata"
     },
     {
@@ -3830,7 +3830,7 @@
       "source_file": "src/types/champion-data.ts",
       "source_location": "L98",
       "id": "types_champion_data_cdteamstats",
-      "community": 223,
+      "community": 53,
       "norm_label": "cdteamstats"
     },
     {
@@ -4028,7 +4028,7 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L1",
       "id": "src_types_personalization_ts",
-      "community": 184,
+      "community": 34,
       "norm_label": "personalization.ts"
     },
     {
@@ -4037,7 +4037,7 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L3",
       "id": "types_personalization_personalizedmatchcard",
-      "community": 184,
+      "community": 34,
       "norm_label": "personalizedmatchcard"
     },
     {
@@ -4046,7 +4046,7 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L20",
       "id": "types_personalization_myteamhubitem",
-      "community": 184,
+      "community": 34,
       "norm_label": "myteamhubitem"
     },
     {
@@ -4055,7 +4055,7 @@
       "source_file": "src/types/stats.ts",
       "source_location": "L1",
       "id": "src_types_stats_ts",
-      "community": 201,
+      "community": 24,
       "norm_label": "stats.ts"
     },
     {
@@ -4118,7 +4118,7 @@
       "source_file": "src/types/team.ts",
       "source_location": "L10",
       "id": "types_team_teaminfowithid",
-      "community": 184,
+      "community": 34,
       "norm_label": "teaminfowithid"
     },
     {
@@ -4361,7 +4361,7 @@
       "source_file": "src/app/settings/page.tsx",
       "source_location": "L1",
       "id": "src_app_settings_page_tsx",
-      "community": 184,
+      "community": 34,
       "norm_label": "page.tsx"
     },
     {
@@ -4370,7 +4370,7 @@
       "source_file": "src/app/settings/page.tsx",
       "source_location": "L10",
       "id": "settings_page_teamfollow",
-      "community": 184,
+      "community": 34,
       "norm_label": "teamfollow"
     },
     {
@@ -4379,7 +4379,7 @@
       "source_file": "src/app/settings/page.tsx",
       "source_location": "L15",
       "id": "settings_page_matchresource",
-      "community": 184,
+      "community": 34,
       "norm_label": "matchresource"
     },
     {
@@ -4388,7 +4388,7 @@
       "source_file": "src/app/settings/page.tsx",
       "source_location": "L28",
       "id": "settings_page_settingspage",
-      "community": 184,
+      "community": 34,
       "norm_label": "settingspage()"
     },
     {
@@ -4397,7 +4397,7 @@
       "source_file": "src/app/settings/__tests__/page.test.tsx",
       "source_location": "L1",
       "id": "src_app_settings_tests_page_test_tsx",
-      "community": 184,
+      "community": 34,
       "norm_label": "page.test.tsx"
     },
     {
@@ -4406,7 +4406,7 @@
       "source_file": "src/app/settings/__tests__/page.test.tsx",
       "source_location": "L12",
       "id": "tests_page_test_response",
-      "community": 184,
+      "community": 34,
       "norm_label": "response()"
     },
     {
@@ -4550,7 +4550,7 @@
       "source_file": "src/app/match/[matchId]/MatchTabs.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_matchtabs_tsx",
-      "community": 199,
+      "community": 132,
       "norm_label": "matchtabs.tsx"
     },
     {
@@ -4559,7 +4559,7 @@
       "source_file": "src/app/match/[matchId]/MatchTabs.tsx",
       "source_location": "L5",
       "id": "matchid_matchtabs_matchtabsprops",
-      "community": 199,
+      "community": 132,
       "norm_label": "matchtabsprops"
     },
     {
@@ -4568,7 +4568,7 @@
       "source_file": "src/app/match/[matchId]/MatchTabs.tsx",
       "source_location": "L11",
       "id": "matchid_matchtabs_matchtabs",
-      "community": 199,
+      "community": 132,
       "norm_label": "matchtabs()"
     },
     {
@@ -4611,7 +4611,7 @@
       "label": "getMatch",
       "file_type": "code",
       "source_file": "src/app/match/[matchId]/page.tsx",
-      "source_location": "L22",
+      "source_location": "L23",
       "id": "matchid_page_getmatch",
       "community": 199,
       "norm_label": "getmatch"
@@ -4620,7 +4620,7 @@
       "label": "MatchPageProps",
       "file_type": "code",
       "source_file": "src/app/match/[matchId]/page.tsx",
-      "source_location": "L84",
+      "source_location": "L85",
       "id": "matchid_page_matchpageprops",
       "community": 199,
       "norm_label": "matchpageprops"
@@ -4629,7 +4629,7 @@
       "label": "generateMetadata()",
       "file_type": "code",
       "source_file": "src/app/match/[matchId]/page.tsx",
-      "source_location": "L88",
+      "source_location": "L89",
       "id": "matchid_page_generatemetadata",
       "community": 199,
       "norm_label": "generatemetadata()"
@@ -4638,7 +4638,7 @@
       "label": "MatchPage()",
       "file_type": "code",
       "source_file": "src/app/match/[matchId]/page.tsx",
-      "source_location": "L107",
+      "source_location": "L108",
       "id": "matchid_page_matchpage",
       "community": 199,
       "norm_label": "matchpage()"
@@ -4730,7 +4730,7 @@
       "source_file": "src/app/match/[matchId]/__tests__/MatchTabs.test.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_tests_matchtabs_test_tsx",
-      "community": 199,
+      "community": 132,
       "norm_label": "matchtabs.test.tsx"
     },
     {
@@ -4847,7 +4847,7 @@
       "source_file": "src/app/match/[matchId]/live/page.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_live_page_tsx",
-      "community": 206,
+      "community": 143,
       "norm_label": "page.tsx"
     },
     {
@@ -4856,7 +4856,7 @@
       "source_file": "src/app/match/[matchId]/live/page.tsx",
       "source_location": "L9",
       "id": "live_page_props",
-      "community": 206,
+      "community": 143,
       "norm_label": "props"
     },
     {
@@ -4865,7 +4865,7 @@
       "source_file": "src/app/match/[matchId]/live/page.tsx",
       "source_location": "L13",
       "id": "live_page_generatemetadata",
-      "community": 206,
+      "community": 143,
       "norm_label": "generatemetadata()"
     },
     {
@@ -4874,7 +4874,7 @@
       "source_file": "src/app/match/[matchId]/live/page.tsx",
       "source_location": "L36",
       "id": "live_page_livegamepage",
-      "community": 206,
+      "community": 143,
       "norm_label": "livegamepage()"
     },
     {
@@ -5036,7 +5036,7 @@
       "source_file": "src/app/__tests__/page.test.tsx",
       "source_location": "L1",
       "id": "src_app_tests_page_test_tsx",
-      "community": 220,
+      "community": 27,
       "norm_label": "page.test.tsx"
     },
     {
@@ -5045,7 +5045,7 @@
       "source_file": "src/app/__tests__/page.test.tsx",
       "source_location": "L7",
       "id": "tests_page_test_findcompetitionsmock_findmatchesmock",
-      "community": 220,
+      "community": 27,
       "norm_label": "{ findcompetitionsmock, findmatchesmock }"
     },
     {
@@ -5054,7 +5054,7 @@
       "source_file": "src/app/__tests__/page.test.tsx",
       "source_location": "L22",
       "id": "tests_page_test_matches",
-      "community": 220,
+      "community": 27,
       "norm_label": "matches"
     },
     {
@@ -5135,7 +5135,7 @@
       "source_file": "src/app/live/page.tsx",
       "source_location": "L1",
       "id": "src_app_live_page_tsx",
-      "community": 34,
+      "community": 31,
       "norm_label": "page.tsx"
     },
     {
@@ -5144,7 +5144,7 @@
       "source_file": "src/app/live/page.tsx",
       "source_location": "L11",
       "id": "live_page_livepage",
-      "community": 34,
+      "community": 31,
       "norm_label": "livepage()"
     },
     {
@@ -5153,7 +5153,7 @@
       "source_file": "src/app/live/__tests__/page.test.tsx",
       "source_location": "L1",
       "id": "src_app_live_tests_page_test_tsx",
-      "community": 34,
+      "community": 31,
       "norm_label": "page.test.tsx"
     },
     {
@@ -5162,7 +5162,7 @@
       "source_file": "src/app/live/__tests__/page.test.tsx",
       "source_location": "L4",
       "id": "tests_page_test_findfirstmock_findmanymock_getlivestatemock",
-      "community": 34,
+      "community": 31,
       "norm_label": "{ findfirstmock, findmanymock, getlivestatemock }"
     },
     {
@@ -5171,7 +5171,7 @@
       "source_file": "src/app/live/__tests__/page.test.tsx",
       "source_location": "L27",
       "id": "tests_page_test_fixture",
-      "community": 34,
+      "community": 31,
       "norm_label": "fixture"
     },
     {
@@ -5180,7 +5180,7 @@
       "source_file": "src/app/teams/page.tsx",
       "source_location": "L1",
       "id": "src_app_teams_page_tsx",
-      "community": 31,
+      "community": 199,
       "norm_label": "page.tsx"
     },
     {
@@ -5189,7 +5189,7 @@
       "source_file": "src/app/teams/page.tsx",
       "source_location": "L8",
       "id": "teams_page_metadata",
-      "community": 31,
+      "community": 199,
       "norm_label": "metadata"
     },
     {
@@ -5198,7 +5198,7 @@
       "source_file": "src/app/teams/page.tsx",
       "source_location": "L14",
       "id": "teams_page_teamspage",
-      "community": 31,
+      "community": 199,
       "norm_label": "teamspage()"
     },
     {
@@ -5207,7 +5207,7 @@
       "source_file": "src/app/teams/__tests__/page.test.tsx",
       "source_location": "L1",
       "id": "src_app_teams_tests_page_test_tsx",
-      "community": 31,
+      "community": 199,
       "norm_label": "page.test.tsx"
     },
     {
@@ -5288,7 +5288,7 @@
       "source_file": "src/app/api/matches/route.ts",
       "source_location": "L1",
       "id": "src_app_api_matches_route_ts",
-      "community": 23,
+      "community": 31,
       "norm_label": "route.ts"
     },
     {
@@ -5297,7 +5297,7 @@
       "source_file": "src/app/api/matches/route.ts",
       "source_location": "L7",
       "id": "matches_route_get",
-      "community": 23,
+      "community": 31,
       "norm_label": "get()"
     },
     {
@@ -5369,7 +5369,7 @@
       "source_file": "src/app/api/matches/__tests__/route.test.ts",
       "source_location": "L1",
       "id": "src_app_api_matches_tests_route_test_ts",
-      "community": 23,
+      "community": 31,
       "norm_label": "route.test.ts"
     },
     {
@@ -5378,7 +5378,7 @@
       "source_file": "src/app/api/matches/__tests__/route.test.ts",
       "source_location": "L3",
       "id": "tests_route_test_loadpagemock_resolvecompetitionmock",
-      "community": 23,
+      "community": 31,
       "norm_label": "{ loadpagemock, resolvecompetitionmock }"
     },
     {
@@ -5837,7 +5837,7 @@
       "source_file": "src/components/ui/ScoreCard.tsx",
       "source_location": "L1",
       "id": "src_components_ui_scorecard_tsx",
-      "community": 27,
+      "community": 206,
       "norm_label": "scorecard.tsx"
     },
     {
@@ -5846,7 +5846,7 @@
       "source_file": "src/components/ui/ScoreCard.tsx",
       "source_location": "L8",
       "id": "ui_scorecard_scorebreakdown",
-      "community": 27,
+      "community": 206,
       "norm_label": "scorebreakdown"
     },
     {
@@ -5864,7 +5864,7 @@
       "source_file": "src/components/ui/ScoreCard.tsx",
       "source_location": "L30",
       "id": "ui_scorecard_scorecardprops",
-      "community": 27,
+      "community": 206,
       "norm_label": "scorecardprops"
     },
     {
@@ -5873,7 +5873,7 @@
       "source_file": "src/components/ui/ScoreCard.tsx",
       "source_location": "L35",
       "id": "ui_scorecard_scorecard",
-      "community": 27,
+      "community": 206,
       "norm_label": "scorecard()"
     },
     {
@@ -5882,7 +5882,7 @@
       "source_file": "src/components/ui/TeamBadge.tsx",
       "source_location": "L1",
       "id": "src_components_ui_teambadge_tsx",
-      "community": 27,
+      "community": 41,
       "norm_label": "teambadge.tsx"
     },
     {
@@ -5891,7 +5891,7 @@
       "source_file": "src/components/ui/TeamBadge.tsx",
       "source_location": "L6",
       "id": "ui_teambadge_teambadgeprops",
-      "community": 27,
+      "community": 41,
       "norm_label": "teambadgeprops"
     },
     {
@@ -5900,7 +5900,7 @@
       "source_file": "src/components/ui/TeamBadge.tsx",
       "source_location": "L17",
       "id": "ui_teambadge_teambadge",
-      "community": 27,
+      "community": 41,
       "norm_label": "teambadge()"
     },
     {
@@ -5945,7 +5945,7 @@
       "source_file": "src/components/ui/LiveIndicator.tsx",
       "source_location": "L1",
       "id": "src_components_ui_liveindicator_tsx",
-      "community": 1,
+      "community": 199,
       "norm_label": "liveindicator.tsx"
     },
     {
@@ -5954,7 +5954,7 @@
       "source_file": "src/components/ui/LiveIndicator.tsx",
       "source_location": "L1",
       "id": "ui_liveindicator_liveindicatorprops",
-      "community": 1,
+      "community": 199,
       "norm_label": "liveindicatorprops"
     },
     {
@@ -5963,7 +5963,7 @@
       "source_file": "src/components/ui/LiveIndicator.tsx",
       "source_location": "L5",
       "id": "ui_liveindicator_liveindicator",
-      "community": 1,
+      "community": 199,
       "norm_label": "liveindicator()"
     },
     {
@@ -5999,7 +5999,7 @@
       "source_file": "src/components/ui/QuarterScoreBar.tsx",
       "source_location": "L1",
       "id": "src_components_ui_quarterscorebar_tsx",
-      "community": 206,
+      "community": 220,
       "norm_label": "quarterscorebar.tsx"
     },
     {
@@ -6008,7 +6008,7 @@
       "source_file": "src/components/ui/QuarterScoreBar.tsx",
       "source_location": "L3",
       "id": "ui_quarterscorebar_quarterscorebarprops",
-      "community": 206,
+      "community": 220,
       "norm_label": "quarterscorebarprops"
     },
     {
@@ -6017,7 +6017,7 @@
       "source_file": "src/components/ui/QuarterScoreBar.tsx",
       "source_location": "L7",
       "id": "ui_quarterscorebar_quarterscorebar",
-      "community": 206,
+      "community": 220,
       "norm_label": "quarterscorebar()"
     },
     {
@@ -6188,7 +6188,7 @@
       "source_file": "src/components/ui/__tests__/LiveIndicator.test.tsx",
       "source_location": "L1",
       "id": "src_components_ui_tests_liveindicator_test_tsx",
-      "community": 1,
+      "community": 199,
       "norm_label": "liveindicator.test.tsx"
     },
     {
@@ -6215,7 +6215,7 @@
       "source_file": "src/components/ui/__tests__/ScoreCard.test.tsx",
       "source_location": "L1",
       "id": "src_components_ui_tests_scorecard_test_tsx",
-      "community": 27,
+      "community": 206,
       "norm_label": "scorecard.test.tsx"
     },
     {
@@ -6224,7 +6224,7 @@
       "source_file": "src/components/ui/__tests__/ScoreCard.test.tsx",
       "source_location": "L5",
       "id": "tests_scorecard_test_livematch",
-      "community": 27,
+      "community": 206,
       "norm_label": "livematch"
     },
     {
@@ -6233,7 +6233,7 @@
       "source_file": "src/components/ui/__tests__/ScoreCard.test.tsx",
       "source_location": "L18",
       "id": "tests_scorecard_test_scheduledmatch",
-      "community": 27,
+      "community": 206,
       "norm_label": "scheduledmatch"
     },
     {
@@ -6242,7 +6242,7 @@
       "source_file": "src/components/ui/__tests__/ScoreCard.test.tsx",
       "source_location": "L29",
       "id": "tests_scorecard_test_completedmatch",
-      "community": 27,
+      "community": 206,
       "norm_label": "completedmatch"
     },
     {
@@ -6251,7 +6251,7 @@
       "source_file": "src/components/ui/__tests__/QuarterScoreBar.test.tsx",
       "source_location": "L1",
       "id": "src_components_ui_tests_quarterscorebar_test_tsx",
-      "community": 206,
+      "community": 220,
       "norm_label": "quarterscorebar.test.tsx"
     },
     {
@@ -6260,7 +6260,7 @@
       "source_file": "src/components/ui/__tests__/QuarterScoreBar.test.tsx",
       "source_location": "L5",
       "id": "tests_quarterscorebar_test_quarters",
-      "community": 206,
+      "community": 220,
       "norm_label": "quarters"
     },
     {
@@ -6269,7 +6269,7 @@
       "source_file": "src/components/ui/__tests__/TeamBadge.test.tsx",
       "source_location": "L1",
       "id": "src_components_ui_tests_teambadge_test_tsx",
-      "community": 27,
+      "community": 41,
       "norm_label": "teambadge.test.tsx"
     },
     {
@@ -6458,7 +6458,7 @@
       "source_file": "src/components/match/LiveScoreHero.tsx",
       "source_location": "L12",
       "id": "match_livescorehero_livescoreheroprops",
-      "community": 206,
+      "community": 220,
       "norm_label": "livescoreheroprops"
     },
     {
@@ -6485,7 +6485,7 @@
       "source_file": "src/components/match/LivePlayByPlay.tsx",
       "source_location": "L1",
       "id": "src_components_match_liveplaybyplay_tsx",
-      "community": 33,
+      "community": 229,
       "norm_label": "liveplaybyplay.tsx"
     },
     {
@@ -6494,7 +6494,7 @@
       "source_file": "src/components/match/LivePlayByPlay.tsx",
       "source_location": "L7",
       "id": "match_liveplaybyplay_feedentry",
-      "community": 33,
+      "community": 229,
       "norm_label": "feedentry"
     },
     {
@@ -6503,7 +6503,7 @@
       "source_file": "src/components/match/LivePlayByPlay.tsx",
       "source_location": "L24",
       "id": "match_liveplaybyplay_event_styles",
-      "community": 33,
+      "community": 229,
       "norm_label": "event_styles"
     },
     {
@@ -6512,7 +6512,7 @@
       "source_file": "src/components/match/LivePlayByPlay.tsx",
       "source_location": "L31",
       "id": "match_liveplaybyplay_liveplaybyplayprops",
-      "community": 33,
+      "community": 229,
       "norm_label": "liveplaybyplayprops"
     },
     {
@@ -6521,7 +6521,7 @@
       "source_file": "src/components/match/LivePlayByPlay.tsx",
       "source_location": "L35",
       "id": "match_liveplaybyplay_liveplaybyplay",
-      "community": 33,
+      "community": 229,
       "norm_label": "liveplaybyplay()"
     },
     {
@@ -6530,7 +6530,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L1",
       "id": "src_components_match_matchplaybyplay_tsx",
-      "community": 132,
+      "community": 41,
       "norm_label": "matchplaybyplay.tsx"
     },
     {
@@ -6539,7 +6539,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L10",
       "id": "match_matchplaybyplay_playbyplayentry",
-      "community": 132,
+      "community": 41,
       "norm_label": "playbyplayentry"
     },
     {
@@ -6548,7 +6548,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L15",
       "id": "match_matchplaybyplay_event_config",
-      "community": 132,
+      "community": 41,
       "norm_label": "event_config"
     },
     {
@@ -6557,7 +6557,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L23",
       "id": "match_matchplaybyplay_matchplaybyplayprops",
-      "community": 132,
+      "community": 41,
       "norm_label": "matchplaybyplayprops"
     },
     {
@@ -6566,7 +6566,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L29",
       "id": "match_matchplaybyplay_formattime",
-      "community": 132,
+      "community": 41,
       "norm_label": "formattime()"
     },
     {
@@ -6575,7 +6575,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L35",
       "id": "match_matchplaybyplay_matchplaybyplay",
-      "community": 132,
+      "community": 41,
       "norm_label": "matchplaybyplay()"
     },
     {
@@ -6629,7 +6629,7 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L13",
       "id": "match_matchtimeline_matchtimelineprops",
-      "community": 184,
+      "community": 132,
       "norm_label": "matchtimelineprops"
     },
     {
@@ -6638,7 +6638,7 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L19",
       "id": "match_matchtimeline_matchtimeline",
-      "community": 199,
+      "community": 132,
       "norm_label": "matchtimeline()"
     },
     {
@@ -6944,7 +6944,7 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L1",
       "id": "src_components_match_tests_matchtimeline_test_tsx",
-      "community": 199,
+      "community": 132,
       "norm_label": "matchtimeline.test.tsx"
     },
     {
@@ -6953,7 +6953,7 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L12",
       "id": "tests_matchtimeline_test_hometeam",
-      "community": 199,
+      "community": 132,
       "norm_label": "hometeam"
     },
     {
@@ -6962,7 +6962,7 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L13",
       "id": "tests_matchtimeline_test_awayteam",
-      "community": 199,
+      "community": 132,
       "norm_label": "awayteam"
     },
     {
@@ -7457,7 +7457,7 @@
       "source_file": "src/components/player/PlayerGameLog.tsx",
       "source_location": "L1",
       "id": "src_components_player_playergamelog_tsx",
-      "community": 192,
+      "community": 41,
       "norm_label": "playergamelog.tsx"
     },
     {
@@ -7466,7 +7466,7 @@
       "source_file": "src/components/player/PlayerGameLog.tsx",
       "source_location": "L10",
       "id": "player_playergamelog_matchwithteams",
-      "community": 184,
+      "community": 41,
       "norm_label": "matchwithteams"
     },
     {
@@ -7475,7 +7475,7 @@
       "source_file": "src/components/player/PlayerGameLog.tsx",
       "source_location": "L21",
       "id": "player_playergamelog_matchstat",
-      "community": 192,
+      "community": 41,
       "norm_label": "matchstat"
     },
     {
@@ -7493,7 +7493,7 @@
       "source_file": "src/components/player/PlayerGameLog.tsx",
       "source_location": "L32",
       "id": "player_playergamelog_formatstatvalue",
-      "community": 192,
+      "community": 41,
       "norm_label": "formatstatvalue()"
     },
     {
@@ -7502,7 +7502,7 @@
       "source_file": "src/components/player/PlayerGameLog.tsx",
       "source_location": "L38",
       "id": "player_playergamelog_playergamelog",
-      "community": 192,
+      "community": 41,
       "norm_label": "playergamelog()"
     },
     {
@@ -7727,7 +7727,7 @@
       "source_file": "src/__tests__/lib/simulation/data-generator.test.ts",
       "source_location": "L1",
       "id": "src_tests_lib_simulation_data_generator_test_ts",
-      "community": 111,
+      "community": 5,
       "norm_label": "data-generator.test.ts"
     },
     {
@@ -7736,7 +7736,7 @@
       "source_file": "src/__tests__/lib/simulation/data-generator.test.ts",
       "source_location": "L5",
       "id": "simulation_data_generator_test_makesimmatch",
-      "community": 111,
+      "community": 5,
       "norm_label": "makesimmatch()"
     },
     {
@@ -7925,7 +7925,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L1",
       "id": "src_lib_competitions_ts",
-      "community": 34,
+      "community": 31,
       "norm_label": "competitions.ts"
     },
     {
@@ -7934,7 +7934,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L4",
       "id": "lib_competitions_competitionoptionselect",
-      "community": 34,
+      "community": 31,
       "norm_label": "competitionoptionselect"
     },
     {
@@ -7943,7 +7943,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L12",
       "id": "lib_competitions_competitionoption",
-      "community": 34,
+      "community": 31,
       "norm_label": "competitionoption"
     },
     {
@@ -7952,7 +7952,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L14",
       "id": "lib_competitions_competitionsquery",
-      "community": 34,
+      "community": 31,
       "norm_label": "competitionsquery()"
     },
     {
@@ -7961,7 +7961,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L27",
       "id": "lib_competitions_competitionresolution",
-      "community": 34,
+      "community": 31,
       "norm_label": "competitionresolution"
     },
     {
@@ -7970,7 +7970,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L33",
       "id": "lib_competitions_resolvecompetition",
-      "community": 34,
+      "community": 31,
       "norm_label": "resolvecompetition()"
     },
     {
@@ -8051,7 +8051,7 @@
       "source_file": "src/lib/champion-data.ts",
       "source_location": "L39",
       "id": "lib_champion_data_fetchfixture",
-      "community": 204,
+      "community": 53,
       "norm_label": "fetchfixture()"
     },
     {
@@ -8105,7 +8105,7 @@
       "source_file": "src/lib/champion-data.ts",
       "source_location": "L232",
       "id": "lib_champion_data_fetchmatchstats",
-      "community": 204,
+      "community": 53,
       "norm_label": "fetchmatchstats()"
     },
     {
@@ -8114,7 +8114,7 @@
       "source_file": "src/lib/champion-data.ts",
       "source_location": "L246",
       "id": "lib_champion_data_mapmatchstatus",
-      "community": 223,
+      "community": 24,
       "norm_label": "mapmatchstatus()"
     },
     {
@@ -8132,7 +8132,7 @@
       "source_file": "src/lib/champion-data.ts",
       "source_location": "L275",
       "id": "lib_champion_data_transformfixturematch",
-      "community": 223,
+      "community": 53,
       "norm_label": "transformfixturematch()"
     },
     {
@@ -8375,7 +8375,7 @@
       "source_file": "src/lib/score-flow.ts",
       "source_location": "L1",
       "id": "src_lib_score_flow_ts",
-      "community": 211,
+      "community": 68,
       "norm_label": "score-flow.ts"
     },
     {
@@ -8384,7 +8384,7 @@
       "source_file": "src/lib/score-flow.ts",
       "source_location": "L1",
       "id": "lib_score_flow_scoreflowidentity",
-      "community": 211,
+      "community": 68,
       "norm_label": "scoreflowidentity"
     },
     {
@@ -8393,7 +8393,7 @@
       "source_file": "src/lib/score-flow.ts",
       "source_location": "L7",
       "id": "lib_score_flow_getscoreflowidentity",
-      "community": 211,
+      "community": 68,
       "norm_label": "getscoreflowidentity()"
     },
     {
@@ -8402,7 +8402,7 @@
       "source_file": "src/lib/score-flow.ts",
       "source_location": "L11",
       "id": "lib_score_flow_mergescoreflows",
-      "community": 211,
+      "community": 68,
       "norm_label": "mergescoreflows()"
     },
     {
@@ -8474,7 +8474,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L1",
       "id": "src_lib_processing_ts",
-      "community": 223,
+      "community": 24,
       "norm_label": "processing.ts"
     },
     {
@@ -8483,7 +8483,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L9",
       "id": "lib_processing_teaminfo",
-      "community": 223,
+      "community": 24,
       "norm_label": "teaminfo"
     },
     {
@@ -8492,7 +8492,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L14",
       "id": "lib_processing_playerinfo",
-      "community": 223,
+      "community": 24,
       "norm_label": "playerinfo"
     },
     {
@@ -8501,7 +8501,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L20",
       "id": "lib_processing_extendedplayerfields",
-      "community": 223,
+      "community": 24,
       "norm_label": "extendedplayerfields"
     },
     {
@@ -8510,7 +8510,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L41",
       "id": "lib_processing_processedmatchstate",
-      "community": 223,
+      "community": 24,
       "norm_label": "processedmatchstate"
     },
     {
@@ -8519,7 +8519,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L67",
       "id": "lib_processing_validationresult",
-      "community": 223,
+      "community": 24,
       "norm_label": "validationresult"
     },
     {
@@ -8546,7 +8546,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L160",
       "id": "lib_processing_toteamstatsdata",
-      "community": 223,
+      "community": 24,
       "norm_label": "toteamstatsdata()"
     },
     {
@@ -8555,7 +8555,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L196",
       "id": "lib_processing_validatematchdata",
-      "community": 223,
+      "community": 24,
       "norm_label": "validatematchdata()"
     },
     {
@@ -8582,7 +8582,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L536",
       "id": "lib_processing_writefinalstats",
-      "community": 223,
+      "community": 24,
       "norm_label": "writefinalstats()"
     },
     {
@@ -8618,7 +8618,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L788",
       "id": "lib_processing_finalizecompletedmatches",
-      "community": 223,
+      "community": 24,
       "norm_label": "finalizecompletedmatches()"
     },
     {
@@ -8780,7 +8780,7 @@
       "source_file": "src/lib/broadcasting.ts",
       "source_location": "L75",
       "id": "lib_broadcasting_broadcastmatchchanges",
-      "community": 24,
+      "community": 68,
       "norm_label": "broadcastmatchchanges()"
     },
     {
@@ -8789,7 +8789,7 @@
       "source_file": "src/lib/broadcasting.ts",
       "source_location": "L122",
       "id": "lib_broadcasting_broadcastplayerstats",
-      "community": 24,
+      "community": 68,
       "norm_label": "broadcastplayerstats()"
     },
     {
@@ -8816,7 +8816,7 @@
       "source_file": "src/lib/broadcasting.ts",
       "source_location": "L163",
       "id": "lib_broadcasting_persistandbroadcaststatevents",
-      "community": 24,
+      "community": 68,
       "norm_label": "persistandbroadcaststatevents()"
     },
     {
@@ -8825,7 +8825,7 @@
       "source_file": "src/lib/broadcasting.ts",
       "source_location": "L238",
       "id": "lib_broadcasting_broadcastcompletion",
-      "community": 24,
+      "community": 68,
       "norm_label": "broadcastcompletion()"
     },
     {
@@ -8834,7 +8834,7 @@
       "source_file": "src/lib/format.test.ts",
       "source_location": "L1",
       "id": "src_lib_format_test_ts",
-      "community": 192,
+      "community": 206,
       "norm_label": "format.test.ts"
     },
     {
@@ -8856,6 +8856,60 @@
       "norm_label": "normalizeemail()"
     },
     {
+      "label": "mvp-stats.ts",
+      "file_type": "code",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L1",
+      "id": "src_lib_mvp_stats_ts",
+      "community": 192,
+      "norm_label": "mvp-stats.ts"
+    },
+    {
+      "label": "MvpStatSource",
+      "file_type": "code",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L4",
+      "id": "lib_mvp_stats_mvpstatsource",
+      "community": 192,
+      "norm_label": "mvpstatsource"
+    },
+    {
+      "label": "MvpSupportingStat",
+      "file_type": "code",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L15",
+      "id": "lib_mvp_stats_mvpsupportingstat",
+      "community": 192,
+      "norm_label": "mvpsupportingstat"
+    },
+    {
+      "label": "DEFENSIVE_POSITIONS",
+      "file_type": "code",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L20",
+      "id": "lib_mvp_stats_defensive_positions",
+      "community": 192,
+      "norm_label": "defensive_positions"
+    },
+    {
+      "label": "SHOOTING_POSITIONS",
+      "file_type": "code",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L21",
+      "id": "lib_mvp_stats_shooting_positions",
+      "community": 192,
+      "norm_label": "shooting_positions"
+    },
+    {
+      "label": "getMvpSupportingStats()",
+      "file_type": "code",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L23",
+      "id": "lib_mvp_stats_getmvpsupportingstats",
+      "community": 199,
+      "norm_label": "getmvpsupportingstats()"
+    },
+    {
       "label": "match-label.test.ts",
       "file_type": "code",
       "source_file": "src/lib/match-label.test.ts",
@@ -8870,7 +8924,7 @@
       "source_file": "src/lib/format.ts",
       "source_location": "L1",
       "id": "src_lib_format_ts",
-      "community": 192,
+      "community": 206,
       "norm_label": "format.ts"
     },
     {
@@ -8879,7 +8933,7 @@
       "source_file": "src/lib/format.ts",
       "source_location": "L4",
       "id": "lib_format_formatmatchdate",
-      "community": 27,
+      "community": 206,
       "norm_label": "formatmatchdate()"
     },
     {
@@ -8888,7 +8942,7 @@
       "source_file": "src/lib/format.ts",
       "source_location": "L13",
       "id": "lib_format_formatmatchtime",
-      "community": 27,
+      "community": 206,
       "norm_label": "formatmatchtime()"
     },
     {
@@ -8897,7 +8951,7 @@
       "source_file": "src/lib/format.ts",
       "source_location": "L21",
       "id": "lib_format_formatshortdate",
-      "community": 192,
+      "community": 41,
       "norm_label": "formatshortdate()"
     },
     {
@@ -8906,7 +8960,7 @@
       "source_file": "src/lib/format.ts",
       "source_location": "L29",
       "id": "lib_format_formatmatchdatetime",
-      "community": 27,
+      "community": 206,
       "norm_label": "formatmatchdatetime()"
     },
     {
@@ -8942,7 +8996,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L1",
       "id": "src_lib_cached_queries_ts",
-      "community": 31,
+      "community": 211,
       "norm_label": "cached-queries.ts"
     },
     {
@@ -8951,7 +9005,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L4",
       "id": "lib_cached_queries_matchteamselect",
-      "community": 31,
+      "community": 211,
       "norm_label": "matchteamselect"
     },
     {
@@ -8960,7 +9014,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L6",
       "id": "lib_cached_queries_standingsquery",
-      "community": 31,
+      "community": 211,
       "norm_label": "standingsquery()"
     },
     {
@@ -8969,7 +9023,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L15",
       "id": "lib_cached_queries_teamsquery",
-      "community": 31,
+      "community": 211,
       "norm_label": "teamsquery()"
     },
     {
@@ -8978,7 +9032,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L27",
       "id": "lib_cached_queries_teambyslugquery",
-      "community": 31,
+      "community": 211,
       "norm_label": "teambyslugquery()"
     },
     {
@@ -8987,7 +9041,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L33",
       "id": "lib_cached_queries_teamstandingquery",
-      "community": 31,
+      "community": 211,
       "norm_label": "teamstandingquery()"
     },
     {
@@ -8996,7 +9050,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L38",
       "id": "lib_cached_queries_recentteammatchesquery",
-      "community": 31,
+      "community": 211,
       "norm_label": "recentteammatchesquery()"
     },
     {
@@ -9005,7 +9059,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L54",
       "id": "lib_cached_queries_upcomingteammatchesquery",
-      "community": 31,
+      "community": 211,
       "norm_label": "upcomingteammatchesquery()"
     },
     {
@@ -9095,7 +9149,7 @@
       "source_file": "src/lib/socket-server.ts",
       "source_location": "L48",
       "id": "lib_socket_server_getio",
-      "community": 24,
+      "community": 68,
       "norm_label": "getio()"
     },
     {
@@ -9104,7 +9158,7 @@
       "source_file": "src/lib/socket-server.ts",
       "source_location": "L55",
       "id": "lib_socket_server_broadcastscoreupdate",
-      "community": 24,
+      "community": 68,
       "norm_label": "broadcastscoreupdate()"
     },
     {
@@ -9113,7 +9167,7 @@
       "source_file": "src/lib/socket-server.ts",
       "source_location": "L59",
       "id": "lib_socket_server_broadcastmatchstatus",
-      "community": 24,
+      "community": 68,
       "norm_label": "broadcastmatchstatus()"
     },
     {
@@ -9122,7 +9176,7 @@
       "source_file": "src/lib/socket-server.ts",
       "source_location": "L63",
       "id": "lib_socket_server_broadcaststatsupdate",
-      "community": 74,
+      "community": 68,
       "norm_label": "broadcaststatsupdate()"
     },
     {
@@ -9140,7 +9194,7 @@
       "source_file": "src/lib/socket-server.ts",
       "source_location": "L71",
       "id": "lib_socket_server_broadcaststatevent",
-      "community": 24,
+      "community": 68,
       "norm_label": "broadcaststatevent()"
     },
     {
@@ -9203,7 +9257,7 @@
       "source_file": "src/lib/win-probability.ts",
       "source_location": "L180",
       "id": "lib_win_probability_computeteamstrengthprior",
-      "community": 206,
+      "community": 143,
       "norm_label": "computeteamstrengthprior()"
     },
     {
@@ -9239,7 +9293,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L1",
       "id": "src_lib_stat_utils_ts",
-      "community": 201,
+      "community": 192,
       "norm_label": "stat-utils.ts"
     },
     {
@@ -9248,7 +9302,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L3",
       "id": "lib_stat_utils_statrecord",
-      "community": 201,
+      "community": 192,
       "norm_label": "statrecord"
     },
     {
@@ -9257,7 +9311,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L5",
       "id": "lib_stat_utils_stat_fields",
-      "community": 201,
+      "community": 192,
       "norm_label": "stat_fields"
     },
     {
@@ -9266,7 +9320,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L19",
       "id": "lib_stat_utils_statfieldname",
-      "community": 201,
+      "community": 192,
       "norm_label": "statfieldname"
     },
     {
@@ -9275,7 +9329,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L21",
       "id": "lib_stat_utils_statvalues",
-      "community": 201,
+      "community": 24,
       "norm_label": "statvalues"
     },
     {
@@ -9284,7 +9338,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L23",
       "id": "lib_stat_utils_emptystats",
-      "community": 201,
+      "community": 192,
       "norm_label": "emptystats()"
     },
     {
@@ -9293,7 +9347,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L27",
       "id": "lib_stat_utils_pickstatfields",
-      "community": 53,
+      "community": 33,
       "norm_label": "pickstatfields()"
     },
     {
@@ -9302,7 +9356,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L34",
       "id": "lib_stat_utils_aggregatestats",
-      "community": 201,
+      "community": 192,
       "norm_label": "aggregatestats()"
     },
     {
@@ -9329,7 +9383,7 @@
       "source_file": "src/lib/seo.ts",
       "source_location": "L1",
       "id": "src_lib_seo_ts",
-      "community": 31,
+      "community": 199,
       "norm_label": "seo.ts"
     },
     {
@@ -9338,7 +9392,7 @@
       "source_file": "src/lib/seo.ts",
       "source_location": "L12",
       "id": "lib_seo_jsonld",
-      "community": 31,
+      "community": 199,
       "norm_label": "jsonld()"
     },
     {
@@ -9356,7 +9410,7 @@
       "source_file": "src/lib/seo.ts",
       "source_location": "L31",
       "id": "lib_seo_breadcrumbjsonld",
-      "community": 31,
+      "community": 199,
       "norm_label": "breadcrumbjsonld()"
     },
     {
@@ -9410,7 +9464,7 @@
       "source_file": "src/lib/ingestion.ts",
       "source_location": "L1",
       "id": "src_lib_ingestion_ts",
-      "community": 204,
+      "community": 53,
       "norm_label": "ingestion.ts"
     },
     {
@@ -9428,7 +9482,7 @@
       "source_file": "src/lib/ingestion.ts",
       "source_location": "L14",
       "id": "lib_ingestion_ingestfromchampiondata",
-      "community": 204,
+      "community": 53,
       "norm_label": "ingestfromchampiondata()"
     },
     {
@@ -9581,7 +9635,7 @@
       "source_file": "src/lib/worker.ts",
       "source_location": "L271",
       "id": "lib_worker_stopworker",
-      "community": 24,
+      "community": 74,
       "norm_label": "stopworker()"
     },
     {
@@ -9707,7 +9761,7 @@
       "source_file": "src/lib/simulation/engine.ts",
       "source_location": "L235",
       "id": "simulation_engine_setupsimmatches",
-      "community": 111,
+      "community": 5,
       "norm_label": "setupsimmatches()"
     },
     {
@@ -9716,7 +9770,7 @@
       "source_file": "src/lib/simulation/engine.ts",
       "source_location": "L347",
       "id": "simulation_engine_teardownsimmatches",
-      "community": 111,
+      "community": 5,
       "norm_label": "teardownsimmatches()"
     },
     {
@@ -9725,7 +9779,7 @@
       "source_file": "src/lib/simulation/engine.ts",
       "source_location": "L367",
       "id": "simulation_engine_tickallmatches",
-      "community": 111,
+      "community": 5,
       "norm_label": "tickallmatches()"
     },
     {
@@ -9797,7 +9851,7 @@
       "source_file": "src/lib/simulation/types.ts",
       "source_location": "L76",
       "id": "simulation_types_simstate",
-      "community": 111,
+      "community": 5,
       "norm_label": "simstate"
     },
     {
@@ -9815,7 +9869,7 @@
       "source_file": "src/lib/simulation/types.ts",
       "source_location": "L91",
       "id": "simulation_types_state_order",
-      "community": 37,
+      "community": 5,
       "norm_label": "state_order"
     },
     {
@@ -9824,7 +9878,7 @@
       "source_file": "src/lib/simulation/types.ts",
       "source_location": "L104",
       "id": "simulation_types_statetomatchstatus",
-      "community": 111,
+      "community": 5,
       "norm_label": "statetomatchstatus()"
     },
     {
@@ -9860,7 +9914,7 @@
       "source_file": "src/lib/simulation/sim-routes.ts",
       "source_location": "L1",
       "id": "src_lib_simulation_sim_routes_ts",
-      "community": 111,
+      "community": 5,
       "norm_label": "sim-routes.ts"
     },
     {
@@ -9869,7 +9923,7 @@
       "source_file": "src/lib/simulation/sim-routes.ts",
       "source_location": "L12",
       "id": "simulation_sim_routes_router",
-      "community": 111,
+      "community": 5,
       "norm_label": "router"
     },
     {
@@ -9878,7 +9932,7 @@
       "source_file": "src/lib/simulation/sim-routes.ts",
       "source_location": "L15",
       "id": "simulation_sim_routes_simstate",
-      "community": 111,
+      "community": 5,
       "norm_label": "simstate"
     },
     {
@@ -9887,7 +9941,7 @@
       "source_file": "src/lib/simulation/sim-routes.ts",
       "source_location": "L18",
       "id": "simulation_sim_routes_gettickintervalms",
-      "community": 111,
+      "community": 5,
       "norm_label": "gettickintervalms()"
     },
     {
@@ -9896,7 +9950,7 @@
       "source_file": "src/lib/simulation/sim-routes.ts",
       "source_location": "L23",
       "id": "simulation_sim_routes_startautotick",
-      "community": 111,
+      "community": 5,
       "norm_label": "startautotick()"
     },
     {
@@ -9905,7 +9959,7 @@
       "source_file": "src/lib/simulation/sim-routes.ts",
       "source_location": "L32",
       "id": "simulation_sim_routes_stopautotick",
-      "community": 111,
+      "community": 5,
       "norm_label": "stopautotick()"
     },
     {
@@ -9914,7 +9968,7 @@
       "source_file": "src/lib/simulation/data-generator.ts",
       "source_location": "L1",
       "id": "src_lib_simulation_data_generator_ts",
-      "community": 53,
+      "community": 5,
       "norm_label": "data-generator.ts"
     },
     {
@@ -9923,7 +9977,7 @@
       "source_file": "src/lib/simulation/data-generator.ts",
       "source_location": "L15",
       "id": "simulation_data_generator_buildfixtureresponse",
-      "community": 111,
+      "community": 5,
       "norm_label": "buildfixtureresponse()"
     },
     {
@@ -9932,7 +9986,7 @@
       "source_file": "src/lib/simulation/data-generator.ts",
       "source_location": "L56",
       "id": "simulation_data_generator_buildmatchstatsresponse",
-      "community": 111,
+      "community": 5,
       "norm_label": "buildmatchstatsresponse()"
     },
     {
@@ -9941,7 +9995,7 @@
       "source_file": "src/lib/__tests__/ingestion.test.ts",
       "source_location": "L1",
       "id": "src_lib_tests_ingestion_test_ts",
-      "community": 204,
+      "community": 53,
       "norm_label": "ingestion.test.ts"
     },
     {
@@ -9950,7 +10004,7 @@
       "source_file": "src/lib/__tests__/ingestion.test.ts",
       "source_location": "L20",
       "id": "tests_ingestion_test_mockfetchfixture",
-      "community": 204,
+      "community": 53,
       "norm_label": "mockfetchfixture"
     },
     {
@@ -9959,7 +10013,7 @@
       "source_file": "src/lib/__tests__/ingestion.test.ts",
       "source_location": "L21",
       "id": "tests_ingestion_test_mockfetchmatchstats",
-      "community": 204,
+      "community": 53,
       "norm_label": "mockfetchmatchstats"
     },
     {
@@ -9968,7 +10022,7 @@
       "source_file": "src/lib/__tests__/ingestion.test.ts",
       "source_location": "L22",
       "id": "tests_ingestion_test_mockpolllogcreate",
-      "community": 204,
+      "community": 53,
       "norm_label": "mockpolllogcreate"
     },
     {
@@ -9977,7 +10031,7 @@
       "source_file": "src/lib/__tests__/ingestion.test.ts",
       "source_location": "L23",
       "id": "tests_ingestion_test_mockpolllogdeletemany",
-      "community": 204,
+      "community": 53,
       "norm_label": "mockpolllogdeletemany"
     },
     {
@@ -9986,7 +10040,7 @@
       "source_file": "src/lib/__tests__/ingestion.test.ts",
       "source_location": "L24",
       "id": "tests_ingestion_test_mockmatchfindmany",
-      "community": 204,
+      "community": 53,
       "norm_label": "mockmatchfindmany"
     },
     {
@@ -10013,7 +10067,7 @@
       "source_file": "src/lib/__tests__/score-flow.test.ts",
       "source_location": "L1",
       "id": "src_lib_tests_score_flow_test_ts",
-      "community": 211,
+      "community": 68,
       "norm_label": "score-flow.test.ts"
     },
     {
@@ -10087,6 +10141,24 @@
       "id": "tests_live_state_test_mockcount",
       "community": 63,
       "norm_label": "mockcount"
+    },
+    {
+      "label": "mvp-stats.test.ts",
+      "file_type": "code",
+      "source_file": "src/lib/__tests__/mvp-stats.test.ts",
+      "source_location": "L1",
+      "id": "src_lib_tests_mvp_stats_test_ts",
+      "community": 192,
+      "norm_label": "mvp-stats.test.ts"
+    },
+    {
+      "label": "baseStats",
+      "file_type": "code",
+      "source_file": "src/lib/__tests__/mvp-stats.test.ts",
+      "source_location": "L4",
+      "id": "tests_mvp_stats_test_basestats",
+      "community": 192,
+      "norm_label": "basestats"
     },
     {
       "label": "time-zone.test.ts",
@@ -10202,7 +10274,7 @@
       "source_file": "src/lib/__tests__/processing.test.ts",
       "source_location": "L1",
       "id": "src_lib_tests_processing_test_ts",
-      "community": 223,
+      "community": 24,
       "norm_label": "processing.test.ts"
     },
     {
@@ -10211,7 +10283,7 @@
       "source_file": "src/lib/__tests__/processing.test.ts",
       "source_location": "L27",
       "id": "tests_processing_test_mockmatch",
-      "community": 223,
+      "community": 24,
       "norm_label": "mockmatch"
     },
     {
@@ -10220,7 +10292,7 @@
       "source_file": "src/lib/__tests__/processing.test.ts",
       "source_location": "L293",
       "id": "tests_processing_test_fixtureentry",
-      "community": 223,
+      "community": 24,
       "norm_label": "fixtureentry()"
     },
     {
@@ -13413,7 +13485,7 @@
       "label": "1. Purpose",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L11",
+      "source_location": "L15",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_1_purpose",
       "community": 194,
       "norm_label": "1. purpose"
@@ -13422,7 +13494,7 @@
       "label": "2. Audit Baseline",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L32",
+      "source_location": "L36",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_2_audit_baseline",
       "community": 194,
       "norm_label": "2. audit baseline"
@@ -13431,7 +13503,7 @@
       "label": "3. Product Goals",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L57",
+      "source_location": "L61",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_3_product_goals",
       "community": 222,
       "norm_label": "3. product goals"
@@ -13440,7 +13512,7 @@
       "label": "3.1 Primary goals",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L59",
+      "source_location": "L63",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_3_1_primary_goals",
       "community": 222,
       "norm_label": "3.1 primary goals"
@@ -13449,7 +13521,7 @@
       "label": "3.2 Success metrics",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L72",
+      "source_location": "L76",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_3_2_success_metrics",
       "community": 222,
       "norm_label": "3.2 success metrics"
@@ -13458,7 +13530,7 @@
       "label": "4. Non-Goals",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L91",
+      "source_location": "L95",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_4_non_goals",
       "community": 194,
       "norm_label": "4. non-goals"
@@ -13467,7 +13539,7 @@
       "label": "5. Delivery Strategy",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L102",
+      "source_location": "L106",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_5_delivery_strategy",
       "community": 194,
       "norm_label": "5. delivery strategy"
@@ -13476,7 +13548,7 @@
       "label": "6. Phase 1 \u2014 Homepage Information Architecture",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L115",
+      "source_location": "L119",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_6_phase_1_homepage_information_architecture",
       "community": 205,
       "norm_label": "6. phase 1 \u2014 homepage information architecture"
@@ -13485,7 +13557,7 @@
       "label": "6.1 Required behaviour",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L117",
+      "source_location": "L121",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_6_1_required_behaviour",
       "community": 205,
       "norm_label": "6.1 required behaviour"
@@ -13494,7 +13566,7 @@
       "label": "6.2 Competition-state header",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L129",
+      "source_location": "L133",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_6_2_competition_state_header",
       "community": 205,
       "norm_label": "6.2 competition-state header"
@@ -13503,7 +13575,7 @@
       "label": "6.3 Earlier-results interaction",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L143",
+      "source_location": "L147",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_6_3_earlier_results_interaction",
       "community": 205,
       "norm_label": "6.3 earlier-results interaction"
@@ -13512,7 +13584,7 @@
       "label": "6.4 Filters",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L154",
+      "source_location": "L158",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_6_4_filters",
       "community": 205,
       "norm_label": "6.4 filters"
@@ -13521,7 +13593,7 @@
       "label": "6.5 Suggested implementation",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L171",
+      "source_location": "L175",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_6_5_suggested_implementation",
       "community": 205,
       "norm_label": "6.5 suggested implementation"
@@ -13530,7 +13602,7 @@
       "label": "6.6 Acceptance criteria",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L179",
+      "source_location": "L183",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_6_6_acceptance_criteria",
       "community": 205,
       "norm_label": "6.6 acceptance criteria"
@@ -13539,7 +13611,7 @@
       "label": "7. Phase 1 \u2014 Season and Standings Correctness",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L189",
+      "source_location": "L193",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_7_phase_1_season_and_standings_correctness",
       "community": 216,
       "norm_label": "7. phase 1 \u2014 season and standings correctness"
@@ -13548,7 +13620,7 @@
       "label": "7.1 Current risk",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L191",
+      "source_location": "L195",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_7_1_current_risk",
       "community": 216,
       "norm_label": "7.1 current risk"
@@ -13557,7 +13629,7 @@
       "label": "7.2 Required behaviour",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L195",
+      "source_location": "L199",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_7_2_required_behaviour",
       "community": 216,
       "norm_label": "7.2 required behaviour"
@@ -13566,7 +13638,7 @@
       "label": "7.3 Mobile presentation",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L205",
+      "source_location": "L209",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_7_3_mobile_presentation",
       "community": 216,
       "norm_label": "7.3 mobile presentation"
@@ -13575,7 +13647,7 @@
       "label": "7.4 Acceptance criteria",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L218",
+      "source_location": "L222",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_7_4_acceptance_criteria",
       "community": 216,
       "norm_label": "7.4 acceptance criteria"
@@ -13584,7 +13656,7 @@
       "label": "8. Phase 1 \u2014 Useful Live Empty State",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L227",
+      "source_location": "L231",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_8_phase_1_useful_live_empty_state",
       "community": 194,
       "norm_label": "8. phase 1 \u2014 useful live empty state"
@@ -13593,7 +13665,7 @@
       "label": "8.1 Required behaviour",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L229",
+      "source_location": "L233",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_8_1_required_behaviour",
       "community": 194,
       "norm_label": "8.1 required behaviour"
@@ -13602,7 +13674,7 @@
       "label": "8.2 Acceptance criteria",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L249",
+      "source_location": "L253",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_8_2_acceptance_criteria",
       "community": 194,
       "norm_label": "8.2 acceptance criteria"
@@ -13611,7 +13683,7 @@
       "label": "9. Phase 1 \u2014 Accessibility and Interaction Semantics",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L256",
+      "source_location": "L260",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_9_phase_1_accessibility_and_interaction_semantics",
       "community": 217,
       "norm_label": "9. phase 1 \u2014 accessibility and interaction semantics"
@@ -13620,7 +13692,7 @@
       "label": "9.1 Authentication forms",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L258",
+      "source_location": "L262",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_9_1_authentication_forms",
       "community": 217,
       "norm_label": "9.1 authentication forms"
@@ -13629,7 +13701,7 @@
       "label": "9.2 Match tabs",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L272",
+      "source_location": "L276",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_9_2_match_tabs",
       "community": 217,
       "norm_label": "9.2 match tabs"
@@ -13638,7 +13710,7 @@
       "label": "9.3 Expanders, icons, and duplicated links",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L283",
+      "source_location": "L287",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_9_3_expanders_icons_and_duplicated_links",
       "community": 217,
       "norm_label": "9.3 expanders, icons, and duplicated links"
@@ -13647,7 +13719,7 @@
       "label": "9.4 Acceptance criteria",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L292",
+      "source_location": "L296",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_9_4_acceptance_criteria",
       "community": 217,
       "norm_label": "9.4 acceptance criteria"
@@ -13656,7 +13728,7 @@
       "label": "10. Phase 2 \u2014 Server Rendering and Cache Policy",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L300",
+      "source_location": "L304",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_10_phase_2_server_rendering_and_cache_policy",
       "community": 212,
       "norm_label": "10. phase 2 \u2014 server rendering and cache policy"
@@ -13665,7 +13737,7 @@
       "label": "10.1 Cache matrix",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L302",
+      "source_location": "L306",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_10_1_cache_matrix",
       "community": 212,
       "norm_label": "10.1 cache matrix"
@@ -13674,7 +13746,7 @@
       "label": "10.2 Page composition",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L319",
+      "source_location": "L323",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_10_2_page_composition",
       "community": 212,
       "norm_label": "10.2 page composition"
@@ -13683,7 +13755,7 @@
       "label": "10.3 Instrumentation",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L327",
+      "source_location": "L331",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_10_3_instrumentation",
       "community": 212,
       "norm_label": "10.3 instrumentation"
@@ -13692,7 +13764,7 @@
       "label": "10.4 Acceptance criteria",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L343",
+      "source_location": "L347",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_10_4_acceptance_criteria",
       "community": 212,
       "norm_label": "10.4 acceptance criteria"
@@ -13701,7 +13773,7 @@
       "label": "11. Phase 2 \u2014 Match Detail and Play-by-Play Loading",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L351",
+      "source_location": "L355",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_11_phase_2_match_detail_and_play_by_play_loading",
       "community": 207,
       "norm_label": "11. phase 2 \u2014 match detail and play-by-play loading"
@@ -13710,7 +13782,7 @@
       "label": "11.1 Initial match payload",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L353",
+      "source_location": "L357",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_11_1_initial_match_payload",
       "community": 207,
       "norm_label": "11.1 initial match payload"
@@ -13719,7 +13791,7 @@
       "label": "11.2 On-demand Play by Play",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L366",
+      "source_location": "L370",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_11_2_on_demand_play_by_play",
       "community": 207,
       "norm_label": "11.2 on-demand play by play"
@@ -13728,7 +13800,7 @@
       "label": "11.3 Chart loading",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L398",
+      "source_location": "L402",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_11_3_chart_loading",
       "community": 207,
       "norm_label": "11.3 chart loading"
@@ -13737,7 +13809,7 @@
       "label": "11.4 Mobile stats tables",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L405",
+      "source_location": "L409",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_11_4_mobile_stats_tables",
       "community": 207,
       "norm_label": "11.4 mobile stats tables"
@@ -13746,7 +13818,7 @@
       "label": "11.5 Acceptance criteria",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L413",
+      "source_location": "L417",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_11_5_acceptance_criteria",
       "community": 207,
       "norm_label": "11.5 acceptance criteria"
@@ -13755,7 +13827,7 @@
       "label": "12. Phase 2 \u2014 Responsive Profiles and Media Resilience",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L422",
+      "source_location": "L426",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_12_phase_2_responsive_profiles_and_media_resilience",
       "community": 208,
       "norm_label": "12. phase 2 \u2014 responsive profiles and media resilience"
@@ -13764,7 +13836,7 @@
       "label": "12.1 Team profile",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L424",
+      "source_location": "L428",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_12_1_team_profile",
       "community": 208,
       "norm_label": "12.1 team profile"
@@ -13773,7 +13845,7 @@
       "label": "12.2 Player profile",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L434",
+      "source_location": "L438",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_12_2_player_profile",
       "community": 208,
       "norm_label": "12.2 player profile"
@@ -13782,7 +13854,7 @@
       "label": "12.3 Team badges",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L441",
+      "source_location": "L445",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_12_3_team_badges",
       "community": 208,
       "norm_label": "12.3 team badges"
@@ -13791,7 +13863,7 @@
       "label": "12.4 Media audit utility",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L454",
+      "source_location": "L458",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_12_4_media_audit_utility",
       "community": 208,
       "norm_label": "12.4 media audit utility"
@@ -13800,7 +13872,7 @@
       "label": "12.5 Acceptance criteria",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L468",
+      "source_location": "L472",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_12_5_acceptance_criteria",
       "community": 208,
       "norm_label": "12.5 acceptance criteria"
@@ -13809,7 +13881,7 @@
       "label": "13. Phase 3 \u2014 Account Discovery and Personalization",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L476",
+      "source_location": "L480",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_13_phase_3_account_discovery_and_personalization",
       "community": 210,
       "norm_label": "13. phase 3 \u2014 account discovery and personalization"
@@ -13818,7 +13890,7 @@
       "label": "13.1 Navigation",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L478",
+      "source_location": "L482",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_13_1_navigation",
       "community": 210,
       "norm_label": "13.1 navigation"
@@ -13827,7 +13899,7 @@
       "label": "13.2 Followed teams",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L486",
+      "source_location": "L490",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_13_2_followed_teams",
       "community": 210,
       "norm_label": "13.2 followed teams"
@@ -13836,7 +13908,7 @@
       "label": "13.3 Favourites and reminders",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L498",
+      "source_location": "L502",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_13_3_favourites_and_reminders",
       "community": 210,
       "norm_label": "13.3 favourites and reminders"
@@ -13845,7 +13917,7 @@
       "label": "13.4 Search",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L508",
+      "source_location": "L512",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_13_4_search",
       "community": 210,
       "norm_label": "13.4 search"
@@ -13854,7 +13926,7 @@
       "label": "13.5 Acceptance criteria",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L527",
+      "source_location": "L531",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_13_5_acceptance_criteria",
       "community": 210,
       "norm_label": "13.5 acceptance criteria"
@@ -13863,7 +13935,7 @@
       "label": "14. Phase 3 \u2014 Additional Product Features",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L536",
+      "source_location": "L540",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_14_phase_3_additional_product_features",
       "community": 213,
       "norm_label": "14. phase 3 \u2014 additional product features"
@@ -13872,7 +13944,7 @@
       "label": "14.1 Stat glossary",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L540",
+      "source_location": "L544",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_14_1_stat_glossary",
       "community": 213,
       "norm_label": "14.1 stat glossary"
@@ -13881,7 +13953,7 @@
       "label": "14.2 Share and calendar actions",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L546",
+      "source_location": "L550",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_14_2_share_and_calendar_actions",
       "community": 213,
       "norm_label": "14.2 share and calendar actions"
@@ -13890,7 +13962,7 @@
       "label": "14.3 Historical comparison",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L552",
+      "source_location": "L556",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_14_3_historical_comparison",
       "community": 213,
       "norm_label": "14.3 historical comparison"
@@ -13899,7 +13971,7 @@
       "label": "14.4 PWA/push notifications",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L558",
+      "source_location": "L562",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_14_4_pwa_push_notifications",
       "community": 213,
       "norm_label": "14.4 pwa/push notifications"
@@ -13908,7 +13980,7 @@
       "label": "15. Phase 4 \u2014 Worker Isolation and Rust Decision Gate",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L562",
+      "source_location": "L566",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_15_phase_4_worker_isolation_and_rust_decision_gate",
       "community": 214,
       "norm_label": "15. phase 4 \u2014 worker isolation and rust decision gate"
@@ -13917,7 +13989,7 @@
       "label": "15.1 Current architecture risk",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L564",
+      "source_location": "L568",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_15_1_current_architecture_risk",
       "community": 214,
       "norm_label": "15.1 current architecture risk"
@@ -13926,7 +13998,7 @@
       "label": "15.2 Instrumentation gate",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L568",
+      "source_location": "L572",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_15_2_instrumentation_gate",
       "community": 214,
       "norm_label": "15.2 instrumentation gate"
@@ -13935,7 +14007,7 @@
       "label": "15.3 TypeScript separation design",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L579",
+      "source_location": "L583",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_15_3_typescript_separation_design",
       "community": 214,
       "norm_label": "15.3 typescript separation design"
@@ -13944,7 +14016,7 @@
       "label": "15.4 Rust decision",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L594",
+      "source_location": "L598",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_15_4_rust_decision",
       "community": 214,
       "norm_label": "15.4 rust decision"
@@ -13953,7 +14025,7 @@
       "label": "16. Data and API Contracts",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L616",
+      "source_location": "L620",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_16_data_and_api_contracts",
       "community": 218,
       "norm_label": "16. data and api contracts"
@@ -13962,7 +14034,7 @@
       "label": "16.1 Shared competition selection",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L618",
+      "source_location": "L622",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_16_1_shared_competition_selection",
       "community": 218,
       "norm_label": "16.1 shared competition selection"
@@ -13971,7 +14043,7 @@
       "label": "16.2 Paginated match feed",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L635",
+      "source_location": "L639",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_16_2_paginated_match_feed",
       "community": 218,
       "norm_label": "16.2 paginated match feed"
@@ -13980,7 +14052,7 @@
       "label": "16.3 Error format",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L656",
+      "source_location": "L660",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_16_3_error_format",
       "community": 218,
       "norm_label": "16.3 error format"
@@ -13989,7 +14061,7 @@
       "label": "17. Expected File Changes",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L672",
+      "source_location": "L676",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_17_expected_file_changes",
       "community": 221,
       "norm_label": "17. expected file changes"
@@ -13998,7 +14070,7 @@
       "label": "17.1 Existing files likely to change",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L674",
+      "source_location": "L678",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_17_1_existing_files_likely_to_change",
       "community": 221,
       "norm_label": "17.1 existing files likely to change"
@@ -14007,7 +14079,7 @@
       "label": "17.2 Expected new files",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L698",
+      "source_location": "L702",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_17_2_expected_new_files",
       "community": 221,
       "norm_label": "17.2 expected new files"
@@ -14016,7 +14088,7 @@
       "label": "18. Testing Strategy",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L715",
+      "source_location": "L719",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_18_testing_strategy",
       "community": 215,
       "norm_label": "18. testing strategy"
@@ -14025,7 +14097,7 @@
       "label": "18.1 Unit/component tests",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L717",
+      "source_location": "L721",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_18_1_unit_component_tests",
       "community": 215,
       "norm_label": "18.1 unit/component tests"
@@ -14034,7 +14106,7 @@
       "label": "18.2 API/integration tests",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L730",
+      "source_location": "L734",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_18_2_api_integration_tests",
       "community": 215,
       "norm_label": "18.2 api/integration tests"
@@ -14043,7 +14115,7 @@
       "label": "18.3 Browser tests",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L741",
+      "source_location": "L745",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_18_3_browser_tests",
       "community": 215,
       "norm_label": "18.3 browser tests"
@@ -14052,7 +14124,7 @@
       "label": "18.4 Performance verification",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L762",
+      "source_location": "L766",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_18_4_performance_verification",
       "community": 215,
       "norm_label": "18.4 performance verification"
@@ -14061,7 +14133,7 @@
       "label": "19. Rollout and Observability",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L771",
+      "source_location": "L775",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_19_rollout_and_observability",
       "community": 219,
       "norm_label": "19. rollout and observability"
@@ -14070,7 +14142,7 @@
       "label": "19.1 Deployment sequence",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L773",
+      "source_location": "L777",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_19_1_deployment_sequence",
       "community": 219,
       "norm_label": "19.1 deployment sequence"
@@ -14079,7 +14151,7 @@
       "label": "19.2 Feature flags",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L783",
+      "source_location": "L787",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_19_2_feature_flags",
       "community": 219,
       "norm_label": "19.2 feature flags"
@@ -14088,7 +14160,7 @@
       "label": "19.3 Monitoring",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L793",
+      "source_location": "L797",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_19_3_monitoring",
       "community": 219,
       "norm_label": "19.3 monitoring"
@@ -14097,7 +14169,7 @@
       "label": "20. Definition of Done",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L807",
+      "source_location": "L811",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_20_definition_of_done",
       "community": 194,
       "norm_label": "20. definition of done"
@@ -14106,7 +14178,7 @@
       "label": "21. Implementation Principle",
       "file_type": "document",
       "source_file": "docs/superpowers/specs/2026-07-12-centrepass-qol-performance-product-improvements.md",
-      "source_location": "L826",
+      "source_location": "L830",
       "id": "specs_2026_07_12_centrepass_qol_performance_product_improvements_21_implementation_principle",
       "community": 194,
       "norm_label": "21. implementation principle"
@@ -16051,7 +16123,7 @@
       "file_type": "code",
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L21",
-      "community": 132,
+      "community": 41,
       "norm_label": "teaminfo",
       "id": "match_matchplaybyplay_teaminfo"
     },
@@ -16060,7 +16132,7 @@
       "file_type": "code",
       "source_file": "src/lib/competitions.ts",
       "source_location": "L14",
-      "community": 34,
+      "community": 31,
       "norm_label": "getcompetitions",
       "id": "lib_competitions_getcompetitions"
     },
@@ -16078,7 +16150,7 @@
       "file_type": "code",
       "source_file": "src/app/__tests__/page.test.tsx",
       "source_location": "L5",
-      "community": 220,
+      "community": 27,
       "norm_label": "{ findcompetitionmock, findmatchesmock }",
       "id": "tests_page_test_findcompetitionmock_findmatchesmock"
     },
@@ -23702,7 +23774,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 37,
+      "community": 204,
       "norm_label": "buildmatchstatsresponse",
       "id": "data_generator_build_match_stats_response"
     },
@@ -23728,7 +23800,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 37,
+      "community": 204,
       "norm_label": "champion data match stats payload projection",
       "id": "data_generator_match_stats_payload_projection"
     },
@@ -23741,7 +23813,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 37,
+      "community": 204,
       "norm_label": "stat utils projection",
       "id": "data_generator_stat_utils_projection"
     },
@@ -23858,7 +23930,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 223,
       "norm_label": "cleanuporphanedsimdata",
       "id": "engine_cleanup_orphaned_sim_data"
     },
@@ -23871,7 +23943,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 223,
       "norm_label": "setupsimmatches",
       "id": "engine_setup_sim_matches"
     },
@@ -23884,7 +23956,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 223,
       "norm_label": "teardownsimmatches",
       "id": "engine_teardown_sim_matches"
     },
@@ -23910,7 +23982,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 223,
       "norm_label": "prisma simulation round 99 records",
       "id": "engine_prisma_sim_round_99_records"
     },
@@ -23923,7 +23995,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 223,
       "norm_label": "emptystats seed",
       "id": "engine_empty_stats_seed"
     },
@@ -24066,7 +24138,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "cdscoreflowentry",
       "id": "champion_data_score_flow_entry"
     },
@@ -24079,7 +24151,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "cdteamstats",
       "id": "champion_data_team_stats"
     },
@@ -24092,7 +24164,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 204,
       "norm_label": "cdplayerstats",
       "id": "champion_data_player_stats"
     },
@@ -24118,7 +24190,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 204,
       "norm_label": "cdrawplayerstats",
       "id": "champion_data_raw_player_stats"
     },
@@ -24131,7 +24203,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "scoreupdatepayload",
       "id": "socket_score_update_payload"
     },
@@ -24144,7 +24216,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 204,
       "norm_label": "statsupdatepayload",
       "id": "socket_stats_update_payload"
     },
@@ -24157,7 +24229,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "matchstatuspayload",
       "id": "socket_match_status_payload"
     },
@@ -24170,7 +24242,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "scoreflowaddpayload",
       "id": "socket_score_flow_add_payload"
     },
@@ -24183,7 +24255,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "stateventpayload",
       "id": "socket_stat_event_payload"
     },
@@ -24196,7 +24268,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "socket.io server/client event contracts",
       "id": "socket_event_contracts"
     },
@@ -24209,7 +24281,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 204,
       "norm_label": "playerstatrow",
       "id": "stats_player_stat_row"
     },
@@ -24222,7 +24294,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "quarterdata",
       "id": "match_quarter_data"
     },
@@ -24300,7 +24372,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "broadcastscoreflowdelta test contract",
       "id": "broadcasting_test_score_flow_delta_contract"
     },
@@ -24313,7 +24385,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "broadcastscoreflowdelta",
       "id": "broadcasting_broadcast_score_flow_delta"
     },
@@ -24326,7 +24398,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "resetscoreflowtracking",
       "id": "broadcasting_reset_score_flow_tracking"
     },
@@ -24339,7 +24411,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "broadcastscoreflowadd",
       "id": "socket_server_broadcast_score_flow_add"
     },
@@ -24469,7 +24541,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "getlivestate match-day window contract",
       "id": "live_state_test_match_day_window_contract"
     },
@@ -24482,7 +24554,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "getlivestate",
       "id": "live_state_get_live_state"
     },
@@ -24508,7 +24580,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "validatematchdata test contract",
       "id": "processing_test_validate_match_data_contract"
     },
@@ -24534,7 +24606,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "validatematchdata",
       "id": "processing_validate_match_data"
     },
@@ -24560,7 +24632,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 223,
       "norm_label": "recalculatestandings test contract",
       "id": "standings_test_recalculate_standings_contract"
     },
@@ -24573,7 +24645,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 223,
       "norm_label": "recalculatestandings",
       "id": "standings_recalculate_standings"
     },
@@ -24625,7 +24697,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "netpulse box score prototype",
       "id": "design_netpulse_box_score_prototype"
     },
@@ -24638,7 +24710,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "top navigation and live pulse sidebar",
       "id": "design_top_navigation_and_live_pulse"
     },
@@ -24651,7 +24723,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "hero match summary",
       "id": "design_hero_match_summary"
     },
@@ -24664,7 +24736,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 204,
       "norm_label": "player performance table",
       "id": "design_player_performance_table"
     },
@@ -24677,7 +24749,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "team efficiency summary",
       "id": "design_team_efficiency_summary"
     },
@@ -24690,7 +24762,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "defensive impact summary",
       "id": "design_defensive_impact_summary"
     },
@@ -24703,7 +24775,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 204,
       "norm_label": "match mvp card",
       "id": "design_match_mvp_card"
     },
@@ -24716,7 +24788,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 201,
       "norm_label": "match momentum widget",
       "id": "design_match_momentum_widget"
     },
@@ -24729,7 +24801,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "mobile bottom navigation",
       "id": "design_mobile_bottom_navigation"
     },
@@ -24742,7 +24814,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 47,
+      "community": 111,
       "norm_label": "tailwind material theme",
       "id": "design_tailwind_material_theme"
     },
@@ -35155,9 +35227,9 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_route_ts",
-      "target": "src_types_search_ts",
-      "confidence_score": 1.0
+      "target": "src_types_search_ts"
     },
     {
       "relation": "imports_from",
@@ -35166,9 +35238,9 @@
       "source_file": "src/components/search/GlobalSearch.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_globalsearch_tsx",
-      "target": "src_types_search_ts",
-      "confidence_score": 1.0
+      "target": "src_types_search_ts"
     },
     {
       "relation": "contains",
@@ -35176,9 +35248,9 @@
       "source_file": "src/types/search.ts",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_search_ts",
-      "target": "types_search_matchsearchresult",
-      "confidence_score": 1.0
+      "target": "types_search_matchsearchresult"
     },
     {
       "relation": "contains",
@@ -35186,9 +35258,9 @@
       "source_file": "src/types/search.ts",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_search_ts",
-      "target": "types_search_playersearchresult",
-      "confidence_score": 1.0
+      "target": "types_search_playersearchresult"
     },
     {
       "relation": "contains",
@@ -35196,9 +35268,9 @@
       "source_file": "src/types/search.ts",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_search_ts",
-      "target": "types_search_searchresponse",
-      "confidence_score": 1.0
+      "target": "types_search_searchresponse"
     },
     {
       "relation": "contains",
@@ -35206,9 +35278,9 @@
       "source_file": "src/types/search.ts",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_search_ts",
-      "target": "types_search_searchresult",
-      "confidence_score": 1.0
+      "target": "types_search_searchresult"
     },
     {
       "relation": "contains",
@@ -35216,9 +35288,9 @@
       "source_file": "src/types/search.ts",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_search_ts",
-      "target": "types_search_teamsearchresult",
-      "confidence_score": 1.0
+      "target": "types_search_teamsearchresult"
     },
     {
       "relation": "imports",
@@ -35227,9 +35299,9 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_route_ts",
-      "target": "types_search_searchresponse",
-      "confidence_score": 1.0
+      "target": "types_search_searchresponse"
     },
     {
       "relation": "imports",
@@ -35238,9 +35310,9 @@
       "source_file": "src/components/search/GlobalSearch.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_globalsearch_tsx",
-      "target": "types_search_searchresponse",
-      "confidence_score": 1.0
+      "target": "types_search_searchresponse"
     },
     {
       "relation": "imports",
@@ -35249,9 +35321,9 @@
       "source_file": "src/components/search/GlobalSearch.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_globalsearch_tsx",
-      "target": "types_search_searchresult",
-      "confidence_score": 1.0
+      "target": "types_search_searchresult"
     },
     {
       "relation": "imports_from",
@@ -35260,9 +35332,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "src_types_personalization_ts",
-      "confidence_score": 1.0
+      "target": "src_types_personalization_ts"
     },
     {
       "relation": "imports_from",
@@ -35271,9 +35343,9 @@
       "source_file": "src/components/home/MyTeams.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_myteams_tsx",
-      "target": "src_types_personalization_ts",
-      "confidence_score": 1.0
+      "target": "src_types_personalization_ts"
     },
     {
       "relation": "imports_from",
@@ -35282,9 +35354,9 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_personalization_ts",
-      "target": "src_types_team_ts",
-      "confidence_score": 1.0
+      "target": "src_types_team_ts"
     },
     {
       "relation": "contains",
@@ -35292,9 +35364,9 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_personalization_ts",
-      "target": "types_personalization_myteamhubitem",
-      "confidence_score": 1.0
+      "target": "types_personalization_myteamhubitem"
     },
     {
       "relation": "contains",
@@ -35302,9 +35374,9 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_personalization_ts",
-      "target": "types_personalization_personalizedmatchcard",
-      "confidence_score": 1.0
+      "target": "types_personalization_personalizedmatchcard"
     },
     {
       "relation": "imports",
@@ -35313,9 +35385,9 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_personalization_ts",
-      "target": "types_team_teaminfowithid",
-      "confidence_score": 1.0
+      "target": "types_team_teaminfowithid"
     },
     {
       "relation": "imports",
@@ -35324,9 +35396,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "types_personalization_personalizedmatchcard",
-      "confidence_score": 1.0
+      "target": "types_personalization_personalizedmatchcard"
     },
     {
       "relation": "references",
@@ -35335,9 +35407,9 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "types_personalization_personalizedmatchcard",
-      "target": "types_team_teaminfowithid",
-      "confidence_score": 1.0
+      "target": "types_team_teaminfowithid"
     },
     {
       "relation": "imports",
@@ -35346,9 +35418,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "types_personalization_myteamhubitem",
-      "confidence_score": 1.0
+      "target": "types_personalization_myteamhubitem"
     },
     {
       "relation": "imports",
@@ -35357,9 +35429,9 @@
       "source_file": "src/components/home/MyTeams.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_myteams_tsx",
-      "target": "types_personalization_myteamhubitem",
-      "confidence_score": 1.0
+      "target": "types_personalization_myteamhubitem"
     },
     {
       "relation": "references",
@@ -35368,9 +35440,9 @@
       "source_file": "src/types/personalization.ts",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "types_personalization_myteamhubitem",
-      "target": "types_team_teaminfowithid",
-      "confidence_score": 1.0
+      "target": "types_team_teaminfowithid"
     },
     {
       "relation": "imports_from",
@@ -35563,9 +35635,9 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchplaybyplay_tsx",
-      "target": "src_types_team_ts",
-      "confidence_score": 1.0
+      "target": "src_types_team_ts"
     },
     {
       "relation": "imports_from",
@@ -35574,9 +35646,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "src_types_team_ts",
-      "confidence_score": 1.0
+      "target": "src_types_team_ts"
     },
     {
       "relation": "imports_from",
@@ -35781,9 +35853,9 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "match_matchplaybyplay_matchplaybyplayprops",
-      "target": "types_team_teaminfowithid",
-      "confidence_score": 1.0
+      "target": "types_team_teaminfowithid"
     },
     {
       "relation": "references",
@@ -35792,9 +35864,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "match_matchtimeline_matchtimelineprops",
-      "target": "types_team_teaminfowithid",
-      "confidence_score": 1.0
+      "target": "types_team_teaminfowithid"
     },
     {
       "relation": "references",
@@ -35847,9 +35919,9 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchplaybyplay_tsx",
-      "target": "types_team_teaminfowithid",
-      "confidence_score": 1.0
+      "target": "types_team_teaminfowithid"
     },
     {
       "relation": "imports",
@@ -35858,9 +35930,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "types_team_teaminfowithid",
-      "confidence_score": 1.0
+      "target": "types_team_teaminfowithid"
     },
     {
       "relation": "imports",
@@ -35880,9 +35952,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "src_types_match_timeline_ts",
-      "confidence_score": 1.0
+      "target": "src_types_match_timeline_ts"
     },
     {
       "relation": "imports_from",
@@ -35891,9 +35963,9 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchplaybyplay_tsx",
-      "target": "src_types_match_timeline_ts",
-      "confidence_score": 1.0
+      "target": "src_types_match_timeline_ts"
     },
     {
       "relation": "imports_from",
@@ -35902,9 +35974,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "src_types_match_timeline_ts",
-      "confidence_score": 1.0
+      "target": "src_types_match_timeline_ts"
     },
     {
       "relation": "imports_from",
@@ -35913,9 +35985,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "src_types_match_timeline_ts",
-      "confidence_score": 1.0
+      "target": "src_types_match_timeline_ts"
     },
     {
       "relation": "contains",
@@ -35923,9 +35995,9 @@
       "source_file": "src/types/match-timeline.ts",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_match_timeline_ts",
-      "target": "types_match_timeline_match_timeline_event_types",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_match_timeline_event_types"
     },
     {
       "relation": "contains",
@@ -35933,9 +36005,9 @@
       "source_file": "src/types/match-timeline.ts",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_match_timeline_ts",
-      "target": "types_match_timeline_matchtimelineentry",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineentry"
     },
     {
       "relation": "contains",
@@ -35943,9 +36015,9 @@
       "source_file": "src/types/match-timeline.ts",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_match_timeline_ts",
-      "target": "types_match_timeline_matchtimelineeventtype",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineeventtype"
     },
     {
       "relation": "contains",
@@ -35953,9 +36025,9 @@
       "source_file": "src/types/match-timeline.ts",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_types_match_timeline_ts",
-      "target": "types_match_timeline_matchtimelineresponse",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineresponse"
     },
     {
       "relation": "imports",
@@ -35964,9 +36036,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "types_match_timeline_match_timeline_event_types",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_match_timeline_event_types"
     },
     {
       "relation": "imports",
@@ -35975,9 +36047,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "types_match_timeline_match_timeline_event_types",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_match_timeline_event_types"
     },
     {
       "relation": "references",
@@ -35986,9 +36058,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_match_timeline_matchtimelinefilters",
-      "target": "types_match_timeline_matchtimelineeventtype",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineeventtype"
     },
     {
       "relation": "imports",
@@ -35997,9 +36069,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "types_match_timeline_matchtimelineeventtype",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineeventtype"
     },
     {
       "relation": "imports",
@@ -36008,9 +36080,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "types_match_timeline_matchtimelineeventtype",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineeventtype"
     },
     {
       "relation": "imports",
@@ -36019,9 +36091,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "types_match_timeline_matchtimelineeventtype",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineeventtype"
     },
     {
       "relation": "imports",
@@ -36030,9 +36102,9 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchplaybyplay_tsx",
-      "target": "types_match_timeline_matchtimelineentry",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineentry"
     },
     {
       "relation": "imports",
@@ -36041,9 +36113,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "types_match_timeline_matchtimelineentry",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineentry"
     },
     {
       "relation": "imports",
@@ -36052,9 +36124,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "types_match_timeline_matchtimelineentry",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineentry"
     },
     {
       "relation": "imports",
@@ -36063,9 +36135,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "types_match_timeline_matchtimelineresponse",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineresponse"
     },
     {
       "relation": "imports",
@@ -36074,9 +36146,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "types_match_timeline_matchtimelineresponse",
-      "confidence_score": 1.0
+      "target": "types_match_timeline_matchtimelineresponse"
     },
     {
       "relation": "contains",
@@ -36303,9 +36375,9 @@
       "source_file": "src/app/page.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_page_tsx",
-      "target": "home_myteams_myteams",
-      "confidence_score": 1.0
+      "target": "home_myteams_myteams"
     },
     {
       "relation": "imports",
@@ -36424,9 +36496,9 @@
       "source_file": "src/app/page.tsx",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_page_tsx",
-      "target": "lib_server_timing_timedquery",
-      "confidence_score": 1.0
+      "target": "lib_server_timing_timedquery"
     },
     {
       "relation": "imports_from",
@@ -36446,9 +36518,9 @@
       "source_file": "src/app/page.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_page_tsx",
-      "target": "src_components_home_myteams_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_home_myteams_tsx"
     },
     {
       "relation": "imports_from",
@@ -36556,9 +36628,9 @@
       "source_file": "src/app/page.tsx",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_page_tsx",
-      "target": "src_lib_server_timing_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_server_timing_ts"
     },
     {
       "relation": "imports",
@@ -36719,9 +36791,9 @@
       "source_file": "src/app/settings/page.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_settings_page_tsx",
-      "target": "lib_format_formatmatchdatetime",
-      "confidence_score": 1.0
+      "target": "lib_format_formatmatchdatetime"
     },
     {
       "relation": "contains",
@@ -36729,9 +36801,9 @@
       "source_file": "src/app/settings/page.tsx",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_settings_page_tsx",
-      "target": "settings_page_matchresource",
-      "confidence_score": 1.0
+      "target": "settings_page_matchresource"
     },
     {
       "relation": "contains",
@@ -36771,9 +36843,9 @@
       "source_file": "src/app/settings/page.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_settings_page_tsx",
-      "target": "src_lib_format_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_format_ts"
     },
     {
       "relation": "imports",
@@ -36793,9 +36865,9 @@
       "source_file": "src/app/settings/__tests__/page.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_settings_tests_page_test_tsx",
-      "target": "src_app_settings_page_tsx",
-      "confidence_score": 1.0
+      "target": "src_app_settings_page_tsx"
     },
     {
       "relation": "contains",
@@ -36803,9 +36875,9 @@
       "source_file": "src/app/settings/__tests__/page.test.tsx",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_settings_tests_page_test_tsx",
-      "target": "tests_page_test_response",
-      "confidence_score": 1.0
+      "target": "tests_page_test_response"
     },
     {
       "relation": "contains",
@@ -36988,9 +37060,9 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchtimeline_test_tsx",
-      "target": "src_app_match_matchid_matchtabs_tsx",
-      "confidence_score": 1.0
+      "target": "src_app_match_matchid_matchtabs_tsx"
     },
     {
       "relation": "imports",
@@ -37021,9 +37093,9 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchtimeline_test_tsx",
-      "target": "matchid_matchtabs_matchtabs",
-      "confidence_score": 1.0
+      "target": "matchid_matchtabs_matchtabs"
     },
     {
       "relation": "imports",
@@ -37116,6 +37188,17 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/match/[matchId]/page.tsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "src_app_match_matchid_page_tsx",
+      "target": "lib_mvp_stats_getmvpsupportingstats",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L15",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -37151,9 +37234,9 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_match_matchid_page_tsx",
-      "target": "lib_server_timing_timedquery",
-      "confidence_score": 1.0
+      "target": "lib_server_timing_timedquery"
     },
     {
       "relation": "imports",
@@ -37184,9 +37267,9 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_match_matchid_page_tsx",
-      "target": "match_matchactions_matchactions",
-      "confidence_score": 1.0
+      "target": "match_matchactions_matchactions"
     },
     {
       "relation": "imports",
@@ -37217,9 +37300,9 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_match_matchid_page_tsx",
-      "target": "match_matchtimeline_matchtimeline",
-      "confidence_score": 1.0
+      "target": "match_matchtimeline_matchtimeline"
     },
     {
       "relation": "contains",
@@ -37268,9 +37351,9 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_match_matchid_page_tsx",
-      "target": "src_components_match_matchactions_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_match_matchactions_tsx"
     },
     {
       "relation": "imports_from",
@@ -37301,9 +37384,9 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_match_matchid_page_tsx",
-      "target": "src_components_match_matchtimeline_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_match_matchtimeline_tsx"
     },
     {
       "relation": "imports_from",
@@ -37409,6 +37492,17 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/match/[matchId]/page.tsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "src_app_match_matchid_page_tsx",
+      "target": "src_lib_mvp_stats_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L15",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -37422,9 +37516,9 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_match_matchid_page_tsx",
-      "target": "src_lib_server_timing_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_server_timing_ts"
     },
     {
       "relation": "imports_from",
@@ -37568,6 +37662,17 @@
       "weight": 1.0,
       "source": "matchid_page_matchpage",
       "target": "lib_match_label_formatmatchstage"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/match/[matchId]/page.tsx",
+      "source_location": "L155",
+      "weight": 1.0,
+      "source": "matchid_page_matchpage",
+      "target": "lib_mvp_stats_getmvpsupportingstats"
     },
     {
       "relation": "calls",
@@ -38425,9 +38530,9 @@
       "source_file": "src/app/standings/page.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_standings_page_tsx",
-      "target": "lib_server_timing_timedquery",
-      "confidence_score": 1.0
+      "target": "lib_server_timing_timedquery"
     },
     {
       "relation": "imports_from",
@@ -38447,9 +38552,9 @@
       "source_file": "src/app/standings/page.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_standings_page_tsx",
-      "target": "src_lib_cached_queries_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_cached_queries_ts"
     },
     {
       "relation": "imports_from",
@@ -38491,9 +38596,9 @@
       "source_file": "src/app/standings/page.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_standings_page_tsx",
-      "target": "src_lib_server_timing_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_server_timing_ts"
     },
     {
       "relation": "contains",
@@ -38858,9 +38963,9 @@
       "source_file": "src/app/team/[teamSlug]/page.tsx",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_team_teamslug_page_tsx",
-      "target": "lib_server_timing_timedquery",
-      "confidence_score": 1.0
+      "target": "lib_server_timing_timedquery"
     },
     {
       "relation": "imports_from",
@@ -38891,9 +38996,9 @@
       "source_file": "src/app/team/[teamSlug]/page.tsx",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_team_teamslug_page_tsx",
-      "target": "src_lib_cached_queries_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_cached_queries_ts"
     },
     {
       "relation": "imports_from",
@@ -38946,9 +39051,9 @@
       "source_file": "src/app/team/[teamSlug]/page.tsx",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_team_teamslug_page_tsx",
-      "target": "src_lib_server_timing_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_server_timing_ts"
     },
     {
       "relation": "contains",
@@ -39291,9 +39396,9 @@
       "source_file": "src/app/teams/page.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_teams_page_tsx",
-      "target": "lib_server_timing_timedquery",
-      "confidence_score": 1.0
+      "target": "lib_server_timing_timedquery"
     },
     {
       "relation": "imports_from",
@@ -39313,9 +39418,9 @@
       "source_file": "src/app/teams/page.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_teams_page_tsx",
-      "target": "src_lib_cached_queries_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_cached_queries_ts"
     },
     {
       "relation": "imports_from",
@@ -39346,9 +39451,9 @@
       "source_file": "src/app/teams/page.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_teams_page_tsx",
-      "target": "src_lib_server_timing_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_server_timing_ts"
     },
     {
       "relation": "contains",
@@ -39645,9 +39750,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "events_route_badrequest",
-      "confidence_score": 1.0
+      "target": "events_route_badrequest"
     },
     {
       "relation": "contains",
@@ -39655,9 +39760,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "events_route_get",
-      "confidence_score": 1.0
+      "target": "events_route_get"
     },
     {
       "relation": "contains",
@@ -39665,9 +39770,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "events_route_routecontext",
-      "confidence_score": 1.0
+      "target": "events_route_routecontext"
     },
     {
       "relation": "imports",
@@ -39676,9 +39781,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "lib_match_timeline_loadmatchtimeline",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_loadmatchtimeline"
     },
     {
       "relation": "imports",
@@ -39687,9 +39792,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "lib_server_timing_timedquery",
-      "confidence_score": 1.0
+      "target": "lib_server_timing_timedquery"
     },
     {
       "relation": "imports_from",
@@ -39698,9 +39803,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "src_lib_match_timeline_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_match_timeline_ts"
     },
     {
       "relation": "imports_from",
@@ -39709,9 +39814,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_route_ts",
-      "target": "src_lib_server_timing_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_server_timing_ts"
     },
     {
       "relation": "imports_from",
@@ -39720,9 +39825,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/__tests__/route.test.ts",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_tests_route_test_ts",
-      "target": "src_app_api_matches_matchid_events_route_ts",
-      "confidence_score": 1.0
+      "target": "src_app_api_matches_matchid_events_route_ts"
     },
     {
       "relation": "calls",
@@ -39731,9 +39836,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/route.ts",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "events_route_get",
-      "target": "events_route_badrequest",
-      "confidence_score": 1.0
+      "target": "events_route_badrequest"
     },
     {
       "relation": "calls",
@@ -39753,9 +39858,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/__tests__/route.test.ts",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_tests_route_test_ts",
-      "target": "events_route_get",
-      "confidence_score": 1.0
+      "target": "events_route_get"
     },
     {
       "relation": "contains",
@@ -39763,9 +39868,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/__tests__/route.test.ts",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_tests_route_test_ts",
-      "target": "tests_route_test_context",
-      "confidence_score": 1.0
+      "target": "tests_route_test_context"
     },
     {
       "relation": "contains",
@@ -39773,9 +39878,9 @@
       "source_file": "src/app/api/matches/[matchId]/events/__tests__/route.test.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_matches_matchid_events_tests_route_test_ts",
-      "target": "tests_route_test_loadtimelinemock",
-      "confidence_score": 1.0
+      "target": "tests_route_test_loadtimelinemock"
     },
     {
       "relation": "contains",
@@ -39793,9 +39898,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "home_route_get",
-      "confidence_score": 1.0
+      "target": "home_route_get"
     },
     {
       "relation": "contains",
@@ -39803,9 +39908,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "home_route_tocard",
-      "confidence_score": 1.0
+      "target": "home_route_tocard"
     },
     {
       "relation": "imports",
@@ -39814,9 +39919,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "lib_api_auth_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_api_auth_requireauth"
     },
     {
       "relation": "imports",
@@ -39825,9 +39930,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "lib_competitions_resolvecompetition",
-      "confidence_score": 1.0
+      "target": "lib_competitions_resolvecompetition"
     },
     {
       "relation": "imports",
@@ -39836,9 +39941,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "lib_home_feed_computebreakdown",
-      "confidence_score": 1.0
+      "target": "lib_home_feed_computebreakdown"
     },
     {
       "relation": "imports",
@@ -39847,9 +39952,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "lib_home_feed_homepagematch",
-      "confidence_score": 1.0
+      "target": "lib_home_feed_homepagematch"
     },
     {
       "relation": "imports_from",
@@ -39858,9 +39963,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "src_lib_api_auth_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_api_auth_ts"
     },
     {
       "relation": "imports_from",
@@ -39869,9 +39974,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "src_lib_competitions_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_competitions_ts"
     },
     {
       "relation": "imports_from",
@@ -39880,9 +39985,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "src_lib_db_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_db_ts"
     },
     {
       "relation": "imports_from",
@@ -39891,9 +39996,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_route_ts",
-      "target": "src_lib_home_feed_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_home_feed_ts"
     },
     {
       "relation": "imports_from",
@@ -39902,9 +40007,9 @@
       "source_file": "src/app/api/user/home/__tests__/route.test.ts",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_tests_route_test_ts",
-      "target": "src_app_api_user_home_route_ts",
-      "confidence_score": 1.0
+      "target": "src_app_api_user_home_route_ts"
     },
     {
       "relation": "calls",
@@ -39913,9 +40018,9 @@
       "source_file": "src/app/api/user/home/route.ts",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "home_route_tocard",
-      "target": "lib_home_feed_computebreakdown",
-      "confidence_score": 1.0
+      "target": "lib_home_feed_computebreakdown"
     },
     {
       "relation": "calls",
@@ -39946,9 +40051,9 @@
       "source_file": "src/app/api/user/home/__tests__/route.test.ts",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_tests_route_test_ts",
-      "target": "home_route_get",
-      "confidence_score": 1.0
+      "target": "home_route_get"
     },
     {
       "relation": "contains",
@@ -39956,9 +40061,9 @@
       "source_file": "src/app/api/user/home/__tests__/route.test.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_tests_route_test_ts",
-      "target": "tests_route_test_findfollowsmock_findmatchesmock_requireauthmock",
-      "confidence_score": 1.0
+      "target": "tests_route_test_findfollowsmock_findmatchesmock_requireauthmock"
     },
     {
       "relation": "contains",
@@ -39966,9 +40071,9 @@
       "source_file": "src/app/api/user/home/__tests__/route.test.ts",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_tests_route_test_ts",
-      "target": "tests_route_test_match",
-      "confidence_score": 1.0
+      "target": "tests_route_test_match"
     },
     {
       "relation": "contains",
@@ -39976,9 +40081,9 @@
       "source_file": "src/app/api/user/home/__tests__/route.test.ts",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_user_home_tests_route_test_ts",
-      "target": "tests_route_test_team",
-      "confidence_score": 1.0
+      "target": "tests_route_test_team"
     },
     {
       "relation": "contains",
@@ -40083,9 +40188,9 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_route_ts",
-      "target": "lib_match_label_formatmatchstage",
-      "confidence_score": 1.0
+      "target": "lib_match_label_formatmatchstage"
     },
     {
       "relation": "contains",
@@ -40093,9 +40198,9 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_route_ts",
-      "target": "search_route_empty_results",
-      "confidence_score": 1.0
+      "target": "search_route_empty_results"
     },
     {
       "relation": "contains",
@@ -40103,9 +40208,9 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_route_ts",
-      "target": "search_route_get",
-      "confidence_score": 1.0
+      "target": "search_route_get"
     },
     {
       "relation": "imports_from",
@@ -40114,9 +40219,9 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_route_ts",
-      "target": "src_lib_db_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_db_ts"
     },
     {
       "relation": "imports_from",
@@ -40125,9 +40230,9 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_route_ts",
-      "target": "src_lib_match_label_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_match_label_ts"
     },
     {
       "relation": "imports_from",
@@ -40136,9 +40241,9 @@
       "source_file": "src/app/api/search/__tests__/route.test.ts",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_tests_route_test_ts",
-      "target": "src_app_api_search_route_ts",
-      "confidence_score": 1.0
+      "target": "src_app_api_search_route_ts"
     },
     {
       "relation": "imports",
@@ -40147,9 +40252,9 @@
       "source_file": "src/app/api/search/__tests__/route.test.ts",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_tests_route_test_ts",
-      "target": "search_route_get",
-      "confidence_score": 1.0
+      "target": "search_route_get"
     },
     {
       "relation": "contains",
@@ -40157,9 +40262,9 @@
       "source_file": "src/app/api/search/__tests__/route.test.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_api_search_tests_route_test_ts",
-      "target": "tests_route_test_findmatchesmock_findplayersmock_findteamsmock",
-      "confidence_score": 1.0
+      "target": "tests_route_test_findmatchesmock_findplayersmock_findteamsmock"
     },
     {
       "relation": "imports",
@@ -40938,9 +41043,9 @@
       "source_file": "src/components/ui/__tests__/PlayerAvatar.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_ui_tests_playeravatar_test_tsx",
-      "target": "src_components_ui_playeravatar_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_ui_playeravatar_tsx"
     },
     {
       "relation": "imports",
@@ -40982,9 +41087,9 @@
       "source_file": "src/components/ui/__tests__/PlayerAvatar.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_ui_tests_playeravatar_test_tsx",
-      "target": "ui_playeravatar_playeravatar",
-      "confidence_score": 1.0
+      "target": "ui_playeravatar_playeravatar"
     },
     {
       "relation": "imports_from",
@@ -41004,9 +41109,9 @@
       "source_file": "src/components/home/MyTeams.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_myteams_tsx",
-      "target": "src_components_ui_scorecard_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_ui_scorecard_tsx"
     },
     {
       "relation": "imports",
@@ -41198,9 +41303,9 @@
       "source_file": "src/components/home/MyTeams.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_myteams_tsx",
-      "target": "ui_scorecard_scorecard",
-      "confidence_score": 1.0
+      "target": "ui_scorecard_scorecard"
     },
     {
       "relation": "imports",
@@ -41275,9 +41380,9 @@
       "source_file": "src/components/home/MyTeams.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_myteams_tsx",
-      "target": "src_components_ui_teambadge_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_ui_teambadge_tsx"
     },
     {
       "relation": "imports_from",
@@ -41372,9 +41477,9 @@
       "source_file": "src/components/home/MyTeams.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_myteams_tsx",
-      "target": "ui_teambadge_teambadge",
-      "confidence_score": 1.0
+      "target": "ui_teambadge_teambadge"
     },
     {
       "relation": "imports",
@@ -41880,9 +41985,9 @@
       "source_file": "src/components/home/MyTeams.tsx",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_myteams_tsx",
-      "target": "home_myteams_myteams",
-      "confidence_score": 1.0
+      "target": "home_myteams_myteams"
     },
     {
       "relation": "imports_from",
@@ -41891,9 +41996,9 @@
       "source_file": "src/components/home/__tests__/MyTeams.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_tests_myteams_test_tsx",
-      "target": "src_components_home_myteams_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_home_myteams_tsx"
     },
     {
       "relation": "imports",
@@ -41902,9 +42007,9 @@
       "source_file": "src/components/home/__tests__/MyTeams.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_tests_myteams_test_tsx",
-      "target": "home_myteams_myteams",
-      "confidence_score": 1.0
+      "target": "home_myteams_myteams"
     },
     {
       "relation": "contains",
@@ -41997,9 +42102,9 @@
       "source_file": "src/components/home/__tests__/MyTeams.test.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_home_tests_myteams_test_tsx",
-      "target": "tests_myteams_test_usesessionmock",
-      "confidence_score": 1.0
+      "target": "tests_myteams_test_usesessionmock"
     },
     {
       "relation": "imports",
@@ -42049,9 +42154,9 @@
       "source_file": "src/components/auth/AuthButton.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_auth_authbutton_tsx",
-      "target": "auth_authbutton_authbuttonprops",
-      "confidence_score": 1.0
+      "target": "auth_authbutton_authbuttonprops"
     },
     {
       "relation": "imports_from",
@@ -42060,9 +42165,9 @@
       "source_file": "src/components/auth/__tests__/AuthButton.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_auth_tests_authbutton_test_tsx",
-      "target": "src_components_auth_authbutton_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_auth_authbutton_tsx"
     },
     {
       "relation": "imports_from",
@@ -42071,9 +42176,9 @@
       "source_file": "src/components/layout/BottomNav.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_layout_bottomnav_tsx",
-      "target": "src_components_auth_authbutton_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_auth_authbutton_tsx"
     },
     {
       "relation": "imports_from",
@@ -42082,9 +42187,9 @@
       "source_file": "src/components/layout/Sidebar.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_layout_sidebar_tsx",
-      "target": "src_components_auth_authbutton_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_auth_authbutton_tsx"
     },
     {
       "relation": "imports",
@@ -42093,9 +42198,9 @@
       "source_file": "src/components/auth/__tests__/AuthButton.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_auth_tests_authbutton_test_tsx",
-      "target": "auth_authbutton_authbutton",
-      "confidence_score": 1.0
+      "target": "auth_authbutton_authbutton"
     },
     {
       "relation": "imports",
@@ -42104,9 +42209,9 @@
       "source_file": "src/components/layout/BottomNav.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_layout_bottomnav_tsx",
-      "target": "auth_authbutton_authbutton",
-      "confidence_score": 1.0
+      "target": "auth_authbutton_authbutton"
     },
     {
       "relation": "imports",
@@ -42115,9 +42220,9 @@
       "source_file": "src/components/layout/Sidebar.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_layout_sidebar_tsx",
-      "target": "auth_authbutton_authbutton",
-      "confidence_score": 1.0
+      "target": "auth_authbutton_authbutton"
     },
     {
       "relation": "contains",
@@ -42125,9 +42230,9 @@
       "source_file": "src/components/auth/__tests__/AuthButton.test.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_auth_tests_authbutton_test_tsx",
-      "target": "tests_authbutton_test_signoutmock_usesessionmock",
-      "confidence_score": 1.0
+      "target": "tests_authbutton_test_signoutmock_usesessionmock"
     },
     {
       "relation": "imports",
@@ -42342,9 +42447,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "src_components_match_matchplaybyplay_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_match_matchplaybyplay_tsx"
     },
     {
       "relation": "imports",
@@ -42353,9 +42458,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "match_matchplaybyplay_matchplaybyplay",
-      "confidence_score": 1.0
+      "target": "match_matchplaybyplay_matchplaybyplay"
     },
     {
       "relation": "contains",
@@ -42393,9 +42498,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "match_matchtimeline_matchtimeline",
-      "confidence_score": 1.0
+      "target": "match_matchtimeline_matchtimeline"
     },
     {
       "relation": "contains",
@@ -42403,9 +42508,9 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchtimeline_tsx",
-      "target": "match_matchtimeline_matchtimelineprops",
-      "confidence_score": 1.0
+      "target": "match_matchtimeline_matchtimelineprops"
     },
     {
       "relation": "imports_from",
@@ -42414,9 +42519,9 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchtimeline_test_tsx",
-      "target": "src_components_match_matchtimeline_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_match_matchtimeline_tsx"
     },
     {
       "relation": "imports",
@@ -42425,9 +42530,9 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchtimeline_test_tsx",
-      "target": "match_matchtimeline_matchtimeline",
-      "confidence_score": 1.0
+      "target": "match_matchtimeline_matchtimeline"
     },
     {
       "relation": "contains",
@@ -42435,9 +42540,9 @@
       "source_file": "src/components/match/MatchActions.tsx",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchactions_tsx",
-      "target": "match_matchactions_matchactions",
-      "confidence_score": 1.0
+      "target": "match_matchactions_matchactions"
     },
     {
       "relation": "contains",
@@ -42445,9 +42550,9 @@
       "source_file": "src/components/match/MatchActions.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchactions_tsx",
-      "target": "match_matchactions_matchactionsprops",
-      "confidence_score": 1.0
+      "target": "match_matchactions_matchactionsprops"
     },
     {
       "relation": "contains",
@@ -42455,9 +42560,9 @@
       "source_file": "src/components/match/MatchActions.tsx",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_matchactions_tsx",
-      "target": "match_matchactions_usermatchresource",
-      "confidence_score": 1.0
+      "target": "match_matchactions_usermatchresource"
     },
     {
       "relation": "imports_from",
@@ -42466,9 +42571,9 @@
       "source_file": "src/components/match/__tests__/MatchActions.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchactions_test_tsx",
-      "target": "src_components_match_matchactions_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_match_matchactions_tsx"
     },
     {
       "relation": "imports",
@@ -42477,9 +42582,9 @@
       "source_file": "src/components/match/__tests__/MatchActions.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchactions_test_tsx",
-      "target": "match_matchactions_matchactions",
-      "confidence_score": 1.0
+      "target": "match_matchactions_matchactions"
     },
     {
       "relation": "imports",
@@ -42792,9 +42897,9 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchtimeline_test_tsx",
-      "target": "tests_matchtimeline_test_awayteam",
-      "confidence_score": 1.0
+      "target": "tests_matchtimeline_test_awayteam"
     },
     {
       "relation": "contains",
@@ -42802,9 +42907,9 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchtimeline_test_tsx",
-      "target": "tests_matchtimeline_test_hometeam",
-      "confidence_score": 1.0
+      "target": "tests_matchtimeline_test_hometeam"
     },
     {
       "relation": "contains",
@@ -42812,9 +42917,9 @@
       "source_file": "src/components/match/__tests__/MatchActions.test.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_match_tests_matchactions_test_tsx",
-      "target": "tests_matchactions_test_pushmock_usesessionmock",
-      "confidence_score": 1.0
+      "target": "tests_matchactions_test_pushmock_usesessionmock"
     },
     {
       "relation": "contains",
@@ -42897,9 +43002,9 @@
       "source_file": "src/components/layout/BottomNav.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_layout_bottomnav_tsx",
-      "target": "search_globalsearch_globalsearch",
-      "confidence_score": 1.0
+      "target": "search_globalsearch_globalsearch"
     },
     {
       "relation": "imports_from",
@@ -42908,9 +43013,9 @@
       "source_file": "src/components/layout/BottomNav.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_layout_bottomnav_tsx",
-      "target": "src_components_search_globalsearch_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_search_globalsearch_tsx"
     },
     {
       "relation": "imports_from",
@@ -43092,9 +43197,9 @@
       "source_file": "src/components/layout/Sidebar.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_layout_sidebar_tsx",
-      "target": "search_globalsearch_globalsearch",
-      "confidence_score": 1.0
+      "target": "search_globalsearch_globalsearch"
     },
     {
       "relation": "imports_from",
@@ -43103,9 +43208,9 @@
       "source_file": "src/components/layout/Sidebar.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_layout_sidebar_tsx",
-      "target": "src_components_search_globalsearch_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_search_globalsearch_tsx"
     },
     {
       "relation": "imports_from",
@@ -43188,9 +43293,9 @@
       "source_file": "src/components/search/GlobalSearch.tsx",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_globalsearch_tsx",
-      "target": "search_globalsearch_empty_results",
-      "confidence_score": 1.0
+      "target": "search_globalsearch_empty_results"
     },
     {
       "relation": "contains",
@@ -43198,9 +43303,9 @@
       "source_file": "src/components/search/GlobalSearch.tsx",
       "source_location": "L27",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_globalsearch_tsx",
-      "target": "search_globalsearch_globalsearch",
-      "confidence_score": 1.0
+      "target": "search_globalsearch_globalsearch"
     },
     {
       "relation": "contains",
@@ -43208,9 +43313,9 @@
       "source_file": "src/components/search/GlobalSearch.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_globalsearch_tsx",
-      "target": "search_globalsearch_globalsearchprops",
-      "confidence_score": 1.0
+      "target": "search_globalsearch_globalsearchprops"
     },
     {
       "relation": "contains",
@@ -43218,9 +43323,9 @@
       "source_file": "src/components/search/GlobalSearch.tsx",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_globalsearch_tsx",
-      "target": "search_globalsearch_highlight",
-      "confidence_score": 1.0
+      "target": "search_globalsearch_highlight"
     },
     {
       "relation": "imports_from",
@@ -43229,9 +43334,9 @@
       "source_file": "src/components/search/__tests__/GlobalSearch.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_tests_globalsearch_test_tsx",
-      "target": "src_components_search_globalsearch_tsx",
-      "confidence_score": 1.0
+      "target": "src_components_search_globalsearch_tsx"
     },
     {
       "relation": "imports",
@@ -43240,9 +43345,9 @@
       "source_file": "src/components/search/__tests__/GlobalSearch.test.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_tests_globalsearch_test_tsx",
-      "target": "search_globalsearch_globalsearch",
-      "confidence_score": 1.0
+      "target": "search_globalsearch_globalsearch"
     },
     {
       "relation": "contains",
@@ -43250,9 +43355,9 @@
       "source_file": "src/components/search/__tests__/GlobalSearch.test.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_components_search_tests_globalsearch_test_tsx",
-      "target": "tests_globalsearch_test_pushmock",
-      "confidence_score": 1.0
+      "target": "tests_globalsearch_test_pushmock"
     },
     {
       "relation": "imports",
@@ -44632,9 +44737,9 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_competitions_ts",
-      "target": "lib_competitions_competitionsquery",
-      "confidence_score": 1.0
+      "target": "lib_competitions_competitionsquery"
     },
     {
       "relation": "contains",
@@ -45521,9 +45626,9 @@
       "source_file": "src/lib/server-timing.ts",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_server_timing_ts",
-      "target": "lib_server_timing_timedquery",
-      "confidence_score": 1.0
+      "target": "lib_server_timing_timedquery"
     },
     {
       "relation": "imports_from",
@@ -47155,6 +47260,111 @@
       "target": "lib_email_normalizeemail"
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "src_lib_mvp_stats_ts",
+      "target": "lib_mvp_stats_defensive_positions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "src_lib_mvp_stats_ts",
+      "target": "lib_mvp_stats_getmvpsupportingstats",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_lib_mvp_stats_ts",
+      "target": "lib_mvp_stats_mvpstatsource",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "src_lib_mvp_stats_ts",
+      "target": "lib_mvp_stats_mvpsupportingstat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "src_lib_mvp_stats_ts",
+      "target": "lib_mvp_stats_shooting_positions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_lib_mvp_stats_ts",
+      "target": "lib_stat_utils_computeshootingpct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_lib_mvp_stats_ts",
+      "target": "src_lib_stat_utils_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/__tests__/mvp-stats.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_lib_tests_mvp_stats_test_ts",
+      "target": "src_lib_mvp_stats_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/lib/mvp-stats.ts",
+      "source_location": "L38",
+      "weight": 1.0,
+      "source": "lib_mvp_stats_getmvpsupportingstats",
+      "target": "lib_stat_utils_computeshootingpct"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/__tests__/mvp-stats.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_lib_tests_mvp_stats_test_ts",
+      "target": "lib_mvp_stats_getmvpsupportingstats",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -47263,9 +47473,9 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_cached_queries_ts",
-      "target": "lib_cached_queries_matchteamselect",
-      "confidence_score": 1.0
+      "target": "lib_cached_queries_matchteamselect"
     },
     {
       "relation": "contains",
@@ -47273,9 +47483,9 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L38",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_cached_queries_ts",
-      "target": "lib_cached_queries_recentteammatchesquery",
-      "confidence_score": 1.0
+      "target": "lib_cached_queries_recentteammatchesquery"
     },
     {
       "relation": "contains",
@@ -47283,9 +47493,9 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_cached_queries_ts",
-      "target": "lib_cached_queries_standingsquery",
-      "confidence_score": 1.0
+      "target": "lib_cached_queries_standingsquery"
     },
     {
       "relation": "contains",
@@ -47293,9 +47503,9 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L27",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_cached_queries_ts",
-      "target": "lib_cached_queries_teambyslugquery",
-      "confidence_score": 1.0
+      "target": "lib_cached_queries_teambyslugquery"
     },
     {
       "relation": "contains",
@@ -47303,9 +47513,9 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_cached_queries_ts",
-      "target": "lib_cached_queries_teamsquery",
-      "confidence_score": 1.0
+      "target": "lib_cached_queries_teamsquery"
     },
     {
       "relation": "contains",
@@ -47313,9 +47523,9 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_cached_queries_ts",
-      "target": "lib_cached_queries_teamstandingquery",
-      "confidence_score": 1.0
+      "target": "lib_cached_queries_teamstandingquery"
     },
     {
       "relation": "contains",
@@ -47323,9 +47533,9 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L54",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_cached_queries_ts",
-      "target": "lib_cached_queries_upcomingteammatchesquery",
-      "confidence_score": 1.0
+      "target": "lib_cached_queries_upcomingteammatchesquery"
     },
     {
       "relation": "imports_from",
@@ -47334,9 +47544,9 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_cached_queries_ts",
-      "target": "src_lib_db_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_db_ts"
     },
     {
       "relation": "imports_from",
@@ -47979,9 +48189,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "src_lib_db_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_db_ts"
     },
     {
       "relation": "imports_from",
@@ -48152,9 +48362,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L39",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "lib_match_timeline_comparenewest",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_comparenewest"
     },
     {
       "relation": "contains",
@@ -48162,9 +48372,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L30",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "lib_match_timeline_cursorfor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_cursorfor"
     },
     {
       "relation": "contains",
@@ -48172,9 +48382,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L50",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "lib_match_timeline_decodetimelinecursor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_decodetimelinecursor"
     },
     {
       "relation": "contains",
@@ -48182,9 +48392,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L46",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "lib_match_timeline_encodetimelinecursor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_encodetimelinecursor"
     },
     {
       "relation": "contains",
@@ -48192,9 +48402,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L62",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "lib_match_timeline_loadmatchtimeline",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_loadmatchtimeline"
     },
     {
       "relation": "contains",
@@ -48202,9 +48412,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "lib_match_timeline_matchtimelinefilters",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_matchtimelinefilters"
     },
     {
       "relation": "contains",
@@ -48212,9 +48422,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L26",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "lib_match_timeline_sortabletimelineentry",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_sortabletimelineentry"
     },
     {
       "relation": "contains",
@@ -48222,9 +48432,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_match_timeline_ts",
-      "target": "lib_match_timeline_timelinecursor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_timelinecursor"
     },
     {
       "relation": "imports_from",
@@ -48233,9 +48443,9 @@
       "source_file": "src/lib/__tests__/match-timeline.test.ts",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_tests_match_timeline_test_ts",
-      "target": "src_lib_match_timeline_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_match_timeline_ts"
     },
     {
       "relation": "calls",
@@ -48244,9 +48454,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L170",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_match_timeline_loadmatchtimeline",
-      "target": "lib_match_timeline_cursorfor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_cursorfor"
     },
     {
       "relation": "calls",
@@ -48255,9 +48465,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L170",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_match_timeline_loadmatchtimeline",
-      "target": "lib_match_timeline_encodetimelinecursor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_encodetimelinecursor"
     },
     {
       "relation": "imports",
@@ -48266,9 +48476,9 @@
       "source_file": "src/lib/__tests__/match-timeline.test.ts",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_tests_match_timeline_test_ts",
-      "target": "lib_match_timeline_encodetimelinecursor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_encodetimelinecursor"
     },
     {
       "relation": "calls",
@@ -48277,9 +48487,9 @@
       "source_file": "src/lib/match-timeline.ts",
       "source_location": "L66",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_match_timeline_loadmatchtimeline",
-      "target": "lib_match_timeline_decodetimelinecursor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_decodetimelinecursor"
     },
     {
       "relation": "imports",
@@ -48288,9 +48498,9 @@
       "source_file": "src/lib/__tests__/match-timeline.test.ts",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_tests_match_timeline_test_ts",
-      "target": "lib_match_timeline_decodetimelinecursor",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_decodetimelinecursor"
     },
     {
       "relation": "imports",
@@ -48299,9 +48509,9 @@
       "source_file": "src/lib/__tests__/match-timeline.test.ts",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_tests_match_timeline_test_ts",
-      "target": "lib_match_timeline_loadmatchtimeline",
-      "confidence_score": 1.0
+      "target": "lib_match_timeline_loadmatchtimeline"
     },
     {
       "relation": "contains",
@@ -49349,9 +49559,9 @@
       "source_file": "src/lib/__tests__/match-timeline.test.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_tests_match_timeline_test_ts",
-      "target": "tests_match_timeline_test_findeventsmock_findmatchmock_findscoresmock",
-      "confidence_score": 1.0
+      "target": "tests_match_timeline_test_findeventsmock_findmatchmock_findscoresmock"
     },
     {
       "relation": "contains",
@@ -49382,6 +49592,16 @@
       "confidence_score": 1.0,
       "source": "src_lib_tests_live_state_test_ts",
       "target": "tests_live_state_test_mockfindmany"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/__tests__/mvp-stats.test.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_lib_tests_mvp_stats_test_ts",
+      "target": "tests_mvp_stats_test_basestats",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -71305,5 +71525,5 @@
       "source_file": "src/app/icon.png"
     }
   ],
-  "built_at_commit": "269cbe9fe7e8fb59e54dc6690ce4aaeb3a4bfa7b"
+  "built_at_commit": "4dc61215b91e1348a7f70e2d218f8c77c8f8c06a"
 }
