@@ -1,8 +1,9 @@
 import { prisma } from '@/lib/db';
 import { getLiveState } from '@/lib/live-state';
-import { ingestFromChampionData } from '@/lib/ingestion';
+import { ingestFromChampionData, type IngestedData } from '@/lib/ingestion';
 import {
   validateMatchData,
+  syncFixtureMatches,
   detectChanges,
   applyChanges,
   reconcileCompletedMatches,
@@ -47,10 +48,42 @@ export function getPollingInterval(
 export async function pollChampionData(): Promise<void> {
   try {
     const COMP_ID = parseInt(process.env.SSN_COMPETITION_ID ?? '12949', 10);
+    const FINALS_COMP_ID = parseInt(process.env.SSN_FINALS_COMPETITION_ID ?? '12950', 10);
+    const competitionIds = process.env.SIMULATION_MODE === 'true'
+      ? [COMP_ID]
+      : [...new Set([COMP_ID, FINALS_COMP_ID])];
 
     // Phase 1: Ingest
-    const ingested = await ingestFromChampionData(COMP_ID);
-    if (ingested.fixture.length === 0 && ingested.matchDetails.size === 0) {
+    const ingestedSources: IngestedData[] = [];
+    let sourceFetchErrors = 0;
+    for (const competitionId of competitionIds) {
+      try {
+        const ingested = await ingestFromChampionData(competitionId);
+        await syncFixtureMatches(ingested.fixture, COMP_ID, competitionId);
+        ingestedSources.push(ingested);
+      } catch (error) {
+        sourceFetchErrors++;
+        console.error(`[Worker] Competition ${competitionId} ingestion failed:`, error);
+      }
+    }
+
+    const fixture = ingestedSources.flatMap((source) => source.fixture);
+    const matchDetails = new Map(
+      ingestedSources.flatMap((source) => [...source.matchDetails]),
+    );
+    const matchPollLogIds = new Map(
+      ingestedSources.flatMap((source) => [...source.matchPollLogIds]),
+    );
+    const detailFetchErrors = ingestedSources.reduce(
+      (sum, source) => sum + source.detailFetchErrors,
+      0,
+    );
+
+    if (fixture.length === 0 && matchDetails.size === 0) {
+      if (sourceFetchErrors === competitionIds.length) {
+        recordPoll('error', 0);
+        return;
+      }
       recordPoll('empty', 0);
       return;
     }
@@ -76,14 +109,15 @@ export async function pollChampionData(): Promise<void> {
     let matchesProcessed = 0;
 
     // Phase 2 + 3: Validate, Process, Broadcast per match
-    for (const [cdMatchId, matchDetail] of ingested.matchDetails) {
-      const fixtureMatch = ingested.fixture.find((f) => f.matchId === cdMatchId);
+    const fixtureByMatchId = new Map(fixture.map((match) => [match.matchId, match]));
+    for (const [cdMatchId, matchDetail] of matchDetails) {
+      const fixtureMatch = fixtureByMatchId.get(cdMatchId);
       if (!fixtureMatch) continue;
 
       const validation = validateMatchData(fixtureMatch, matchDetail, dbTeams, dbPlayers);
 
       // Update PollLog status
-      const pollLogId = ingested.matchPollLogIds.get(cdMatchId);
+      const pollLogId = matchPollLogIds.get(cdMatchId);
       if (pollLogId && !validation.valid) {
         await prisma.pollLog.update({
           where: { id: pollLogId },
@@ -149,7 +183,7 @@ export async function pollChampionData(): Promise<void> {
     }
 
     // Phase: Completion detection (reconcile first — uses canonical fixture scores)
-    const reconciled = await reconcileCompletedMatches(ingested.fixture);
+    const reconciled = await reconcileCompletedMatches(fixture);
     const staleCompleted = await detectStaleCompletedMatches();
 
     // Phase: Finalization (re-fetch canonical scores + final stats for all newly completed)
@@ -157,12 +191,12 @@ export async function pollChampionData(): Promise<void> {
       ...reconciled.map((c) => c.matchId),
       ...staleCompleted.map((c) => c.matchId),
     ];
-    const finalized = await finalizeCompletedMatches(ingested.fixture, COMP_ID, allNewlyCompleted);
+    const finalized = await finalizeCompletedMatches(fixture, COMP_ID, allNewlyCompleted);
 
     // Phase: Drift correction — re-sync already-COMPLETED matches whose stored
     // score lags CD's canonical final (e.g. a closing super shot). Excludes the
     // matches just completed this poll (already finalized above).
-    const staleScores = (await reconcileStaleCompletedScores(ingested.fixture)).filter(
+    const staleScores = (await reconcileStaleCompletedScores(fixture)).filter(
       (s) => !allNewlyCompleted.includes(s.matchId),
     );
 
@@ -189,7 +223,10 @@ export async function pollChampionData(): Promise<void> {
       }
     }
 
-    recordPoll(ingested.detailFetchErrors > 0 ? 'partial' : 'success', matchesProcessed);
+    recordPoll(
+      detailFetchErrors > 0 || sourceFetchErrors > 0 ? 'partial' : 'success',
+      matchesProcessed,
+    );
   } catch (error) {
     console.error('[Worker] Poll error:', error);
     recordPoll('error', 0);

@@ -49,6 +49,10 @@ describe('recalculateStandings', () => {
 
     await recalculateStandings();
 
+    expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ finalCode: null }),
+    }));
+
     // Team A: 2W 1L = 8pts, Team B: 1W 2L = 4pts
     // Team A should be rank 1, Team B rank 2
     expect(mockUpsert).toHaveBeenCalledTimes(2);

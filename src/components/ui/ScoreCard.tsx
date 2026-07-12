@@ -3,6 +3,7 @@ import { LiveIndicator } from './LiveIndicator';
 import { TeamBadge } from './TeamBadge';
 import { formatMatchDate, formatMatchTime, formatGameClock, formatMatchDateTime } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
+import { formatMatchStage } from '@/lib/match-label';
 
 interface ScoreBreakdown {
   goals: number;
@@ -19,6 +20,7 @@ interface ScoreCardMatch {
   currentQuarter?: number | null;
   currentTime?: string | null;
   round?: number;
+  finalCode?: string | null;
   venue?: string;
   scheduledAt?: string | Date;
   homeBreakdown?: ScoreBreakdown | null;
@@ -113,7 +115,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-surface-container pt-4">
           <span className="min-w-0 flex-1 text-[10px] font-medium text-on-surface-variant uppercase font-label break-words">
             {match.scheduledAt && formatMatchDate(match.scheduledAt)}
-            {match.round && ` \u2022 Round ${match.round}`}
+            {match.round && ` \u2022 ${formatMatchStage(match.round, match.finalCode)}`}
             {match.venue && ` \u2022 ${match.venue}`}
           </span>
           <span className="text-secondary font-bold text-xs flex items-center gap-1 group-hover:gap-2 transition-all">

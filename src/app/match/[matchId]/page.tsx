@@ -15,6 +15,7 @@ import { MatchTabs } from './MatchTabs';
 import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
 import { formatMatchDateTime } from '@/lib/format';
+import { formatMatchStage } from '@/lib/match-label';
 
 const getMatch = cache((matchId: string) =>
   prisma.match.findUnique({
@@ -47,13 +48,14 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
   if (!match) return { title: 'Match Not Found' };
 
   const isCompleted = match.status === 'COMPLETED';
+  const stage = formatMatchStage(match.round, match.finalCode);
   const title = isCompleted
-    ? `${match.homeTeam.name} ${match.homeScore} - ${match.awayTeam.name} ${match.awayScore} | Round ${match.round}`
-    : `${match.homeTeam.name} vs ${match.awayTeam.name} | Round ${match.round}`;
+    ? `${match.homeTeam.name} ${match.homeScore} - ${match.awayTeam.name} ${match.awayScore} | ${stage}`
+    : `${match.homeTeam.name} vs ${match.awayTeam.name} | ${stage}`;
 
   const description = isCompleted
-    ? `${match.homeTeam.name} ${match.homeScore} - ${match.awayTeam.name} ${match.awayScore}. Round ${match.round} at ${match.venue}.`
-    : `${match.homeTeam.name} vs ${match.awayTeam.name}. Round ${match.round} at ${match.venue}.`;
+    ? `${match.homeTeam.name} ${match.homeScore} - ${match.awayTeam.name} ${match.awayScore}. ${stage} at ${match.venue}.`
+    : `${match.homeTeam.name} vs ${match.awayTeam.name}. ${stage} at ${match.venue}.`;
 
   return { title, description };
 }
@@ -127,6 +129,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
   ];
 
   const isLive = match.status === 'LIVE';
+  const stage = formatMatchStage(match.round, match.finalCode);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -150,7 +153,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
         <div className="flex items-center gap-2 mb-4">
           {isLive && <LiveIndicator />}
           <span className="text-on-surface-variant text-xs font-semibold font-label tracking-widest uppercase">
-            Round {match.round} {match.venue && `\u2022 ${match.venue}`} &bull; {formatMatchDateTime(match.scheduledAt)}
+            {stage} {match.venue && `\u2022 ${match.venue}`} &bull; {formatMatchDateTime(match.scheduledAt)}
           </span>
         </div>
 
@@ -242,12 +245,12 @@ export default async function MatchPage({ params }: MatchPageProps) {
 
               {/* Right Column: Sidebar */}
               <div className="space-y-6">
-                {/* MVP Card */}
+                {/* Transparent, feed-derived top performer card */}
                 {mvp && (
                   <div className="bg-surface-container-highest rounded-xl p-6 border-l-4 border-secondary">
                     <div className="flex justify-between items-start mb-4">
                       <span className="bg-secondary text-white text-[10px] font-black px-2 py-1 rounded font-label uppercase tracking-tighter">
-                        Match MVP
+                        Top NetPoints
                       </span>
                       <span
                         className="material-symbols-outlined text-secondary"
@@ -271,21 +274,32 @@ export default async function MatchPage({ params }: MatchPageProps) {
                       <p className="font-label text-xs text-on-surface-variant font-bold uppercase tracking-widest mt-1">
                         {mvp.player.position}
                       </p>
-                      <div className="grid grid-cols-2 w-full gap-4 mt-6">
+                      <p className="mt-3 font-label text-xs text-on-surface-variant">
+                        Highest Champion Data NetPoints rating in this match.
+                      </p>
+                      <div className="grid grid-cols-3 w-full gap-2 mt-5">
                         <div className="bg-white rounded-lg p-3 shadow-sm">
                           <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
-                            Goals
+                            NetPts
                           </span>
                           <span className="text-2xl font-black font-headline text-secondary">
-                            {mvp.goals}
+                            {mvp.netPoints}
                           </span>
                         </div>
                         <div className="bg-white rounded-lg p-3 shadow-sm">
                           <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
-                            Reb
+                            Goal Ast
                           </span>
                           <span className="text-2xl font-black font-headline text-primary-container">
-                            {mvp.rebounds}
+                            {mvp.goalAssists}
+                          </span>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <span className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
+                            Gains
+                          </span>
+                          <span className="text-2xl font-black font-headline text-primary-container">
+                            {mvp.gain}
                           </span>
                         </div>
                       </div>

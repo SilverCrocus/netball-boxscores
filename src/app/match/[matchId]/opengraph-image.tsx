@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { prisma } from '@/lib/db';
+import { formatMatchStage } from '@/lib/match-label';
 
 export const runtime = 'nodejs';
 export const alt = 'Match Score';
@@ -18,6 +19,7 @@ export default async function MatchOgImage({
     where: { id: matchId },
     select: {
       round: true,
+      finalCode: true,
       venue: true,
       status: true,
       homeScore: true,
@@ -55,7 +57,7 @@ export default async function MatchOgImage({
       >
         {/* Round label */}
         <div style={{ display: 'flex', fontSize: 24, color: '#94A3B8' }}>
-          Round {match?.round ?? '?'}
+          {match ? formatMatchStage(match.round, match.finalCode) : 'Match'}
         </div>
 
         {/* Score row */}

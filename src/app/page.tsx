@@ -4,6 +4,7 @@ import { TeamBadge } from '@/components/ui/TeamBadge';
 import { formatMatchDateTime } from '@/lib/format';
 import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { Countdown } from '@/components/ui/Countdown';
+import { formatMatchStage } from '@/lib/match-label';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Prisma } from '@prisma/client';
@@ -18,6 +19,7 @@ const homepageMatchSelect = {
   awayScore: true,
   venue: true,
   round: true,
+  finalCode: true,
   currentQuarter: true,
   currentTime: true,
   homeTeamId: true,
@@ -56,7 +58,7 @@ export default async function HomePage() {
         prisma.match.findMany({
           where: { ...baseWhere, status: 'COMPLETED' },
           select: homepageMatchSelect,
-          orderBy: [{ round: 'desc' }, { scheduledAt: 'asc' }],
+          orderBy: { scheduledAt: 'desc' },
         }),
       ]);
       matches = [...live, ...upcoming, ...completed];
@@ -80,20 +82,20 @@ export default async function HomePage() {
 
   const liveMatches = matches.filter((m) => m.status === 'LIVE');
   const upcomingMatches = matches.filter((m) => m.status === 'SCHEDULED');
-  // Sort completed matches by round desc, then scheduledAt asc within each round
   const sortedCompleted = matches
     .filter((m) => m.status === 'COMPLETED')
-    .sort((a, b) => {
-      if (a.round !== b.round) return b.round - a.round;
-      return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
-    });
+    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
-  // Group by round
-  const resultsByRound = new Map<number, typeof sortedCompleted>();
+  // Group regular rounds and finals stages, newest first.
+  const resultsByStage = new Map<string, typeof sortedCompleted>();
   for (const match of sortedCompleted) {
-    const group = resultsByRound.get(match.round) ?? [];
+    const label = formatMatchStage(match.round, match.finalCode);
+    const group = resultsByStage.get(label) ?? [];
     group.push(match);
-    resultsByRound.set(match.round, group);
+    resultsByStage.set(label, group);
+  }
+  for (const group of resultsByStage.values()) {
+    group.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
   }
   const featured = upcomingMatches[0];
 
@@ -187,7 +189,7 @@ export default async function HomePage() {
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-lime-400 font-black font-label text-xs uppercase tracking-widest">
-                      Next Match &middot; Round {featured.round}
+                      Next Match &middot; {formatMatchStage(featured.round, featured.finalCode)}
                     </span>
                     <Countdown scheduledAt={featured.scheduledAt.toISOString()} />
                   </div>
@@ -260,17 +262,17 @@ export default async function HomePage() {
       </section>
       )}
 
-      {/* Results grouped by round */}
-      {resultsByRound.size > 0 && (
+      {/* Results grouped by regular round or finals stage */}
+      {resultsByStage.size > 0 && (
         <section className="mb-16">
           <h2 className="text-xl font-bold font-headline text-primary mb-6">RESULTS</h2>
-          {Array.from(resultsByRound.entries()).map(([round, roundMatches]) => (
-            <div key={round} className="mb-8">
+          {Array.from(resultsByStage.entries()).map(([stage, stageMatches]) => (
+            <div key={stage} className="mb-8">
               <h3 className="text-sm font-semibold text-on-surface-variant mb-3 pb-2 border-b border-outline-variant">
-                Round {round}
+                {stage}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {roundMatches.map((match) => (
+                {stageMatches.map((match) => (
                   <ScoreCard
                     key={match.id}
                     match={{ ...match, round: undefined, ...computeBreakdown(match) }}

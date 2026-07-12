@@ -2,6 +2,7 @@ import { TeamBadge } from '@/components/ui/TeamBadge';
 import { formatGameClock } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
 import type { QuarterData } from '@/types/match';
+import { formatMatchStage } from '@/lib/match-label';
 
 interface ScoreBreakdown {
   goals: number;
@@ -14,6 +15,7 @@ interface LiveScoreHeroProps {
   homeScore: number;
   awayScore: number;
   round: number;
+  finalCode?: string | null;
   venue: string;
   currentQuarter?: number | null;
   currentTime?: string | null;
@@ -135,6 +137,7 @@ export function LiveScoreHero({
   homeScore: dbHomeScore,
   awayScore: dbAwayScore,
   round,
+  finalCode,
   venue,
   currentQuarter: dbQuarter,
   currentTime: dbTime,
@@ -250,7 +253,7 @@ export function LiveScoreHero({
             />
           )}
           <p className="font-label text-xs uppercase tracking-widest text-secondary-fixed font-bold mt-4">
-            Round {round} &bull; {venue}
+            {formatMatchStage(round, finalCode)} &bull; {venue}
           </p>
         </div>
 

@@ -10,6 +10,7 @@ const TSDB_BASE = "https://www.thesportsdb.com/api/v1/json/3";
 
 // ───── Constants ─────
 const SSN_2026_COMP_ID = 12949;
+const SSN_2026_FINALS_COMP_ID = 12950;
 const SSN_LEAGUE_NAME = "Australian Super Netball League";
 
 // Champion Data team names that differ from TheSportsDB
@@ -74,10 +75,19 @@ async function main() {
 
   // ─── Step 2: Fetch real data from APIs ───
   console.log("Fetching Champion Data fixture...");
-  const fixtureData = await fetchJSON<{ fixture: { match: CDFixtureMatch[] } }>(
-    `${CD_BASE}/${SSN_2026_COMP_ID}/fixture.json`
+  const fixtureSources = await Promise.all(
+    [SSN_2026_COMP_ID, SSN_2026_FINALS_COMP_ID].map(async (sourceCompetitionId) => {
+      const fixtureData = await fetchJSON<{ fixture: { match: CDFixtureMatch[] } }>(
+        `${CD_BASE}/${sourceCompetitionId}/fixture.json`
+      );
+      return fixtureData.fixture.match.map((match) => ({ match, sourceCompetitionId }));
+    })
   );
-  const cdMatches = fixtureData.fixture.match;
+  const sourcedMatches = fixtureSources.flat();
+  const cdMatches = sourcedMatches.map(({ match }) => match);
+  const sourceCompetitionByMatch = new Map(
+    sourcedMatches.map(({ match, sourceCompetitionId }) => [match.matchId, sourceCompetitionId])
+  );
   console.log(`  Found ${cdMatches.length} matches`);
 
   console.log("Fetching TheSportsDB teams...");
@@ -247,6 +257,8 @@ async function main() {
         homeScore: m.homeSquadScore ?? 0,
         awayScore: m.awaySquadScore ?? 0,
         championDataMatchId: m.matchId,
+        sourceCompetitionId: sourceCompetitionByMatch.get(m.matchId),
+        finalCode: m.finalCode || null,
         currentQuarter: status === "playing" ? m.period : null,
       },
     });
@@ -272,7 +284,7 @@ async function main() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const raw = await fetchJSON<{ matchStats: any }>(
-        `${CD_BASE}/${SSN_2026_COMP_ID}/${m.matchId}.json`
+        `${CD_BASE}/${sourceCompetitionByMatch.get(m.matchId) ?? SSN_2026_COMP_ID}/${m.matchId}.json`
       );
       const ms = raw.matchStats;
       const homeSquadId = ms.matchInfo.homeSquadId as number;
@@ -592,10 +604,10 @@ async function main() {
     });
   }
 
-  // SSN points: 4 for win, 2 for draw, 0 for loss
-  // Bonus point: 2 if win by 16+ goals
+  // SSN ladder only includes regular-season matches: 4 win, 2 draw, 0 loss.
   for (const m of cdMatches) {
     if (m.matchStatus.toLowerCase() !== "complete") continue;
+    if (m.finalCode) continue;
 
     const homeRec = records.get(m.homeSquadId)!;
     const awayRec = records.get(m.awaySquadId)!;
@@ -611,17 +623,10 @@ async function main() {
       homeRec.wins++;
       homeRec.points += 4;
       awayRec.losses++;
-      // Bonus for 16+ goal margin
-      if (m.homeSquadScore - m.awaySquadScore >= 16) {
-        homeRec.points += 2;
-      }
     } else if (m.awaySquadScore > m.homeSquadScore) {
       awayRec.wins++;
       awayRec.points += 4;
       homeRec.losses++;
-      if (m.awaySquadScore - m.homeSquadScore >= 16) {
-        awayRec.points += 2;
-      }
     } else {
       homeRec.draws++;
       awayRec.draws++;

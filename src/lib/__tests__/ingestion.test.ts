@@ -135,7 +135,7 @@ describe('ingestFromChampionData', () => {
     ];
     mockFetchFixture.mockResolvedValue(fixtureMatches as any);
     mockMatchFindMany.mockResolvedValue([
-      { championDataMatchId: 400 },
+      { championDataMatchId: 400, status: 'SCHEDULED', _count: { playerStats: 0 } },
     ] as any);
     const matchDetail = {
       matchInfo: { matchId: 400, period: 4, periodSeconds: 900 },
@@ -147,6 +147,35 @@ describe('ingestFromChampionData', () => {
 
     expect(mockFetchMatchStats).toHaveBeenCalledWith(12949, 400);
     expect(result.matchDetails.get(400)).toEqual(matchDetail);
+  });
+
+  it('fetches completed details for a fixture that is not in the database yet', async () => {
+    mockFetchFixture.mockResolvedValue([
+      { matchId: 500, matchStatus: 'complete' },
+    ] as any);
+    mockMatchFindMany.mockResolvedValue([]);
+    mockFetchMatchStats.mockResolvedValue({ matchInfo: { matchId: 500 } } as any);
+    mockPollLogCreate.mockResolvedValue({ id: 'log-1' } as any);
+
+    const result = await ingestFromChampionData(12950);
+
+    expect(mockFetchMatchStats).toHaveBeenCalledWith(12950, 500);
+    expect(result.matchDetails.has(500)).toBe(true);
+  });
+
+  it('repairs completed matches whose detail stats were never stored', async () => {
+    mockFetchFixture.mockResolvedValue([
+      { matchId: 600, matchStatus: 'complete' },
+    ] as any);
+    mockMatchFindMany.mockResolvedValue([
+      { championDataMatchId: 600, status: 'COMPLETED', _count: { playerStats: 0 } },
+    ] as any);
+    mockFetchMatchStats.mockResolvedValue({ matchInfo: { matchId: 600 } } as any);
+    mockPollLogCreate.mockResolvedValue({ id: 'log-1' } as any);
+
+    const result = await ingestFromChampionData(12950);
+
+    expect(result.matchDetails.has(600)).toBe(true);
   });
 
   it('cleans up PollLog entries older than 7 days', async () => {
