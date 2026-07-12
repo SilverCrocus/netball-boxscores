@@ -203,7 +203,7 @@ function MidcourtFeedDistribution({
         Feed Distribution
       </h3>
       <div className="h-40 flex justify-between gap-1.5">
-        {matchStats.map((stat, i) => {
+        {matchStats.map((stat) => {
           const assistHeight = (stat.goalAssists / maxVal) * 100;
           const feedHeight = (stat.feeds / maxVal) * 100;
 

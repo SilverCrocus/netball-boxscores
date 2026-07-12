@@ -12,7 +12,16 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "graphify-out/**",
   ]),
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx", "scripts/**/*.ts"],
+    rules: {
+      // Test doubles and one-off data repair scripts intentionally mirror
+      // loosely typed external payloads; production application code stays strict.
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

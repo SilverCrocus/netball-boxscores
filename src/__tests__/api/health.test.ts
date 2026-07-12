@@ -13,6 +13,8 @@ describe('Health API', () => {
 
     const data = await response.json();
     expect(data.status).toBe('ok');
+    expect(data.type).toBe('liveness');
     expect(data.timestamp).toBeDefined();
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
   });
 });

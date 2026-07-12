@@ -65,6 +65,7 @@ export default async function MatchOgImage({
             {match?.homeTeam.logoUrl ? (
               <img
                 src={match.homeTeam.logoUrl}
+                alt={match.homeTeam.name}
                 width={80}
                 height={80}
                 style={{ objectFit: 'contain' }}
@@ -89,6 +90,7 @@ export default async function MatchOgImage({
             {match?.awayTeam.logoUrl ? (
               <img
                 src={match.awayTeam.logoUrl}
+                alt={match.awayTeam.name}
                 width={80}
                 height={80}
                 style={{ objectFit: 'contain' }}

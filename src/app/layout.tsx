@@ -56,8 +56,10 @@ export default function RootLayout({
       className={`${lexend.variable} ${manrope.variable} ${inter.variable}`}
     >
       <head>
+        {/* Material Symbols is an icon stylesheet; block avoids flashing raw ligature names. */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"
           rel="stylesheet"
         />
         {process.env.NEXT_PUBLIC_GSC_VERIFICATION && (

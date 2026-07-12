@@ -12,7 +12,7 @@ import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { MatchStatsComparison } from '@/components/match/MatchStatsComparison';
 import { MatchPlayByPlay } from '@/components/match/MatchPlayByPlay';
 import { MatchTabs } from './MatchTabs';
-import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd, SITE_URL } from '@/lib/seo';
+import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
 import { formatMatchDateTime } from '@/lib/format';
 
@@ -100,7 +100,10 @@ export default async function MatchPage({ params }: MatchPageProps) {
     .filter((ps) => ps.player.teamId === match.awayTeamId)
     .map(toPlayerStatRow);
 
-  const mvp = match.playerStats.length > 0 ? match.playerStats[0] : null;
+  const mvp = match.playerStats.reduce<(typeof match.playerStats)[number] | null>(
+    (best, candidate) => !best || candidate.netPoints > best.netPoints ? candidate : best,
+    null,
+  );
 
   const sumStat = (players: typeof homePlayerStats, key: keyof (typeof homePlayerStats)[number]) =>
     players.reduce((sum, p) => sum + (Number(p[key]) || 0), 0);

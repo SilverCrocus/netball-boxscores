@@ -1,3 +1,5 @@
+const CHART_BAR_HEIGHTS = [42, 68, 54, 82, 63, 76];
+
 export default function PlayerLoading() {
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
@@ -50,11 +52,11 @@ export default function PlayerLoading() {
         <div className="md:col-span-4 bg-primary-container rounded-2xl p-8 space-y-4">
           <div className="h-5 w-32 bg-white/10 rounded" />
           <div className="h-40 flex items-end gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
+            {CHART_BAR_HEIGHTS.map((height, i) => (
               <div
                 key={i}
                 className="flex-1 bg-lime-400/10 rounded-t-sm"
-                style={{ height: `${30 + Math.random() * 60}%` }}
+                style={{ height: `${height}%` }}
               />
             ))}
           </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { prisma, excludeSimData } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { LiveGameClient } from './LiveGameClient';
 import { pickStatFields, emptyStats } from '@/lib/stat-utils';
@@ -61,7 +61,13 @@ export default async function LiveGamePage({ params }: Props) {
       },
       quarters: { orderBy: { quarter: 'asc' } },
       scoreFlow: {
-        orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
+        orderBy: [
+          { period: 'asc' },
+          { periodSeconds: 'asc' },
+          { homeScore: 'asc' },
+          { awayScore: 'asc' },
+          { scoringTeamId: 'asc' },
+        ],
         select: {
           period: true,
           periodSeconds: true,

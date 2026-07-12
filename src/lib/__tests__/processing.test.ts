@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { validateMatchData, reconcileStaleCompletedScores } from '@/lib/processing';
+import { applyChanges, validateMatchData, reconcileStaleCompletedScores } from '@/lib/processing';
 import { prisma } from '@/lib/db';
 import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data';
 
@@ -7,8 +7,10 @@ vi.mock('@/lib/db', () => ({
   prisma: {
     match: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
     matchQuarter: { upsert: vi.fn() },
+    player: { findMany: vi.fn() },
     playerMatchStats: { findMany: vi.fn(), upsert: vi.fn() },
     scoreFlow: { findMany: vi.fn(), upsert: vi.fn() },
+    teamMatchStats: { upsert: vi.fn() },
     pollLog: { update: vi.fn() },
     $transaction: vi.fn((fns: any[]) => Promise.all(fns)),
   },
@@ -22,6 +24,95 @@ const mockMatch = prisma.match as unknown as {
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe('applyChanges', () => {
+  it('persists corrected detail data when the top-level match state is unchanged', async () => {
+    vi.mocked(prisma.player.findMany).mockResolvedValue([
+      { id: 'player-1', name: 'Player One', championDataPlayerId: 10, teamId: 'team-1' },
+    ] as any);
+    vi.mocked(prisma.playerMatchStats.findMany).mockResolvedValue([
+      { playerId: 'player-1', goals: 5 },
+    ] as any);
+    vi.mocked(prisma.scoreFlow.findMany).mockResolvedValue([
+      { period: 1, periodSeconds: 100, scoringTeamId: 'team-1' },
+    ] as any);
+
+    await applyChanges({
+      matchId: 'match-1',
+      scoreChanged: false,
+      statusChanged: false,
+      timeChanged: false,
+      newHomeScore: 10,
+      newAwayScore: 9,
+      newStatus: 'LIVE',
+      currentQuarter: 1,
+      currentTime: '300',
+    }, {
+      cdMatchId: 100,
+      homeScore: 10,
+      awayScore: 9,
+      status: 'LIVE',
+      currentQuarter: 1,
+      currentTime: '300',
+      quarterScores: [{ quarter: 1, homeScore: 10, awayScore: 9 }],
+      playerStats: [{
+        championDataPlayerId: 10,
+        goals: 4,
+        attempts: 6,
+        goalAssists: 1,
+        intercepts: 0,
+        deflections: 0,
+        rebounds: 0,
+        penalties: 1,
+        feeds: 2,
+        centrePassReceives: 1,
+        turnovers: 0,
+        minutesPlayed: 15,
+        goal2: 0,
+        attempt2: 0,
+        netPoints: 12,
+        points: 4,
+        goalMisses: 2,
+        feedWithAttempt: 1,
+        gain: 0,
+        pickups: 0,
+        contactPenalties: 1,
+        obstructionPenalties: 0,
+        centrePassToGoalPerc: 50,
+        quartersPlayed: 1,
+        blocks: 0,
+        tossUpWin: 0,
+        secondPhaseReceive: 0,
+        possessionChanges: 0,
+        unforcedTurnovers: 0,
+        interceptPassThrown: 0,
+      }],
+      scoreFlow: [{
+        period: 1,
+        periodSeconds: 100,
+        squadId: 801,
+        scorepoints: 2,
+        homeScore: 2,
+        awayScore: 0,
+        scoringTeamPrismaId: 'team-1',
+      }],
+      teamStats: {
+        home: { goals: 10 } as any,
+        away: { goals: 9 } as any,
+        homeTeamPrismaId: 'team-1',
+        awayTeamPrismaId: 'team-2',
+      },
+    });
+
+    expect(prisma.match.update).not.toHaveBeenCalled();
+    expect(prisma.matchQuarter.upsert).toHaveBeenCalled();
+    expect(prisma.playerMatchStats.upsert).toHaveBeenCalled();
+    expect(prisma.teamMatchStats.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.scoreFlow.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({ scorePoints: 2 }),
+    }));
+  });
 });
 
 describe('validateMatchData', () => {

@@ -1,13 +1,24 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import HomePage from '../page';
+
+const { findCompetitionMock, findMatchesMock } = vi.hoisted(() => ({
+  findCompetitionMock: vi.fn(),
+  findMatchesMock: vi.fn(),
+}));
 
 vi.mock('@/lib/db', () => ({
   excludeSimData: {},
   prisma: {
+    competition: { findFirst: findCompetitionMock },
     match: {
-      findMany: vi.fn().mockResolvedValue([
-        {
+      findMany: findMatchesMock,
+    },
+  },
+}));
+
+const MATCHES = [
+  {
           id: '1',
           status: 'LIVE',
           homeScore: 42,
@@ -21,7 +32,7 @@ vi.mock('@/lib/db', () => ({
           awayTeamId: 'team-inf',
           homeTeam: { name: 'Marlins', abbreviation: 'MAR', logoUrl: null },
           awayTeam: { name: 'Inferno', abbreviation: 'INF', logoUrl: null },
-          scoreFlow: [],
+          teamStats: [],
         },
         {
           id: '2',
@@ -37,7 +48,7 @@ vi.mock('@/lib/db', () => ({
           awayTeamId: 'team-har',
           homeTeam: { name: 'Wolves', abbreviation: 'WOL', logoUrl: null },
           awayTeam: { name: 'Harbor', abbreviation: 'HAR', logoUrl: null },
-          scoreFlow: [],
+          teamStats: [],
         },
         {
           id: '5',
@@ -53,7 +64,7 @@ vi.mock('@/lib/db', () => ({
           awayTeamId: 'team-roc',
           homeTeam: { name: 'Titans', abbreviation: 'TIT', logoUrl: null },
           awayTeam: { name: 'Rockets', abbreviation: 'ROC', logoUrl: null },
-          scoreFlow: [],
+          teamStats: [],
         },
         {
           id: '3',
@@ -69,10 +80,9 @@ vi.mock('@/lib/db', () => ({
           awayTeamId: 'team-fev',
           homeTeam: { name: 'Vixens', abbreviation: 'VIX', logoUrl: null },
           awayTeam: { name: 'Fever', abbreviation: 'FEV', logoUrl: null },
-          scoreFlow: [
-            { scoringTeamId: 'team-vix', scorePoints: 1 },
-            { scoringTeamId: 'team-vix', scorePoints: 2 },
-            { scoringTeamId: 'team-fev', scorePoints: 1 },
+          teamStats: [
+            { teamId: 'team-vix', goals: 62, goal2: 2 },
+            { teamId: 'team-fev', goals: 58, goal2: 0 },
           ],
         },
         {
@@ -89,14 +99,18 @@ vi.mock('@/lib/db', () => ({
           awayTeamId: 'team-lig',
           homeTeam: { name: 'Swifts', abbreviation: 'SWI', logoUrl: null },
           awayTeam: { name: 'Lightning', abbreviation: 'LIG', logoUrl: null },
-          scoreFlow: [],
+          teamStats: [],
         },
-      ]),
-    },
-  },
-}));
+] as const;
 
 describe('HomePage', () => {
+  beforeEach(() => {
+    findCompetitionMock.mockReset().mockResolvedValue({ id: 'competition-2026' });
+    findMatchesMock.mockReset().mockImplementation(({ where }: { where: { status: string } }) =>
+      Promise.resolve(MATCHES.filter((match) => match.status === where.status)),
+    );
+  });
+
   it('renders TODAY\'S PULSE heading', async () => {
     const page = await HomePage();
     render(page);
@@ -151,5 +165,47 @@ describe('HomePage', () => {
     const page = await HomePage();
     render(page);
     expect(screen.queryByText('Final')).not.toBeInTheDocument();
+  });
+
+  it('derives one-point goals by excluding super shots from total made goals', async () => {
+    render(await HomePage());
+
+    expect(screen.getByText('(60.2)')).toBeInTheDocument();
+    expect(screen.queryByText('(62.2)')).not.toBeInTheDocument();
+  });
+
+  it('limits fixture loading while retaining every completed current-season result', async () => {
+    await HomePage();
+
+    const scheduledQuery = findMatchesMock.mock.calls.find(
+      ([query]) => query.where.status === 'SCHEDULED',
+    )?.[0];
+    const completedQuery = findMatchesMock.mock.calls.find(
+      ([query]) => query.where.status === 'COMPLETED',
+    )?.[0];
+
+    expect(scheduledQuery.take).toBe(4);
+    expect(completedQuery.take).toBeUndefined();
+    expect(completedQuery.where.competitionId).toBe('competition-2026');
+    expect(completedQuery.select.scoreFlow).toBeUndefined();
+    expect(completedQuery.select.teamStats).toBeDefined();
+  });
+
+  it('renders a true empty state when the latest season has no matches', async () => {
+    findMatchesMock.mockResolvedValue([]);
+
+    render(await HomePage());
+
+    expect(screen.getByText('No fixtures yet')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('distinguishes database failures from a true empty season', async () => {
+    findCompetitionMock.mockRejectedValue(new Error('database unavailable'));
+
+    render(await HomePage());
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Scores temporarily unavailable');
+    expect(screen.queryByText('No fixtures yet')).not.toBeInTheDocument();
   });
 });

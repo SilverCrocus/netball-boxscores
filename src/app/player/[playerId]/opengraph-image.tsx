@@ -50,6 +50,7 @@ export default async function PlayerOgImage({
           {player?.photoUrl ? (
             <img
               src={player.photoUrl}
+              alt={player.name}
               width={200}
               height={200}
               style={{ objectFit: 'cover', borderRadius: 100 }}

@@ -4,10 +4,8 @@ import type {
   SimMatch,
   SimMatchState,
   SimConfig,
-  SimLogEntry,
   SimPlayer,
   SimPlayerStats,
-  SimScoreFlowEntry,
 } from './types';
 import { STATE_ORDER, isActiveState, isBreakState, stateToPeriod } from './types';
 import { emptyStats } from '@/lib/stat-utils';
@@ -51,7 +49,7 @@ function generatePlayerStatsForTick(
   const stats = [...match.playerStats];
 
   // Distribute goals to shooters
-  const distributeGoals = (players: SimPlayer[], goals: number, squadId: number) => {
+  const distributeGoals = (players: SimPlayer[], goals: number) => {
     const shooters = players.filter((p) => p.position === 'GS' || p.position === 'GA');
     if (shooters.length === 0 || goals === 0) return;
 
@@ -111,8 +109,8 @@ function generatePlayerStatsForTick(
     }
   };
 
-  distributeGoals(match.homePlayers, homeGoals, match.homeSquadId);
-  distributeGoals(match.awayPlayers, awayGoals, match.awaySquadId);
+  distributeGoals(match.homePlayers, homeGoals);
+  distributeGoals(match.awayPlayers, awayGoals);
 
   return stats;
 }

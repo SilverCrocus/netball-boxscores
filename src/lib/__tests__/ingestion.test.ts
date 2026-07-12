@@ -69,6 +69,29 @@ describe('ingestFromChampionData', () => {
     expect(result.matchDetails.get(200)).toEqual(matchDetail);
   });
 
+  it('maps each match detail to its own PollLog entry', async () => {
+    const fixtureMatches = [
+      { matchId: 201, matchStatus: 'playing' },
+      { matchId: 202, matchStatus: 'playing' },
+    ];
+    mockFetchFixture.mockResolvedValue(fixtureMatches as any);
+    mockMatchFindMany.mockResolvedValue([]);
+    mockFetchMatchStats.mockImplementation(async (_competitionId, matchId) => ({
+      matchInfo: { matchId },
+    }) as any);
+    mockPollLogCreate
+      .mockResolvedValueOnce({ id: 'fixture-log' } as any)
+      .mockResolvedValueOnce({ id: 'match-201-log' } as any)
+      .mockResolvedValueOnce({ id: 'match-202-log' } as any);
+
+    const result = await ingestFromChampionData(12949);
+
+    expect(result.matchPollLogIds).toEqual(new Map([
+      [201, 'match-201-log'],
+      [202, 'match-202-log'],
+    ]));
+  });
+
   it('logs fetch errors to PollLog without crashing', async () => {
     const fixtureMatches = [
       { matchId: 300, matchStatus: 'playing' },
@@ -81,6 +104,7 @@ describe('ingestFromChampionData', () => {
     const result = await ingestFromChampionData(12949);
 
     expect(result.matchDetails.size).toBe(0);
+    expect(result.detailFetchErrors).toBe(1);
     expect(mockPollLogCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -90,6 +114,19 @@ describe('ingestFromChampionData', () => {
         }),
       }),
     );
+  });
+
+  it('rethrows fixture fetch failures so worker readiness records an error', async () => {
+    mockFetchFixture.mockRejectedValue(new Error('Fixture service unavailable'));
+    mockPollLogCreate.mockResolvedValue({ id: 'fixture-error-log' } as any);
+
+    await expect(ingestFromChampionData(12949)).rejects.toThrow('Fixture service unavailable');
+    expect(mockPollLogCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        endpoint: 'fixture',
+        status: 'fetch_error',
+      }),
+    }));
   });
 
   it('fetches match details for SCHEDULED matches that CD reports as complete (backfill)', async () => {

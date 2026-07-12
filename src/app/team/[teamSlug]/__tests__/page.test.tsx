@@ -25,6 +25,27 @@ vi.mock('@/lib/db', () => ({
         awayMatches: [],
       }),
     },
+    match: {
+      findMany: vi.fn().mockImplementation(({ where }) => {
+        if (where.status === 'COMPLETED') {
+          return Promise.resolve([
+            {
+              id: 'm1', status: 'COMPLETED', homeTeamId: 't1', awayTeamId: 't2',
+              homeScore: 62, awayScore: 44, scheduledAt: new Date('2026-06-01T04:00:00Z'),
+              homeTeam: { name: 'Vipers Athletics', abbreviation: 'VIP', logoUrl: null },
+              awayTeam: { name: 'Titans', abbreviation: 'TIT', logoUrl: null },
+            },
+            {
+              id: 'm2', status: 'COMPLETED', homeTeamId: 't3', awayTeamId: 't1',
+              homeScore: 50, awayScore: 50, scheduledAt: new Date('2026-05-25T04:00:00Z'),
+              homeTeam: { name: 'Stars', abbreviation: 'STA', logoUrl: null },
+              awayTeam: { name: 'Vipers Athletics', abbreviation: 'VIP', logoUrl: null },
+            },
+          ]);
+        }
+        return Promise.resolve([]);
+      }),
+    },
   },
 }));
 
@@ -53,6 +74,7 @@ describe('TeamPage', () => {
     render(page);
     expect(screen.getByText('Recent Form')).toBeInTheDocument();
     expect(screen.getByText('W')).toBeInTheDocument();
+    expect(screen.getByText('D')).toBeInTheDocument();
     expect(screen.getByText('vs Titans')).toBeInTheDocument();
   });
 
@@ -61,5 +83,24 @@ describe('TeamPage', () => {
     render(page);
     expect(screen.getByText('11-1-0')).toBeInTheDocument();
     expect(screen.getByText('44')).toBeInTheDocument();
+  });
+
+  it('queries recent and upcoming matches with independent ordering and limits', async () => {
+    const { prisma } = await import('@/lib/db');
+    await TeamPage({ params: Promise.resolve({ teamSlug: 'vipers-athletics' }) });
+
+    expect(prisma.match.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ status: 'COMPLETED' }),
+      orderBy: { scheduledAt: 'desc' },
+      take: 5,
+    }));
+    expect(prisma.match.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: 'SCHEDULED',
+        scheduledAt: { gte: expect.any(Date) },
+      }),
+      orderBy: { scheduledAt: 'asc' },
+      take: 3,
+    }));
   });
 });

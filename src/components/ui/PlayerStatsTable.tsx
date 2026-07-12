@@ -70,11 +70,15 @@ export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
         </h3>
       </div>
       <StatsLegend />
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+      <div className="flex items-center justify-end gap-1 px-4 pb-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70 sm:hidden">
+        <span>Swipe for all stats</span>
+        <span className="material-symbols-outlined text-sm" aria-hidden="true">swipe</span>
+      </div>
+      <div className="overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
+        <table className="w-full min-w-max text-left border-collapse">
           <thead>
             <tr className="bg-surface-container-low border-b border-outline-variant/20">
-              <th className="px-4 py-3 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest sticky left-0 bg-surface-container-low z-10 min-w-[160px]">
+              <th className="sticky left-0 z-20 min-w-[160px] bg-surface-container-low px-4 py-3 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest shadow-[8px_0_12px_-12px_rgba(15,23,42,0.65)]">
                 Player
               </th>
               <th className="px-2 py-3 text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest text-center sticky left-[160px] bg-surface-container-low z-10">
@@ -96,7 +100,7 @@ export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
               const pct = player.attempts > 0 ? Math.round(computeShootingPct(player.goals, player.attempts)) : null;
               return (
                 <tr key={player.id} className="hover:bg-surface-container/50 transition-colors">
-                  <td className="px-4 py-3 sticky left-0 bg-surface-container-lowest z-10">
+                  <td className="sticky left-0 z-20 bg-surface-container-lowest px-4 py-3 shadow-[8px_0_12px_-12px_rgba(15,23,42,0.65)]">
                     <div className="flex items-center gap-2">
                       <PlayerAvatar name={player.name} photoUrl={player.photoUrl} size={28} />
                       {player.playerId ? (

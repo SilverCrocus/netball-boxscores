@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { NAV_ITEMS, isActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
@@ -13,7 +14,14 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 bg-slate-900 py-8 z-40 shadow-xl">
       <Link href="/" className="px-6 mb-8 flex items-center gap-3">
-        <img src="/netball-cleaned-white.png" alt="" className="h-8 w-auto" />
+        <Image
+          src="/netball-cleaned-white.png"
+          alt=""
+          width={35}
+          height={32}
+          className="h-8 w-auto"
+          style={{ width: 'auto' }}
+        />
         <span className="text-2xl font-black italic tracking-tighter text-white uppercase font-headline">
           CentrePass
         </span>

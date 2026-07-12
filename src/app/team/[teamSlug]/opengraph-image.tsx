@@ -44,6 +44,7 @@ export default async function TeamOgImage({
         {team?.logoUrl ? (
           <img
             src={team.logoUrl}
+            alt={team.name}
             width={120}
             height={120}
             style={{ objectFit: 'contain' }}
