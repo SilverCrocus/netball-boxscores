@@ -1,6 +1,11 @@
 import type { MetadataRoute } from 'next';
 import { prisma, excludeSimData } from '@/lib/db';
 
+// Render applies Prisma migrations after the build step. Defer this database
+// read until runtime so an additive schema deploy can build against the previous
+// release's database shape and then start only after pre-deploy migrations.
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const baseUrl = 'https://centrepass.io';

@@ -30,13 +30,31 @@ describe("Prisma Schema", () => {
     );
     const requiredModels = [
       "Competition",
+      "CompetitionSeries",
+      "Ruleset",
       "Team",
       "Standing",
+      "Stage",
+      "StageGroup",
+      "StageStanding",
+      "EditionEntry",
+      "RosterMembership",
       "Player",
       "Match",
+      "MatchSlot",
       "MatchQuarter",
       "PlayerMatchStats",
       "ScoreFlow",
+      "SourceSystem",
+      "EditionSource",
+      "SourceEntityMapping",
+      "ImportRun",
+      "ImportIssue",
+      "ImportMutation",
+      "SourceSnapshot",
+      "DataCoverage",
+      "PlayerAlias",
+      "TeamAlias",
       "User",
       "Account",
       "Session",
@@ -58,5 +76,25 @@ describe("Prisma Schema", () => {
     );
     expect(schema).toContain("enum Position");
     expect(schema).toContain("enum MatchStatus");
+    expect(schema).toContain("enum ResultQualityStatus");
+    expect(schema).toContain("enum DataCapability");
+    expect(schema).toContain("enum CoverageState");
+    expect(schema).toContain("enum MatchSlotSourceType");
+    expect(schema).toContain("enum ImportMutationTarget");
+  });
+
+  it("keeps the legacy write contract additive", () => {
+    const schema = fs.readFileSync(
+      path.join(process.cwd(), "prisma", "schema.prisma"),
+      "utf-8"
+    );
+
+    expect(schema).toMatch(/championDataId\s+Int\s+@unique/);
+    expect(schema).toMatch(/homeTeamId\s+String\s*\n/);
+    expect(schema).toMatch(/awayTeamId\s+String\s*\n/);
+    expect(schema).toMatch(/round\s+Int\s*\n/);
+    expect(schema).toMatch(/isSimulation\s+Boolean\s+@default\(false\)/);
+    expect(schema).toMatch(/resultQuality\s+ResultQualityStatus\s+@default\(UNKNOWN\)/);
+    expect(schema).not.toContain("GLASGOW");
   });
 });

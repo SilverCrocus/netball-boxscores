@@ -12,7 +12,7 @@ vi.mock('@/lib/db', () => ({
     match: { findMany: mockFindMany },
     standing: { upsert: mockUpsert },
   },
-  excludeSimData: { round: { not: 99 } },
+  excludeSimData: { isSimulation: false },
 }));
 
 import { recalculateStandings } from '@/lib/standings';
@@ -170,7 +170,7 @@ describe('recalculateStandings', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           status: 'COMPLETED',
-          round: { not: 99 },
+          isSimulation: false,
         }),
       })
     );

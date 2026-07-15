@@ -1,12 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   applyChanges,
+  finalizeCompletedMatches,
   validateMatchData,
   reconcileStaleCompletedScores,
   syncFixtureMatches,
 } from '@/lib/processing';
+import { fetchMatchStats } from '@/lib/champion-data';
 import { prisma } from '@/lib/db';
 import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data';
+
+vi.mock('@/lib/champion-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/champion-data')>();
+  return { ...actual, fetchMatchStats: vi.fn() };
+});
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -120,11 +127,48 @@ describe('applyChanges', () => {
       update: expect.objectContaining({ scorePoints: 2 }),
     }));
   });
+
+  it('dual-writes result quality when Champion Data changes match status', async () => {
+    vi.mocked(prisma.player.findMany).mockResolvedValue([]);
+
+    await applyChanges({
+      matchId: 'match-1',
+      scoreChanged: true,
+      statusChanged: true,
+      timeChanged: false,
+      newHomeScore: 61,
+      newAwayScore: 40,
+      newStatus: 'COMPLETED',
+      currentQuarter: 4,
+      currentTime: '900',
+    }, {
+      cdMatchId: 100,
+      homeScore: 61,
+      awayScore: 40,
+      status: 'COMPLETED',
+      currentQuarter: 4,
+      currentTime: '900',
+    });
+
+    expect(prisma.match.update).toHaveBeenCalledWith({
+      where: { id: 'match-1' },
+      data: expect.objectContaining({
+        status: 'COMPLETED',
+        resultQuality: 'OFFICIAL_FINAL',
+      }),
+    });
+  });
 });
 
 describe('syncFixtureMatches', () => {
   it('stores finals in the season competition with their source and stage', async () => {
-    vi.mocked(prisma.competition.findUnique).mockResolvedValue({ id: 'season-2026' } as any);
+    vi.mocked(prisma.competition.findUnique).mockResolvedValue({
+      id: 'season-2026',
+      stages: [
+        { id: 'regular-stage', slug: 'regular-season' },
+        { id: 'finals-stage', slug: 'finals' },
+      ],
+    } as any);
     vi.mocked(prisma.team.findMany).mockResolvedValue([
       { id: 'home', championDataTeamId: 801 },
       { id: 'away', championDataTeamId: 804 },
@@ -150,14 +194,83 @@ describe('syncFixtureMatches', () => {
         competitionId: 'season-2026',
         sourceCompetitionId: 12950,
         finalCode: 'GRAND',
+        stageId: 'finals-stage',
+        roundLabel: 'Round 3',
+        sourceRetrievedAt: expect.any(Date),
       }),
       create: expect.objectContaining({
         championDataMatchId: 129500301,
         sourceCompetitionId: 12950,
         finalCode: 'GRAND',
         status: 'COMPLETED',
+        stageId: 'finals-stage',
+        resultQuality: 'OFFICIAL_FINAL',
       }),
     });
+  });
+});
+
+describe('finalizeCompletedMatches', () => {
+  it('preserves an unofficial stale completion while the source fixture is still playing', async () => {
+    mockMatch.findMany.mockResolvedValue([{
+      id: 'match-1',
+      championDataMatchId: 100,
+      sourceCompetitionId: 12949,
+      homeScore: 60,
+      awayScore: 40,
+      resultQuality: 'UNOFFICIAL_FINAL',
+    }]);
+
+    const result = await finalizeCompletedMatches([{
+      matchId: 100,
+      matchStatus: 'playing',
+      homeSquadScore: 61,
+      awaySquadScore: 40,
+      period: 4,
+    } as CDFixtureMatch], 12949, ['match-1']);
+
+    expect(mockMatch.update).toHaveBeenCalledWith({
+      where: { id: 'match-1' },
+      data: { homeScore: 61, awayScore: 40 },
+    });
+    expect(mockMatch.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ resultQuality: 'OFFICIAL_FINAL' }),
+      }),
+    );
+    expect(result).toEqual([{
+      matchId: 'match-1',
+      homeScore: 61,
+      awayScore: 40,
+      finalQuarter: 4,
+    }]);
+  });
+
+  it('preserves CORRECTED when an official fixture is finalized', async () => {
+    mockMatch.findMany.mockResolvedValue([{
+      id: 'match-1',
+      championDataMatchId: 100,
+      sourceCompetitionId: 12949,
+      homeScore: 61,
+      awayScore: 40,
+      resultQuality: 'CORRECTED',
+    }]);
+    vi.mocked(fetchMatchStats).mockResolvedValue({
+      periodScores: [],
+      playerStats: { home: [], away: [] },
+      scoreFlow: [],
+    } as unknown as CDMatchStatsResponse);
+
+    await finalizeCompletedMatches([{
+      matchId: 100,
+      matchStatus: 'complete',
+      homeSquadScore: 61,
+      awaySquadScore: 40,
+      period: 4,
+    } as CDFixtureMatch], 12949, ['match-1']);
+
+    expect(mockMatch.update).not.toHaveBeenCalled();
+    expect(fetchMatchStats).toHaveBeenCalledWith(12949, 100);
   });
 });
 
@@ -301,7 +414,13 @@ describe('reconcileStaleCompletedScores', () => {
 
   it('updates COMPLETED matches whose stored score drifted from the fixture', async () => {
     mockMatch.findMany.mockResolvedValue([
-      { id: 'm1', championDataMatchId: 100, homeScore: 64, awayScore: 64 },
+      {
+        id: 'm1',
+        championDataMatchId: 100,
+        homeScore: 64,
+        awayScore: 64,
+        resultQuality: 'UNOFFICIAL_FINAL',
+      },
     ]);
     mockMatch.update.mockResolvedValue({});
 
@@ -309,7 +428,11 @@ describe('reconcileStaleCompletedScores', () => {
 
     expect(mockMatch.update).toHaveBeenCalledWith({
       where: { id: 'm1' },
-      data: { homeScore: 66, awayScore: 64 },
+      data: {
+        homeScore: 66,
+        awayScore: 64,
+        resultQuality: 'OFFICIAL_FINAL',
+      },
     });
     expect(result).toEqual([
       { matchId: 'm1', homeScore: 66, awayScore: 64 },
@@ -318,7 +441,13 @@ describe('reconcileStaleCompletedScores', () => {
 
   it('does not update matches whose score already matches the fixture', async () => {
     mockMatch.findMany.mockResolvedValue([
-      { id: 'm1', championDataMatchId: 100, homeScore: 70, awayScore: 48 },
+      {
+        id: 'm1',
+        championDataMatchId: 100,
+        homeScore: 70,
+        awayScore: 48,
+        resultQuality: 'OFFICIAL_FINAL',
+      },
     ]);
 
     const result = await reconcileStaleCompletedScores([fixtureEntry(100, 70, 48)]);
@@ -327,9 +456,59 @@ describe('reconcileStaleCompletedScores', () => {
     expect(result).toEqual([]);
   });
 
+  it('promotes an inferred completion once the official fixture is complete', async () => {
+    mockMatch.findMany.mockResolvedValue([{
+      id: 'm1',
+      championDataMatchId: 100,
+      homeScore: 70,
+      awayScore: 48,
+      resultQuality: 'UNOFFICIAL_FINAL',
+    }]);
+
+    const result = await reconcileStaleCompletedScores([
+      fixtureEntry(100, 70, 48),
+    ]);
+
+    expect(mockMatch.update).toHaveBeenCalledWith({
+      where: { id: 'm1' },
+      data: { resultQuality: 'OFFICIAL_FINAL' },
+    });
+    expect(result).toEqual([]);
+  });
+
+  it('preserves CORRECTED while reconciling an official score correction', async () => {
+    mockMatch.findMany.mockResolvedValue([{
+      id: 'm1',
+      championDataMatchId: 100,
+      homeScore: 69,
+      awayScore: 48,
+      resultQuality: 'CORRECTED',
+    }]);
+
+    const result = await reconcileStaleCompletedScores([
+      fixtureEntry(100, 70, 48),
+    ]);
+
+    expect(mockMatch.update).toHaveBeenCalledWith({
+      where: { id: 'm1' },
+      data: { homeScore: 70, awayScore: 48 },
+    });
+    expect(result).toEqual([{
+      matchId: 'm1',
+      homeScore: 70,
+      awayScore: 48,
+    }]);
+  });
+
   it('ignores fixture entries that are not yet complete', async () => {
     mockMatch.findMany.mockResolvedValue([
-      { id: 'm1', championDataMatchId: 100, homeScore: 30, awayScore: 28 },
+      {
+        id: 'm1',
+        championDataMatchId: 100,
+        homeScore: 30,
+        awayScore: 28,
+        resultQuality: 'UNOFFICIAL_FINAL',
+      },
     ]);
 
     const result = await reconcileStaleCompletedScores([
@@ -342,7 +521,13 @@ describe('reconcileStaleCompletedScores', () => {
 
   it('skips matches with no matching fixture entry', async () => {
     mockMatch.findMany.mockResolvedValue([
-      { id: 'm1', championDataMatchId: 999, homeScore: 50, awayScore: 40 },
+      {
+        id: 'm1',
+        championDataMatchId: 999,
+        homeScore: 50,
+        awayScore: 40,
+        resultQuality: 'UNOFFICIAL_FINAL',
+      },
     ]);
 
     const result = await reconcileStaleCompletedScores([fixtureEntry(100, 66, 64)]);

@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { mapMatchStatus, fetchMatchStats } from '@/lib/champion-data';
 import { pickStatFields, type StatValues } from '@/lib/stat-utils';
-import type { MatchStatus } from '@prisma/client';
+import type { MatchStatus, ResultQualityStatus } from '@prisma/client';
 import type { CDFixtureMatch, CDMatchStatsResponse, CDTeamStats } from '@/types/champion-data';
 
 // ── Types ──
@@ -84,6 +84,16 @@ export interface ChangeResult {
   currentTime: string;
 }
 
+const PROMOTABLE_RESULT_QUALITIES = new Set<ResultQualityStatus>([
+  'UNKNOWN',
+  'PROVISIONAL',
+  'UNOFFICIAL_FINAL',
+]);
+
+function shouldPromoteToOfficial(resultQuality: ResultQualityStatus): boolean {
+  return PROMOTABLE_RESULT_QUALITIES.has(resultQuality);
+}
+
 /**
  * Keep the local schedule aligned with an upstream Champion Data fixture.
  * Finals are published under a separate upstream competition, but belong to
@@ -98,7 +108,13 @@ export async function syncFixtureMatches(
 
   const competition = await prisma.competition.findUnique({
     where: { championDataId: seasonCompetitionId },
-    select: { id: true },
+    select: {
+      id: true,
+      stages: {
+        where: { slug: { in: ['regular-season', 'finals'] } },
+        select: { id: true, slug: true },
+      },
+    },
   });
   if (!competition) {
     console.warn(`[Processing] Competition ${seasonCompetitionId} not found — fixture sync skipped`);
@@ -112,6 +128,8 @@ export async function syncFixtureMatches(
   const teamIds = new Map(
     teams.map((team) => [team.championDataTeamId!, team.id]),
   );
+  const stageIds = new Map(competition.stages.map((stage) => [stage.slug, stage.id]));
+  const retrievedAt = new Date();
 
   const writes = fixtureMatches.flatMap((fixture) => {
     const homeTeamId = teamIds.get(fixture.homeSquadId);
@@ -121,16 +139,23 @@ export async function syncFixtureMatches(
       return [];
     }
 
+    const isFinals = Boolean(fixture.finalCode) || sourceCompetitionId !== seasonCompetitionId;
+    const stageId = stageIds.get(isFinals ? 'finals' : 'regular-season');
     const staticData = {
       competitionId: competition.id,
       homeTeamId,
       awayTeamId,
       round: fixture.roundNumber,
+      roundLabel: `Round ${fixture.roundNumber}`,
       venue: fixture.venueName,
       scheduledAt: new Date(fixture.utcStartTime),
       sourceCompetitionId,
+      sourceRetrievedAt: retrievedAt,
       finalCode: fixture.finalCode || null,
+      ...(stageId ? { stageId } : {}),
     };
+
+    const initialStatus = mapMatchStatus(fixture.matchStatus);
 
     return [prisma.match.upsert({
       where: { championDataMatchId: fixture.matchId },
@@ -141,7 +166,13 @@ export async function syncFixtureMatches(
       create: {
         championDataMatchId: fixture.matchId,
         ...staticData,
-        status: mapMatchStatus(fixture.matchStatus),
+        status: initialStatus,
+        resultQuality:
+          initialStatus === 'COMPLETED'
+            ? 'OFFICIAL_FINAL'
+            : initialStatus === 'LIVE'
+              ? 'PROVISIONAL'
+              : 'UNKNOWN',
         homeScore: fixture.homeSquadScore ?? 0,
         awayScore: fixture.awaySquadScore ?? 0,
       },
@@ -389,6 +420,16 @@ export async function applyChanges(
         homeScore: changes.newHomeScore,
         awayScore: changes.newAwayScore,
         status: changes.newStatus,
+        ...(changes.statusChanged
+          ? {
+              resultQuality:
+                changes.newStatus === 'COMPLETED'
+                  ? 'OFFICIAL_FINAL' as const
+                  : changes.newStatus === 'LIVE'
+                    ? 'PROVISIONAL' as const
+                    : 'UNKNOWN' as const,
+            }
+          : {}),
         currentQuarter: changes.currentQuarter,
         currentTime: changes.currentTime,
       },
@@ -683,7 +724,12 @@ export async function reconcileCompletedMatches(
 
     await prisma.match.update({
       where: { id: dbMatch.id },
-      data: { status: 'COMPLETED', homeScore: fixture.homeSquadScore, awayScore: fixture.awaySquadScore },
+      data: {
+        status: 'COMPLETED',
+        resultQuality: 'OFFICIAL_FINAL',
+        homeScore: fixture.homeSquadScore,
+        awayScore: fixture.awaySquadScore,
+      },
     });
     completed.push({
       matchId: dbMatch.id,
@@ -704,8 +750,9 @@ export async function reconcileCompletedMatches(
  * COMPLETED). If that score was captured a beat before CD's true final — e.g. a
  * closing super shot landing after the poll — the stored score stays stale
  * forever, since nothing re-checks COMPLETED matches. This corrects that drift
- * on every poll, so the ladder self-heals. Only the Match score fields are
- * touched; quarter/score-flow/player stats are left to the normal pipeline.
+ * on every poll, so the ladder self-heals. It also promotes an inferred final
+ * to official once the canonical fixture confirms completion. Quarter,
+ * score-flow, and player stats are left to the normal pipeline.
  *
  * Returns the matches whose score was corrected (empty if none drifted).
  */
@@ -714,7 +761,13 @@ export async function reconcileStaleCompletedScores(
 ): Promise<Array<{ matchId: string; homeScore: number; awayScore: number }>> {
   const completedMatches = await prisma.match.findMany({
     where: { status: 'COMPLETED', championDataMatchId: { not: null } },
-    select: { id: true, championDataMatchId: true, homeScore: true, awayScore: true },
+    select: {
+      id: true,
+      championDataMatchId: true,
+      homeScore: true,
+      awayScore: true,
+      resultQuality: true,
+    },
   });
   if (completedMatches.length === 0) return [];
 
@@ -726,19 +779,33 @@ export async function reconcileStaleCompletedScores(
     if (!fixture || fixture.matchStatus.toLowerCase() !== 'complete') continue;
 
     const { homeSquadScore, awaySquadScore } = fixture;
-    if (homeSquadScore === dbMatch.homeScore && awaySquadScore === dbMatch.awayScore) {
-      continue;
-    }
+    const scoresChanged =
+      homeSquadScore !== dbMatch.homeScore || awaySquadScore !== dbMatch.awayScore;
+    const qualityChanged = shouldPromoteToOfficial(dbMatch.resultQuality);
+    if (!scoresChanged && !qualityChanged) continue;
 
-    console.log(
-      `[Processing] Reconciling stale completed score for ${dbMatch.id}: ` +
-        `${dbMatch.homeScore}-${dbMatch.awayScore} → ${homeSquadScore}-${awaySquadScore}`,
-    );
+    if (scoresChanged) {
+      console.log(
+        `[Processing] Reconciling stale completed score for ${dbMatch.id}: ` +
+          `${dbMatch.homeScore}-${dbMatch.awayScore} → ${homeSquadScore}-${awaySquadScore}`,
+      );
+    }
     await prisma.match.update({
       where: { id: dbMatch.id },
-      data: { homeScore: homeSquadScore, awayScore: awaySquadScore },
+      data: {
+        ...(scoresChanged
+          ? { homeScore: homeSquadScore, awayScore: awaySquadScore }
+          : {}),
+        ...(qualityChanged ? { resultQuality: 'OFFICIAL_FINAL' as const } : {}),
+      },
     });
-    corrected.push({ matchId: dbMatch.id, homeScore: homeSquadScore, awayScore: awaySquadScore });
+    if (scoresChanged) {
+      corrected.push({
+        matchId: dbMatch.id,
+        homeScore: homeSquadScore,
+        awayScore: awaySquadScore,
+      });
+    }
   }
 
   return corrected;
@@ -765,7 +832,10 @@ export async function detectStaleCompletedMatches(): Promise<
 
     if (remaining < 120 && sinceUpdate >= 60_000) {
       console.log(`[Processing] Match ended (stale clock <2min remaining, no update for 60s): ${match.id}`);
-      await prisma.match.update({ where: { id: match.id }, data: { status: 'COMPLETED' } });
+      await prisma.match.update({
+        where: { id: match.id },
+        data: { status: 'COMPLETED', resultQuality: 'UNOFFICIAL_FINAL' },
+      });
       completed.push({ matchId: match.id, homeScore: match.homeScore, awayScore: match.awayScore, finalQuarter: quarter });
       continue;
     }
@@ -774,7 +844,10 @@ export async function detectStaleCompletedMatches(): Promise<
       const matchAge = now - match.scheduledAt.getTime();
       if (matchAge >= 90 * 60 * 1000) {
         console.log(`[Processing] Stale LIVE match: ${match.id}`);
-        await prisma.match.update({ where: { id: match.id }, data: { status: 'COMPLETED' } });
+        await prisma.match.update({
+          where: { id: match.id },
+          data: { status: 'COMPLETED', resultQuality: 'UNOFFICIAL_FINAL' },
+        });
         completed.push({ matchId: match.id, homeScore: match.homeScore, awayScore: match.awayScore, finalQuarter: quarter });
       }
     }
@@ -803,6 +876,7 @@ export async function finalizeCompletedMatches(
       sourceCompetitionId: true,
       homeScore: true,
       awayScore: true,
+      resultQuality: true,
     },
   });
 
@@ -813,6 +887,9 @@ export async function finalizeCompletedMatches(
     const fixtureHome = fixture.homeSquadScore;
     const fixtureAway = fixture.awaySquadScore;
     const scoresChanged = match.homeScore !== fixtureHome || match.awayScore !== fixtureAway;
+    const fixtureIsComplete = mapMatchStatus(fixture.matchStatus) === 'COMPLETED';
+    const shouldPromoteResult =
+      fixtureIsComplete && shouldPromoteToOfficial(match.resultQuality);
 
     if (scoresChanged) {
       console.log(
@@ -820,18 +897,31 @@ export async function finalizeCompletedMatches(
       );
       await prisma.match.update({
         where: { id: match.id },
-        data: { homeScore: fixtureHome, awayScore: fixtureAway },
+        data: {
+          homeScore: fixtureHome,
+          awayScore: fixtureAway,
+          ...(shouldPromoteResult
+            ? { resultQuality: 'OFFICIAL_FINAL' as const }
+            : {}),
+        },
+      });
+    } else if (shouldPromoteResult) {
+      await prisma.match.update({
+        where: { id: match.id },
+        data: { resultQuality: 'OFFICIAL_FINAL' },
       });
     }
 
-    try {
-      const detail = await fetchMatchStats(
-        match.sourceCompetitionId ?? competitionId,
-        match.championDataMatchId!,
-      );
-      await writeFinalStats(match.id, detail);
-    } catch (err) {
-      console.error(`[Processing] Failed to fetch final stats for ${match.id}:`, err);
+    if (fixtureIsComplete) {
+      try {
+        const detail = await fetchMatchStats(
+          match.sourceCompetitionId ?? competitionId,
+          match.championDataMatchId!,
+        );
+        await writeFinalStats(match.id, detail);
+      } catch (err) {
+        console.error(`[Processing] Failed to fetch final stats for ${match.id}:`, err);
+      }
     }
 
     const finalQuarter = fixture.periodCompleted || fixture.period || 4;

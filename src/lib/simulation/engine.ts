@@ -220,7 +220,7 @@ export async function cleanupOrphanedSimData(): Promise<number> {
   assertSimulationDatabaseIsSafe();
 
   const orphaned = await prisma.match.findMany({
-    where: { round: 99 },
+    where: { isSimulation: true },
     select: { id: true },
   });
   if (orphaned.length === 0) return 0;
@@ -284,6 +284,7 @@ export async function setupSimMatches(
         homeTeamId: home.id,
         awayTeamId: away.id,
         round: 99,
+        isSimulation: true,
         venue: venues[i % venues.length],
         scheduledAt: new Date(),
         status: 'SCHEDULED',
