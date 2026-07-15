@@ -16,6 +16,8 @@ describe("Prisma Schema", () => {
         ...process.env,
         DATABASE_URL:
           "postgresql://test:test@localhost:5432/test?schema=public",
+        DIRECT_URL:
+          "postgresql://test:test@localhost:5432/test?schema=public",
       },
     });
     expect(result).toContain("is valid");

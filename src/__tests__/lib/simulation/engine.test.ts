@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SimMatch } from '@/lib/simulation/types';
 
 // Mock prisma for DB setup
-vi.mock('@/lib/db', () => ({
-  prisma: {
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: {
     team: { findMany: vi.fn() },
     player: { findMany: vi.fn() },
     match: { create: vi.fn(), delete: vi.fn(), findMany: vi.fn() },
@@ -11,8 +11,12 @@ vi.mock('@/lib/db', () => ({
     matchQuarter: { deleteMany: vi.fn() },
     playerMatchStats: { deleteMany: vi.fn() },
     scoreFlow: { deleteMany: vi.fn() },
+    userFavorite: { deleteMany: vi.fn() },
+    userReminder: { deleteMany: vi.fn() },
   },
 }));
+
+vi.mock('@/lib/db', () => ({ prisma: prismaMock }));
 
 import {
   createSimState,
@@ -20,11 +24,53 @@ import {
   advanceState,
   generateGoals,
   resetBreakTicks,
+  cleanupOrphanedSimData,
+  setupSimMatches,
+  teardownSimMatches,
 } from '@/lib/simulation/engine';
 
 describe('simulation engine', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     resetBreakTicks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  describe('database safety', () => {
+    it('blocks orphan cleanup on staging before querying Prisma', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('DATABASE_ENVIRONMENT', 'staging');
+      vi.stubEnv('ALLOW_SHARED_PRODUCTION_DB_WRITES', 'true');
+
+      await expect(cleanupOrphanedSimData()).rejects.toThrow(
+        'Simulation database access blocked',
+      );
+      expect(prismaMock.match.findMany).not.toHaveBeenCalled();
+    });
+
+    it('blocks setup on production data before querying Prisma', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('DATABASE_ENVIRONMENT', 'production');
+      vi.stubEnv('ALLOW_SHARED_PRODUCTION_DB_WRITES', 'true');
+
+      await expect(setupSimMatches(1)).rejects.toThrow(
+        'Simulation database access blocked',
+      );
+      expect(prismaMock.competition.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('blocks teardown in a production process before deleting rows', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('DATABASE_ENVIRONMENT', 'local');
+
+      await expect(teardownSimMatches([])).rejects.toThrow(
+        'Simulation database access blocked',
+      );
+      expect(prismaMock.scoreFlow.deleteMany).not.toHaveBeenCalled();
+    });
   });
 
   describe('createSimState', () => {

@@ -9,6 +9,7 @@ import type {
 } from './types';
 import { STATE_ORDER, isActiveState, isBreakState, stateToPeriod } from './types';
 import { emptyStats } from '@/lib/stat-utils';
+import { assertSimulationDatabaseIsSafe } from './safety';
 
 // ───── State management ─────
 
@@ -216,6 +217,8 @@ export function tickMatch(match: SimMatch, tickStep: number): SimMatch {
 // ───── Database setup/teardown ─────
 
 export async function cleanupOrphanedSimData(): Promise<number> {
+  assertSimulationDatabaseIsSafe();
+
   const orphaned = await prisma.match.findMany({
     where: { round: 99 },
     select: { id: true },
@@ -235,9 +238,7 @@ export async function cleanupOrphanedSimData(): Promise<number> {
 export async function setupSimMatches(
   matchCount: number,
 ): Promise<SimMatch[]> {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Simulation cannot run in production');
-  }
+  assertSimulationDatabaseIsSafe();
 
   const competition = await prisma.competition.findFirst();
   if (!competition) throw new Error('No competition found in DB');
@@ -345,6 +346,8 @@ export async function setupSimMatches(
 }
 
 export async function teardownSimMatches(matches: SimMatch[]): Promise<void> {
+  assertSimulationDatabaseIsSafe();
+
   for (const match of matches) {
     // Delete associated records first (no cascade by default)
     await prisma.scoreFlow.deleteMany({

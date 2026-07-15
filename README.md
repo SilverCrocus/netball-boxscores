@@ -38,6 +38,27 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+The background polling worker is disabled unless `WORKER_ENABLED=true` is set.
+A normal development start therefore serves the application without polling
+Champion Data or writing live updates.
+
+### Safe worktree development
+
+Use a unique port and a disposable local/test database for every worktree. Do
+not copy the production database URL into a feature worktree.
+
+```bash
+PORT=3101 NEXTAUTH_URL=http://localhost:3101 npm run dev
+```
+
+Set both `DATABASE_URL` and `DIRECT_URL` to the worktree's disposable database,
+and mark it with `DATABASE_ENVIRONMENT=local` (or `development`, `test`, or
+`staging`). Keep `WORKER_ENABLED=false` unless that worktree specifically owns
+polling. A non-production worker marked against `DATABASE_ENVIRONMENT=production`
+will refuse to start unless `ALLOW_SHARED_PRODUCTION_DB_WRITES=true` is also set;
+that acknowledgement is exceptional and should not be used for ordinary
+development.
+
 ## Scripts
 
 | Command | Description |
@@ -57,6 +78,8 @@ A dev-only simulation system lets you test the live scores pipeline without wait
 ```bash
 # 1. Enable simulation in .env
 SIMULATION_MODE=true
+WORKER_ENABLED=true
+DATABASE_ENVIRONMENT=local
 
 # 2. Start dev server
 npm run dev
@@ -66,6 +89,14 @@ npm run dev
 ```
 
 The simulation creates temporary matches (round 99), generates realistic scoring data through the real worker pipeline, and broadcasts via Socket.io. Orphaned data is auto-cleaned on startup.
+
+Simulation still uses the same polling worker as live ingestion, so both
+`SIMULATION_MODE=true` and `WORKER_ENABLED=true` are required. Run it only with
+a disposable database marked `DATABASE_ENVIRONMENT=local`, `development`, or
+`test`; staging and production are always rejected, even when shared production
+writes were explicitly acknowledged. If the worker is disabled, simulation
+routes and startup cleanup remain disabled as well, so a normal development
+start performs no simulation writes.
 
 **Production safeguards:** Simulation is blocked in production at three levels — server routes refuse to mount, the engine refuses to create matches, and the Champion Data client refuses to redirect to sim endpoints.
 
