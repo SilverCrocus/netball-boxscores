@@ -8,12 +8,14 @@ import { PlayerBioCard } from '@/components/player/PlayerBioCard';
 import PlayerSeasonStats from '@/components/player/PlayerSeasonStats';
 import PlayerCharts from '@/components/player/PlayerCharts';
 import { PlayerGameLog } from '@/components/player/PlayerGameLog';
+import { PlayerAdvancedMetrics } from '@/components/player/PlayerAdvancedMetrics';
+import { getPlayerAnalyticsProfile } from '@/lib/player-analytics';
 import { JsonLd, personJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import type { Metadata } from 'next';
 
 interface PlayerPageProps {
   params: Promise<{ playerId: string }>;
-  searchParams: Promise<{ season?: string }>;
+  searchParams: Promise<{ edition?: string; season?: string }>;
 }
 
 const getPlayer = cache((playerId: string, competitionId?: string) =>
@@ -22,7 +24,14 @@ const getPlayer = cache((playerId: string, competitionId?: string) =>
     include: {
       team: true,
       matchStats: {
-        where: competitionId ? { match: { competitionId } } : undefined,
+        where: competitionId ? {
+          match: {
+            competitionId,
+            status: 'COMPLETED',
+            resultQuality: { in: ['OFFICIAL_FINAL', 'CORRECTED'] },
+            isSimulation: false,
+          },
+        } : undefined,
         include: {
           match: {
             include: {
@@ -33,14 +42,20 @@ const getPlayer = cache((playerId: string, competitionId?: string) =>
         },
         orderBy: { match: { scheduledAt: 'desc' } },
       },
+      rosterMemberships: {
+        where: competitionId ? { editionEntry: { competitionId } } : undefined,
+        include: { editionEntry: { include: { team: true, competition: true } } },
+        orderBy: { validFrom: 'desc' },
+      },
     },
   })
 );
 
 const getCompetitions = cache(() =>
   prisma.competition.findMany({
-    select: { id: true, season: true, name: true },
-    orderBy: { season: 'desc' },
+    where: { publicationStatus: 'PUBLISHED' },
+    select: { id: true, season: true, name: true, slug: true, label: true, seasonStart: true },
+    orderBy: [{ seasonStart: 'desc' }, { season: 'desc' }],
   })
 );
 
@@ -62,10 +77,6 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
     title: `${player.name} - ${player.team.name}`,
     description: `${player.name} — ${player.position} for ${player.team.name}. Season stats, game log, and profile.`,
   };
-}
-
-function computeImpact(stats: { goals: number; goalAssists: number; intercepts: number; deflections: number; rebounds: number; turnovers: number; penalties: number }[]): number {
-  return stats.reduce((sum, s) => sum + s.goals + s.goalAssists + s.intercepts + s.deflections + s.rebounds - s.turnovers - s.penalties, 0);
 }
 
 type PlayerWithStats = NonNullable<Awaited<ReturnType<typeof getPlayer>>>;
@@ -93,13 +104,15 @@ function computeStatHighlightValues(
 
 export default async function PlayerPage({ params, searchParams }: PlayerPageProps) {
   const { playerId } = await params;
-  const { season } = await searchParams;
+  const { edition, season } = await searchParams;
 
   const competitions = await getCompetitions();
   const currentCompetition = competitions[0];
-  const selectedCompetition = season
-    ? competitions.find((c) => c.season.toString() === season) || currentCompetition
-    : currentCompetition;
+  const selectedCompetition = edition
+    ? competitions.find((competition) => (competition.slug ?? competition.id) === edition) || currentCompetition
+    : season
+      ? competitions.find((competition) => competition.season.toString() === season) || currentCompetition
+      : currentCompetition;
 
   const player = await getPlayer(playerId, selectedCompetition?.id);
 
@@ -108,10 +121,14 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
   const config = getPositionConfig(player.position);
   const statHighlightValues = computeStatHighlightValues(player, config);
 
-  const matchIds = player.matchStats.map((ms) => ms.matchId);
-  const superShotsByMatch = await getPlayerSuperShots(playerId, matchIds);
+  const analytics = selectedCompetition
+    ? await getPlayerAnalyticsProfile(playerId, selectedCompetition.id, player.position)
+    : null;
+  const superShotsByMatch = analytics?.superShotMatchIds.length
+    ? await getPlayerSuperShots(playerId, analytics.superShotMatchIds)
+    : [];
   const totalSuperShots = superShotsByMatch.reduce((sum, g) => sum + g._count, 0);
-  const impactTotal = computeImpact(player.matchStats);
+  const membership = player.rosterMemberships[0]?.editionEntry;
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -141,10 +158,9 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
           <PlayerSeasonStats
             matchStats={player.matchStats}
             positionConfig={config}
-            totalSuperShots={totalSuperShots}
-            impactTotal={impactTotal}
+            totalSuperShots={analytics?.superShotMatchIds.length ? totalSuperShots : undefined}
             competitions={competitions}
-            selectedSeason={selectedCompetition?.season ?? currentCompetition?.season}
+            selectedCompetitionId={selectedCompetition?.id}
             playerId={playerId}
           />
         </div>
@@ -155,6 +171,14 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
           />
         </div>
       </div>
+
+      {analytics && selectedCompetition && (
+        <PlayerAdvancedMetrics
+          analytics={analytics}
+          editionLabel={selectedCompetition.label ?? selectedCompetition.name}
+          membershipLabel={membership?.displayName ?? membership?.team.name ?? player.team.name}
+        />
+      )}
 
       <PlayerBioCard biography={player.biography ?? null} />
 
