@@ -87,7 +87,7 @@ model Competition {
   id                String                @id @default(cuid())
   name              String
   season            Int
-  championDataId    Int                   @unique
+  championDataId    Int?                  @unique
   seasonStart       DateTime?
   seasonEnd         DateTime?
   seriesId          String?
@@ -330,6 +330,10 @@ enum MatchStatus {
   SCHEDULED
   LIVE
   COMPLETED
+  DELAYED
+  POSTPONED
+  CANCELLED
+  ABANDONED
 }
 
 enum ResultQualityStatus {
@@ -344,11 +348,11 @@ model Match {
   id                  String              @id @default(cuid())
   competitionId       String
   competition         Competition         @relation(fields: [competitionId], references: [id])
-  homeTeamId          String
-  homeTeam            Team                @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeamId          String
-  awayTeam            Team                @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  round               Int
+  homeTeamId          String?
+  homeTeam            Team?               @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId          String?
+  awayTeam            Team?               @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  round               Int?
   roundLabel          String?
   venue               String
   neutralVenue        Boolean             @default(false)

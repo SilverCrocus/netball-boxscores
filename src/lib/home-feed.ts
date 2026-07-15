@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { unstable_cache } from 'next/cache';
 import { prisma, excludeSimData } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
+import { hasResolvedLegacyMatch, type ResolvedLegacyMatch } from '@/lib/edition-match';
 
 export const HOME_RESULTS_PAGE_SIZE = 8;
 
@@ -24,6 +25,7 @@ export const homepageMatchSelect = {
 } satisfies Prisma.MatchSelect;
 
 export type HomepageMatch = Prisma.MatchGetPayload<{ select: typeof homepageMatchSelect }>;
+export type ResolvedHomepageMatch = ResolvedLegacyMatch<HomepageMatch>;
 
 interface ScoreBreakdown {
   goals: number;
@@ -39,8 +41,8 @@ export interface HomeResultCard {
   venue: string;
   round: number;
   finalCode: string | null;
-  homeTeam: HomepageMatch['homeTeam'];
-  awayTeam: HomepageMatch['awayTeam'];
+  homeTeam: NonNullable<HomepageMatch['homeTeam']>;
+  awayTeam: NonNullable<HomepageMatch['awayTeam']>;
   homeBreakdown: ScoreBreakdown | null;
   awayBreakdown: ScoreBreakdown | null;
 }
@@ -75,7 +77,7 @@ export function computeBreakdown(match: HomepageMatch) {
   };
 }
 
-function toResultCard(match: HomepageMatch): HomeResultCard {
+function toResultCard(match: ResolvedHomepageMatch): HomeResultCard {
   return {
     id: match.id,
     status: 'COMPLETED',
@@ -95,6 +97,7 @@ export function groupCompletedMatches(matches: HomepageMatch[]): HomeResultGroup
   const grouped = new Map<string, HomeResultCard[]>();
 
   for (const match of matches) {
+    if (!hasResolvedLegacyMatch(match)) continue;
     const label = formatMatchStage(match.round, match.finalCode);
     const group = grouped.get(label) ?? [];
     group.push(toResultCard(match));
@@ -142,6 +145,9 @@ export async function loadCompletedMatchesPage(
       ...excludeSimData,
       competitionId,
       status: 'COMPLETED',
+      homeTeamId: { not: null },
+      awayTeamId: { not: null },
+      round: { not: null },
       ...(cursorDate && decodedCursor
         ? {
             OR: [
@@ -156,7 +162,7 @@ export async function loadCompletedMatchesPage(
     take: HOME_RESULTS_PAGE_SIZE + 1,
   });
 
-  const pageMatches = matches.slice(0, HOME_RESULTS_PAGE_SIZE);
+  const pageMatches = matches.filter(hasResolvedLegacyMatch).slice(0, HOME_RESULTS_PAGE_SIZE);
   const hasMore = matches.length > HOME_RESULTS_PAGE_SIZE;
   const lastMatch = pageMatches.at(-1);
 

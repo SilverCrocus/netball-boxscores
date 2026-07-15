@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import type { MatchStatus } from '@prisma/client';
 
 interface MatchActionsProps {
   matchId: string;
-  status: 'SCHEDULED' | 'LIVE' | 'COMPLETED';
+  status: MatchStatus;
 }
 
 interface UserMatchResource {

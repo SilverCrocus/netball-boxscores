@@ -5,6 +5,7 @@ import { resolveCompetition } from '@/lib/competitions';
 import { computeBreakdown, homepageMatchSelect } from '@/lib/home-feed';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import Link from 'next/link';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,11 +22,12 @@ export default async function LivePage() {
     : { ...excludeSimData };
 
   if (state.liveMatchIds.length > 1) {
-    const liveMatches = await prisma.match.findMany({
+    const matches = await prisma.match.findMany({
       where: { id: { in: state.liveMatchIds } },
       select: homepageMatchSelect,
       orderBy: { scheduledAt: 'asc' },
     });
+    const liveMatches = matches.filter(hasResolvedLegacyMatch);
 
     return (
       <div className="mx-auto max-w-7xl">
@@ -80,7 +82,7 @@ export default async function LivePage() {
       <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
         <section aria-labelledby="next-live-heading">
           <h2 id="next-live-heading" className="mb-4 font-headline text-2xl font-bold text-primary">Next fixture</h2>
-          {nextMatch ? (
+          {nextMatch && hasResolvedLegacyMatch(nextMatch) ? (
             <ScoreCard match={nextMatch} />
           ) : (
             <p className="rounded-xl bg-surface-container-lowest p-6 text-on-surface-variant shadow-sm">
@@ -90,7 +92,7 @@ export default async function LivePage() {
         </section>
         <section aria-labelledby="latest-live-heading">
           <h2 id="latest-live-heading" className="mb-4 font-headline text-2xl font-bold text-primary">Latest result</h2>
-          {latestResult ? (
+          {latestResult && hasResolvedLegacyMatch(latestResult) ? (
             <ScoreCard match={{ ...latestResult, ...computeBreakdown(latestResult) }} />
           ) : (
             <p className="rounded-xl bg-surface-container-lowest p-6 text-on-surface-variant shadow-sm">

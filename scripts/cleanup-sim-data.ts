@@ -34,6 +34,7 @@ async function main() {
 
   console.log(`Found ${simMatches.length} simulation match(es):\n`);
   for (const m of simMatches) {
+    if (!m.homeTeam || !m.awayTeam) continue;
     console.log(
       `  - ${m.homeTeam.name} vs ${m.awayTeam.name} ` +
       `(${m.homeScore}-${m.awayScore}, ${m.status}, ` +

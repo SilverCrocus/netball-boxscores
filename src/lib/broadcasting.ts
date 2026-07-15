@@ -75,7 +75,7 @@ type DbMatchWithTeams = {
 export async function broadcastMatchChanges(
   changes: ChangeResult,
   matchDetail: CDMatchStatsResponse,
-  _dbMatch: DbMatchWithTeams | null,
+  _dbMatch: unknown,
 ): Promise<void> {
   // Retained for caller compatibility while match-change broadcasts use the validated delta.
   void _dbMatch;

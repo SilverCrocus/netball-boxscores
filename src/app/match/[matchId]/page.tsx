@@ -19,6 +19,7 @@ import { formatMatchDateTime } from '@/lib/format';
 import { formatMatchStage } from '@/lib/match-label';
 import { timedQuery } from '@/lib/server-timing';
 import { getMvpSupportingStats } from '@/lib/mvp-stats';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 
 const getMatch = cache((matchId: string) =>
   timedQuery('match_base', () => prisma.match.findUnique({
@@ -90,7 +91,7 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
   const { matchId } = await params;
   const match = await getMatch(matchId);
 
-  if (!match) return { title: 'Match Not Found' };
+  if (!match || !hasResolvedLegacyMatch(match)) return { title: 'Match Not Found' };
 
   const isCompleted = match.status === 'COMPLETED';
   const stage = formatMatchStage(match.round, match.finalCode);
@@ -109,7 +110,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
   const { matchId } = await params;
   const match = await getMatch(matchId);
 
-  if (!match) notFound();
+  if (!match || !hasResolvedLegacyMatch(match)) notFound();
 
   const superShotsByPlayer = new Map<string, number>();
   let homeSuperShots = 0, awaySuperShots = 0;

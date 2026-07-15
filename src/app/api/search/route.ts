@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, excludeSimData } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
 import type { SearchResponse } from '@/types/search';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +48,8 @@ export async function GET(request: Request) {
         },
         select: {
           id: true,
+          homeTeamId: true,
+          awayTeamId: true,
           round: true,
           finalCode: true,
           status: true,
@@ -75,7 +78,7 @@ export async function GET(request: Request) {
         meta: team.abbreviation,
         href: `/team/${team.slug}`,
       })),
-      matches: matches.map((match) => ({
+      matches: matches.filter(hasResolvedLegacyMatch).map((match) => ({
         id: match.id,
         kind: 'match' as const,
         label: `${match.homeTeam.name} v ${match.awayTeam.name}`,

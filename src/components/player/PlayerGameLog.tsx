@@ -6,16 +6,18 @@ import type { PlayerMatchStats } from '@prisma/client';
 import type { TeamInfoWithId } from '@/types/team';
 import type { StatValues } from '@/lib/stat-utils';
 import type { PositionConfig } from './position-config';
+import { hasResolvedLegacyMatch, type ResolvedLegacyMatch } from '@/lib/edition-match';
 
 interface MatchWithTeams {
   id: string;
   scheduledAt: Date;
   homeScore: number;
   awayScore: number;
-  homeTeamId: string;
-  awayTeamId: string;
-  homeTeam: TeamInfoWithId;
-  awayTeam: TeamInfoWithId;
+  round: number | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeTeam: TeamInfoWithId | null;
+  awayTeam: TeamInfoWithId | null;
 }
 
 interface MatchStat extends StatValues {
@@ -36,7 +38,12 @@ function formatStatValue(stat: MatchStat, statField: string): string {
 }
 
 export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLogProps) {
-  if (matchStats.length === 0) {
+  const resolvedStats = matchStats.filter(
+    (stat): stat is MatchStat & { match: ResolvedLegacyMatch<MatchWithTeams> } =>
+      hasResolvedLegacyMatch(stat.match)
+  );
+
+  if (resolvedStats.length === 0) {
     return (
       <div className="bg-surface-container-lowest rounded-2xl p-8 shadow-sm text-center">
         <span className="material-symbols-outlined text-4xl text-outline-variant mb-2 block">
@@ -73,7 +80,7 @@ export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLo
             </tr>
           </thead>
           <tbody className="font-label text-sm">
-            {matchStats.map((stat, index) => {
+            {resolvedStats.map((stat, index) => {
               const { match } = stat;
               const isHome = match.homeTeamId === playerTeamId;
               const opponent = isHome ? match.awayTeam : match.homeTeam;

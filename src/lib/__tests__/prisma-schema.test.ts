@@ -83,16 +83,21 @@ describe("Prisma Schema", () => {
     expect(schema).toContain("enum ImportMutationTarget");
   });
 
-  it("keeps the legacy write contract additive", () => {
+  it("supports provider-neutral editions and unresolved tournament fixtures", () => {
     const schema = fs.readFileSync(
       path.join(process.cwd(), "prisma", "schema.prisma"),
       "utf-8"
     );
 
-    expect(schema).toMatch(/championDataId\s+Int\s+@unique/);
-    expect(schema).toMatch(/homeTeamId\s+String\s*\n/);
-    expect(schema).toMatch(/awayTeamId\s+String\s*\n/);
-    expect(schema).toMatch(/round\s+Int\s*\n/);
+    expect(schema).toMatch(/championDataId\s+Int\?\s+@unique/);
+    expect(schema).toMatch(/homeTeamId\s+String\?\s*\n/);
+    expect(schema).toMatch(/awayTeamId\s+String\?\s*\n/);
+    expect(schema).toMatch(/round\s+Int\?\s*\n/);
+    expect(schema).toMatch(/homeTeam\s+Team\?/);
+    expect(schema).toMatch(/awayTeam\s+Team\?/);
+    for (const status of ["DELAYED", "POSTPONED", "CANCELLED", "ABANDONED"]) {
+      expect(schema).toContain(status);
+    }
     expect(schema).toMatch(/isSimulation\s+Boolean\s+@default\(false\)/);
     expect(schema).toMatch(/resultQuality\s+ResultQualityStatus\s+@default\(UNKNOWN\)/);
     expect(schema).not.toContain("GLASGOW");

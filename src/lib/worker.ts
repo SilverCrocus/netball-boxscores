@@ -19,6 +19,7 @@ import {
 } from '@/lib/broadcasting';
 import { recalculateStandings } from '@/lib/standings';
 import { recordPoll, setCurrentInterval } from '@/lib/worker-health';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 
 // ── Polling intervals ──
 
@@ -163,7 +164,13 @@ export async function pollChampionData(): Promise<void> {
         }
       }
 
-      if (changes.matchId && oldStatMap && matchDetail.playerStats && dbMatch) {
+      if (
+        changes.matchId
+        && oldStatMap
+        && matchDetail.playerStats
+        && dbMatch
+        && hasResolvedLegacyMatch(dbMatch)
+      ) {
         const periodSecs = parseInt(changes.currentTime, 10) || 0;
         await persistAndBroadcastStatEvents(
           changes.matchId, matchDetail, dbMatch, oldStatMap,

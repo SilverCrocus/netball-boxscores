@@ -5,6 +5,7 @@ import { LiveGameClient } from './LiveGameClient';
 import { pickStatFields, emptyStats } from '@/lib/stat-utils';
 import { computeTeamStrengthPrior } from '@/lib/win-probability';
 import { formatMatchStage } from '@/lib/match-label';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -16,6 +17,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     where: { id: matchId },
     select: {
       status: true,
+      homeTeamId: true,
+      awayTeamId: true,
       round: true,
       finalCode: true,
       homeTeam: { select: { name: true } },
@@ -23,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
   });
 
-  if (!match) return { title: 'Match Not Found' };
+  if (!match || !hasResolvedLegacyMatch(match)) return { title: 'Match Not Found' };
 
   const statusPrefix = match.status === 'COMPLETED' ? 'Full Time:' : 'LIVE:';
 
@@ -95,9 +98,9 @@ export default async function LiveGamePage({ params }: Props) {
     },
   });
 
-  if (!match) return notFound();
+  if (!match || !hasResolvedLegacyMatch(match)) return notFound();
 
-  function serializeTeam(team: NonNullable<typeof match>['homeTeam']) {
+  function serializeTeam(team: NonNullable<NonNullable<typeof match>['homeTeam']>) {
     return {
       id: team.id,
       name: team.name,

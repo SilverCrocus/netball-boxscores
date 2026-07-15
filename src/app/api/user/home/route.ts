@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-auth';
 import { excludeSimData, prisma } from '@/lib/db';
 import { resolveCompetition } from '@/lib/competitions';
-import { computeBreakdown, homepageMatchSelect, type HomepageMatch } from '@/lib/home-feed';
+import { computeBreakdown, homepageMatchSelect, type ResolvedHomepageMatch } from '@/lib/home-feed';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 import type { MyTeamHubItem, PersonalizedMatchCard } from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
 
-function toCard(match: HomepageMatch): PersonalizedMatchCard {
+function toCard(match: ResolvedHomepageMatch): PersonalizedMatchCard {
   return {
     id: match.id,
     status: match.status,
@@ -75,11 +76,13 @@ export async function GET() {
       }),
     ]);
 
+    const resolvedUpcoming = upcoming.filter(hasResolvedLegacyMatch);
+    const resolvedCompleted = completed.filter(hasResolvedLegacyMatch);
     const items: MyTeamHubItem[] = follows.map((follow) => {
-      const nextMatch = upcoming.find(
+      const nextMatch = resolvedUpcoming.find(
         (match) => match.homeTeamId === follow.teamId || match.awayTeamId === follow.teamId,
       );
-      const latestResult = completed.find(
+      const latestResult = resolvedCompleted.find(
         (match) => match.homeTeamId === follow.teamId || match.awayTeamId === follow.teamId,
       );
       return {

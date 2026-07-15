@@ -4,6 +4,7 @@ import { TeamBadge } from './TeamBadge';
 import { formatMatchDate, formatMatchTime, formatGameClock, formatMatchDateTime } from '@/lib/format';
 import type { TeamInfo } from '@/types/team';
 import { formatMatchStage } from '@/lib/match-label';
+import type { MatchStatus } from '@prisma/client';
 
 interface ScoreBreakdown {
   goals: number;
@@ -16,10 +17,10 @@ interface ScoreCardMatch {
   awayTeam: TeamInfo;
   homeScore: number;
   awayScore: number;
-  status: 'SCHEDULED' | 'LIVE' | 'COMPLETED';
+  status: MatchStatus;
   currentQuarter?: number | null;
   currentTime?: string | null;
-  round?: number;
+  round?: number | null;
   finalCode?: string | null;
   venue?: string;
   scheduledAt?: string | Date;

@@ -57,6 +57,7 @@ export async function recalculateStandings(): Promise<void> {
   }
 
   for (const m of completedMatches) {
+    if (!m.homeTeamId || !m.awayTeamId) continue;
     const home = getRecord(m.homeTeamId);
     const away = getRecord(m.awayTeamId);
 

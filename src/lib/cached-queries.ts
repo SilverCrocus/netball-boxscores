@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { excludeSimData, prisma } from '@/lib/db';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 
 const matchTeamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
 
@@ -35,8 +36,8 @@ const teamStandingQuery = (competitionId: string, teamId: string) =>
     where: { competitionId_teamId: { competitionId, teamId } },
   });
 
-const recentTeamMatchesQuery = (competitionId: string, teamId: string) =>
-  prisma.match.findMany({
+const recentTeamMatchesQuery = async (competitionId: string, teamId: string) => {
+  const matches = await prisma.match.findMany({
     where: {
       ...excludeSimData,
       competitionId,
@@ -50,9 +51,11 @@ const recentTeamMatchesQuery = (competitionId: string, teamId: string) =>
     orderBy: { scheduledAt: 'desc' },
     take: 5,
   });
+  return matches.filter(hasResolvedLegacyMatch);
+};
 
-const upcomingTeamMatchesQuery = (competitionId: string, teamId: string) =>
-  prisma.match.findMany({
+const upcomingTeamMatchesQuery = async (competitionId: string, teamId: string) => {
+  const matches = await prisma.match.findMany({
     where: {
       ...excludeSimData,
       competitionId,
@@ -67,6 +70,8 @@ const upcomingTeamMatchesQuery = (competitionId: string, teamId: string) =>
     orderBy: { scheduledAt: 'asc' },
     take: 3,
   });
+  return matches.filter(hasResolvedLegacyMatch);
+};
 
 export const getStandingsForCompetition = process.env.NODE_ENV === 'test'
   ? standingsQuery

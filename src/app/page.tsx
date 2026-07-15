@@ -12,8 +12,9 @@ import {
   deriveHomeHeader,
   getCompletedMatchesPage,
   homepageMatchSelect,
-  type HomepageMatch,
+  type ResolvedHomepageMatch,
 } from '@/lib/home-feed';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 import { resolveCompetition } from '@/lib/competitions';
 import { timedQuery } from '@/lib/server-timing';
 import Link from 'next/link';
@@ -22,8 +23,8 @@ import Image from 'next/image';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  let liveMatches: HomepageMatch[] = [];
-  let upcomingMatches: HomepageMatch[] = [];
+  let liveMatches: ResolvedHomepageMatch[] = [];
+  let upcomingMatches: ResolvedHomepageMatch[] = [];
   let completedPage = { groups: [], nextCursor: null } as Awaited<ReturnType<typeof getCompletedMatchesPage>>;
   let season: number | null = null;
   let databaseUnavailable = false;
@@ -34,7 +35,7 @@ export default async function HomePage() {
     if (competition) {
       season = competition.season;
       const baseWhere = { ...excludeSimData, competitionId: competition.id };
-      [liveMatches, upcomingMatches, completedPage] = await Promise.all([
+      const [live, upcoming, history] = await Promise.all([
         timedQuery('home_live_matches', () => prisma.match.findMany({
           where: { ...baseWhere, status: 'LIVE' },
           select: homepageMatchSelect,
@@ -48,6 +49,9 @@ export default async function HomePage() {
         })),
         timedQuery('home_completed_history', () => getCompletedMatchesPage(competition.id)),
       ]);
+      liveMatches = live.filter(hasResolvedLegacyMatch);
+      upcomingMatches = upcoming.filter(hasResolvedLegacyMatch);
+      completedPage = history;
     }
   } catch {
     databaseUnavailable = true;

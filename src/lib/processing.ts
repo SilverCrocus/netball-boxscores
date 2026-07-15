@@ -643,7 +643,7 @@ export async function writeFinalStats(
       where: { id: matchId },
       include: { homeTeam: { select: { championDataTeamId: true, id: true } }, awayTeam: { select: { championDataTeamId: true, id: true } } },
     });
-    if (!match) return;
+    if (!match || !match.homeTeam || !match.awayTeam) return;
 
     const existing = await prisma.scoreFlow.findMany({
       where: { matchId },
@@ -689,7 +689,7 @@ export async function writeFinalStats(
       where: { id: matchId },
       include: { homeTeam: { select: { id: true, championDataTeamId: true } }, awayTeam: { select: { id: true, championDataTeamId: true } } },
     });
-    if (match) {
+    if (match?.homeTeam && match.awayTeam) {
       for (const [side, ts] of [['home', detail.teamStats.home], ['away', detail.teamStats.away]] as const) {
         const teamId = side === 'home' ? match.homeTeam.id : match.awayTeam.id;
         const data = toTeamStatsData(ts, side === 'home');

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { CourtClient } from './CourtClient';
+import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
   });
 
-  if (!match) return { title: 'Match Not Found' };
+  if (!match || !match.homeTeam || !match.awayTeam) return { title: 'Match Not Found' };
 
   return {
     title: `Court View: ${match.homeTeam.name} vs ${match.awayTeam.name}`,
@@ -52,7 +53,7 @@ export default async function CourtPage({ params }: Props) {
     },
   });
 
-  if (!match) return notFound();
+  if (!match || !hasResolvedLegacyMatch(match)) return notFound();
 
   return <CourtClient match={match} />;
 }

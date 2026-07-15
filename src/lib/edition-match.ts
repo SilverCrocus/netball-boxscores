@@ -30,6 +30,41 @@ export interface MatchProjectionInput {
   slots?: readonly ProjectableSlot[];
 }
 
+interface LegacyMatchIdentity {
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  round: number | null;
+}
+
+type ResolvedRelation<T, K extends PropertyKey> = K extends keyof T
+  ? { [P in K]-?: NonNullable<T[P]> }
+  : unknown;
+
+export type ResolvedLegacyMatch<T extends LegacyMatchIdentity> = T & {
+  homeTeamId: string;
+  awayTeamId: string;
+  round: number;
+} & ResolvedRelation<T, 'homeTeam'> & ResolvedRelation<T, 'awayTeam'>;
+
+/**
+ * Legacy SSN surfaces call this before rendering a match. Tournament-aware
+ * pages use projectMatchSides instead and can retain unresolved fixtures.
+ */
+export function hasResolvedLegacyMatch<T extends LegacyMatchIdentity>(
+  match: T
+): match is ResolvedLegacyMatch<T> {
+  const relations = match as T & {
+    homeTeam?: unknown | null;
+    awayTeam?: unknown | null;
+  };
+
+  return match.homeTeamId !== null
+    && match.awayTeamId !== null
+    && match.round !== null
+    && (!('homeTeam' in relations) || relations.homeTeam != null)
+    && (!('awayTeam' in relations) || relations.awayTeam != null);
+}
+
 function slotFor(input: MatchProjectionInput, side: 'A' | 'B'): ProjectableSlot | undefined {
   return input.slots?.find((slot) => slot.side === side);
 }
