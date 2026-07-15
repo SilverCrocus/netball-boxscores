@@ -15,5 +15,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/standings', label: 'Standings', icon: 'leaderboard' },
   { href: '/rankings', label: 'Rankings', icon: 'workspace_premium' },
   { href: '/records', label: 'Records', icon: 'trophy' },
+  { href: '/compare/players', label: 'Compare', icon: 'compare_arrows' },
   { href: '/teams', label: 'Teams', icon: 'groups' },
 ];
