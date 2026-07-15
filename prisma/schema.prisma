@@ -306,6 +306,10 @@ model Player {
   name                 String
   position             Position
   photoUrl             String?
+  photoSourceUrl       String?
+  photoCredit          String?
+  photoLicense         String?
+  photoVerifiedAt      DateTime?          @db.Timestamptz(3)
   championDataPlayerId Int?               @unique
   nationality          String?
   dateOfBirth          DateTime?

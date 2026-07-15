@@ -24,7 +24,7 @@ describe('competition source adapters', () => {
     const normalized = await new CsvCompetitionAdapter().normalize({
       context: validImport().context,
       teams: 'externalId,name,slug,abbreviation\nAUS,Australia,australia,AUS\nNZL,New Zealand,new-zealand,NZL',
-      players: 'externalId,teamExternalId,name,position\np1,AUS,Test Player,C',
+      players: 'externalId,teamExternalId,name,position,photoUrl,photoSourceUrl,photoCredit,photoLicense,photoVerifiedAt\np1,AUS,Test Player,C,https://cdn.example.test/player.jpg,https://example.test/media/player,Example Photographer,CC BY 4.0,2026-07-16T00:00:00Z',
       rosters: 'teamExternalId,playerExternalId,status,bib,isCaptain\nAUS,p1,ACTIVE,C,true',
       matches: 'externalId,stageSlug,scheduledAt,venue,neutralVenue,round,sideATeamExternalId,sideBTeamExternalId\nm1,pool-stage,2026-07-25T08:00:00Z,SEC,true,1,AUS,NZL',
       results: 'matchExternalId,status,sideAScore,sideBScore\nm1,COMPLETED,60,55',
@@ -33,7 +33,14 @@ describe('competition source adapters', () => {
 
     expect(normalized).toMatchObject({
       teams: [{ externalId: 'AUS' }, { externalId: 'NZL' }],
-      players: [{ externalId: 'p1', position: 'C' }],
+      players: [{
+        externalId: 'p1',
+        position: 'C',
+        photoUrl: 'https://cdn.example.test/player.jpg',
+        photoSourceUrl: 'https://example.test/media/player',
+        photoCredit: 'Example Photographer',
+        photoLicense: 'CC BY 4.0',
+      }],
       matches: [{ externalId: 'm1', neutralVenue: true }],
       results: [{ sideAScore: 60, sideBScore: 55 }],
     });

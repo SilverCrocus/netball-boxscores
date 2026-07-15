@@ -25,6 +25,11 @@ export interface NormalizedPlayerInput {
   teamExternalId: string;
   name: string;
   position: Position;
+  photoUrl?: string;
+  photoSourceUrl?: string;
+  photoCredit?: string;
+  photoLicense?: string;
+  photoVerifiedAt?: string;
 }
 
 export interface NormalizedRosterInput {

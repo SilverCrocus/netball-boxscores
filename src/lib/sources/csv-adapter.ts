@@ -81,6 +81,11 @@ export class CsvCompetitionAdapter implements CompetitionSourceAdapter<Competiti
       teamExternalId: row.teamExternalId,
       name: row.name,
       position: row.position as NormalizedPlayerInput['position'],
+      photoUrl: optional(row.photoUrl),
+      photoSourceUrl: optional(row.photoSourceUrl),
+      photoCredit: optional(row.photoCredit),
+      photoLicense: optional(row.photoLicense),
+      photoVerifiedAt: optional(row.photoVerifiedAt),
     }));
     const rosters = parseCsv(bundle.rosters).map((row): NormalizedRosterInput => ({
       teamExternalId: row.teamExternalId,

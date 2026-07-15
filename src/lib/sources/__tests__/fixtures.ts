@@ -12,7 +12,17 @@ export function validImport(): NormalizedCompetitionImport {
       { externalId: 'NZL', name: 'New Zealand', slug: 'new-zealand', abbreviation: 'NZL' },
     ],
     players: [
-      { externalId: 'player-1', teamExternalId: 'AUS', name: 'Test Player', position: 'C' },
+      {
+        externalId: 'player-1',
+        teamExternalId: 'AUS',
+        name: 'Test Player',
+        position: 'C',
+        photoUrl: 'https://cdn.example.test/player.jpg',
+        photoSourceUrl: 'https://example.test/media/player',
+        photoCredit: 'Example Photographer',
+        photoLicense: 'CC BY 4.0',
+        photoVerifiedAt: '2026-07-15T00:00:00.000Z',
+      },
     ],
     rosters: [
       { teamExternalId: 'AUS', playerExternalId: 'player-1', status: 'ACTIVE' },

@@ -30,6 +30,15 @@ function duplicateIssues(
   }
 }
 
+function validHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function validateNormalizedImport(input: NormalizedCompetitionImport): ImportIssueInput[] {
   const issues: ImportIssueInput[] = [];
   required(issues, input.context?.sourceKey, 'context.sourceKey');
@@ -61,6 +70,18 @@ export function validateNormalizedImport(input: NormalizedCompetitionImport): Im
     required(issues, player.teamExternalId, 'players.teamExternalId', player.externalId);
     if (!POSITIONS.has(player.position)) {
       issues.push({ severity: 'ERROR', code: 'INVALID_POSITION', message: `Invalid position: ${player.position}`, externalId: player.externalId, fieldPath: 'players.position' });
+    }
+    if (player.photoUrl) {
+      if (!validHttpUrl(player.photoUrl)) {
+        issues.push({ severity: 'ERROR', code: 'INVALID_URL', message: 'Player photoUrl must be an HTTP(S) URL', externalId: player.externalId, fieldPath: 'players.photoUrl' });
+      }
+      if (!player.photoSourceUrl || !validHttpUrl(player.photoSourceUrl)) {
+        issues.push({ severity: 'ERROR', code: 'MISSING_PHOTO_SOURCE', message: 'A sourced player photo requires its original HTTP(S) source page', externalId: player.externalId, fieldPath: 'players.photoSourceUrl' });
+      }
+      required(issues, player.photoLicense, 'players.photoLicense', player.externalId);
+    }
+    if (player.photoVerifiedAt && Number.isNaN(new Date(player.photoVerifiedAt).getTime())) {
+      issues.push({ severity: 'ERROR', code: 'INVALID_DATETIME', message: 'Player photoVerifiedAt must be an ISO date', externalId: player.externalId, fieldPath: 'players.photoVerifiedAt' });
     }
   }
   for (const match of input.matches) {
