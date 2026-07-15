@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { MetricAggregation, MetricResult } from '@/lib/analytics';
 import { getCompetitions } from '@/lib/competitions';
 import { getComparisonPlayers, getPlayerComparison } from '@/lib/comparison/service';
+import { GroupedPlayerOptions } from './GroupedPlayerOptions';
 
 export const metadata: Metadata = {
   title: 'Compare Netball Players',
@@ -58,8 +59,8 @@ export default async function ComparePlayersPage({ searchParams }: ComparePagePr
 
       <form method="get" className="grid gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
         <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series?.name ?? option.name} · {option.label ?? option.season}</option>)}</select></Filter>
-        <Filter label="Player one"><select name="left" defaultValue={left?.id} className="filter-control">{players.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select></Filter>
-        <Filter label="Player two"><select name="right" defaultValue={right?.id} className="filter-control">{players.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select></Filter>
+        <Filter label="Player one"><select name="left" defaultValue={left?.id} className="filter-control"><GroupedPlayerOptions players={players} /></select></Filter>
+        <Filter label="Player two"><select name="right" defaultValue={right?.id} className="filter-control"><GroupedPlayerOptions players={players} /></select></Filter>
         <Filter label="Mode"><select name="mode" defaultValue={mode} className="filter-control">{MODES.map((option) => <option key={option} value={option}>{option.replaceAll('_', ' ').toLocaleLowerCase()}</option>)}</select></Filter>
         <Filter label="Window"><select name="lastN" defaultValue={lastN ?? ''} className="filter-control"><option value="">Whole edition</option>{[3, 5, 10, 20].map((option) => <option key={option} value={option}>Last {option}</option>)}</select></Filter>
         <button type="submit" className="min-h-11 rounded-xl bg-secondary px-5 font-headline text-sm font-bold text-white xl:col-start-5">Compare</button>
@@ -114,4 +115,3 @@ function MetricValue({ side, leadWithPercentile, align }: { side: { result: Metr
 function IncludedMatches({ label, result }: { label: string; result: MetricResult }) {
   return <div><p className="font-bold text-primary">{label}</p><p>{result.games} games · {result.minutes.toFixed(0)} minutes · {result.coverage.toLocaleLowerCase()}</p><div className="mt-1 flex flex-wrap gap-x-2 gap-y-1">{result.includedMatchIds.map((matchId, index) => <Link key={matchId} href={`/match/${matchId}`} className="font-mono text-secondary underline">Game {index + 1}</Link>)}</div></div>;
 }
-
