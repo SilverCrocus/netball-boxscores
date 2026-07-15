@@ -14,6 +14,10 @@ const foreignKeyIndexes = readFileSync(
   join(process.cwd(), 'prisma/migrations/20260715022000_index_analytics_foreign_keys/migration.sql'),
   'utf8',
 );
+const metricContracts = readFileSync(
+  join(process.cwd(), 'prisma/migrations/20260715023000_extend_analytics_metric_contracts/migration.sql'),
+  'utf8',
+);
 
 describe('analytics foundation migration', () => {
   it('creates a private schema and revokes every Data API role', () => {
@@ -69,5 +73,12 @@ describe('analytics foundation migration', () => {
     expect(foreignKeyIndexes).toContain('record_entry_supporting_match_idx');
     expect(foreignKeyIndexes).toContain('record_entry_supporting_competition_idx');
     expect(foreignKeyIndexes).toContain('record_entry_supersedes_idx');
+  });
+
+  it('provides opponent-normalized team differentials without leaf-task DDL', () => {
+    expect(metricContracts).toContain('opponent.\"teamId\" <> tms.\"teamId\"');
+    expect(metricContracts).toContain('AS goal_differential');
+    expect(metricContracts).toContain('AS turnover_differential');
+    expect(metricContracts).toContain('AS shooting_percentage_differential');
   });
 });

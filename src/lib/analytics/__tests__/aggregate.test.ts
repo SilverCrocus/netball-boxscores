@@ -149,4 +149,23 @@ describe('shared analytics aggregation policy', () => {
     expect(calculateMetric('goals', facts, { ...context, window: { lastN: 1 } }, 'TOTAL'))
       .toMatchObject({ value: 20, includedMatchIds: ['match-b'] });
   });
+
+  it('calculates registered composite and ratio metrics deterministically', () => {
+    const facts = [fact('m1', '2026-05-01T10:00:00Z', {
+      goalAssists: 4,
+      feeds: 10,
+      centrePassReceives: 6,
+      gain: 3,
+      turnovers: 2,
+      minutesPlayed: 60,
+    })];
+
+    expect(calculateMetric('attacking_involvement', facts, context, 'TOTAL').value).toBe(20);
+    expect(calculateMetric('gain_to_turnover_ratio', facts, context, 'RATING').value).toBe(1.5);
+  });
+
+  it('routes CentrePass Impact to its reviewed service instead of a generic formula', () => {
+    expect(() => calculateMetric('centrepass_impact', [], context, 'RATING'))
+      .toThrow('CENTREPASS_IMPACT_V1');
+  });
 });

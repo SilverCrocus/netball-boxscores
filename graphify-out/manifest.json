@@ -2605,8 +2605,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/__tests__/analytics-foundation-migration.test.ts": {
-    "mtime": 1784122428.621767,
-    "ast_hash": "ae345826c980435c80d6f03ce7aa974a",
+    "mtime": 1784122722.8908298,
+    "ast_hash": "5d115d7e9fc61f4978e0e2a4bf4e56d1",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/__tests__/edition-behaviour.test.ts": {
@@ -2655,13 +2655,13 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/analytics/catalogue.ts": {
-    "mtime": 1784122257.8156495,
-    "ast_hash": "30b2c7dacd00a5ae5a4a1f77ea7943a0",
+    "mtime": 1784122691.677845,
+    "ast_hash": "485b458d14f1cce02d6922b89ce10381",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/analytics/types.ts": {
-    "mtime": 1784122257.8151731,
-    "ast_hash": "1f307752fdf2f90e715d5ba0008ab499",
+    "mtime": 1784122670.0027044,
+    "ast_hash": "493c9d13c6faf833c9c822fe4c5614c8",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/analytics/index.ts": {
@@ -2670,8 +2670,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/analytics/aggregate.ts": {
-    "mtime": 1784122257.8158255,
-    "ast_hash": "526cef769b82e0ae3124bd5eccf0dfa5",
+    "mtime": 1784122695.6275282,
+    "ast_hash": "a73366c75170492db7ce464aa2058c9a",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/analytics/__tests__/cache-invalidation.test.ts": {
@@ -2680,13 +2680,13 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/analytics/__tests__/catalogue.test.ts": {
-    "mtime": 1784122096.061418,
-    "ast_hash": "2340b85a8e35301f13a298413e7effc3",
+    "mtime": 1784122728.0657148,
+    "ast_hash": "8cc4d055f3c5d6f93a62639c08481ca4",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/lib/analytics/__tests__/aggregate.test.ts": {
-    "mtime": 1784122096.0611734,
-    "ast_hash": "71b9ab8c732da6618fa347e27d84b5c3",
+    "mtime": 1784122722.8918219,
+    "ast_hash": "4ffdd2ec1641ed5b9f7566af3df5caa9",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/render.yaml": {
@@ -3007,6 +3007,11 @@
   "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/src/app/icon.png": {
     "mtime": 1784121811.479127,
     "ast_hash": "6536133e0c760602669e72e6089f4ba8",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-04-analytics-foundation/prisma/migrations/20260715023000_extend_analytics_metric_contracts/migration.sql": {
+    "mtime": 1784122722.890552,
+    "ast_hash": "6b6ef4bfb5554ed8c3b144667ef92156",
     "semantic_hash": ""
   }
 }

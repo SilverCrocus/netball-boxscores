@@ -17,4 +17,20 @@ describe('metric catalogue', () => {
     expect(metric?.displayName).toBe('Official Net Points');
     expect(metric?.formulaVersion).toBe('official-net-points.source');
   });
+
+  it('registers advanced composites, team differentials, and Impact as versioned metrics', () => {
+    const ids = new Set(metricCatalogue.map((metric) => metric.id));
+    expect([
+      'shooting_volume',
+      'attacking_involvement',
+      'defensive_activity',
+      'gain_to_turnover_ratio',
+      'team_goal_differential',
+      'team_turnover_differential',
+      'team_shooting_differential',
+      'centrepass_impact',
+    ].every((id) => ids.has(id))).toBe(true);
+    expect(metricCatalogue.find((metric) => metric.id === 'centrepass_impact'))
+      .toMatchObject({ formulaVersion: 'centrepass-impact.v1', calculation: { kind: 'SERVICE' } });
+  });
 });

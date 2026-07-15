@@ -4,7 +4,8 @@ export type MetricAggregation =
   | 'TOTAL'
   | 'PER_GAME'
   | 'PER_60'
-  | 'WEIGHTED_PERCENTAGE';
+  | 'WEIGHTED_PERCENTAGE'
+  | 'RATING';
 
 export type MetricUnit = 'COUNT' | 'PERCENT' | 'POINTS' | 'RATING';
 
@@ -39,7 +40,10 @@ export type AnalyticsRawField =
   | 'gain'
   | 'pickups'
   | 'netPoints'
-  | 'minutesPlayed';
+  | 'minutesPlayed'
+  | 'goalDifferential'
+  | 'turnoverDifferential'
+  | 'shootingPercentageDifferential';
 
 export interface MetricMinimumSample {
   games?: number;
@@ -64,7 +68,10 @@ export interface MetricDefinition {
   formulaVersion: string;
   calculation:
     | { kind: 'SUM'; field: AnalyticsRawField }
-    | { kind: 'WEIGHTED_PERCENTAGE'; numerator: AnalyticsRawField; denominator: AnalyticsRawField };
+    | { kind: 'SUM_FIELDS'; fields: readonly AnalyticsRawField[] }
+    | { kind: 'RATIO'; numeratorFields: readonly AnalyticsRawField[]; denominatorFields: readonly AnalyticsRawField[] }
+    | { kind: 'WEIGHTED_PERCENTAGE'; numerator: AnalyticsRawField; denominator: AnalyticsRawField }
+    | { kind: 'SERVICE'; service: 'CENTREPASS_IMPACT_V1' };
 }
 
 export interface AnalyticsFact {

@@ -59,6 +59,9 @@ export function calculateMetric(
   if (!metric.allowedAggregations.includes(resolvedAggregation)) {
     throw new Error(`${resolvedAggregation} is not supported for ${metricId}`);
   }
+  if (metric.calculation.kind === 'SERVICE') {
+    throw new Error(`${metricId} must be calculated by ${metric.calculation.service}`);
+  }
 
   const selected = selectWindow(
     facts.filter((fact) => isOfficialFact(fact) && isInContext(fact, context)),
@@ -106,10 +109,31 @@ export function calculateMetric(
         0,
       );
       value = denominator > 0 ? round((numerator / denominator) * 100) : null;
+    } else if (calculation.kind === 'RATIO') {
+      const numerator = covered.reduce(
+        (total, fact) => total + calculation.numeratorFields.reduce(
+          (factTotal, field) => factTotal + (fact.stats[field] ?? 0),
+          0,
+        ),
+        0,
+      );
+      const denominator = covered.reduce(
+        (total, fact) => total + calculation.denominatorFields.reduce(
+          (factTotal, field) => factTotal + (fact.stats[field] ?? 0),
+          0,
+        ),
+        0,
+      );
+      value = denominator > 0 ? round(numerator / denominator) : null;
     } else {
-      const valueField = calculation.field;
+      const valueFields = calculation.kind === 'SUM_FIELDS'
+        ? calculation.fields
+        : [calculation.field];
       const total = covered.reduce(
-        (sum, fact) => sum + (fact.stats[valueField] ?? 0),
+        (sum, fact) => sum + valueFields.reduce(
+          (factTotal, field) => factTotal + (fact.stats[field] ?? 0),
+          0,
+        ),
         0,
       );
       if (resolvedAggregation === 'PER_GAME') value = round(total / games);
