@@ -803,7 +803,7 @@ SELECT DISTINCT
   CASE WHEN cs."name" ILIKE '%super netball%' THEN 'STANDARD_WITH_SUPER_SHOT' ELSE 'STANDARD' END,
   CASE WHEN cs."name" ILIKE '%super netball%' THEN 'SSN_4_2_0' ELSE 'STANDARD' END,
   cs."name" ILIKE '%super netball%',
-  NULL,
+  NULL::JSONB,
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 FROM "CompetitionSeries" cs
@@ -858,7 +858,7 @@ SELECT
   'Finals',
   'FINALS'::"StageType",
   1,
-  NULL,
+  NULL::TIMESTAMP(3),
   c."seasonEnd",
   true
 FROM "Competition" c
@@ -1001,7 +1001,7 @@ INSERT INTO "StageStanding" (
 SELECT
   'cp_stage_standing_' || md5(s."id" || ':' || ee."id"),
   s."id",
-  NULL,
+  NULL::TEXT,
   ee."id",
   legacy."rank",
   legacy."played",
@@ -1049,7 +1049,7 @@ SELECT
   'champion-data',
   'Champion Data',
   'OFFICIAL_FEED'::"SourceSystemKind",
-  NULL,
+  NULL::TEXT,
   true,
   false,
   CURRENT_TIMESTAMP,
@@ -1354,7 +1354,7 @@ INSERT INTO "DataCoverage" (
 SELECT
   'cp_coverage_' || md5(cr.competition_id || ':edition:' || cr.capability::text),
   cr.competition_id,
-  NULL,
+  NULL::TEXT,
   ss."id",
   cr.capability,
   cr.state,

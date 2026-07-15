@@ -71,6 +71,7 @@ describe("CP-01 competition foundation migration", () => {
   it("backfills canonical relationships and verifies completeness", () => {
     const sql = readMigration();
 
+    expect(sql).toContain("NULL::JSONB");
     expect(sql).toContain('ON CONFLICT ("competitionId", "teamId") DO UPDATE');
     expect(sql).toContain(
       'ON CONFLICT ("editionEntryId", "playerId", "validFrom") DO UPDATE'
