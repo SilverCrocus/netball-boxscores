@@ -63,6 +63,19 @@
   --color-on-background: #1a1c1e;
 }
 
+@utility filter-control {
+  min-height: 2.75rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-outline-variant);
+  background: var(--color-surface-container-low);
+  padding-inline: 0.75rem;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
 /* Custom utility classes from Stitch prototypes */
 .kinetic-gradient {
   background: linear-gradient(135deg, #000613 0%, #001f3f 100%);

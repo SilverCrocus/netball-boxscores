@@ -13,5 +13,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Fixtures', icon: 'calendar_today', sidebarLabel: 'Home' },
   { href: '/live', label: 'Live', icon: 'sensors' },
   { href: '/standings', label: 'Standings', icon: 'leaderboard' },
+  { href: '/rankings', label: 'Rankings', icon: 'workspace_premium' },
   { href: '/teams', label: 'Teams', icon: 'groups' },
 ];

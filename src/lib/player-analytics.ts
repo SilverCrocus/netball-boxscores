@@ -10,7 +10,7 @@ import type {
 import { prisma } from '@/lib/db';
 import { calculateCentrePassImpact, type CentrePassImpactResult } from '@/lib/player-impact';
 
-interface PlayerFactRow {
+export interface PlayerFactRow {
   match_id: string;
   competition_id: string;
   competition_series_id: string;
@@ -71,7 +71,7 @@ const statFieldMap: Record<string, AnalyticsRawField> = {
   net_points: 'netPoints',
 };
 
-function toFact(row: PlayerFactRow): AnalyticsFact {
+export function toPlayerAnalyticsFact(row: PlayerFactRow): AnalyticsFact {
   const stats: AnalyticsFact['stats'] = {};
   for (const [sourceField, targetField] of Object.entries(statFieldMap)) {
     stats[targetField] = row[sourceField as keyof PlayerFactRow] as number;
@@ -98,6 +98,42 @@ function toFact(row: PlayerFactRow): AnalyticsFact {
     },
     stats,
   };
+}
+
+export async function getCompetitionPlayerFacts(competitionId: string): Promise<AnalyticsFact[]> {
+  const rows = await prisma.$queryRaw<PlayerFactRow[]>(Prisma.sql`
+    SELECT
+      match_id,
+      competition_id,
+      competition_series_id,
+      competition_kind,
+      stage_id,
+      stage_group_id,
+      scheduled_at,
+      source_updated_at,
+      player_id,
+      position,
+      player_box_score_coverage,
+      net_points_coverage,
+      super_shots_coverage,
+      minutes_played,
+      goals,
+      attempts,
+      goal_assists,
+      intercepts,
+      deflections,
+      rebounds,
+      penalties,
+      feeds,
+      centre_pass_receives,
+      turnovers,
+      gains,
+      pickups,
+      net_points
+    FROM analytics.player_match_fact
+    WHERE competition_id = ${competitionId}
+  `);
+  return rows.map(toPlayerAnalyticsFact);
 }
 
 function displayMetric(
@@ -155,39 +191,7 @@ export async function getPlayerAnalyticsProfile(
   competitionId: string,
   position: string,
 ): Promise<PlayerAnalyticsProfile> {
-  const rows = await prisma.$queryRaw<PlayerFactRow[]>(Prisma.sql`
-    SELECT
-      match_id,
-      competition_id,
-      competition_series_id,
-      competition_kind,
-      stage_id,
-      stage_group_id,
-      scheduled_at,
-      source_updated_at,
-      player_id,
-      position,
-      player_box_score_coverage,
-      net_points_coverage,
-      super_shots_coverage,
-      minutes_played,
-      goals,
-      attempts,
-      goal_assists,
-      intercepts,
-      deflections,
-      rebounds,
-      penalties,
-      feeds,
-      centre_pass_receives,
-      turnovers,
-      gains,
-      pickups,
-      net_points
-    FROM analytics.player_match_fact
-    WHERE competition_id = ${competitionId}
-  `);
-  const facts = rows.map(toFact);
+  const facts = await getCompetitionPlayerFacts(competitionId);
   const playerFacts = facts.filter((fact) => fact.entityId === playerId);
   const metrics = metricSelection(position).map(([metricId, aggregation]) =>
     displayMetric(metricId, playerFacts, playerId, competitionId, aggregation),
