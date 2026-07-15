@@ -59,6 +59,18 @@ will refuse to start unless `ALLOW_SHARED_PRODUCTION_DB_WRITES=true` is also set
 that acknowledgement is exceptional and should not be used for ordinary
 development.
 
+### Deterministic statistical queries
+
+`POST /api/stats/query` accepts `{ "question": "..." }` and converts supported
+netball questions into the finite `QuerySpecV1` contract. It never executes SQL
+generated from user text. The endpoint requires `STATS_RATE_LIMIT_SECRET` in
+production; only daily-rotating HMAC client keys and one-way question hashes are
+stored in private analytics telemetry.
+
+The application timeout limits the HTTP request but does not cancel an already
+running database statement. Production must therefore retain the analytics
+database role's two-second `statement_timeout` as the database-side backstop.
+
 ## Scripts
 
 | Command | Description |

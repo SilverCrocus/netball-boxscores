@@ -66,7 +66,11 @@ function scopeKey(request: PlayerRankingRequest): string {
     `metric:${request.metricId}`,
     `aggregation:${request.aggregation}`,
     `position:${request.position ?? 'ALL'}`,
+    `stage:${request.stageId ?? 'ALL'}`,
+    `group:${request.stageGroupId ?? 'ALL'}`,
     `window:${request.lastN ? `LAST_${request.lastN}` : 'EDITION'}`,
+    `from:${request.from?.toISOString() ?? 'START'}`,
+    `to:${request.to?.toISOString() ?? 'END'}`,
     `minimum_minutes:${request.minimumMinutes}`,
   ].join('|');
 }
@@ -94,7 +98,9 @@ export function calculatePlayerRankingSnapshot(
         entityType: 'PLAYER',
         entityId: entity.id,
         competitionId: request.competitionId,
-        ...(request.lastN ? { window: { lastN: request.lastN } } : {}),
+        ...(request.stageId ? { stageId: request.stageId } : {}),
+        ...(request.stageGroupId ? { stageGroupId: request.stageGroupId } : {}),
+        ...(request.lastN || request.from || request.to ? { window: { lastN: request.lastN, from: request.from, to: request.to } } : {}),
       }, request.aggregation);
     if (result.status !== 'AVAILABLE' || result.value === null || result.minutes < request.minimumMinutes) return [];
     return [{ entity, result }];

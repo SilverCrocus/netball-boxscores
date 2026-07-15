@@ -17,7 +17,11 @@ export interface PlayerRankingRequest {
   metricId: string;
   aggregation: MetricAggregation;
   position?: string;
+  stageId?: string;
+  stageGroupId?: string;
   lastN?: number;
+  from?: Date;
+  to?: Date;
   minimumMinutes: number;
 }
 
@@ -82,4 +86,3 @@ export interface TeamPowerSnapshot {
   populationSize: number;
   entries: TeamPowerEntry[];
 }
-
