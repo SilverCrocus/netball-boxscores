@@ -1,0 +1,79 @@
+import { describe, expect, it } from 'vitest';
+import { sourceIdentityKey } from '@/lib/sources/identity';
+import { planCompetitionImport } from '@/lib/sources/planner';
+import { validImport } from '@/lib/sources/__tests__/fixtures';
+
+const planningContext = {
+  sourceSystemId: 'manual-source',
+  competitionId: 'edition-id',
+  existingIdentities: [],
+  knownStageSlugs: ['pool-stage'],
+  standingsStrategyKey: 'WORLD_NETBALL_2_1_0',
+};
+
+describe('provider-scoped import planning', () => {
+  it('cannot collide provider IDs across sources or editions', () => {
+    const base = { entityType: 'TEAM' as const, externalId: '123' };
+    expect(sourceIdentityKey({ ...base, sourceKey: 'provider-a', editionExternalId: '2026' }))
+      .not.toBe(sourceIdentityKey({ ...base, sourceKey: 'provider-b', editionExternalId: '2026' }));
+    expect(sourceIdentityKey({ ...base, sourceKey: 'provider-a', editionExternalId: '2026' }))
+      .not.toBe(sourceIdentityKey({ ...base, sourceKey: 'provider-a', editionExternalId: '2027' }));
+  });
+
+  it('lists exact writes before execution and is deterministic', () => {
+    const first = planCompetitionImport(validImport(), planningContext);
+    const second = planCompetitionImport(validImport(), planningContext);
+
+    expect(first.valid).toBe(true);
+    expect(first.standingsStrategyKey).toBe('WORLD_NETBALL_2_1_0');
+    expect(first.checksum).toBe(second.checksum);
+    expect(first.writes).toEqual(second.writes);
+    expect(first.writes).toContainEqual(expect.objectContaining({
+      operation: 'INSERT',
+      target: 'MATCH',
+      externalId: 'match-1',
+    }));
+  });
+
+  it('turns replayed scoped identities into updates rather than inserts', () => {
+    const preview = planCompetitionImport(validImport(), {
+      ...planningContext,
+      existingIdentities: [
+        { entityType: 'TEAM', externalId: 'AUS', internalEntityId: 'team-aus' },
+        { entityType: 'TEAM', externalId: 'NZL', internalEntityId: 'team-nzl' },
+        { entityType: 'PLAYER', externalId: 'player-1', internalEntityId: 'player-id' },
+        { entityType: 'MATCH', externalId: 'match-1', internalEntityId: 'match-id' },
+      ],
+    });
+
+    expect(
+      preview.writes
+        .filter((write) => ['TEAM', 'PLAYER', 'MATCH'].includes(write.target))
+        .every((write) => write.operation === 'UPDATE')
+    ).toBe(true);
+  });
+
+  it('keeps missing provider capabilities explicitly unavailable', () => {
+    const preview = planCompetitionImport(validImport(), planningContext);
+    expect(preview.coverage).toHaveLength(10);
+    expect(preview.coverage.find((item) => item.capability === 'NET_POINTS')).toMatchObject({
+      state: 'UNAVAILABLE',
+      notes: 'Not supplied by this source payload',
+    });
+  });
+
+  it('reports unresolved teams, stages, and matches before a transaction', () => {
+    const input = validImport();
+    input.matches[0].stageSlug = 'missing-stage';
+    input.matches[0].sideB = { sourceLabel: 'Pool B winner' };
+    input.results[0].matchExternalId = 'missing-match';
+
+    const preview = planCompetitionImport(input, planningContext);
+    expect(preview.valid).toBe(false);
+    expect(preview.unresolved).toEqual(expect.arrayContaining([
+      expect.objectContaining({ entityType: 'STAGE', externalId: 'missing-stage' }),
+      expect.objectContaining({ entityType: 'TEAM', externalId: 'Pool B winner' }),
+      expect.objectContaining({ entityType: 'MATCH', externalId: 'missing-match' }),
+    ]));
+  });
+});
