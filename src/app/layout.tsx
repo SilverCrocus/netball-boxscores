@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers/Providers";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { getPublicCompetitions } from "@/lib/competitions";
 import { toEditionContexts } from "@/lib/edition-context";
+import { unstable_rethrow } from "next/navigation";
 import "./globals.css";
 
 const lexend = Lexend({
@@ -51,6 +52,10 @@ async function loadNavigationEditions() {
   try {
     return toEditionContexts(await getPublicCompetitions());
   } catch (error) {
+    // Preserve Next's control-flow errors (for example `connection()` opting a
+    // route into dynamic rendering) while still degrading gracefully for real
+    // data-source failures at request time.
+    unstable_rethrow(error);
     console.warn('[Navigation] Competition selector unavailable', error);
     return [];
   }

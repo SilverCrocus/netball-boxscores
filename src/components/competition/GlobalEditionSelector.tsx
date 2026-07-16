@@ -1,9 +1,9 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { EditionSelector } from '@/components/competition/EditionSelector';
 import type { EditionContextValue } from '@/lib/edition-context';
-import { navigationEditionFromPathname } from '@/lib/edition-links';
+import { navigationEditionFromLocation } from '@/lib/edition-links';
 
 interface GlobalEditionSelectorProps {
   editions: EditionContextValue[];
@@ -17,12 +17,13 @@ export function GlobalEditionSelector({
   appearance = 'surface',
 }: GlobalEditionSelectorProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   if (editions.length === 0) return null;
 
   return (
     <EditionSelector
-      current={navigationEditionFromPathname(editions, pathname)}
+      current={navigationEditionFromLocation(editions, pathname, searchParams.get('edition'))}
       editions={editions}
       surface={surface}
       appearance={appearance}

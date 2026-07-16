@@ -186,6 +186,26 @@ describe('tournament data service', () => {
     expect(JSON.stringify(projected)).not.toContain('TBC');
   });
 
+  it('shows live bracket scores without exposing scheduled zero defaults', () => {
+    const projected = projectBracketMatch({
+      id: 'semi-final-live',
+      round: null,
+      roundLabel: 'Semi-final 1',
+      finalCode: null,
+      scheduledAt: new Date('2026-08-01T08:00:00.000Z'),
+      venue: 'The Hydro',
+      status: 'LIVE',
+      homeScore: 31,
+      awayScore: 29,
+      homeTeam: { id: 'aus', name: 'Australia', abbreviation: 'AUS', logoUrl: null },
+      awayTeam: { id: 'jam', name: 'Jamaica', abbreviation: 'JAM', logoUrl: null },
+      slots: [],
+    }, 'Semi-finals');
+
+    expect(projected.sideA.score).toBe(31);
+    expect(projected.sideB.score).toBe(29);
+  });
+
   it('loads only the published classification, semi-final and medal stages', async () => {
     mocks.findMany.mockResolvedValue([
       {

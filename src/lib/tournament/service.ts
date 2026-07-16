@@ -278,7 +278,7 @@ function projectBracketSide(
           logoUrl: team.logoUrl,
         }
       : null,
-    score: match.status === 'COMPLETED'
+    score: match.status === 'COMPLETED' || match.status === 'LIVE'
       ? (side === 'A' ? match.homeScore : match.awayScore)
       : null,
   };

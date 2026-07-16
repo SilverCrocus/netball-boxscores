@@ -8,8 +8,13 @@ import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 import { formatMatchDate, formatMatchTime, formatShortDate } from '@/lib/format';
 import { JsonLd, sportsTeamJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { resolveCompetition } from '@/lib/competitions';
+import { resolveCompetitionById } from '@/lib/competitions';
+import { resolveLegacyLeagueCompetition } from '@/lib/competitions';
+import { toEditionContext } from '@/lib/edition-context';
+import { editionHref } from '@/lib/edition-links';
 import {
   getRecentTeamMatches,
+  getTeamEditionRoster,
   getTeamBySlug,
   getTeamStanding,
   getUpcomingTeamMatches,
@@ -18,7 +23,7 @@ import { timedQuery } from '@/lib/server-timing';
 
 interface TeamPageProps {
   params: Promise<{ teamSlug: string }>;
-  searchParams?: Promise<{ season?: string }>;
+  searchParams?: Promise<{ edition?: string; season?: string }>;
 }
 
 export async function generateMetadata({ params }: TeamPageProps): Promise<Metadata> {
@@ -35,19 +40,32 @@ export async function generateMetadata({ params }: TeamPageProps): Promise<Metad
 
 export default async function TeamPage({ params, searchParams = Promise.resolve({}) }: TeamPageProps) {
   const { teamSlug } = await params;
-  const { season } = await searchParams;
+  const { edition, season } = await searchParams;
 
   const [team, { competition }] = await Promise.all([
     timedQuery('team_profile', () => getTeamBySlug(teamSlug)),
-    timedQuery('competition_lookup', () => resolveCompetition(season)),
+    timedQuery('competition_lookup', () => (
+      edition
+        ? resolveCompetitionById(edition)
+        : season
+          ? resolveLegacyLeagueCompetition(season)
+          : resolveCompetition()
+    )),
   ]);
 
   if (!team) notFound();
 
+  const teamsHref = competition?.series && competition.slug
+    ? editionHref(toEditionContext(competition), 'teams')
+    : '/teams';
+
   const standingPromise = competition
     ? timedQuery('team_standing', () => getTeamStanding(competition.id, team.id))
     : Promise.resolve(null);
-  const [standing, recentMatches, upcomingMatches] = await Promise.all([
+  const rosterPromise = competition
+    ? timedQuery('team_edition_roster', () => getTeamEditionRoster(competition.id, team.id))
+    : Promise.resolve([]);
+  const [standing, recentMatches, upcomingMatches, editionRoster] = await Promise.all([
     standingPromise,
     competition
       ? timedQuery('team_recent_matches', () => getRecentTeamMatches(competition.id, team.id))
@@ -55,7 +73,14 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
     competition
       ? timedQuery('team_upcoming_matches', () => getUpcomingTeamMatches(competition.id, team.id))
       : Promise.resolve([]),
+    rosterPromise,
   ]);
+  const profilePlayers = editionRoster.length > 0
+    ? editionRoster.map((membership) => ({
+        ...membership.player,
+        position: membership.designatedPosition ?? membership.player.position,
+      }))
+    : team.players;
   const withOpponent = (match: (typeof recentMatches)[number]) => {
     const isHome = match.homeTeamId === team.id;
     const opponentTeam = isHome ? match.awayTeam : match.homeTeam;
@@ -73,7 +98,7 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
       })} />
       <JsonLd data={breadcrumbJsonLd([
         { name: 'Home', url: '/' },
-        { name: 'Teams', url: '/teams' },
+        { name: 'Teams', url: teamsHref },
         { name: team.name, url: `/team/${team.slug}` },
       ])} />
       {/* Hero */}
@@ -198,7 +223,7 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container">
-                {team.players.map((player) => (
+                {profilePlayers.map((player) => (
                   <tr key={player.id} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -209,7 +234,11 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
                           size={40}
                           className="rounded"
                         />
-                        <Link prefetch={false} href={`/player/${player.id}`} className="font-body font-bold text-primary hover:text-secondary transition-colors">
+                        <Link
+                          prefetch={false}
+                          href={`/player/${player.id}${competition ? `?edition=${encodeURIComponent(competition.id)}` : ''}`}
+                          className="font-body font-bold text-primary hover:text-secondary transition-colors"
+                        >
                           {player.name}
                         </Link>
                       </div>

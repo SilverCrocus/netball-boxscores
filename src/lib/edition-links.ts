@@ -69,8 +69,20 @@ export function navigationEditionFromPathname(
   editions: EditionContextValue[],
   pathname: string
 ): EditionContextValue | null {
+  return navigationEditionFromLocation(editions, pathname);
+}
+
+/** Preserve edition context on legacy detail pages that carry a canonical edition id. */
+export function navigationEditionFromLocation(
+  editions: EditionContextValue[],
+  pathname: string,
+  editionId?: string | null,
+): EditionContextValue | null {
   const exactEdition = editionContextFromPathname(editions, pathname);
   if (exactEdition || isEditionRoutePathname(pathname)) return exactEdition;
+  if (editionId) {
+    return editions.find((edition) => edition.id === editionId) ?? null;
+  }
   return editions[0] ?? null;
 }
 

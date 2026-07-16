@@ -14,29 +14,25 @@ const standingsQuery = (competitionId: string) =>
     orderBy: { rank: 'asc' },
   });
 
-const teamsQuery = async () => {
-  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
-  return prisma.team.findMany({
-    where: {
-      OR: [
-        { competitionId: { in: publicEditionIds } },
-        { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
-      ],
-    },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      abbreviation: true,
-      logoUrl: true,
-    },
-    orderBy: { name: 'asc' },
-  });
-};
+const teamsQuery = (publicEditionIds: string[]) => prisma.team.findMany({
+  where: {
+    OR: [
+      { competitionId: { in: publicEditionIds } },
+      { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
+    ],
+  },
+  select: {
+    id: true,
+    name: true,
+    slug: true,
+    abbreviation: true,
+    logoUrl: true,
+  },
+  orderBy: { name: 'asc' },
+});
 
-const teamBySlugQuery = async (teamSlug: string) => {
-  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
-  return prisma.team.findFirst({
+const teamBySlugQuery = (teamSlug: string, publicEditionIds: string[]) =>
+  prisma.team.findFirst({
     where: {
       slug: teamSlug,
       OR: [
@@ -46,11 +42,24 @@ const teamBySlugQuery = async (teamSlug: string) => {
     },
     include: { players: { orderBy: { name: 'asc' } } },
   });
-};
 
 const teamStandingQuery = (competitionId: string, teamId: string) =>
   prisma.standing.findUnique({
     where: { competitionId_teamId: { competitionId, teamId } },
+  });
+
+const teamEditionRosterQuery = (competitionId: string, teamId: string) =>
+  prisma.rosterMembership.findMany({
+    where: {
+      editionEntry: { competitionId, teamId },
+      status: 'ACTIVE',
+      validTo: null,
+    },
+    select: {
+      designatedPosition: true,
+      player: true,
+    },
+    orderBy: { player: { name: 'asc' } },
   });
 
 const recentTeamMatchesQuery = async (competitionId: string, teamId: string) => {
@@ -97,25 +106,42 @@ export const getStandingsForCompetition = process.env.NODE_ENV === 'test'
       tags: ['standings'],
     });
 
-export const getTeams = process.env.NODE_ENV === 'test'
+const getTeamsForEditionIds = process.env.NODE_ENV === 'test'
   ? teamsQuery
   : unstable_cache(teamsQuery, ['team-directory-v1'], {
       revalidate: 3600,
       tags: ['teams'],
     });
 
-export const getTeamBySlug = process.env.NODE_ENV === 'test'
+const getTeamBySlugForEditionIds = process.env.NODE_ENV === 'test'
   ? teamBySlugQuery
   : unstable_cache(teamBySlugQuery, ['team-by-slug-v1'], {
       revalidate: 3600,
       tags: ['teams'],
     });
 
+export async function getTeams() {
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  return getTeamsForEditionIds(publicEditionIds);
+}
+
+export async function getTeamBySlug(teamSlug: string) {
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  return getTeamBySlugForEditionIds(teamSlug, publicEditionIds);
+}
+
 export const getTeamStanding = process.env.NODE_ENV === 'test'
   ? teamStandingQuery
   : unstable_cache(teamStandingQuery, ['team-standing-v1'], {
       revalidate: 60,
       tags: ['standings'],
+    });
+
+export const getTeamEditionRoster = process.env.NODE_ENV === 'test'
+  ? teamEditionRosterQuery
+  : unstable_cache(teamEditionRosterQuery, ['team-edition-roster-v2'], {
+      revalidate: 3600,
+      tags: ['teams', 'rosters'],
     });
 
 export const getRecentTeamMatches = process.env.NODE_ENV === 'test'

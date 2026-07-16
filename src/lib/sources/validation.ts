@@ -78,6 +78,19 @@ export function validateNormalizedImport(input: NormalizedCompetitionImport): Im
   for (const player of input.players) {
     required(issues, player.externalId, 'players.externalId', player.externalId);
     required(issues, player.teamExternalId, 'players.teamExternalId', player.externalId);
+    if (
+      player.canonicalChampionDataPlayerId !== undefined
+      && (!Number.isInteger(player.canonicalChampionDataPlayerId)
+        || player.canonicalChampionDataPlayerId < 1)
+    ) {
+      issues.push({
+        severity: 'ERROR',
+        code: 'INVALID_CANONICAL_PLAYER_ID',
+        message: 'canonicalChampionDataPlayerId must be a positive integer',
+        externalId: player.externalId,
+        fieldPath: 'players.canonicalChampionDataPlayerId',
+      });
+    }
     if (!POSITIONS.has(player.position)) {
       issues.push({ severity: 'ERROR', code: 'INVALID_POSITION', message: `Invalid position: ${player.position}`, externalId: player.externalId, fieldPath: 'players.position' });
     }

@@ -20,7 +20,7 @@ async function loadSourceBundle() {
       fetchStatus: string;
     }>;
     declarations: {
-      publicationStatusRequired: string;
+      publicationStatusPolicy: string;
       publicationBlockers: string[];
       matchCoverage: { unresolvedSlots: number; dependentSlots: number };
       squadIdentityCoverage: {
@@ -38,6 +38,10 @@ async function loadSourceBundle() {
         members: Array<string | { name: string; position: string; isCaptain: boolean }>;
       }>;
       photoCoverage: { verifiedReusablePhotos: number };
+      factualDataReuse: {
+        basis: string;
+        organiserApproval: string;
+      };
     };
   };
   return {
@@ -52,7 +56,7 @@ describe('Glasgow 2026 source bundle', () => {
     const { bundleText, manifest } = await loadSourceBundle();
 
     expect(createHash('sha256').update(bundleText).digest('hex')).toBe(manifest.bundleFileSha256);
-    expect(manifest.declarations.publicationStatusRequired).toBe('DRAFT');
+    expect(manifest.declarations.publicationStatusPolicy).toBe('PRESERVE_EXISTING');
     expect(manifest.declarations.publicationBlockers).toEqual([]);
   });
 
@@ -108,6 +112,9 @@ describe('Glasgow 2026 source bundle', () => {
     const { bundle, manifest } = await loadSourceBundle();
     const playerCounts = Object.groupBy(bundle.players, (player) => player.teamExternalId);
     const playersWithPhotos = bundle.players.filter((player) => player.photoUrl);
+    const canonicalPlayers = bundle.players.filter(
+      (player) => player.canonicalChampionDataPlayerId !== undefined,
+    );
 
     expect(bundle.players).toHaveLength(96);
     expect(bundle.rosters).toHaveLength(96);
@@ -115,6 +122,14 @@ describe('Glasgow 2026 source bundle', () => {
       'AUS', 'ENG', 'JAM', 'NIR', 'NZL', 'RSA', 'SCO', 'WAL',
     ]);
     expect(Object.values(playerCounts).every((players) => players?.length === 12)).toBe(true);
+    expect(canonicalPlayers).toHaveLength(23);
+    expect(new Set(
+      canonicalPlayers.map((player) => player.canonicalChampionDataPlayerId),
+    ).size).toBe(canonicalPlayers.length);
+    expect(canonicalPlayers).toContainEqual(expect.objectContaining({
+      externalId: 'JAM-shamera-sterling-humphrey',
+      canonicalChampionDataPlayerId: 80830,
+    }));
     expect(manifest.declarations.squadIdentityCoverage).toEqual({
       finalSquads: 11,
       provisionalSquads: 1,
@@ -201,9 +216,14 @@ describe('Glasgow 2026 source bundle', () => {
     expect(manifest.sources.every((source) => (
       source.url.startsWith('https://')
       && source.purpose.length > 0
-      && source.fetchStatus === 'VERIFIED'
+      && source.fetchStatus === 'REFERENCED'
       && !Number.isNaN(Date.parse(source.retrievedAt))
     ))).toBe(true);
+    expect(manifest.sources.some((source) => source.fetchStatus === 'VERIFIED')).toBe(false);
+    expect(manifest.declarations.factualDataReuse).toEqual({
+      basis: 'PUBLIC_FACTUAL_DATA_USER_ASSERTED',
+      organiserApproval: 'NOT_CLAIMED',
+    });
     expect(sourceIds).toEqual(expect.arrayContaining([
       'australia-squad',
       'south-africa-squad',

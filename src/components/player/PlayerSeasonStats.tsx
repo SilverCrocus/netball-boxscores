@@ -248,7 +248,7 @@ function EditionSelector({ competitions, selectedCompetitionId, playerId }: { co
       {competitions.map((c) => (
         <Link
           key={c.id}
-          href={`/player/${playerId}?edition=${encodeURIComponent(c.slug ?? c.id)}`}
+          href={`/player/${playerId}?edition=${encodeURIComponent(c.id)}`}
           className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${
             c.id === selectedCompetitionId
               ? 'bg-primary-container text-white'

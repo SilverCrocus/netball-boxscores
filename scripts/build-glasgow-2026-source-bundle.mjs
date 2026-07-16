@@ -167,11 +167,43 @@ const photoEvidence = {
   },
 };
 
+// Manually reviewed cross-source identities. These Champion Data IDs already
+// exist in CentrePass and prevent an international roster from creating a
+// second career profile for the same person. Unlisted names remain new players.
+const canonicalChampionDataPlayerIds = {
+  'AUS-kiera-austin': 1001708,
+  'AUS-courtney-bruce': 80343,
+  'AUS-sophie-dwyer': 1019169,
+  'AUS-sophie-garbin': 1001711,
+  'AUS-matilda-garrett': 1007301,
+  'AUS-georgie-horjus': 1015271,
+  'AUS-sarah-klau': 998404,
+  'AUS-cara-koenen': 1001357,
+  'AUS-liz-watson': 994224,
+  'AUS-kate-moloney': 991901,
+  'AUS-jamie-lee-price': 80701,
+  'AUS-jo-weston': 80577,
+  'ENG-imogen-allison': 1016601,
+  'ENG-sasha-glasgow': 1007298,
+  'NZL-grace-nweke': 1014724,
+  'NZL-karin-burger': 998411,
+  'NZL-kate-heffernan': 1006758,
+  'NZL-kelly-jackson': 993041,
+  'JAM-jodi-ann-ward': 1011747,
+  'JAM-kadie-ann-dehaney': 1001920,
+  'JAM-latanya-wilson': 1019205,
+  'JAM-romelda-aiken-george': 80078,
+  'JAM-shamera-sterling-humphrey': 80830,
+};
+
 const players = squadRows.map(([teamExternalId, name, position]) => {
   const externalId = `${teamExternalId}-${slugify(name)}`;
   return {
     externalId,
     teamExternalId,
+    ...(canonicalChampionDataPlayerIds[externalId]
+      ? { canonicalChampionDataPlayerId: canonicalChampionDataPlayerIds[externalId] }
+      : {}),
     name,
     position,
     ...photoEvidence[externalId],
@@ -378,7 +410,15 @@ const sources = [
   ['olivia-photo', 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Olivia_Tchine.jpg', 'Olivia Tchine reusable photo and licence'],
   ['eleanor-photo', 'https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg', 'Eleanor Cardwell reusable photo and licence'],
   ['shamera-photo', 'https://commons.wikimedia.org/wiki/File:Thunderbirds_defender_Shamera_Sterling.jpg', 'Shamera Sterling-Humphrey reusable photo and licence'],
-].map(([id, url, purpose]) => ({ id, url, purpose, retrievedAt, fetchStatus: 'VERIFIED' }));
+].map(([id, url, purpose]) => ({
+  id,
+  url,
+  purpose,
+  retrievedAt,
+  // The bundle records the public source used for each fact, but does not
+  // contain an immutable fetch receipt that would justify a VERIFIED claim.
+  fetchStatus: 'REFERENCED',
+}));
 
 const squadCoverage = {
   AUS: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
@@ -416,11 +456,15 @@ const manifest = {
     squadMembers,
     photoCoverage: { verifiedReusablePhotos: 4, license: 'CC BY-SA 4.0', allOtherPlayers: 'UNAVAILABLE' },
     resultCoverage: 'UNAVAILABLE — the tournament has not started.',
-    publicationStatusRequired: 'DRAFT',
+    publicationStatusPolicy: 'PRESERVE_EXISTING',
     publicationBlockers: [],
     publicSurfacePolicy: {
       matchLabels: 'Use roundLabel first, then final code, numerical round, or stage name.',
       reusablePlayerPhotos: 'Show sourced reusable photos only on attributed player profiles; secondary thumbnails and Open Graph cards use initials.',
+    },
+    factualDataReuse: {
+      basis: 'PUBLIC_FACTUAL_DATA_USER_ASSERTED',
+      organiserApproval: 'NOT_CLAIMED',
     },
   },
   sources,

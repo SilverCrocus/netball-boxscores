@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { TournamentEmptyState } from '@/components/tournament/TournamentEmptyState';
+import { EditionLeagueStandings } from '@/components/competition/EditionLeagueStandings';
 import { TournamentPageHero } from '@/components/tournament/TournamentPageHero';
 import { TournamentSectionNav } from '@/components/tournament/TournamentSectionNav';
 import { TournamentStandings } from '@/components/tournament/TournamentStandings';
 import { resolveEdition } from '@/lib/competitions';
 import { toEditionContext } from '@/lib/edition-context';
 import { getTournamentPoolStandings } from '@/lib/tournament';
+import { getStandingsForCompetition } from '@/lib/cached-queries';
 
 interface TournamentStandingsPageProps {
   params: Promise<{
@@ -21,9 +23,10 @@ export async function generateMetadata({ params }: TournamentStandingsPageProps)
   if (!edition) return { title: 'Tournament Standings' };
 
   const editionName = edition.label ?? String(edition.season);
+  const isLeague = edition.series?.kind === 'LEAGUE';
   return {
-    title: `${editionName} Pool Standings`,
-    description: `Official pool standings for ${edition.series?.name ?? edition.name} ${editionName}.`,
+    title: `${editionName} ${isLeague ? 'Standings' : 'Pool Standings'}`,
+    description: `Official ${isLeague ? 'league' : 'pool'} standings for ${edition.series?.name ?? edition.name} ${editionName}.`,
   };
 }
 
@@ -31,6 +34,17 @@ export default async function TournamentStandingsPage({ params }: TournamentStan
   const identity = await params;
   const { edition } = await resolveEdition(identity);
   if (!edition) notFound();
+
+  if (edition.series?.kind === 'LEAGUE') {
+    const standings = await getStandingsForCompetition(edition.id);
+    return (
+      <EditionLeagueStandings
+        competitionId={edition.id}
+        editionLabel={edition.label ?? String(edition.season)}
+        standings={standings}
+      />
+    );
+  }
 
   const overviewPromise = getTournamentPoolStandings(edition.id);
   const editionContext = toEditionContext(edition);

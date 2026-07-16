@@ -51,6 +51,9 @@ function createFakePrisma() {
       })),
       update: vi.fn(async ({ where, data }) => ({ id: where.id, ...data })),
     },
+    competition: {
+      findUnique: vi.fn(async () => ({ publicationStatus: 'PUBLISHED' })),
+    },
     importRun: {
       findFirst: vi.fn(async ({ where }) =>
         [...state.runs.values()].find((run) =>
@@ -110,7 +113,15 @@ function createFakePrisma() {
       update: update(state.entries),
     },
     player: {
-      findUnique: vi.fn(async ({ where }) => state.players.get(where.id) ?? null),
+      findUnique: vi.fn(async ({ where }) => {
+        if (where.id) return state.players.get(where.id) ?? null;
+        if (where.championDataPlayerId) {
+          return [...state.players.values()].find((player) =>
+            player.championDataPlayerId === where.championDataPlayerId
+          ) ?? null;
+        }
+        return null;
+      }),
       create: create(state.players, 'player'),
       update: update(state.players),
     },
@@ -204,6 +215,12 @@ describe('PrismaCompetitionImportWriter', () => {
     const first = await writer.execute(input, preview);
 
     expect(first.inserted).toBeGreaterThan(0);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'Serializable',
+      maxWait: 10_000,
+      timeout: 120_000,
+    });
+    expect(first.publicationStatus).toBe('PUBLISHED');
     expect(state.teams).toHaveLength(2);
     expect(state.entries).toHaveLength(2);
     expect(state.players).toHaveLength(1);
@@ -231,8 +248,149 @@ describe('PrismaCompetitionImportWriter', () => {
     ]));
 
     const second = await writer.execute(input, preview);
-    expect(second).toMatchObject({ inserted: 0, updated: 0, skipped: preview.writes.length });
+    expect(second).toMatchObject({
+      inserted: 0,
+      updated: 0,
+      skipped: preview.writes.length,
+      publicationStatus: 'PUBLISHED',
+    });
     expect(state.teams).toHaveLength(2);
     expect(state.matches).toHaveLength(1);
+  });
+
+  it('reuses a reviewed canonical player without moving their legacy club team', async () => {
+    const input = validImport();
+    input.players[0].canonicalChampionDataPlayerId = 12345;
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const { prisma, state } = createFakePrisma();
+    state.players.set('canonical-player', {
+      id: 'canonical-player',
+      name: 'Test Player',
+      position: 'WA',
+      teamId: 'legacy-club-team',
+      championDataPlayerId: 12345,
+    });
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+    });
+
+    await writer.execute(input, preview);
+
+    expect(state.players).toHaveLength(1);
+    expect(state.players.get('canonical-player')).toMatchObject({
+      name: 'Test Player',
+      position: 'WA',
+      teamId: 'legacy-club-team',
+      championDataPlayerId: 12345,
+    });
+    expect([...state.rosters.values()][0]).toMatchObject({
+      playerId: 'canonical-player',
+      designatedPosition: 'C',
+    });
+    expect([...state.mappings.values()]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        entityType: 'PLAYER',
+        externalId: 'player-1',
+        internalEntityId: 'canonical-player',
+      }),
+    ]));
+  });
+
+  it('rejects a stale reviewed canonical mapping before skipping an exact replay', async () => {
+    const input = validImport();
+    input.players[0].canonicalChampionDataPlayerId = 12345;
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const { prisma, state } = createFakePrisma();
+    state.players.set('canonical-player', {
+      id: 'canonical-player',
+      name: 'Test Player',
+      position: 'WA',
+      teamId: 'legacy-club-team',
+      championDataPlayerId: 12345,
+    });
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+    });
+
+    await writer.execute(input, preview);
+    const mapping = [...state.mappings.values()].find((candidate) =>
+      candidate.entityType === 'PLAYER' && candidate.externalId === 'player-1'
+    );
+    expect(mapping).toBeDefined();
+    state.players.set('wrong-player', {
+      id: 'wrong-player',
+      name: 'Wrong Player',
+      position: 'C',
+      teamId: 'wrong-team',
+      championDataPlayerId: null,
+    });
+    state.mappings.set(String(mapping?.id), {
+      ...mapping,
+      internalEntityId: 'wrong-player',
+    });
+
+    await expect(writer.execute(input, preview)).rejects.toThrow(
+      'Reviewed canonical player mapping mismatch: player-1/wrong-player/canonical-player',
+    );
+    expect(state.players.get('canonical-player')).toMatchObject({
+      championDataPlayerId: 12345,
+      teamId: 'legacy-club-team',
+    });
+    expect(state.players.get('wrong-player')).toMatchObject({
+      name: 'Wrong Player',
+      teamId: 'wrong-team',
+    });
+  });
+
+  it('rejects a missing reviewed canonical mapping on an exact replay', async () => {
+    const input = validImport();
+    input.players[0].canonicalChampionDataPlayerId = 12345;
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const { prisma, state } = createFakePrisma();
+    state.players.set('canonical-player', {
+      id: 'canonical-player',
+      name: 'Test Player',
+      position: 'WA',
+      teamId: 'legacy-club-team',
+      championDataPlayerId: 12345,
+    });
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+    });
+
+    await writer.execute(input, preview);
+    for (const [id, mapping] of state.mappings) {
+      if (mapping.entityType === 'PLAYER' && mapping.externalId === 'player-1') {
+        state.mappings.delete(id);
+      }
+    }
+
+    await expect(writer.execute(input, preview)).rejects.toThrow(
+      'Reviewed canonical player mapping is missing on replay: player-1/canonical-player',
+    );
   });
 });

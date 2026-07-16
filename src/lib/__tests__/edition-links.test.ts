@@ -7,6 +7,7 @@ import {
   editionNavigationHref,
   editionSwitchHref,
   navigationEditionFromPathname,
+  navigationEditionFromLocation,
 } from '@/lib/edition-links';
 
 const ssn: EditionContextValue = {
@@ -77,6 +78,19 @@ describe('edition links', () => {
       '/competitions/commonwealth-games/glasgow-2026/teams'
     );
     expect(editionAwareNavigationHref(glasgow, '/rankings')).toBe('/rankings');
+  });
+
+  it('preserves a canonical edition on legacy detail routes', () => {
+    expect(navigationEditionFromLocation(
+      [glasgow, ssn],
+      '/team/melbourne-vixens',
+      'ssn-2026',
+    )).toBe(ssn);
+    expect(navigationEditionFromLocation(
+      [glasgow, ssn],
+      '/team/melbourne-vixens',
+      'unknown-edition',
+    )).toBeNull();
   });
 
   it('falls back to the edition landing path for unrelated routes', () => {

@@ -4,6 +4,7 @@ import type {
   ImportMutationTarget,
   MatchSide,
   MatchSlotSourceType,
+  Player,
   Prisma,
   PrismaClient,
   SourceEntityType,
@@ -36,6 +37,10 @@ function slotSourceType(side: NormalizedMatchSideInput): MatchSlotSourceType {
 
 function mappingKey(entityType: SourceEntityType, externalId: string): string {
   return `${entityType}:${externalId}`;
+}
+
+function normalizedPlayerName(name: string): string {
+  return name.normalize('NFKD').toLocaleLowerCase('en').replace(/[^a-z0-9]+/g, '');
 }
 
 /**
@@ -76,6 +81,13 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           editionSource.externalId !== input.context.editionExternalId
         ) {
           throw new Error('Edition source does not match the selected competition import context');
+        }
+        const competition = await transaction.competition.findUnique({
+          where: { id: this.options.competitionId },
+          select: { publicationStatus: true },
+        });
+        if (!competition) {
+          throw new Error(`Competition edition not found: ${this.options.competitionId}`);
         }
 
         const priorRun = await transaction.importRun.findFirst({
@@ -118,6 +130,48 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           });
         }
 
+        const sourceMappings = await transaction.sourceEntityMapping.findMany({
+          where: {
+            sourceSystemId: source.id,
+            competitionId: this.options.competitionId,
+            entityType: { in: ['TEAM', 'PLAYER', 'MATCH'] },
+          },
+        });
+        const mappingByIdentity = new Map(
+          sourceMappings.map((mapping) => [mappingKey(mapping.entityType, mapping.externalId), mapping])
+        );
+        const reviewedCanonicalPlayers = new Map<string, Player>();
+        for (const playerInput of input.players) {
+          if (playerInput.canonicalChampionDataPlayerId === undefined) continue;
+
+          const canonicalPlayer = await transaction.player.findUnique({
+            where: { championDataPlayerId: playerInput.canonicalChampionDataPlayerId },
+          });
+          if (!canonicalPlayer) {
+            throw new Error(
+              `Reviewed canonical player was not found: ${playerInput.externalId}/${playerInput.canonicalChampionDataPlayerId}`,
+            );
+          }
+          if (normalizedPlayerName(canonicalPlayer.name) !== normalizedPlayerName(playerInput.name)) {
+            throw new Error(
+              `Canonical player name mismatch: ${playerInput.externalId}/${canonicalPlayer.name}/${playerInput.name}`,
+            );
+          }
+
+          const mapping = mappingByIdentity.get(mappingKey('PLAYER', playerInput.externalId));
+          if (mapping && mapping.internalEntityId !== canonicalPlayer.id) {
+            throw new Error(
+              `Reviewed canonical player mapping mismatch: ${playerInput.externalId}/${mapping.internalEntityId}/${canonicalPlayer.id}`,
+            );
+          }
+          if (priorRun && !mapping) {
+            throw new Error(
+              `Reviewed canonical player mapping is missing on replay: ${playerInput.externalId}/${canonicalPlayer.id}`,
+            );
+          }
+          reviewedCanonicalPlayers.set(playerInput.externalId, canonicalPlayer);
+        }
+
         if (priorRun) {
           await transaction.importRun.update({
             where: { id: importRunId },
@@ -137,6 +191,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             inserted: 0,
             updated: 0,
             skipped: preview.writes.length,
+            publicationStatus: competition.publicationStatus,
           };
         }
 
@@ -171,17 +226,6 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           include: { stage: { select: { slug: true } } },
         });
         const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
-        const sourceMappings = await transaction.sourceEntityMapping.findMany({
-          where: {
-            sourceSystemId: source.id,
-            competitionId: this.options.competitionId,
-            entityType: { in: ['TEAM', 'PLAYER', 'MATCH'] },
-          },
-        });
-        const mappingByIdentity = new Map(
-          sourceMappings.map((mapping) => [mappingKey(mapping.entityType, mapping.externalId), mapping])
-        );
-
         const upsertMapping = async (
           entityType: 'TEAM' | 'PLAYER' | 'MATCH',
           externalId: string,
@@ -292,9 +336,11 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           const teamId = teamIds.get(playerInput.teamExternalId);
           if (!teamId) throw new Error(`Player team was not imported: ${playerInput.teamExternalId}`);
           const mapping = mappingByIdentity.get(mappingKey('PLAYER', playerInput.externalId));
-          const before = mapping
+          const mappedPlayer = mapping
             ? await transaction.player.findUnique({ where: { id: mapping.internalEntityId } })
             : null;
+          const canonicalPlayer = reviewedCanonicalPlayers.get(playerInput.externalId) ?? null;
+          const before = canonicalPlayer ?? mappedPlayer;
           const photoFields = {
             ...(playerInput.photoUrl !== undefined ? { photoUrl: playerInput.photoUrl } : {}),
             ...(playerInput.photoSourceUrl !== undefined ? { photoSourceUrl: playerInput.photoSourceUrl } : {}),
@@ -307,7 +353,18 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           const player = before
             ? await transaction.player.update({
               where: { id: before.id },
-              data: { name: playerInput.name, position: playerInput.position, teamId, ...photoFields },
+              // Team membership belongs to EditionEntry/RosterMembership. Keep
+              // the legacy primary team/position on an existing canonical
+              // player; edition-specific position lives on the roster row.
+              data: {
+                name: playerInput.name,
+                ...((before.championDataPlayerId === null
+                  || before.championDataPlayerId === undefined)
+                  && playerInput.canonicalChampionDataPlayerId === undefined
+                  ? { position: playerInput.position }
+                  : {}),
+                ...photoFields,
+              },
             })
             : await transaction.player.create({
               data: { name: playerInput.name, position: playerInput.position, teamId, ...photoFields },
@@ -317,12 +374,18 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           playerIds.set(playerInput.externalId, player.id);
         }
 
+        const playerInputByExternalId = new Map(
+          input.players.map((playerInput) => [playerInput.externalId, playerInput]),
+        );
         for (const rosterInput of input.rosters) {
           const editionEntryId = entryIds.get(rosterInput.teamExternalId);
           const playerId = playerIds.get(rosterInput.playerExternalId);
           if (!editionEntryId || !playerId) {
             throw new Error(`Roster identities were not imported: ${rosterInput.teamExternalId}/${rosterInput.playerExternalId}`);
           }
+          const designatedPosition = playerInputByExternalId.get(
+            rosterInput.playerExternalId,
+          )?.position;
           const before = await transaction.rosterMembership.findFirst({
             where: { editionEntryId, playerId, validTo: null },
             orderBy: { validFrom: 'desc' },
@@ -332,6 +395,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
               where: { id: before.id },
               data: {
                 status: rosterInput.status ?? 'ACTIVE',
+                designatedPosition,
                 bib: rosterInput.bib,
                 isCaptain: rosterInput.isCaptain ?? false,
               },
@@ -342,6 +406,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
                 playerId,
                 status: rosterInput.status ?? 'ACTIVE',
                 validFrom: new Date(input.context.retrievedAt),
+                designatedPosition,
                 bib: rosterInput.bib,
                 isCaptain: rosterInput.isCaptain ?? false,
               },
@@ -569,8 +634,22 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           data: { lastSyncedAt: new Date(input.context.retrievedAt) },
         });
 
-        return { importRunId, checksum: preview.checksum, inserted, updated, skipped };
-      }, { isolationLevel: 'Serializable' });
+        return {
+          importRunId,
+          checksum: preview.checksum,
+          inserted,
+          updated,
+          skipped,
+          publicationStatus: competition.publicationStatus,
+        };
+      }, {
+        isolationLevel: 'Serializable',
+        maxWait: 10_000,
+        // A full tournament bundle records audited mutations and snapshots in
+        // one transaction. Remote preview/production databases can exceed
+        // Prisma's five-second interactive-transaction default.
+        timeout: 120_000,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       try {

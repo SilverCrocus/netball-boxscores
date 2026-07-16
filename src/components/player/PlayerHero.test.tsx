@@ -87,4 +87,34 @@ describe('PlayerHero', () => {
     );
     expect(screen.getByText(/cropped for display/)).toBeInTheDocument();
   });
+
+  it('renders unavailable highlights without manufacturing zero values', () => {
+    render(
+      <PlayerHero
+        player={{
+          name: 'Example Player',
+          position: 'GS',
+          photoUrl: null,
+          photoSourceUrl: null,
+          photoCredit: null,
+          photoLicense: null,
+          nationality: null,
+          dateOfBirth: null,
+          height: null,
+          teamId: 'team-1',
+          team: {
+            name: 'Example Team',
+            slug: 'example-team',
+            logoUrl: null,
+            primaryColor: null,
+          },
+        }}
+        positionConfig={positionConfig}
+        statHighlightValues={[null, null, null]}
+      />,
+    );
+
+    expect(screen.getByLabelText('Goals Scored unavailable')).toHaveTextContent('—');
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
 });

@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { resolveCompetition } from '@/lib/competitions';
+import {
+  resolveCompetition,
+  resolveCompetitionById,
+  resolveLegacyLeagueCompetition,
+} from '@/lib/competitions';
 import { getCompletedMatchesPage } from '@/lib/home-feed';
 import {
   isUpstreamPreviewMode,
@@ -11,6 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const season = searchParams.get('season') ?? undefined;
+  const edition = searchParams.get('edition') ?? undefined;
   const cursor = searchParams.get('cursor') ?? undefined;
 
   if (isUpstreamPreviewMode()) {
@@ -19,7 +24,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { competition } = await resolveCompetition(season);
+    const { competition } = edition
+      ? await resolveCompetitionById(edition)
+      : season
+        ? await resolveLegacyLeagueCompetition(season)
+        : await resolveCompetition();
 
     if (!competition) {
       return NextResponse.json(

@@ -119,72 +119,84 @@
     {
       "externalId": "AUS-kiera-austin",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 1001708,
       "name": "Kiera Austin",
       "position": "GS"
     },
     {
       "externalId": "AUS-courtney-bruce",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 80343,
       "name": "Courtney Bruce",
       "position": "GK"
     },
     {
       "externalId": "AUS-sophie-dwyer",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 1019169,
       "name": "Sophie Dwyer",
       "position": "GS"
     },
     {
       "externalId": "AUS-sophie-garbin",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 1001711,
       "name": "Sophie Garbin",
       "position": "GA"
     },
     {
       "externalId": "AUS-matilda-garrett",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 1007301,
       "name": "Matilda Garrett",
       "position": "GD"
     },
     {
       "externalId": "AUS-georgie-horjus",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 1015271,
       "name": "Georgie Horjus",
       "position": "WA"
     },
     {
       "externalId": "AUS-sarah-klau",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 998404,
       "name": "Sarah Klau",
       "position": "GK"
     },
     {
       "externalId": "AUS-cara-koenen",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 1001357,
       "name": "Cara Koenen",
       "position": "GS"
     },
     {
       "externalId": "AUS-kate-moloney",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 991901,
       "name": "Kate Moloney",
       "position": "C"
     },
     {
       "externalId": "AUS-jamie-lee-price",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 80701,
       "name": "Jamie-Lee Price",
       "position": "WD"
     },
     {
       "externalId": "AUS-liz-watson",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 994224,
       "name": "Liz Watson",
       "position": "WA"
     },
     {
       "externalId": "AUS-jo-weston",
       "teamExternalId": "AUS",
+      "canonicalChampionDataPlayerId": 80577,
       "name": "Jo Weston",
       "position": "GK"
     },
@@ -220,6 +232,7 @@
     {
       "externalId": "ENG-imogen-allison",
       "teamExternalId": "ENG",
+      "canonicalChampionDataPlayerId": 1016601,
       "name": "Imogen Allison",
       "position": "WD"
     },
@@ -244,6 +257,7 @@
     {
       "externalId": "ENG-sasha-glasgow",
       "teamExternalId": "ENG",
+      "canonicalChampionDataPlayerId": 1007298,
       "name": "Sasha Glasgow",
       "position": "GS"
     },
@@ -428,6 +442,7 @@
     {
       "externalId": "NZL-grace-nweke",
       "teamExternalId": "NZL",
+      "canonicalChampionDataPlayerId": 1014724,
       "name": "Grace Nweke",
       "position": "GS"
     },
@@ -452,6 +467,7 @@
     {
       "externalId": "NZL-kate-heffernan",
       "teamExternalId": "NZL",
+      "canonicalChampionDataPlayerId": 1006758,
       "name": "Kate Heffernan",
       "position": "WD"
     },
@@ -470,6 +486,7 @@
     {
       "externalId": "NZL-karin-burger",
       "teamExternalId": "NZL",
+      "canonicalChampionDataPlayerId": 998411,
       "name": "Karin Burger",
       "position": "GK"
     },
@@ -482,6 +499,7 @@
     {
       "externalId": "NZL-kelly-jackson",
       "teamExternalId": "NZL",
+      "canonicalChampionDataPlayerId": 993041,
       "name": "Kelly Jackson",
       "position": "GK"
     },
@@ -494,6 +512,7 @@
     {
       "externalId": "JAM-shamera-sterling-humphrey",
       "teamExternalId": "JAM",
+      "canonicalChampionDataPlayerId": 80830,
       "name": "Shamera Sterling-Humphrey",
       "position": "GK",
       "photoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d4/Thunderbirds_defender_Shamera_Sterling.jpg",
@@ -505,6 +524,7 @@
     {
       "externalId": "JAM-latanya-wilson",
       "teamExternalId": "JAM",
+      "canonicalChampionDataPlayerId": 1019205,
       "name": "Latanya Wilson",
       "position": "WD"
     },
@@ -517,12 +537,14 @@
     {
       "externalId": "JAM-kadie-ann-dehaney",
       "teamExternalId": "JAM",
+      "canonicalChampionDataPlayerId": 1001920,
       "name": "Kadie-Ann Dehaney",
       "position": "GK"
     },
     {
       "externalId": "JAM-jodi-ann-ward",
       "teamExternalId": "JAM",
+      "canonicalChampionDataPlayerId": 1011747,
       "name": "Jodi-Ann Ward",
       "position": "GD"
     },
@@ -565,6 +587,7 @@
     {
       "externalId": "JAM-romelda-aiken-george",
       "teamExternalId": "JAM",
+      "canonicalChampionDataPlayerId": 80078,
       "name": "Romelda Aiken-George",
       "position": "GS"
     },

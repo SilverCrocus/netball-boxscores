@@ -8,6 +8,7 @@ interface HomeResultsProps {
   initialGroups: HomeResultGroup[];
   initialNextCursor: string | null;
   season: number;
+  editionId: string;
 }
 
 function mergeGroups(current: HomeResultGroup[], incoming: HomeResultGroup[]): HomeResultGroup[] {
@@ -29,7 +30,7 @@ function mergeGroups(current: HomeResultGroup[], incoming: HomeResultGroup[]): H
   return merged;
 }
 
-export function HomeResults({ initialGroups, initialNextCursor, season }: HomeResultsProps) {
+export function HomeResults({ initialGroups, initialNextCursor, season, editionId }: HomeResultsProps) {
   const [groups, setGroups] = useState(initialGroups);
   const [nextCursor, setNextCursor] = useState(initialNextCursor);
   const [loading, setLoading] = useState(false);
@@ -44,7 +45,11 @@ export function HomeResults({ initialGroups, initialNextCursor, season }: HomeRe
     setAnnouncement('');
 
     try {
-      const params = new URLSearchParams({ season: String(season), cursor: nextCursor });
+      const params = new URLSearchParams({
+        edition: editionId,
+        season: String(season),
+        cursor: nextCursor,
+      });
       const response = await fetch(`/api/matches?${params.toString()}`);
       const payload = await response.json() as {
         groups?: HomeResultGroup[];

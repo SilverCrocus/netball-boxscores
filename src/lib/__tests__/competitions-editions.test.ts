@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CompetitionOption } from '@/lib/competitions';
-import { selectEditionBySlugs } from '@/lib/competitions';
+import { isEditionPubliclyReady, selectEditionBySlugs } from '@/lib/competitions';
 import { evaluateEditionPublicationReadiness } from '@/lib/edition-publication';
 import { toEditionContext } from '@/lib/edition-context';
 
@@ -29,6 +29,9 @@ function edition(
     },
     ruleset: null,
     dataCoverage: [],
+    matches: [],
+    stages: [],
+    importRuns: [],
     _count: counts,
   } as CompetitionOption;
 }
@@ -105,5 +108,41 @@ describe('edition publication readiness', () => {
       teamCount: 12,
       matchCount: 38,
     }).ready).toBe(false);
+  });
+
+  it('keeps Glasgow out of public selectors unless the complete published import is present', () => {
+    const glasgow = {
+      ...edition(
+        'glasgow-strict',
+        'commonwealth-games-netball',
+        'glasgow-2026',
+        'PUBLISHED',
+        { entries: 12, matches: 38 },
+      ),
+      stages: [
+        { slug: 'pool-stage', type: 'POOL', sequence: 1, isPublished: true, _count: { groups: 2, matches: 30 } },
+        { slug: 'classification', type: 'CLASSIFICATION', sequence: 2, isPublished: true, _count: { groups: 0, matches: 4 } },
+        { slug: 'semi-finals', type: 'SEMI_FINALS', sequence: 3, isPublished: true, _count: { groups: 0, matches: 2 } },
+        { slug: 'medal-matches', type: 'MEDAL_MATCHES', sequence: 4, isPublished: true, _count: { groups: 0, matches: 2 } },
+      ],
+      matches: Array.from({ length: 38 }, () => ({ _count: { slots: 2 } })),
+      importRuns: [{ id: 'clean-import' }],
+    } as CompetitionOption;
+
+    expect(isEditionPubliclyReady(glasgow)).toBe(true);
+    expect(isEditionPubliclyReady({
+      ...glasgow,
+      matches: [...glasgow.matches.slice(0, -1), { _count: { slots: 1 } }],
+    })).toBe(false);
+    expect(isEditionPubliclyReady({
+      ...glasgow,
+      importRuns: [],
+    })).toBe(false);
+    expect(isEditionPubliclyReady({
+      ...glasgow,
+      stages: glasgow.stages.map((stage) => stage.slug === 'medal-matches'
+        ? { ...stage, isPublished: false }
+        : stage),
+    })).toBe(false);
   });
 });

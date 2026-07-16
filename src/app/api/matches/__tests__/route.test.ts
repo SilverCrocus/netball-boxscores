@@ -1,11 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { loadPageMock, resolveCompetitionMock } = vi.hoisted(() => ({
+const {
+  loadPageMock,
+  resolveCompetitionMock,
+  resolveCompetitionByIdMock,
+  resolveLegacyLeagueCompetitionMock,
+} = vi.hoisted(() => ({
   loadPageMock: vi.fn(),
   resolveCompetitionMock: vi.fn(),
+  resolveCompetitionByIdMock: vi.fn(),
+  resolveLegacyLeagueCompetitionMock: vi.fn(),
 }));
 
-vi.mock('@/lib/competitions', () => ({ resolveCompetition: resolveCompetitionMock }));
+vi.mock('@/lib/competitions', () => ({
+  resolveCompetition: resolveCompetitionMock,
+  resolveCompetitionById: resolveCompetitionByIdMock,
+  resolveLegacyLeagueCompetition: resolveLegacyLeagueCompetitionMock,
+}));
 vi.mock('@/lib/home-feed', () => ({ getCompletedMatchesPage: loadPageMock }));
 
 import { GET } from '../route';
@@ -15,14 +26,29 @@ describe('GET /api/matches', () => {
     resolveCompetitionMock.mockReset().mockResolvedValue({
       competition: { id: 'competition-2026', season: 2026 },
     });
+    resolveCompetitionByIdMock.mockReset().mockResolvedValue({
+      competition: { id: 'glasgow-2026', season: 2026 },
+    });
+    resolveLegacyLeagueCompetitionMock.mockReset().mockResolvedValue({
+      competition: { id: 'competition-2026', season: 2026 },
+    });
     loadPageMock.mockReset().mockResolvedValue({ groups: [], nextCursor: null });
+  });
+
+  it('prefers a canonical edition id when competitions share a year', async () => {
+    const response = await GET(new Request('https://centrepass.test/api/matches?edition=glasgow-2026&season=2026'));
+
+    expect(response.status).toBe(200);
+    expect(resolveCompetitionByIdMock).toHaveBeenCalledWith('glasgow-2026');
+    expect(resolveCompetitionMock).not.toHaveBeenCalled();
+    expect(loadPageMock).toHaveBeenCalledWith('glasgow-2026', undefined);
   });
 
   it('resolves the requested season and forwards the cursor', async () => {
     const response = await GET(new Request('https://centrepass.test/api/matches?season=2026&cursor=next-page'));
 
     expect(response.status).toBe(200);
-    expect(resolveCompetitionMock).toHaveBeenCalledWith('2026');
+    expect(resolveLegacyLeagueCompetitionMock).toHaveBeenCalledWith('2026');
     expect(loadPageMock).toHaveBeenCalledWith('competition-2026', 'next-page');
   });
 

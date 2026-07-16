@@ -4,7 +4,7 @@
   "edition": "glasgow-2026",
   "generatedAt": "2026-07-16T04:15:40.000Z",
   "bundleFile": "bundle.json",
-  "bundleFileSha256": "ecb3de30ce005b9c4a844a903315f4b1ccd4a50ae5ccce8203aeed8b3c963585",
+  "bundleFileSha256": "ed0f87bb2d5e18e1891971346a25c1306037a03862e3a4c1b2012148302afb53",
   "declarations": {
     "sourceTimezone": "Europe/London",
     "scheduleLocalAbbreviation": "BST",
@@ -695,11 +695,15 @@
       "allOtherPlayers": "UNAVAILABLE"
     },
     "resultCoverage": "UNAVAILABLE — the tournament has not started.",
-    "publicationStatusRequired": "DRAFT",
+    "publicationStatusPolicy": "PRESERVE_EXISTING",
     "publicationBlockers": [],
     "publicSurfacePolicy": {
       "matchLabels": "Use roundLabel first, then final code, numerical round, or stage name.",
       "reusablePlayerPhotos": "Show sourced reusable photos only on attributed player profiles; secondary thumbnails and Open Graph cards use initials."
+    },
+    "factualDataReuse": {
+      "basis": "PUBLIC_FACTUAL_DATA_USER_ASSERTED",
+      "organiserApproval": "NOT_CLAIMED"
     }
   },
   "sources": [
@@ -708,294 +712,294 @@
       "url": "https://www.glasgow2026.com/news/4396719/world-s-top-12-nations-confirmed-for-netball-at-glasgow-2026",
       "purpose": "teams and qualification",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "glasgow-match-schedule",
       "url": "https://www.glasgow2026.com/news/4406319/glasgow-2026-netball-match-schedule-announced",
       "purpose": "pools and headline schedule",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "world-netball-hub",
       "url": "https://netball.sport/events-and-results/commonwealth-games/",
       "purpose": "complete match-by-match schedule and unresolved finals slots",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "glasgow-event-schedule-v15",
       "url": "https://resources.cwg-qbr.pulselive.com/qbr-commonwealth-games/document/2026/07/13/8d784373-7f4e-45ba-8f94-3341a0e209da/CWG26-Event-ALL-SPORTS_V15.pdf",
       "purpose": "latest official session schedule and local-time declaration",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "glasgow-sec-venue",
       "url": "https://www.glasgow2026.com/venues/sec",
       "purpose": "The Hydro venue",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "commonwealth-qualification-system",
       "url": "https://commonwealthgames.com.au/wp-content/uploads/Netball_G2026-CWG-Qualification-System_FINAL.pdf",
       "purpose": "final squad registration deadline",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "england-squad",
       "url": "https://www.teamengland.org/news/ready-to-score-team-england-confirm-netball-squad-for-glasgow-2026",
       "purpose": "England final squad identities and captain",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "england-positions",
       "url": "https://www.englandnetball.co.uk/vitality-roses/current-squad/",
       "purpose": "England player positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "england-jayda-position",
       "url": "https://www.englandnetball.co.uk/news/vitality-roses-squad-confirmed-for-jamaica-series/",
       "purpose": "Jayda Pechová position",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "new-zealand-squad",
       "url": "https://www.silverferns.co.nz/silver-ferns/news/latest-news/new-zealand-netball-team-ready-for-glasgow-2026-commonwealth-games-challenge.html",
       "purpose": "New Zealand final squad identities and captain",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "new-zealand-positions",
       "url": "https://www.silverferns.co.nz/silver-ferns/team/sf-squad.html",
       "purpose": "New Zealand player positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "scotland-squad",
       "url": "https://www.glasgow2026.com/news/4528552/meet-the-12-thistles-headed-for-the-hydro",
       "purpose": "Scotland final squad identities and positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "wales-squad",
       "url": "https://walesnetball.com/wales-netball-announces-team-wales-netball-squad-for-glasgow-2026/",
       "purpose": "Wales final squad announcement",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "wales-squad-list-image",
       "url": "https://walesnetball.com/wp-content/uploads/2026/06/WALES-NETBALL_CWG-ANNOUNCEMENT-LIST-1.jpg",
       "purpose": "Wales final squad identities and positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "australia-squad",
       "url": "https://netball.com.au/news/team-announced-contend-gold-glasgow",
       "purpose": "Australia final squad identities and captain",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "australia-positions",
       "url": "https://netball.com.au/diamonds/squad",
       "purpose": "Australia player positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "south-africa-squad",
       "url": "https://netball-sa.org.za/netball-south-africa-and-sascoc-confirm-commonwealth-squad/",
       "purpose": "South Africa final squad identities and captain",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "south-africa-positions",
       "url": "https://netball-sa.org.za/spar-proteas/",
       "purpose": "South Africa player positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "south-africa-crinums-positions",
       "url": "https://netball-sa.org.za/telkom-netball-league-2026/crinums/",
       "purpose": "Karla Pretorius and Karla Victor positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "northern-ireland-squad",
       "url": "https://www.sportni.net/news/teamni-netball-squad-ready-to-shoot-their-shot-in-glasgow/",
       "purpose": "Northern Ireland final squad identities and captain",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "northern-ireland-positions",
       "url": "https://netballni.org/warriors-pathway/squad/warriors/",
       "purpose": "Northern Ireland player positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "northern-ireland-lisa-position",
       "url": "https://www.glasgow2026.com/news/4507814/northern-ireland-netball-trio-set-for-exciting-glasgow-return",
       "purpose": "Lisa Bowman goal-shooter role",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "malawi-squad-hub",
       "url": "https://netball.sport/events-and-results/commonwealth-games/malawi/",
       "purpose": "Malawi final squad announcement embed",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "malawi-squad-post",
       "url": "https://www.facebook.com/mncs.mw/posts/1845930406855161",
       "purpose": "Malawi National Council of Sports final squad graphic",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "malawi-positions",
       "url": "https://mwnation.com/nam-announces-malawi-queens-commonwealth-games-squad/",
       "purpose": "Malawi preliminary positional groups",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "tonga-squad-hub",
       "url": "https://netball.sport/events-and-results/commonwealth-games/tonga/",
       "purpose": "Tonga final squad announcement embed",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "tonga-squad-post",
       "url": "https://www.facebook.com/tonganetball/posts/1469834128501258",
       "purpose": "Tonga Netball final squad graphic",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "jamaica-squad-hub",
       "url": "https://netball.sport/events-and-results/commonwealth-games/jamaica/",
       "purpose": "Jamaica final squad announcement embed",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "jamaica-squad-post",
       "url": "https://www.facebook.com/NetballJamaica/posts/1479327667570966",
       "purpose": "Netball Jamaica final squad graphic",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "jamaica-squad-report",
       "url": "https://www.jamaicaobserver.com/2026/07/10/sunshine-girls-head-glasgow-gold-mind/",
       "purpose": "Jamaica final squad identities",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "jamaica-position-guide",
       "url": "https://mcges.gov.jm/images/PDF/BIGUP_2023_SunshineGirls.pdf",
       "purpose": "Jamaica established player positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "jamaica-new-player-positions",
       "url": "https://www.englandnetball.co.uk/news/athletes-selected-for-roses-academy-2023-24/",
       "purpose": "Azara Wilmot positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "jamaica-rhea-position",
       "url": "https://jamaica-star.com/article/sports/20231020/england-born-dixon-hopes-add-sunshine-girls%E2%80%99-style",
       "purpose": "Rhea Dixon primary position",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "jamaica-brie-position",
       "url": "https://londonpulsenetball.com/brie-grierson-back-in-pink-and-black/",
       "purpose": "Brie Grierson primary position",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "jamaica-crystal-position",
       "url": "https://www.jamaicaobserver.com/2024/08/15/crystal-plummers-netball-future-shines-bright/",
       "purpose": "Crystal Plummer positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "trinidad-tobago-squad-hub",
       "url": "https://netball.sport/events-and-results/commonwealth-games/trinidadtobago/",
       "purpose": "Trinidad and Tobago final squad announcement embed",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "trinidad-tobago-squad-post",
       "url": "https://www.facebook.com/TTOCommonwealthGamesAssociation/posts/1682294542859642",
       "purpose": "TTO Commonwealth Games Association final delegation graphic",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "uganda-provisional-squad",
       "url": "https://www.newvision.co.ug/category/sports/she-cranes-unveil-commonwealth-squad-line-up-NV_236303_062026",
       "purpose": "Uganda 15-player preparation squad; not a final 12",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "funmi-photo",
       "url": "https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg",
       "purpose": "Funmi Fadoju reusable photo and licence",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "olivia-photo",
       "url": "https://commons.wikimedia.org/wiki/File:England_Netball_player_Olivia_Tchine.jpg",
       "purpose": "Olivia Tchine reusable photo and licence",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "eleanor-photo",
       "url": "https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg",
       "purpose": "Eleanor Cardwell reusable photo and licence",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     },
     {
       "id": "shamera-photo",
       "url": "https://commons.wikimedia.org/wiki/File:Thunderbirds_defender_Shamera_Sterling.jpg",
       "purpose": "Shamera Sterling-Humphrey reusable photo and licence",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
-      "fetchStatus": "VERIFIED"
+      "fetchStatus": "REFERENCED"
     }
   ]
 }

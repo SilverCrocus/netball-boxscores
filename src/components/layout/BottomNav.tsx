@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { NAV_ITEMS, isResolvedNavigationActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
@@ -10,18 +10,23 @@ import { GlobalSearch } from '@/components/search/GlobalSearch';
 import type { EditionContextValue } from '@/lib/edition-context';
 import {
   editionAwareNavigationHref,
-  navigationEditionFromPathname,
+  navigationEditionFromLocation,
 } from '@/lib/edition-links';
 
 export function BottomNav({ editions = [] }: { editions?: EditionContextValue[] }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { hasLive, minutesUntilNext } = useLiveStatus();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const primaryItems = NAV_ITEMS.filter((item) => !['/teams', '/explore'].includes(item.href));
   const moreItems = NAV_ITEMS.filter((item) => ['/explore', '/teams'].includes(item.href));
-  const currentEdition = navigationEditionFromPathname(editions, pathname);
+  const currentEdition = navigationEditionFromLocation(
+    editions,
+    pathname,
+    searchParams.get('edition'),
+  );
   const moreActive = moreItems.some((item) =>
     isResolvedNavigationActive(
       pathname,

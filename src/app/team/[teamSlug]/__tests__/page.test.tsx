@@ -33,6 +33,9 @@ vi.mock('@/lib/db', () => ({
         points: 44,
       }),
     },
+    rosterMembership: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     team: {
       findFirst: vi.fn().mockResolvedValue({
         id: 't1',
@@ -142,5 +145,33 @@ describe('TeamPage', () => {
         },
       },
     });
+  });
+
+  it('uses the selected edition roster instead of the legacy primary team relation', async () => {
+    const { prisma } = await import('@/lib/db');
+    vi.mocked(prisma.rosterMembership.findMany).mockResolvedValueOnce([
+      {
+        designatedPosition: 'WD',
+        player: {
+          id: 'canonical-player',
+          name: 'Canonical International',
+          position: 'C',
+          photoUrl: null,
+          photoSourceUrl: null,
+          photoCredit: null,
+          photoLicense: null,
+        },
+      },
+    ] as never);
+
+    const page = await TeamPage({
+      params: Promise.resolve({ teamSlug: 'vipers-athletics' }),
+      searchParams: Promise.resolve({ edition: 'competition-2026' }),
+    });
+    render(page);
+
+    expect(screen.getByText('Canonical International')).toBeInTheDocument();
+    expect(screen.getByText('WD')).toBeInTheDocument();
+    expect(screen.queryByText('Maya Sterling')).not.toBeInTheDocument();
   });
 });

@@ -28,6 +28,8 @@ export interface NormalizedTeamInput {
 export interface NormalizedPlayerInput {
   externalId: string;
   teamExternalId: string;
+  /** Reviewed cross-source identity. When present, import must reuse this player. */
+  canonicalChampionDataPlayerId?: number;
   name: string;
   position: Position;
   photoUrl?: string;

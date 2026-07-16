@@ -1,5 +1,12 @@
-import { unstable_cache } from 'next/cache';
+import { connection } from 'next/server';
+import { cache } from 'react';
 import { prisma } from '@/lib/db';
+import {
+  evaluateEditionPublicationReadiness,
+  isGlasgow2026Identity,
+  MIN_PUBLIC_EDITION_MATCHES,
+  MIN_PUBLIC_EDITION_TEAMS,
+} from '@/lib/edition-publication-readiness';
 
 export const competitionOptionSelect = {
   id: true,
@@ -43,9 +50,32 @@ export const competitionOptionSelect = {
   },
   _count: {
     select: {
-      entries: true,
+      entries: { where: { status: 'ACTIVE' } },
       matches: true,
     },
+  },
+  stages: {
+    orderBy: { sequence: 'asc' },
+    select: {
+      slug: true,
+      type: true,
+      sequence: true,
+      isPublished: true,
+      _count: { select: { groups: true, matches: true } },
+    },
+  },
+  matches: {
+    select: { _count: { select: { slots: true } } },
+  },
+  importRuns: {
+    where: {
+      sourceSystem: { key: 'glasgow-2026-public-data' },
+      status: 'SUCCEEDED',
+      dryRun: false,
+      issueCount: 0,
+    },
+    select: { id: true },
+    take: 1,
   },
 } as const;
 
@@ -55,17 +85,19 @@ const competitionsQuery = () =>
     orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
   });
 
-export const getCompetitions = process.env.NODE_ENV === 'test'
-  ? competitionsQuery
-  : unstable_cache(competitionsQuery, ['competition-directory-v3'], {
-      revalidate: 3600,
-      tags: ['competitions'],
-    });
+/**
+ * Publication is performed by a standalone CLI process, which cannot
+ * invalidate Next's in-process data cache. Keep this small directory query
+ * request-scoped so a newly published edition is visible on the next request.
+ */
+export const getCompetitions = cache(async () => {
+  if (process.env.NODE_ENV !== 'test') await connection();
+  return competitionsQuery();
+});
 
 export type CompetitionOption = Awaited<ReturnType<typeof getCompetitions>>[number];
 
-export const MIN_PUBLIC_EDITION_TEAMS = 2;
-export const MIN_PUBLIC_EDITION_MATCHES = 1;
+export { MIN_PUBLIC_EDITION_MATCHES, MIN_PUBLIC_EDITION_TEAMS };
 
 /**
  * Public visibility is deliberately stricter than the editorial status flag.
@@ -73,11 +105,36 @@ export const MIN_PUBLIC_EDITION_MATCHES = 1;
  * APIs, or analytics until it contains a viable participant and fixture set.
  */
 export function isEditionPubliclyReady(edition: CompetitionOption): boolean {
-  return edition.publicationStatus === 'PUBLISHED'
+  const passesGenericGate = edition.publicationStatus === 'PUBLISHED'
     && edition.series !== null
     && edition.slug !== null
     && edition._count.entries >= MIN_PUBLIC_EDITION_TEAMS
     && edition._count.matches >= MIN_PUBLIC_EDITION_MATCHES;
+  if (!passesGenericGate || !isGlasgow2026Identity({
+    competitionSlug: edition.series?.slug,
+    editionSlug: edition.slug,
+  })) {
+    return passesGenericGate;
+  }
+
+  return evaluateEditionPublicationReadiness({
+    competitionSlug: edition.series?.slug,
+    editionSlug: edition.slug,
+    publicationStatus: edition.publicationStatus,
+    teamCount: edition._count.entries,
+    matchCount: edition._count.matches,
+    matchSlotCount: edition.matches.reduce((total, match) => total + match._count.slots, 0),
+    cleanSuccessfulImportCount: edition.importRuns.length,
+    requirePublishedStages: true,
+    stages: edition.stages.map((stage) => ({
+      slug: stage.slug,
+      type: stage.type,
+      sequence: stage.sequence,
+      isPublished: stage.isPublished,
+      groupCount: stage._count.groups,
+      matchCount: stage._count.matches,
+    })),
+  }).ready;
 }
 
 export async function getPublicCompetitions(): Promise<CompetitionOption[]> {
@@ -124,6 +181,49 @@ export interface CompetitionResolution {
   competition: CompetitionOption | null;
   competitions: CompetitionOption[];
   wasFallback: boolean;
+}
+
+/** Resolve a public edition by its canonical database identity without a fallback. */
+export async function resolveCompetitionById(
+  competitionId: string,
+): Promise<CompetitionResolution> {
+  const competitions = await getPublicCompetitions();
+  const selected = competitions.find((competition) => competition.id === competitionId) ?? null;
+
+  return {
+    competition: selected,
+    competitions,
+    wasFallback: false,
+  };
+}
+
+/**
+ * Compatibility resolver for pre-edition SSN URLs. A numeric year cannot
+ * identify both a league and a tournament, so legacy `season` consumers stay
+ * explicitly league-scoped while new surfaces use canonical edition ids.
+ */
+export async function resolveLegacyLeagueCompetition(
+  season?: string,
+): Promise<CompetitionResolution> {
+  const competitions = (await getPublicCompetitions()).filter(
+    (competition) => competition.series?.kind === 'LEAGUE',
+  );
+  const latest = competitions[0] ?? null;
+
+  if (!season) {
+    return { competition: latest, competitions, wasFallback: false };
+  }
+
+  const parsedSeason = Number(season);
+  const selected = Number.isInteger(parsedSeason)
+    ? competitions.find((competition) => competition.season === parsedSeason) ?? null
+    : null;
+
+  return {
+    competition: selected ?? latest,
+    competitions,
+    wasFallback: selected === null,
+  };
 }
 
 /**

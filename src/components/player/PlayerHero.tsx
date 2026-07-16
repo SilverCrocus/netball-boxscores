@@ -25,16 +25,18 @@ interface PlayerHeroProps {
     teamId: string;
   };
   positionConfig: PositionConfig;
-  statHighlightValues: (number | string)[];
+  statHighlightValues: (number | string | null)[];
+  editionId?: string;
 }
 
-export function PlayerHero({ player, positionConfig, statHighlightValues }: PlayerHeroProps) {
+export function PlayerHero({ player, positionConfig, statHighlightValues, editionId }: PlayerHeroProps) {
   const [firstName, ...restName] = player.name.split(' ');
   const lastName = restName.join(' ');
   const teamColor = player.team.primaryColor || '#a3e635';
   const photoLicenseUrl = player.photoLicense === 'CC BY-SA 4.0'
     ? 'https://creativecommons.org/licenses/by-sa/4.0/'
     : null;
+  const teamHref = `/team/${player.team.slug}${editionId ? `?edition=${encodeURIComponent(editionId)}` : ''}`;
 
   return (
     <section className="kinetic-gradient relative overflow-hidden rounded-xl p-4 text-white shadow-2xl sm:p-8 md:p-12">
@@ -46,7 +48,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
       {/* Back link */}
       <div className="mb-6 min-w-0 sm:mb-8">
         <Link
-          href={`/team/${player.team.slug}`}
+          href={teamHref}
           className="inline-flex max-w-full items-center gap-2 text-sm font-label text-slate-300 transition-colors hover:text-white"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
@@ -143,7 +145,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
                 />
               )}
               <Link
-                href={`/team/${player.team.slug}`}
+                href={teamHref}
                 className="hover:opacity-80 transition-colors font-bold"
                 style={{ color: teamColor }}
               >
@@ -168,7 +170,9 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
                 {highlight.label}
               </p>
               <p className="font-headline text-3xl md:text-4xl font-black text-white italic">
-                {highlight.format === 'percentage'
+                {statHighlightValues[i] === null ? (
+                  <span aria-label={`${highlight.label} unavailable`}>—</span>
+                ) : highlight.format === 'percentage'
                   ? `${statHighlightValues[i]}%`
                   : statHighlightValues[i]}
               </p>

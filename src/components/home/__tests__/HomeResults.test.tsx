@@ -44,6 +44,7 @@ describe('HomeResults', () => {
         initialGroups={[{ label: 'Round 10', matches: [result('latest-match', 10)] }]}
         initialNextCursor="cursor-1"
         season={2026}
+        editionId="ssn-2026"
       />,
     );
 
@@ -52,7 +53,7 @@ describe('HomeResults', () => {
     expect(await screen.findByText('earlier-match')).toBeInTheDocument();
     expect(screen.getByText('latest-match')).toBeInTheDocument();
     expect(screen.getByText('1 earlier result added.')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/matches?season=2026&cursor=cursor-1');
+    expect(fetchMock).toHaveBeenCalledWith('/api/matches?edition=ssn-2026&season=2026&cursor=cursor-1');
     await waitFor(() => expect(screen.queryByRole('button')).not.toBeInTheDocument());
   });
 
@@ -63,6 +64,7 @@ describe('HomeResults', () => {
         initialGroups={[{ label: 'Round 10', matches: [result('latest-match', 10)] }]}
         initialNextCursor="cursor-1"
         season={2026}
+        editionId="ssn-2026"
       />,
     );
 

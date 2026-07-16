@@ -10,13 +10,92 @@ import PlayerCharts from '@/components/player/PlayerCharts';
 import { PlayerGameLog } from '@/components/player/PlayerGameLog';
 import { PlayerAdvancedMetrics } from '@/components/player/PlayerAdvancedMetrics';
 import { getPlayerAnalyticsProfile } from '@/lib/player-analytics';
-import { getPublicCompetitions } from '@/lib/competitions';
+import { getPublicCompetitions, type CompetitionOption } from '@/lib/competitions';
 import { JsonLd, personJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import type { Metadata } from 'next';
 
 interface PlayerPageProps {
   params: Promise<{ playerId: string }>;
-  searchParams: Promise<{ edition?: string; season?: string }>;
+  searchParams: Promise<PlayerEditionSearchParams>;
+}
+
+interface PlayerEditionSearchParams {
+  edition?: string;
+  competition?: string;
+  season?: string;
+}
+
+interface PlayerEditionSelection {
+  competition: CompetitionOption | null;
+  invalidExplicitSelection: boolean;
+}
+
+/**
+ * Player pages are shared by league and tournament editions, so an explicit
+ * selector must identify one public edition exactly. Canonical ids are
+ * preferred; competition-qualified slugs remain available for routed links.
+ * An unqualified slug is accepted only while it is globally unique.
+ */
+function selectPlayerEdition(
+  competitions: readonly CompetitionOption[],
+  { edition, competition, season }: PlayerEditionSearchParams,
+): PlayerEditionSelection {
+  if (!edition && !competition && !season) {
+    return {
+      competition: competitions[0] ?? null,
+      invalidExplicitSelection: false,
+    };
+  }
+
+  if (edition) {
+    if (competition) {
+      const qualifiedMatches = competitions.filter((candidate) =>
+        candidate.series?.slug === competition
+          && (candidate.id === edition || candidate.slug === edition),
+      );
+      return {
+        competition: qualifiedMatches.length === 1 ? qualifiedMatches[0] : null,
+        invalidExplicitSelection: qualifiedMatches.length !== 1,
+      };
+    }
+
+    const routeParts = edition.split('/');
+    if (routeParts.length === 2 && routeParts.every(Boolean)) {
+      const [competitionSlug, editionSlug] = routeParts;
+      const qualifiedMatches = competitions.filter((candidate) =>
+        candidate.series?.slug === competitionSlug && candidate.slug === editionSlug,
+      );
+      return {
+        competition: qualifiedMatches.length === 1 ? qualifiedMatches[0] : null,
+        invalidExplicitSelection: qualifiedMatches.length !== 1,
+      };
+    }
+
+    const canonicalMatch = competitions.find((candidate) => candidate.id === edition);
+    if (canonicalMatch) {
+      return { competition: canonicalMatch, invalidExplicitSelection: false };
+    }
+
+    const slugMatches = competitions.filter((candidate) => candidate.slug === edition);
+    return {
+      competition: slugMatches.length === 1 ? slugMatches[0] : null,
+      invalidExplicitSelection: slugMatches.length !== 1,
+    };
+  }
+
+  if (competition) {
+    return { competition: null, invalidExplicitSelection: true };
+  }
+
+  const leagueMatches = /^\d{4}$/.test(season ?? '')
+    ? competitions.filter((candidate) =>
+        candidate.series?.kind === 'LEAGUE' && candidate.season.toString() === season,
+      )
+    : [];
+  return {
+    competition: leagueMatches.length === 1 ? leagueMatches[0] : null,
+    invalidExplicitSelection: leagueMatches.length !== 1,
+  };
 }
 
 const getPlayer = cache((playerId: string, competitionId: string | undefined, publicEditionIds: string[]) =>
@@ -84,9 +163,9 @@ type PlayerWithStats = NonNullable<Awaited<ReturnType<typeof getPlayer>>>;
 function computeStatHighlightValues(
   player: PlayerWithStats,
   config: ReturnType<typeof getPositionConfig>,
-): (number | string)[] {
+): (number | string | null)[] {
   const { matchStats } = player;
-  if (matchStats.length === 0) return config.highlights.map(() => 0);
+  if (matchStats.length === 0) return config.highlights.map(() => null);
 
   return config.highlights.map((highlight) => {
     if (highlight.statField === 'shootingPct') {
@@ -104,15 +183,12 @@ function computeStatHighlightValues(
 
 export default async function PlayerPage({ params, searchParams }: PlayerPageProps) {
   const { playerId } = await params;
-  const { edition, season } = await searchParams;
+  const editionSearch = await searchParams;
 
   const competitions = await getPublicCompetitions();
-  const currentCompetition = competitions[0];
-  const selectedCompetition = edition
-    ? competitions.find((competition) => (competition.slug ?? competition.id) === edition) || currentCompetition
-    : season
-      ? competitions.find((competition) => competition.season.toString() === season) || currentCompetition
-      : currentCompetition;
+  const selection = selectPlayerEdition(competitions, editionSearch);
+  if (selection.invalidExplicitSelection) notFound();
+  const selectedCompetition = selection.competition;
 
   const player = await getPlayer(
     playerId,
@@ -122,39 +198,52 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
 
   if (!player) notFound();
 
-  const config = getPositionConfig(player.position);
+  const rosterMembership = player.rosterMemberships[0];
+  const membership = rosterMembership?.editionEntry;
+  const displayPosition = rosterMembership?.designatedPosition ?? player.position;
+  const displayTeam = membership?.team ?? player.team;
+  const displayPlayer = {
+    ...player,
+    position: displayPosition,
+    team: displayTeam,
+    teamId: displayTeam.id,
+  };
+  const config = getPositionConfig(displayPosition);
   const statHighlightValues = computeStatHighlightValues(player, config);
 
   const analytics = selectedCompetition
-    ? await getPlayerAnalyticsProfile(playerId, selectedCompetition.id, player.position)
+    ? await getPlayerAnalyticsProfile(playerId, selectedCompetition.id, displayPosition)
     : null;
   const superShotsByMatch = analytics?.superShotMatchIds.length
     ? await getPlayerSuperShots(playerId, analytics.superShotMatchIds)
     : [];
   const totalSuperShots = superShotsByMatch.reduce((sum, g) => sum + g._count, 0);
-  const membership = player.rosterMemberships[0]?.editionEntry;
+  const editionQuery = selectedCompetition
+    ? `?edition=${encodeURIComponent(selectedCompetition.id)}`
+    : '';
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       <JsonLd data={personJsonLd({
         name: player.name,
-        position: player.position,
+        position: displayPosition,
         dateOfBirth: player.dateOfBirth,
         nationality: player.nationality,
-        teamName: player.team.name,
-        teamSlug: player.team.slug,
+        teamName: displayTeam.name,
+        teamSlug: displayTeam.slug,
       })} />
       <JsonLd data={breadcrumbJsonLd([
         { name: 'Home', url: '/' },
         { name: 'Teams', url: '/teams' },
-        { name: player.team.name, url: `/team/${player.team.slug}` },
+        { name: displayTeam.name, url: `/team/${displayTeam.slug}${editionQuery}` },
         { name: player.name, url: `/player/${player.id}` },
       ])} />
 
       <PlayerHero
-        player={player}
+        player={displayPlayer}
         positionConfig={config}
         statHighlightValues={statHighlightValues}
+        editionId={selectedCompetition?.id}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -189,7 +278,7 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
       <PlayerGameLog
         matchStats={player.matchStats}
         config={config}
-        playerTeamId={player.teamId}
+        playerTeamId={displayTeam.id}
       />
     </div>
   );

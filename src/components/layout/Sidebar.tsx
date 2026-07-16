@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { NAV_ITEMS, isResolvedNavigationActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
@@ -11,13 +11,18 @@ import { GlobalEditionSelector } from '@/components/competition/GlobalEditionSel
 import type { EditionContextValue } from '@/lib/edition-context';
 import {
   editionAwareNavigationHref,
-  navigationEditionFromPathname,
+  navigationEditionFromLocation,
 } from '@/lib/edition-links';
 
 export function Sidebar({ editions = [] }: { editions?: EditionContextValue[] }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { hasLive, minutesUntilNext } = useLiveStatus();
-  const currentEdition = navigationEditionFromPathname(editions, pathname);
+  const currentEdition = navigationEditionFromLocation(
+    editions,
+    pathname,
+    searchParams.get('edition'),
+  );
 
   return (
     <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 overflow-y-auto bg-slate-900 py-8 z-40 shadow-xl">

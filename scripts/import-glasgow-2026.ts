@@ -1,7 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from '@/lib/db';
-import { upsertGlasgow2026Foundation } from '@/lib/glasgow/edition';
+import {
+  resolveGlasgow2026Foundation,
+  upsertGlasgow2026Foundation,
+} from '@/lib/glasgow/edition';
 import { JsonCompetitionAdapter } from '@/lib/sources/adapter';
 import {
   loadPrismaImportPlanningState,
@@ -53,7 +56,9 @@ async function main() {
     if (!preview.valid) process.exitCode = 2;
     return;
   }
-  const foundation = await upsertGlasgow2026Foundation(prisma);
+  const foundation = apply
+    ? await upsertGlasgow2026Foundation(prisma)
+    : await resolveGlasgow2026Foundation(prisma);
   const planningState = await loadPrismaImportPlanningState(prisma, {
     sourceSystemId: foundation.sourceSystemId,
     competitionId: foundation.editionId,
@@ -94,11 +99,13 @@ async function main() {
   }
 
   const receipt = await service.execute(sourceInput);
+  if (!receipt.publicationStatus) {
+    throw new Error('Applied import receipt did not include the edition publication status');
+  }
   console.log(JSON.stringify({
     mode: 'applied',
     bundlePath,
     editionId: foundation.editionId,
-    publicationStatus: 'DRAFT',
     ...receipt,
   }, null, 2));
 }

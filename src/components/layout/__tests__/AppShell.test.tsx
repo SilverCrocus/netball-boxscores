@@ -14,6 +14,7 @@ const editions: EditionContextValue[] = [{
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }));
 
