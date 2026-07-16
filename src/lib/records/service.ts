@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { AnalyticsCoverageState, AnalyticsEntityType, AnalyticsFact, AnalyticsRawField, MetricAggregation } from '@/lib/analytics';
 import { prisma } from '@/lib/db';
+import { getPublicCompetitions } from '@/lib/competitions';
 import { calculateRecordSnapshot } from '@/lib/records/calculate';
 import type { RecordEntity, RecordScope } from '@/lib/records/types';
 
@@ -146,11 +147,7 @@ export interface RecordSnapshotQuery {
 
 export async function getRecordSnapshot(query: RecordSnapshotQuery) {
   const entityType: AnalyticsEntityType = query.scope === 'TEAM' ? 'TEAM' : query.entityType;
-  const editions = await prisma.competition.findMany({
-    where: { publicationStatus: 'PUBLISHED' },
-    select: { id: true, label: true, name: true, season: true, series: { select: { name: true } } },
-    orderBy: [{ seasonStart: 'asc' }, { season: 'asc' }],
-  });
+  const editions = await getPublicCompetitions();
   const selectedEdition = editions.find((edition) => edition.id === query.competitionId);
   const isCrossEdition = query.scope === 'CAREER' || query.scope === 'CENTREPASS_ERA';
   const competitionIds = isCrossEdition ? editions.map((edition) => edition.id) : selectedEdition ? [selectedEdition.id] : [];

@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { excludeSimData, prisma } from '@/lib/db';
 import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { getPublicCompetitions } from '@/lib/competitions';
 
 const matchTeamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
 
@@ -13,8 +14,15 @@ const standingsQuery = (competitionId: string) =>
     orderBy: { rank: 'asc' },
   });
 
-const teamsQuery = () =>
-  prisma.team.findMany({
+const teamsQuery = async () => {
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  return prisma.team.findMany({
+    where: {
+      OR: [
+        { competitionId: { in: publicEditionIds } },
+        { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
+      ],
+    },
     select: {
       id: true,
       name: true,
@@ -24,12 +32,21 @@ const teamsQuery = () =>
     },
     orderBy: { name: 'asc' },
   });
+};
 
-const teamBySlugQuery = (teamSlug: string) =>
-  prisma.team.findUnique({
-    where: { slug: teamSlug },
+const teamBySlugQuery = async (teamSlug: string) => {
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  return prisma.team.findFirst({
+    where: {
+      slug: teamSlug,
+      OR: [
+        { competitionId: { in: publicEditionIds } },
+        { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
+      ],
+    },
     include: { players: { orderBy: { name: 'asc' } } },
   });
+};
 
 const teamStandingQuery = (competitionId: string, teamId: string) =>
   prisma.standing.findUnique({

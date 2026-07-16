@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { prisma } from '@/lib/db';
+import { getPublicCompetitions } from '@/lib/competitions';
 
 export const runtime = 'nodejs';
 export const alt = 'Team Profile';
@@ -14,8 +15,15 @@ export default async function TeamOgImage({
   params: Promise<{ teamSlug: string }>;
 }) {
   const { teamSlug } = await params;
-  const team = await prisma.team.findUnique({
-    where: { slug: teamSlug },
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  const team = await prisma.team.findFirst({
+    where: {
+      slug: teamSlug,
+      OR: [
+        { competitionId: { in: publicEditionIds } },
+        { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
+      ],
+    },
     select: { name: true, abbreviation: true, logoUrl: true },
   });
 

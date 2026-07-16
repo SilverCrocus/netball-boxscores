@@ -1,23 +1,33 @@
 import { prisma } from '@/lib/db';
+import { getPublicCompetitions } from '@/lib/competitions';
 import type { ParserContext } from '@/lib/stat-query/types';
 
 export async function loadParserContext(): Promise<ParserContext> {
-  const [players, teams, editions, stages] = await Promise.all([
+  const editions = await getPublicCompetitions();
+  const publicEditionIds = editions.map((edition) => edition.id);
+  const [players, teams, stages] = await Promise.all([
     prisma.player.findMany({
+      where: {
+        OR: [
+          { team: { competitionId: { in: publicEditionIds } } },
+          { rosterMemberships: { some: { editionEntry: { competitionId: { in: publicEditionIds } } } } },
+        ],
+      },
       select: { id: true, name: true, position: true, aliases: { select: { alias: true } } },
       orderBy: { name: 'asc' },
     }),
     prisma.team.findMany({
+      where: {
+        OR: [
+          { competitionId: { in: publicEditionIds } },
+          { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
+        ],
+      },
       select: { id: true, name: true, abbreviation: true, aliases: { select: { alias: true } } },
       orderBy: { name: 'asc' },
     }),
-    prisma.competition.findMany({
-      where: { publicationStatus: 'PUBLISHED' },
-      select: { id: true, name: true, label: true, season: true, slug: true, series: { select: { name: true, slug: true } } },
-      orderBy: [{ seasonStart: 'desc' }, { season: 'desc' }],
-    }),
     prisma.stage.findMany({
-      where: { competition: { publicationStatus: 'PUBLISHED' } },
+      where: { competitionId: { in: publicEditionIds } },
       select: { id: true, competitionId: true, name: true, slug: true, type: true, groups: { select: { id: true, name: true, slug: true } } },
     }),
   ]);

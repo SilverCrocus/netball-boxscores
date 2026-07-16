@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { prisma } from '@/lib/db';
+import { getPublicCompetitions } from '@/lib/competitions';
 import { formatMatchStage } from '@/lib/match-label';
 import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 
@@ -16,8 +17,9 @@ export default async function MatchOgImage({
   params: Promise<{ matchId: string }>;
 }) {
   const { matchId } = await params;
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  const match = await prisma.match.findFirst({
+    where: { id: matchId, competitionId: { in: publicEditionIds } },
     select: {
       homeTeamId: true,
       awayTeamId: true,

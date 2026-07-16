@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getCompetitions } from '@/lib/competitions';
+import { getPublicCompetitions } from '@/lib/competitions';
 import { getMetricDefinition, metricCatalogue } from '@/lib/analytics';
 import type { MetricAggregation, MetricResult } from '@/lib/analytics';
 import { TEAM_POWER_METHODOLOGY } from '@/lib/rankings';
@@ -54,7 +54,7 @@ function ordinal(value: number): string {
 
 export default async function RankingsPage({ searchParams }: RankingsPageProps) {
   const query = await searchParams;
-  const editions = (await getCompetitions()).filter((edition) => edition.publicationStatus === 'PUBLISHED');
+  const editions = await getPublicCompetitions();
   const edition = editions.find((option) => option.id === query.edition || option.slug === query.edition) ?? editions[0] ?? null;
   const view = query.view === 'teams' ? 'teams' : 'players';
   const requestedMetric = getMetricDefinition(query.metric ?? 'centrepass_impact');

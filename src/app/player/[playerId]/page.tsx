@@ -10,6 +10,7 @@ import PlayerCharts from '@/components/player/PlayerCharts';
 import { PlayerGameLog } from '@/components/player/PlayerGameLog';
 import { PlayerAdvancedMetrics } from '@/components/player/PlayerAdvancedMetrics';
 import { getPlayerAnalyticsProfile } from '@/lib/player-analytics';
+import { getPublicCompetitions } from '@/lib/competitions';
 import { JsonLd, personJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import type { Metadata } from 'next';
 
@@ -18,9 +19,15 @@ interface PlayerPageProps {
   searchParams: Promise<{ edition?: string; season?: string }>;
 }
 
-const getPlayer = cache((playerId: string, competitionId?: string) =>
-  prisma.player.findUnique({
-    where: { id: playerId },
+const getPlayer = cache((playerId: string, competitionId: string | undefined, publicEditionIds: string[]) =>
+  prisma.player.findFirst({
+    where: {
+      id: playerId,
+      OR: [
+        { team: { competitionId: { in: publicEditionIds } } },
+        { rosterMemberships: { some: { editionEntry: { competitionId: { in: publicEditionIds } } } } },
+      ],
+    },
     include: {
       team: true,
       matchStats: {
@@ -51,14 +58,6 @@ const getPlayer = cache((playerId: string, competitionId?: string) =>
   })
 );
 
-const getCompetitions = cache(() =>
-  prisma.competition.findMany({
-    where: { publicationStatus: 'PUBLISHED' },
-    select: { id: true, season: true, name: true, slug: true, label: true, seasonStart: true },
-    orderBy: [{ seasonStart: 'desc' }, { season: 'desc' }],
-  })
-);
-
 const getPlayerSuperShots = cache((playerId: string, matchIds: string[]) =>
   prisma.scoreFlow.groupBy({
     by: ['matchId'],
@@ -69,7 +68,8 @@ const getPlayerSuperShots = cache((playerId: string, matchIds: string[]) =>
 
 export async function generateMetadata({ params }: PlayerPageProps): Promise<Metadata> {
   const { playerId } = await params;
-  const player = await getPlayer(playerId);
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  const player = await getPlayer(playerId, undefined, publicEditionIds);
 
   if (!player) return { title: 'Player Not Found' };
 
@@ -106,7 +106,7 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
   const { playerId } = await params;
   const { edition, season } = await searchParams;
 
-  const competitions = await getCompetitions();
+  const competitions = await getPublicCompetitions();
   const currentCompetition = competitions[0];
   const selectedCompetition = edition
     ? competitions.find((competition) => (competition.slug ?? competition.id) === edition) || currentCompetition
@@ -114,7 +114,11 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
       ? competitions.find((competition) => competition.season.toString() === season) || currentCompetition
       : currentCompetition;
 
-  const player = await getPlayer(playerId, selectedCompetition?.id);
+  const player = await getPlayer(
+    playerId,
+    selectedCompetition?.id,
+    competitions.map((competition) => competition.id),
+  );
 
   if (!player) notFound();
 

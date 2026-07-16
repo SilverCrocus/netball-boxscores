@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { MetricAggregation, MetricResult } from '@/lib/analytics';
-import { getCompetitions } from '@/lib/competitions';
+import { getPublicCompetitions } from '@/lib/competitions';
 import { getComparisonPlayers, getPlayerComparison } from '@/lib/comparison/service';
 import { GroupedPlayerOptions } from './GroupedPlayerOptions';
 
@@ -33,7 +33,7 @@ function percentile(value: number | null): string {
 
 export default async function ComparePlayersPage({ searchParams }: ComparePageProps) {
   const query = await searchParams;
-  const editions = (await getCompetitions()).filter((edition) => edition.publicationStatus === 'PUBLISHED');
+  const editions = await getPublicCompetitions();
   const edition = editions.find((option) => option.id === query.edition || option.slug === query.edition) ?? editions[0] ?? null;
   const players = edition ? await getComparisonPlayers(edition.id) : [];
   const left = players.find((player) => player.id === query.left) ?? players[0];

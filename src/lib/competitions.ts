@@ -41,6 +41,12 @@ export const competitionOptionSelect = {
       observedAt: true,
     },
   },
+  _count: {
+    select: {
+      entries: true,
+      matches: true,
+    },
+  },
 } as const;
 
 const competitionsQuery = () =>
@@ -51,12 +57,32 @@ const competitionsQuery = () =>
 
 export const getCompetitions = process.env.NODE_ENV === 'test'
   ? competitionsQuery
-  : unstable_cache(competitionsQuery, ['competition-directory-v2'], {
+  : unstable_cache(competitionsQuery, ['competition-directory-v3'], {
       revalidate: 3600,
       tags: ['competitions'],
     });
 
 export type CompetitionOption = Awaited<ReturnType<typeof getCompetitions>>[number];
+
+export const MIN_PUBLIC_EDITION_TEAMS = 2;
+export const MIN_PUBLIC_EDITION_MATCHES = 1;
+
+/**
+ * Public visibility is deliberately stricter than the editorial status flag.
+ * A mistakenly published shell edition must not leak into selectors, routes,
+ * APIs, or analytics until it contains a viable participant and fixture set.
+ */
+export function isEditionPubliclyReady(edition: CompetitionOption): boolean {
+  return edition.publicationStatus === 'PUBLISHED'
+    && edition.series !== null
+    && edition.slug !== null
+    && edition._count.entries >= MIN_PUBLIC_EDITION_TEAMS
+    && edition._count.matches >= MIN_PUBLIC_EDITION_MATCHES;
+}
+
+export async function getPublicCompetitions(): Promise<CompetitionOption[]> {
+  return (await getCompetitions()).filter(isEditionPubliclyReady);
+}
 
 export interface EditionRouteIdentity {
   competitionSlug: string;
@@ -73,7 +99,7 @@ export function selectEditionBySlugs(
   identity: EditionRouteIdentity
 ): CompetitionOption | null {
   return editions.find((edition) =>
-    edition.publicationStatus === 'PUBLISHED'
+    isEditionPubliclyReady(edition)
       && edition.series?.slug === identity.competitionSlug
       && edition.slug === identity.editionSlug
   ) ?? null;
@@ -86,12 +112,7 @@ export function selectEditionBySlugs(
 export async function resolveEdition(
   identity: EditionRouteIdentity
 ): Promise<EditionResolution> {
-  const editions = await getCompetitions();
-  const publicEditions = editions.filter((edition) =>
-    edition.publicationStatus === 'PUBLISHED'
-      && edition.series !== null
-      && edition.slug !== null
-  );
+  const publicEditions = await getPublicCompetitions();
 
   return {
     edition: selectEditionBySlugs(publicEditions, identity),
@@ -110,7 +131,7 @@ export interface CompetitionResolution {
  * resolveEdition so two competitions sharing a year cannot be confused.
  */
 export async function resolveCompetition(season?: string): Promise<CompetitionResolution> {
-  const competitions = await getCompetitions();
+  const competitions = await getPublicCompetitions();
   const latest = competitions[0] ?? null;
 
   if (!season) {

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getMetricDefinition, metricCatalogue } from '@/lib/analytics';
 import type { AnalyticsEntityType, MetricAggregation } from '@/lib/analytics';
-import { getCompetitions } from '@/lib/competitions';
+import { getPublicCompetitions } from '@/lib/competitions';
 import { getRecordSnapshot } from '@/lib/records/service';
 import type { RecordScope } from '@/lib/records';
 
@@ -37,7 +37,7 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
   const query = await searchParams;
   const scope = scopeValue(query.scope);
   const entityType: AnalyticsEntityType = scope === 'TEAM' || query.entity === 'TEAM' ? 'TEAM' : 'PLAYER';
-  const editions = (await getCompetitions()).filter((edition) => edition.publicationStatus === 'PUBLISHED');
+  const editions = await getPublicCompetitions();
   const edition = editions.find((option) => option.id === query.edition || option.slug === query.edition) ?? editions[0] ?? null;
   const availableMetrics = metricCatalogue.filter((definition) =>
     definition.entityTypes.includes(entityType) && definition.calculation.kind !== 'SERVICE',
@@ -135,4 +135,3 @@ function Filter({ label, children }: { label: string; children: React.ReactNode 
 function AuditCard({ label, value }: { label: string; value: string }) {
   return <article className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm"><p className="font-label text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">{label}</p><p className="mt-2 font-headline text-base font-bold text-primary">{value}</p></article>;
 }
-

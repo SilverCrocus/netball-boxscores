@@ -15,6 +15,10 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
+vi.mock('@/lib/competitions', () => ({
+  getPublicCompetitions: vi.fn().mockResolvedValue([{ id: 'competition-2026' }]),
+}));
+
 import { GET } from '../route';
 
 describe('GET /api/search', () => {

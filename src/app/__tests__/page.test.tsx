@@ -111,6 +111,10 @@ describe('HomePage', () => {
       id: 'competition-2026',
       name: 'Suncorp Super Netball',
       season: 2026,
+      slug: '2026',
+      publicationStatus: 'PUBLISHED',
+      series: { id: 'ssn', slug: 'ssn', name: 'Suncorp Super Netball', kind: 'LEAGUE' },
+      _count: { entries: 8, matches: MATCHES.length },
       seasonStart: new Date('2026-03-01T00:00:00Z'),
       seasonEnd: new Date('2026-07-31T00:00:00Z'),
     }]);
