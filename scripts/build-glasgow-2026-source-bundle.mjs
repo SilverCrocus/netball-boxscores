@@ -31,6 +31,18 @@ const teams = teamRows.map(([externalId, name, slug, groupSlug, seed]) => ({
 }));
 
 const squadRows = [
+  ['AUS', 'Kiera Austin', 'GS'],
+  ['AUS', 'Courtney Bruce', 'GK'],
+  ['AUS', 'Sophie Dwyer', 'GS'],
+  ['AUS', 'Sophie Garbin', 'GA'],
+  ['AUS', 'Matilda Garrett', 'GD'],
+  ['AUS', 'Georgie Horjus', 'WA'],
+  ['AUS', 'Sarah Klau', 'GK'],
+  ['AUS', 'Cara Koenen', 'GS'],
+  ['AUS', 'Kate Moloney', 'C'],
+  ['AUS', 'Jamie-Lee Price', 'WD'],
+  ['AUS', 'Liz Watson', 'WA', true],
+  ['AUS', 'Jo Weston', 'GK'],
   ['ENG', 'Halimat Adio', 'GK'],
   ['ENG', 'Francesca Williams', 'GD', true],
   ['ENG', 'Funmi Fadoju', 'WD'],
@@ -43,6 +55,30 @@ const squadRows = [
   ['ENG', 'Olivia Tchine', 'GS'],
   ['ENG', 'Eleanor Cardwell', 'GS'],
   ['ENG', 'Lois Pearson', 'GA'],
+  ['RSA', 'Khanyisa Chawane', 'WA', true],
+  ['RSA', 'Jamie Golob', 'GD'],
+  ['RSA', 'Kamogelo Maseko', 'GA'],
+  ['RSA', 'Tarle Mathe', 'C'],
+  ['RSA', 'Owethu Ngubane', 'GS'],
+  ['RSA', 'Refiloe Nketsa', 'C'],
+  ['RSA', 'Karla Pretorius', 'GD'],
+  ['RSA', 'Nicola Smith', 'GD'],
+  ['RSA', 'Rolene Streutker', 'GS'],
+  ['RSA', 'Elmeré van der Berg', 'GS'],
+  ['RSA', 'Karla Victor', 'C'],
+  ['RSA', 'Sanmarie Visser', 'GD'],
+  ['NIR', 'Lisa Bowman', 'GS'],
+  ['NIR', 'Niamh Cooper', 'WD'],
+  ['NIR', 'Frances Keenan', 'WA'],
+  ['NIR', 'Emma Magee', 'GA'],
+  ['NIR', 'Michelle Magee', 'GD', true],
+  ['NIR', 'Maria McCann', 'GK'],
+  ['NIR', 'Evelyn McCagherty', 'WA'],
+  ['NIR', 'Georgie McGrath', 'GA'],
+  ['NIR', 'Caroline O’Hanlon', 'C'],
+  ['NIR', 'Orlaith Rogers', 'GS'],
+  ['NIR', 'Fionnuala Toner', 'GD'],
+  ['NIR', 'Lauren Walshe', 'GK'],
   ['NZL', 'Georgia Heffernan', 'GS'],
   ['NZL', 'Grace Nweke', 'GS'],
   ['NZL', 'Martina Salmon', 'GS'],
@@ -55,6 +91,18 @@ const squadRows = [
   ['NZL', 'Catherine Hall', 'GK'],
   ['NZL', 'Kelly Jackson', 'GK'],
   ['NZL', 'Carys Stythe', 'GK'],
+  ['JAM', 'Shamera Sterling-Humphrey', 'GK', true],
+  ['JAM', 'Latanya Wilson', 'WD'],
+  ['JAM', 'Shanice Beckford', 'GA'],
+  ['JAM', 'Kadie-Ann Dehaney', 'GK'],
+  ['JAM', 'Jodi-Ann Ward', 'GD'],
+  ['JAM', 'Crystal Plummer', 'WD'],
+  ['JAM', 'Nicole Dixon-Rochester', 'C'],
+  ['JAM', 'Brie Grierson', 'WA'],
+  ['JAM', 'Abigale Sutherland', 'C'],
+  ['JAM', 'Rhea Dixon', 'GA'],
+  ['JAM', 'Azara Wilmot', 'GS'],
+  ['JAM', 'Romelda Aiken-George', 'GS'],
   ['SCO', 'Emma Barrie', 'GS'],
   ['SCO', 'Cerys Cairns', 'GA'],
   ['SCO', 'Iona Christian', 'WA'],
@@ -110,6 +158,13 @@ const photoEvidence = {
     photoLicense: 'CC BY-SA 4.0',
     photoVerifiedAt: retrievedAt,
   },
+  'JAM-shamera-sterling-humphrey': {
+    photoUrl: 'https://upload.wikimedia.org/wikipedia/commons/d/d4/Thunderbirds_defender_Shamera_Sterling.jpg',
+    photoSourceUrl: 'https://commons.wikimedia.org/wiki/File:Thunderbirds_defender_Shamera_Sterling.jpg',
+    photoCredit: 'トりン',
+    photoLicense: 'CC BY-SA 4.0',
+    photoVerifiedAt: retrievedAt,
+  },
 };
 
 const players = squadRows.map(([teamExternalId, name, position]) => {
@@ -128,6 +183,55 @@ const rosters = squadRows.map(([teamExternalId, name, , isCaptain = false]) => (
   playerExternalId: `${teamExternalId}-${slugify(name)}`,
   status: 'ACTIVE',
   isCaptain,
+}));
+
+const unimportedSquadEvidence = {
+  MWI: {
+    status: 'FINAL',
+    members: [
+      'Takondwa Lwazi', 'Martha Dambo', 'Mphatso Banda', 'Aisha Gama',
+      'Florence Jeke', 'Ethel Ng’ambi', 'Sophilet Banda', 'Tendai Masamba',
+      'Mwai Kumwenda', 'Stella Matelezi', 'Melia Soko', 'Shabel Bengo',
+    ],
+    note: 'Final 12 identities are verified. The source set does not establish one exact primary bib for every player, so the roster is retained as evidence rather than imported with invented positions.',
+  },
+  TON: {
+    status: 'FINAL',
+    members: [
+      'Alice Cocker', 'Emma Mateo', 'Halaevalu Toutaiolepo', 'Hulita Veve',
+      'Isabella Fainga’anuku', 'Kalolaine Luana Aukafolau', 'Lavinia Lavea',
+      'Leila Tu’inukuafe', 'Marie Payn', 'ʻOtolose Fainga’anuku', 'Sovika Pousini',
+      'Uneeq Palavi',
+    ],
+    note: 'Final 12 identities are verified. Exact primary positions were not available for every player in the fetched source set.',
+  },
+  TTO: {
+    status: 'FINAL',
+    members: [
+      'Janeisha Cassimy', 'Joelisa Cooper', 'Nichola Gill', 'Makayla Grant',
+      'Demisha Henry', 'Aneisha Hyles', 'Shian Lewis', 'Adannaya Martin',
+      'Jeresia McEachrane', 'Shaniya Morgan', 'Afeisha Noel', 'Ebony Williams',
+    ],
+    note: 'Final 12 identities are verified. Exact primary positions were not available for every player in the fetched source set.',
+  },
+  UGA: {
+    status: 'PROVISIONAL',
+    members: [
+      'Mary Cholhok', 'Shadiah Nassanga', 'Rachael Nanyonga', 'Alice Isoto',
+      'Margaret Baagala', 'Lillian Achola', 'Joan Ryekoboth', 'Mercy Batamuliza',
+      'Hindu Namutebi', 'Shaffie Nalwanja', 'Stella Nanfuka', 'Mutesi Nassim',
+      'Gloria Aya', 'Christine Nakitto', 'Haniisha Muhameed',
+    ],
+    note: 'This is the published 15-player preparation squad, not a final registered 12. No Uganda players are imported until a final squad is published.',
+  },
+};
+
+const squadMembers = Object.fromEntries(teamRows.map(([teamExternalId]) => {
+  const importedMembers = squadRows
+    .filter(([rowTeamExternalId]) => rowTeamExternalId === teamExternalId)
+    .map(([, name, position, isCaptain = false]) => ({ name, position, isCaptain }));
+  const evidence = unimportedSquadEvidence[teamExternalId];
+  return [teamExternalId, evidence ?? { status: 'FINAL', members: importedMembers }];
 }));
 
 const poolSchedule = [
@@ -246,27 +350,49 @@ const sources = [
   ['scotland-squad', 'https://www.glasgow2026.com/news/4528552/meet-the-12-thistles-headed-for-the-hydro', 'Scotland final squad identities and positions'],
   ['wales-squad', 'https://walesnetball.com/wales-netball-announces-team-wales-netball-squad-for-glasgow-2026/', 'Wales final squad announcement'],
   ['wales-squad-list-image', 'https://walesnetball.com/wp-content/uploads/2026/06/WALES-NETBALL_CWG-ANNOUNCEMENT-LIST-1.jpg', 'Wales final squad identities and positions'],
-  ['australia-squad', 'https://netball.com.au/news/team-announced-contend-gold-glasgow', 'Australia final squad identities; positions absent'],
-  ['south-africa-squad', 'https://netball-sa.org.za/netball-south-africa-and-sascoc-confirm-commonwealth-squad/', 'South Africa final squad identities; positions absent'],
-  ['northern-ireland-squad', 'https://www.sportni.net/news/teamni-netball-squad-ready-to-shoot-their-shot-in-glasgow/', 'Northern Ireland final squad identities; positions incomplete'],
+  ['australia-squad', 'https://netball.com.au/news/team-announced-contend-gold-glasgow', 'Australia final squad identities and captain'],
+  ['australia-positions', 'https://netball.com.au/diamonds/squad', 'Australia player positions'],
+  ['south-africa-squad', 'https://netball-sa.org.za/netball-south-africa-and-sascoc-confirm-commonwealth-squad/', 'South Africa final squad identities and captain'],
+  ['south-africa-positions', 'https://netball-sa.org.za/spar-proteas/', 'South Africa player positions'],
+  ['south-africa-crinums-positions', 'https://netball-sa.org.za/telkom-netball-league-2026/crinums/', 'Karla Pretorius and Karla Victor positions'],
+  ['northern-ireland-squad', 'https://www.sportni.net/news/teamni-netball-squad-ready-to-shoot-their-shot-in-glasgow/', 'Northern Ireland final squad identities and captain'],
+  ['northern-ireland-positions', 'https://netballni.org/warriors-pathway/squad/warriors/', 'Northern Ireland player positions'],
+  ['northern-ireland-lisa-position', 'https://www.glasgow2026.com/news/4507814/northern-ireland-netball-trio-set-for-exciting-glasgow-return', 'Lisa Bowman goal-shooter role'],
+  ['malawi-squad-hub', 'https://netball.sport/events-and-results/commonwealth-games/malawi/', 'Malawi final squad announcement embed'],
+  ['malawi-squad-post', 'https://www.facebook.com/mncs.mw/posts/1845930406855161', 'Malawi National Council of Sports final squad graphic'],
+  ['malawi-positions', 'https://mwnation.com/nam-announces-malawi-queens-commonwealth-games-squad/', 'Malawi preliminary positional groups'],
+  ['tonga-squad-hub', 'https://netball.sport/events-and-results/commonwealth-games/tonga/', 'Tonga final squad announcement embed'],
+  ['tonga-squad-post', 'https://www.facebook.com/tonganetball/posts/1469834128501258', 'Tonga Netball final squad graphic'],
+  ['jamaica-squad-hub', 'https://netball.sport/events-and-results/commonwealth-games/jamaica/', 'Jamaica final squad announcement embed'],
+  ['jamaica-squad-post', 'https://www.facebook.com/NetballJamaica/posts/1479327667570966', 'Netball Jamaica final squad graphic'],
+  ['jamaica-squad-report', 'https://www.jamaicaobserver.com/2026/07/10/sunshine-girls-head-glasgow-gold-mind/', 'Jamaica final squad identities'],
+  ['jamaica-position-guide', 'https://mcges.gov.jm/images/PDF/BIGUP_2023_SunshineGirls.pdf', 'Jamaica established player positions'],
+  ['jamaica-new-player-positions', 'https://www.englandnetball.co.uk/news/athletes-selected-for-roses-academy-2023-24/', 'Azara Wilmot positions'],
+  ['jamaica-rhea-position', 'https://jamaica-star.com/article/sports/20231020/england-born-dixon-hopes-add-sunshine-girls%E2%80%99-style', 'Rhea Dixon primary position'],
+  ['jamaica-brie-position', 'https://londonpulsenetball.com/brie-grierson-back-in-pink-and-black/', 'Brie Grierson primary position'],
+  ['jamaica-crystal-position', 'https://www.jamaicaobserver.com/2024/08/15/crystal-plummers-netball-future-shines-bright/', 'Crystal Plummer positions'],
+  ['trinidad-tobago-squad-hub', 'https://netball.sport/events-and-results/commonwealth-games/trinidadtobago/', 'Trinidad and Tobago final squad announcement embed'],
+  ['trinidad-tobago-squad-post', 'https://www.facebook.com/TTOCommonwealthGamesAssociation/posts/1682294542859642', 'TTO Commonwealth Games Association final delegation graphic'],
+  ['uganda-provisional-squad', 'https://www.newvision.co.ug/category/sports/she-cranes-unveil-commonwealth-squad-line-up-NV_236303_062026', 'Uganda 15-player preparation squad; not a final 12'],
   ['funmi-photo', 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg', 'Funmi Fadoju reusable photo and licence'],
   ['olivia-photo', 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Olivia_Tchine.jpg', 'Olivia Tchine reusable photo and licence'],
   ['eleanor-photo', 'https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg', 'Eleanor Cardwell reusable photo and licence'],
+  ['shamera-photo', 'https://commons.wikimedia.org/wiki/File:Thunderbirds_defender_Shamera_Sterling.jpg', 'Shamera Sterling-Humphrey reusable photo and licence'],
 ].map(([id, url, purpose]) => ({ id, url, purpose, retrievedAt, fetchStatus: 'VERIFIED' }));
 
 const squadCoverage = {
-  AUS: { identity: 'VERIFIED', positions: 'UNAVAILABLE', importedPlayers: 0, note: 'Final 12 announced; the fetched announcement did not state positions.' },
+  AUS: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
   ENG: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
-  RSA: { identity: 'VERIFIED', positions: 'UNAVAILABLE', importedPlayers: 0, note: 'Final 12 announced; the fetched announcement did not state positions.' },
-  MWI: { identity: 'UNAVAILABLE', positions: 'UNAVAILABLE', importedPlayers: 0, note: 'Fetched reporting described a 16-player preliminary group, not the final travelling 12.' },
-  TON: { identity: 'UNAVAILABLE', positions: 'UNAVAILABLE', importedPlayers: 0, note: 'No successfully fetched primary final-squad list.' },
-  NIR: { identity: 'VERIFIED', positions: 'PARTIAL', importedPlayers: 0, note: 'Final 12 announced; positions were only stated for some players.' },
+  RSA: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
+  MWI: { identity: 'VERIFIED', positions: 'PARTIAL', importedPlayers: 0, note: 'Final 12 identities retained in squadMembers; exact primary position is not supported for every member.' },
+  TON: { identity: 'VERIFIED', positions: 'PARTIAL', importedPlayers: 0, note: 'Final 12 identities retained in squadMembers; exact primary position is not supported for every member.' },
+  NIR: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12, note: 'Lauren Walshe is the canonical federation spelling; the final announcement rendered her first name as Laureen.' },
   NZL: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
-  JAM: { identity: 'UNAVAILABLE', positions: 'UNAVAILABLE', importedPlayers: 0, note: 'No successfully fetched primary final-squad list with reusable text.' },
+  JAM: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
   WAL: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
-  UGA: { identity: 'UNAVAILABLE', positions: 'UNAVAILABLE', importedPlayers: 0, note: 'No successfully fetched primary final-squad list.' },
+  UGA: { identity: 'PROVISIONAL', positions: 'PARTIAL', importedPlayers: 0, note: 'Published list contains 15 preparation-squad players, not a final registered 12.' },
   SCO: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
-  TTO: { identity: 'UNAVAILABLE', positions: 'UNAVAILABLE', importedPlayers: 0, note: 'The fetched delegation announcement did not expose the netball roster.' },
+  TTO: { identity: 'VERIFIED', positions: 'PARTIAL', importedPlayers: 0, note: 'Final 12 identities retained in squadMembers; exact primary position is not supported for every member.' },
 };
 
 const bundleText = `${JSON.stringify(bundle, null, 2)}\n`;
@@ -285,8 +411,10 @@ const manifest = {
     venue: 'The Hydro',
     matchCoverage: { total: 38, poolStage: 30, classification: 4, semiFinals: 2, medalMatches: 2, unresolvedSlots: 12, dependentSlots: 4 },
     squadPositionConvention: 'Where an official source listed multiple positions, the first listed position is the database primary position.',
+    squadIdentityCoverage: { finalSquads: 11, provisionalSquads: 1, importedCompleteSquads: 8 },
     squadCoverage,
-    photoCoverage: { verifiedReusablePhotos: 3, license: 'CC BY-SA 4.0', allOtherPlayers: 'UNAVAILABLE' },
+    squadMembers,
+    photoCoverage: { verifiedReusablePhotos: 4, license: 'CC BY-SA 4.0', allOtherPlayers: 'UNAVAILABLE' },
     resultCoverage: 'UNAVAILABLE — the tournament has not started.',
     publicationStatusRequired: 'DRAFT',
     publicationBlockers: [],

@@ -4,7 +4,7 @@
   "edition": "glasgow-2026",
   "generatedAt": "2026-07-16T04:15:40.000Z",
   "bundleFile": "bundle.json",
-  "bundleFileSha256": "9fd7ec115415ec88a77836e6c251c7af68aa4622b6bcbbc54ed5004c133d6948",
+  "bundleFileSha256": "ecb3de30ce005b9c4a844a903315f4b1ccd4a50ae5ccce8203aeed8b3c963585",
   "declarations": {
     "sourceTimezone": "Europe/London",
     "scheduleLocalAbbreviation": "BST",
@@ -20,12 +20,16 @@
       "dependentSlots": 4
     },
     "squadPositionConvention": "Where an official source listed multiple positions, the first listed position is the database primary position.",
+    "squadIdentityCoverage": {
+      "finalSquads": 11,
+      "provisionalSquads": 1,
+      "importedCompleteSquads": 8
+    },
     "squadCoverage": {
       "AUS": {
         "identity": "VERIFIED",
-        "positions": "UNAVAILABLE",
-        "importedPlayers": 0,
-        "note": "Final 12 announced; the fetched announcement did not state positions."
+        "positions": "VERIFIED",
+        "importedPlayers": 12
       },
       "ENG": {
         "identity": "VERIFIED",
@@ -34,27 +38,26 @@
       },
       "RSA": {
         "identity": "VERIFIED",
-        "positions": "UNAVAILABLE",
-        "importedPlayers": 0,
-        "note": "Final 12 announced; the fetched announcement did not state positions."
+        "positions": "VERIFIED",
+        "importedPlayers": 12
       },
       "MWI": {
-        "identity": "UNAVAILABLE",
-        "positions": "UNAVAILABLE",
-        "importedPlayers": 0,
-        "note": "Fetched reporting described a 16-player preliminary group, not the final travelling 12."
-      },
-      "TON": {
-        "identity": "UNAVAILABLE",
-        "positions": "UNAVAILABLE",
-        "importedPlayers": 0,
-        "note": "No successfully fetched primary final-squad list."
-      },
-      "NIR": {
         "identity": "VERIFIED",
         "positions": "PARTIAL",
         "importedPlayers": 0,
-        "note": "Final 12 announced; positions were only stated for some players."
+        "note": "Final 12 identities retained in squadMembers; exact primary position is not supported for every member."
+      },
+      "TON": {
+        "identity": "VERIFIED",
+        "positions": "PARTIAL",
+        "importedPlayers": 0,
+        "note": "Final 12 identities retained in squadMembers; exact primary position is not supported for every member."
+      },
+      "NIR": {
+        "identity": "VERIFIED",
+        "positions": "VERIFIED",
+        "importedPlayers": 12,
+        "note": "Lauren Walshe is the canonical federation spelling; the final announcement rendered her first name as Laureen."
       },
       "NZL": {
         "identity": "VERIFIED",
@@ -62,10 +65,9 @@
         "importedPlayers": 12
       },
       "JAM": {
-        "identity": "UNAVAILABLE",
-        "positions": "UNAVAILABLE",
-        "importedPlayers": 0,
-        "note": "No successfully fetched primary final-squad list with reusable text."
+        "identity": "VERIFIED",
+        "positions": "VERIFIED",
+        "importedPlayers": 12
       },
       "WAL": {
         "identity": "VERIFIED",
@@ -73,10 +75,10 @@
         "importedPlayers": 12
       },
       "UGA": {
-        "identity": "UNAVAILABLE",
-        "positions": "UNAVAILABLE",
+        "identity": "PROVISIONAL",
+        "positions": "PARTIAL",
         "importedPlayers": 0,
-        "note": "No successfully fetched primary final-squad list."
+        "note": "Published list contains 15 preparation-squad players, not a final registered 12."
       },
       "SCO": {
         "identity": "VERIFIED",
@@ -84,14 +86,611 @@
         "importedPlayers": 12
       },
       "TTO": {
-        "identity": "UNAVAILABLE",
-        "positions": "UNAVAILABLE",
+        "identity": "VERIFIED",
+        "positions": "PARTIAL",
         "importedPlayers": 0,
-        "note": "The fetched delegation announcement did not expose the netball roster."
+        "note": "Final 12 identities retained in squadMembers; exact primary position is not supported for every member."
+      }
+    },
+    "squadMembers": {
+      "AUS": {
+        "status": "FINAL",
+        "members": [
+          {
+            "name": "Kiera Austin",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Courtney Bruce",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Sophie Dwyer",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Sophie Garbin",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Matilda Garrett",
+            "position": "GD",
+            "isCaptain": false
+          },
+          {
+            "name": "Georgie Horjus",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Sarah Klau",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Cara Koenen",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Kate Moloney",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Jamie-Lee Price",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Liz Watson",
+            "position": "WA",
+            "isCaptain": true
+          },
+          {
+            "name": "Jo Weston",
+            "position": "GK",
+            "isCaptain": false
+          }
+        ]
+      },
+      "ENG": {
+        "status": "FINAL",
+        "members": [
+          {
+            "name": "Halimat Adio",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Francesca Williams",
+            "position": "GD",
+            "isCaptain": true
+          },
+          {
+            "name": "Funmi Fadoju",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Jayda Pechová",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Imogen Allison",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Jess Shaw",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Amy Carter",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Natalie Metcalf",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Sasha Glasgow",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Olivia Tchine",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Eleanor Cardwell",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Lois Pearson",
+            "position": "GA",
+            "isCaptain": false
+          }
+        ]
+      },
+      "RSA": {
+        "status": "FINAL",
+        "members": [
+          {
+            "name": "Khanyisa Chawane",
+            "position": "WA",
+            "isCaptain": true
+          },
+          {
+            "name": "Jamie Golob",
+            "position": "GD",
+            "isCaptain": false
+          },
+          {
+            "name": "Kamogelo Maseko",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Tarle Mathe",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Owethu Ngubane",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Refiloe Nketsa",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Karla Pretorius",
+            "position": "GD",
+            "isCaptain": false
+          },
+          {
+            "name": "Nicola Smith",
+            "position": "GD",
+            "isCaptain": false
+          },
+          {
+            "name": "Rolene Streutker",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Elmeré van der Berg",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Karla Victor",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Sanmarie Visser",
+            "position": "GD",
+            "isCaptain": false
+          }
+        ]
+      },
+      "MWI": {
+        "status": "FINAL",
+        "members": [
+          "Takondwa Lwazi",
+          "Martha Dambo",
+          "Mphatso Banda",
+          "Aisha Gama",
+          "Florence Jeke",
+          "Ethel Ng’ambi",
+          "Sophilet Banda",
+          "Tendai Masamba",
+          "Mwai Kumwenda",
+          "Stella Matelezi",
+          "Melia Soko",
+          "Shabel Bengo"
+        ],
+        "note": "Final 12 identities are verified. The source set does not establish one exact primary bib for every player, so the roster is retained as evidence rather than imported with invented positions."
+      },
+      "TON": {
+        "status": "FINAL",
+        "members": [
+          "Alice Cocker",
+          "Emma Mateo",
+          "Halaevalu Toutaiolepo",
+          "Hulita Veve",
+          "Isabella Fainga’anuku",
+          "Kalolaine Luana Aukafolau",
+          "Lavinia Lavea",
+          "Leila Tu’inukuafe",
+          "Marie Payn",
+          "ʻOtolose Fainga’anuku",
+          "Sovika Pousini",
+          "Uneeq Palavi"
+        ],
+        "note": "Final 12 identities are verified. Exact primary positions were not available for every player in the fetched source set."
+      },
+      "NIR": {
+        "status": "FINAL",
+        "members": [
+          {
+            "name": "Lisa Bowman",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Niamh Cooper",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Frances Keenan",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Emma Magee",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Michelle Magee",
+            "position": "GD",
+            "isCaptain": true
+          },
+          {
+            "name": "Maria McCann",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Evelyn McCagherty",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Georgie McGrath",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Caroline O’Hanlon",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Orlaith Rogers",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Fionnuala Toner",
+            "position": "GD",
+            "isCaptain": false
+          },
+          {
+            "name": "Lauren Walshe",
+            "position": "GK",
+            "isCaptain": false
+          }
+        ]
+      },
+      "NZL": {
+        "status": "FINAL",
+        "members": [
+          {
+            "name": "Georgia Heffernan",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Grace Nweke",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Martina Salmon",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Amelia Walmsley",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Madeline Gordon",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Kate Heffernan",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Kimiora Poi",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Mila Reuelu-Buchanan",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Karin Burger",
+            "position": "GK",
+            "isCaptain": true
+          },
+          {
+            "name": "Catherine Hall",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Kelly Jackson",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Carys Stythe",
+            "position": "GK",
+            "isCaptain": false
+          }
+        ]
+      },
+      "JAM": {
+        "status": "FINAL",
+        "members": [
+          {
+            "name": "Shamera Sterling-Humphrey",
+            "position": "GK",
+            "isCaptain": true
+          },
+          {
+            "name": "Latanya Wilson",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Shanice Beckford",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Kadie-Ann Dehaney",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Jodi-Ann Ward",
+            "position": "GD",
+            "isCaptain": false
+          },
+          {
+            "name": "Crystal Plummer",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Nicole Dixon-Rochester",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Brie Grierson",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Abigale Sutherland",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Rhea Dixon",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Azara Wilmot",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Romelda Aiken-George",
+            "position": "GS",
+            "isCaptain": false
+          }
+        ]
+      },
+      "WAL": {
+        "status": "FINAL",
+        "members": [
+          {
+            "name": "Vicky Booth",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Bethan Dyke",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Alex Johnson",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Nansi Kuti",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Zoe Matthewman",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Leah Middleton",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Caris Morgan",
+            "position": "GD",
+            "isCaptain": false
+          },
+          {
+            "name": "Megan Pilkington",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Georgia Rowe",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Poppy Tydeman",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Lowri Windsor",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Phillipa Yarranton",
+            "position": "GA",
+            "isCaptain": false
+          }
+        ]
+      },
+      "UGA": {
+        "status": "PROVISIONAL",
+        "members": [
+          "Mary Cholhok",
+          "Shadiah Nassanga",
+          "Rachael Nanyonga",
+          "Alice Isoto",
+          "Margaret Baagala",
+          "Lillian Achola",
+          "Joan Ryekoboth",
+          "Mercy Batamuliza",
+          "Hindu Namutebi",
+          "Shaffie Nalwanja",
+          "Stella Nanfuka",
+          "Mutesi Nassim",
+          "Gloria Aya",
+          "Christine Nakitto",
+          "Haniisha Muhameed"
+        ],
+        "note": "This is the published 15-player preparation squad, not a final registered 12. No Uganda players are imported until a final squad is published."
+      },
+      "SCO": {
+        "status": "FINAL",
+        "members": [
+          {
+            "name": "Emma Barrie",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Cerys Cairns",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Iona Christian",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Rachel Conway",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Cerys Finn",
+            "position": "GK",
+            "isCaptain": false
+          },
+          {
+            "name": "Lexy Gillies",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Bethan Goodwin",
+            "position": "GS",
+            "isCaptain": false
+          },
+          {
+            "name": "Hannah Grant",
+            "position": "WD",
+            "isCaptain": false
+          },
+          {
+            "name": "Hannah Leighton",
+            "position": "C",
+            "isCaptain": false
+          },
+          {
+            "name": "Niamh McCall",
+            "position": "GA",
+            "isCaptain": false
+          },
+          {
+            "name": "Jazmine Moore",
+            "position": "WA",
+            "isCaptain": false
+          },
+          {
+            "name": "Emily Nicholl",
+            "position": "GD",
+            "isCaptain": false
+          }
+        ]
+      },
+      "TTO": {
+        "status": "FINAL",
+        "members": [
+          "Janeisha Cassimy",
+          "Joelisa Cooper",
+          "Nichola Gill",
+          "Makayla Grant",
+          "Demisha Henry",
+          "Aneisha Hyles",
+          "Shian Lewis",
+          "Adannaya Martin",
+          "Jeresia McEachrane",
+          "Shaniya Morgan",
+          "Afeisha Noel",
+          "Ebony Williams"
+        ],
+        "note": "Final 12 identities are verified. Exact primary positions were not available for every player in the fetched source set."
       }
     },
     "photoCoverage": {
-      "verifiedReusablePhotos": 3,
+      "verifiedReusablePhotos": 4,
       "license": "CC BY-SA 4.0",
       "allOtherPlayers": "UNAVAILABLE"
     },
@@ -205,21 +804,168 @@
     {
       "id": "australia-squad",
       "url": "https://netball.com.au/news/team-announced-contend-gold-glasgow",
-      "purpose": "Australia final squad identities; positions absent",
+      "purpose": "Australia final squad identities and captain",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "australia-positions",
+      "url": "https://netball.com.au/diamonds/squad",
+      "purpose": "Australia player positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
       "fetchStatus": "VERIFIED"
     },
     {
       "id": "south-africa-squad",
       "url": "https://netball-sa.org.za/netball-south-africa-and-sascoc-confirm-commonwealth-squad/",
-      "purpose": "South Africa final squad identities; positions absent",
+      "purpose": "South Africa final squad identities and captain",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "south-africa-positions",
+      "url": "https://netball-sa.org.za/spar-proteas/",
+      "purpose": "South Africa player positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "south-africa-crinums-positions",
+      "url": "https://netball-sa.org.za/telkom-netball-league-2026/crinums/",
+      "purpose": "Karla Pretorius and Karla Victor positions",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
       "fetchStatus": "VERIFIED"
     },
     {
       "id": "northern-ireland-squad",
       "url": "https://www.sportni.net/news/teamni-netball-squad-ready-to-shoot-their-shot-in-glasgow/",
-      "purpose": "Northern Ireland final squad identities; positions incomplete",
+      "purpose": "Northern Ireland final squad identities and captain",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "northern-ireland-positions",
+      "url": "https://netballni.org/warriors-pathway/squad/warriors/",
+      "purpose": "Northern Ireland player positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "northern-ireland-lisa-position",
+      "url": "https://www.glasgow2026.com/news/4507814/northern-ireland-netball-trio-set-for-exciting-glasgow-return",
+      "purpose": "Lisa Bowman goal-shooter role",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "malawi-squad-hub",
+      "url": "https://netball.sport/events-and-results/commonwealth-games/malawi/",
+      "purpose": "Malawi final squad announcement embed",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "malawi-squad-post",
+      "url": "https://www.facebook.com/mncs.mw/posts/1845930406855161",
+      "purpose": "Malawi National Council of Sports final squad graphic",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "malawi-positions",
+      "url": "https://mwnation.com/nam-announces-malawi-queens-commonwealth-games-squad/",
+      "purpose": "Malawi preliminary positional groups",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "tonga-squad-hub",
+      "url": "https://netball.sport/events-and-results/commonwealth-games/tonga/",
+      "purpose": "Tonga final squad announcement embed",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "tonga-squad-post",
+      "url": "https://www.facebook.com/tonganetball/posts/1469834128501258",
+      "purpose": "Tonga Netball final squad graphic",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "jamaica-squad-hub",
+      "url": "https://netball.sport/events-and-results/commonwealth-games/jamaica/",
+      "purpose": "Jamaica final squad announcement embed",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "jamaica-squad-post",
+      "url": "https://www.facebook.com/NetballJamaica/posts/1479327667570966",
+      "purpose": "Netball Jamaica final squad graphic",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "jamaica-squad-report",
+      "url": "https://www.jamaicaobserver.com/2026/07/10/sunshine-girls-head-glasgow-gold-mind/",
+      "purpose": "Jamaica final squad identities",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "jamaica-position-guide",
+      "url": "https://mcges.gov.jm/images/PDF/BIGUP_2023_SunshineGirls.pdf",
+      "purpose": "Jamaica established player positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "jamaica-new-player-positions",
+      "url": "https://www.englandnetball.co.uk/news/athletes-selected-for-roses-academy-2023-24/",
+      "purpose": "Azara Wilmot positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "jamaica-rhea-position",
+      "url": "https://jamaica-star.com/article/sports/20231020/england-born-dixon-hopes-add-sunshine-girls%E2%80%99-style",
+      "purpose": "Rhea Dixon primary position",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "jamaica-brie-position",
+      "url": "https://londonpulsenetball.com/brie-grierson-back-in-pink-and-black/",
+      "purpose": "Brie Grierson primary position",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "jamaica-crystal-position",
+      "url": "https://www.jamaicaobserver.com/2024/08/15/crystal-plummers-netball-future-shines-bright/",
+      "purpose": "Crystal Plummer positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "trinidad-tobago-squad-hub",
+      "url": "https://netball.sport/events-and-results/commonwealth-games/trinidadtobago/",
+      "purpose": "Trinidad and Tobago final squad announcement embed",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "trinidad-tobago-squad-post",
+      "url": "https://www.facebook.com/TTOCommonwealthGamesAssociation/posts/1682294542859642",
+      "purpose": "TTO Commonwealth Games Association final delegation graphic",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "uganda-provisional-squad",
+      "url": "https://www.newvision.co.ug/category/sports/she-cranes-unveil-commonwealth-squad-line-up-NV_236303_062026",
+      "purpose": "Uganda 15-player preparation squad; not a final 12",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
       "fetchStatus": "VERIFIED"
     },
@@ -241,6 +987,13 @@
       "id": "eleanor-photo",
       "url": "https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg",
       "purpose": "Eleanor Cardwell reusable photo and licence",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "shamera-photo",
+      "url": "https://commons.wikimedia.org/wiki/File:Thunderbirds_defender_Shamera_Sterling.jpg",
+      "purpose": "Shamera Sterling-Humphrey reusable photo and licence",
       "retrievedAt": "2026-07-16T04:15:40.000Z",
       "fetchStatus": "VERIFIED"
     }

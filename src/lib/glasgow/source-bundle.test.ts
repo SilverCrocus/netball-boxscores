@@ -12,10 +12,32 @@ async function loadSourceBundle() {
   const bundleText = await readFile(bundlePath, 'utf8');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
     bundleFileSha256: string;
+    sources: Array<{
+      id: string;
+      url: string;
+      purpose: string;
+      retrievedAt: string;
+      fetchStatus: string;
+    }>;
     declarations: {
       publicationStatusRequired: string;
       publicationBlockers: string[];
       matchCoverage: { unresolvedSlots: number; dependentSlots: number };
+      squadIdentityCoverage: {
+        finalSquads: number;
+        provisionalSquads: number;
+        importedCompleteSquads: number;
+      };
+      squadCoverage: Record<string, {
+        identity: string;
+        positions: string;
+        importedPlayers: number;
+      }>;
+      squadMembers: Record<string, {
+        status: string;
+        members: Array<string | { name: string; position: string; isCaptain: boolean }>;
+      }>;
+      photoCoverage: { verifiedReusablePhotos: number };
     };
   };
   return {
@@ -82,15 +104,34 @@ describe('Glasgow 2026 source bundle', () => {
     expect(bundle.matches.every((match) => match.venue === 'The Hydro')).toBe(true);
   });
 
-  it('imports only position-supported squads and complete photo provenance', async () => {
-    const { bundle } = await loadSourceBundle();
+  it('imports complete position-supported squads and retains audited evidence for every other team', async () => {
+    const { bundle, manifest } = await loadSourceBundle();
     const playerCounts = Object.groupBy(bundle.players, (player) => player.teamExternalId);
     const playersWithPhotos = bundle.players.filter((player) => player.photoUrl);
 
-    expect(bundle.players).toHaveLength(48);
-    expect(bundle.rosters).toHaveLength(48);
-    expect(Object.keys(playerCounts).sort()).toEqual(['ENG', 'NZL', 'SCO', 'WAL']);
+    expect(bundle.players).toHaveLength(96);
+    expect(bundle.rosters).toHaveLength(96);
+    expect(Object.keys(playerCounts).sort()).toEqual([
+      'AUS', 'ENG', 'JAM', 'NIR', 'NZL', 'RSA', 'SCO', 'WAL',
+    ]);
     expect(Object.values(playerCounts).every((players) => players?.length === 12)).toBe(true);
+    expect(manifest.declarations.squadIdentityCoverage).toEqual({
+      finalSquads: 11,
+      provisionalSquads: 1,
+      importedCompleteSquads: 8,
+    });
+    expect(manifest.declarations.squadCoverage.UGA).toMatchObject({
+      identity: 'PROVISIONAL',
+      importedPlayers: 0,
+    });
+    expect(manifest.declarations.squadMembers.MWI).toMatchObject({ status: 'FINAL' });
+    expect(manifest.declarations.squadMembers.MWI.members).toHaveLength(12);
+    expect(manifest.declarations.squadMembers.TON.members).toHaveLength(12);
+    expect(manifest.declarations.squadMembers.TTO.members).toHaveLength(12);
+    expect(manifest.declarations.squadMembers.UGA).toMatchObject({ status: 'PROVISIONAL' });
+    expect(manifest.declarations.squadMembers.UGA.members).toHaveLength(15);
+    expect(bundle.players.some((player) => player.teamExternalId === 'UGA')).toBe(false);
+    expect(bundle.players.some((player) => player.name === 'Sophilet Banda')).toBe(false);
     expect(bundle.players).toContainEqual(expect.objectContaining({
       externalId: 'WAL-phillipa-yarranton',
       name: 'Phillipa Yarranton',
@@ -99,11 +140,26 @@ describe('Glasgow 2026 source bundle', () => {
     expect(bundle.rosters).toContainEqual(expect.objectContaining({
       playerExternalId: 'WAL-phillipa-yarranton',
     }));
-    expect(playersWithPhotos).toHaveLength(3);
+    expect(bundle.players).toContainEqual(expect.objectContaining({
+      externalId: 'NIR-lauren-walshe',
+      name: 'Lauren Walshe',
+      position: 'GK',
+    }));
+    expect(bundle.rosters).toContainEqual(expect.objectContaining({
+      playerExternalId: 'NIR-michelle-magee',
+      isCaptain: true,
+    }));
+    expect(bundle.rosters).toContainEqual(expect.objectContaining({
+      playerExternalId: 'JAM-shamera-sterling-humphrey',
+      isCaptain: true,
+    }));
+    expect(playersWithPhotos).toHaveLength(4);
+    expect(playersWithPhotos).toHaveLength(manifest.declarations.photoCoverage.verifiedReusablePhotos);
     expect(playersWithPhotos.map((player) => player.photoUrl).sort()).toEqual([
       'https://upload.wikimedia.org/wikipedia/commons/3/34/England_Netball_player_Funmi_Fadoju.jpg',
       'https://upload.wikimedia.org/wikipedia/commons/4/4b/Thunderbirds_shooter_Eleanor_Cardwell.jpg',
       'https://upload.wikimedia.org/wikipedia/commons/6/6d/England_Netball_player_Olivia_Tchine.jpg',
+      'https://upload.wikimedia.org/wikipedia/commons/d/d4/Thunderbirds_defender_Shamera_Sterling.jpg',
     ]);
     expect(playersWithPhotos.every((player) => (
       player.photoSourceUrl
@@ -132,5 +188,36 @@ describe('Glasgow 2026 source bundle', () => {
         && photoUrl.hostname === 'upload.wikimedia.org'
         && photoUrl.pathname.startsWith('/wikipedia/commons/');
     })).toBe(true);
+  });
+
+  it('keeps a complete, deterministic provenance ledger for squads and photos', async () => {
+    const { bundle, manifest } = await loadSourceBundle();
+    const sourceIds = manifest.sources.map((source) => source.id);
+    const photoSources = new Set(
+      bundle.players.flatMap((player) => player.photoSourceUrl ? [player.photoSourceUrl] : [])
+    );
+
+    expect(new Set(sourceIds).size).toBe(sourceIds.length);
+    expect(manifest.sources.every((source) => (
+      source.url.startsWith('https://')
+      && source.purpose.length > 0
+      && source.fetchStatus === 'VERIFIED'
+      && !Number.isNaN(Date.parse(source.retrievedAt))
+    ))).toBe(true);
+    expect(sourceIds).toEqual(expect.arrayContaining([
+      'australia-squad',
+      'south-africa-squad',
+      'northern-ireland-squad',
+      'malawi-squad-post',
+      'tonga-squad-post',
+      'jamaica-squad-post',
+      'trinidad-tobago-squad-post',
+      'uganda-provisional-squad',
+    ]));
+    expect(new Set(
+      manifest.sources
+        .filter((source) => source.id.endsWith('-photo'))
+        .map((source) => source.url)
+    )).toEqual(photoSources);
   });
 });
