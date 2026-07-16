@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Position } from '@prisma/client';
 import type { PositionConfig } from './position-config';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 import { computeAge, formatHeight } from '@/lib/format';
 
 interface PlayerHeroProps {
@@ -19,6 +19,7 @@ interface PlayerHeroProps {
     team: {
       name: string;
       slug: string;
+      abbreviation: string;
       logoUrl: string | null;
       primaryColor: string | null;
     };
@@ -135,15 +136,12 @@ export function PlayerHero({ player, positionConfig, statHighlightValues, editio
                   <span>{formatHeight(player.height)}</span>
                 </>
               )}
-              {player.team.logoUrl && (
-                <Image
-                  src={player.team.logoUrl}
-                  alt={player.team.name}
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 shrink-0 object-contain"
-                />
-              )}
+              <TeamBadge
+                team={player.team}
+                size={32}
+                variant="away"
+                className="h-8 w-8 shrink-0 rounded-full"
+              />
               <Link
                 href={teamHref}
                 className="hover:opacity-80 transition-colors font-bold"

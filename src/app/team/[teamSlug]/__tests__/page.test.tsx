@@ -153,6 +153,30 @@ describe('TeamPage', () => {
     expect(screen.getByText(/Vipers/)).toBeInTheDocument();
   });
 
+  it('renders a national flag in the team hero when no logo is available', async () => {
+    vi.mocked(getPublicCompetitions).mockResolvedValue([glasgowEdition] as never);
+    vi.mocked(prisma.team.findFirst).mockResolvedValueOnce({
+      ...ssnTeam,
+      id: 'australia-team',
+      name: 'Australia',
+      slug: 'australia',
+      abbreviation: 'AUS',
+      competitionId: 'glasgow-id',
+      editionEntries: [{ competitionId: 'glasgow-id' }],
+      players: [],
+    } as never);
+
+    const page = await TeamPage({
+      params: Promise.resolve({ teamSlug: 'australia' }),
+      searchParams: Promise.resolve({ edition: 'glasgow-id' }),
+    });
+    render(page);
+
+    expect(screen.getByRole('img', { name: 'Australia flag' }).getAttribute('src')).toContain(
+      '/flags/glasgow-2026/au.svg',
+    );
+  });
+
   it('renders roster', async () => {
     const page = await TeamPage({
       params: Promise.resolve({ teamSlug: 'vipers-athletics' }),

@@ -33,6 +33,7 @@ describe('PlayerHero', () => {
           team: {
             name: 'Manchester Thunder Netball Club',
             slug: 'manchester-thunder',
+            abbreviation: 'MTH',
             logoUrl: null,
             primaryColor: '#a3e635',
           },
@@ -68,6 +69,7 @@ describe('PlayerHero', () => {
           team: {
             name: 'England',
             slug: 'england-glasgow-2026',
+            abbreviation: 'ENG',
             logoUrl: null,
             primaryColor: '#ef4444',
           },
@@ -86,6 +88,7 @@ describe('PlayerHero', () => {
       'https://creativecommons.org/licenses/by-sa/4.0/',
     );
     expect(screen.getByText(/cropped for display/)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'England flag' })).toBeInTheDocument();
   });
 
   it('renders unavailable highlights without manufacturing zero values', () => {
@@ -105,6 +108,7 @@ describe('PlayerHero', () => {
           team: {
             name: 'Example Team',
             slug: 'example-team',
+            abbreviation: 'EXA',
             logoUrl: null,
             primaryColor: null,
           },

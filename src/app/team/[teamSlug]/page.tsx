@@ -10,6 +10,7 @@ import { JsonLd, sportsTeamJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { getPublicCompetitions, type CompetitionOption } from '@/lib/competitions';
 import { toEditionContext } from '@/lib/edition-context';
 import { editionHref, editionScopedHref } from '@/lib/edition-links';
+import { countryFlagForTeam } from '@/lib/country-flags';
 import {
   getRecentTeamMatches,
   getTeamEditionRoster,
@@ -163,6 +164,7 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
   };
   const recentResults = recentMatches.map(withOpponent);
   const upcoming = upcomingMatches.map(withOpponent);
+  const teamCountryFlag = countryFlagForTeam(team);
 
   return (
     <div className="max-w-7xl mx-auto space-y-12">
@@ -194,6 +196,15 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
                   width={192}
                   height={192}
                   className="w-full h-full object-contain p-4"
+                />
+              ) : teamCountryFlag ? (
+                <Image
+                  src={teamCountryFlag}
+                  alt={`${team.name} flag`}
+                  width={192}
+                  height={144}
+                  unoptimized
+                  className="h-auto w-full object-contain p-2 sm:p-3 md:p-4"
                 />
               ) : (
                 <span
