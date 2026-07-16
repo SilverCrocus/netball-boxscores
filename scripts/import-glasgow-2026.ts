@@ -10,16 +10,49 @@ import {
 import { CompetitionImportService } from '@/lib/sources/service';
 
 function usage(): never {
-  throw new Error('Usage: npm run db:import:glasgow -- <bundle.json> [--apply]');
+  throw new Error('Usage: npm run db:import:glasgow -- <bundle.json> [--apply|--offline-preview]');
 }
 
 async function main() {
   const apply = process.argv.includes('--apply');
+  const offlinePreview = process.argv.includes('--offline-preview');
   const sourceFile = process.argv.slice(2).find((argument) => !argument.startsWith('--'));
   if (!sourceFile) usage();
+  if (apply && offlinePreview) throw new Error('--offline-preview cannot be combined with --apply');
 
   const bundlePath = path.resolve(sourceFile);
   const sourceInput = await readFile(bundlePath, 'utf8');
+  if (offlinePreview) {
+    const service = new CompetitionImportService(
+      new JsonCompetitionAdapter(),
+      {
+        sourceSystemId: 'glasgow-2026-public-data',
+        competitionId: 'glasgow-2026',
+        existingIdentities: [],
+        knownStageSlugs: ['pool-stage', 'classification', 'semi-finals', 'medal-matches'],
+        knownGroupSlugs: ['pool-a', 'pool-b'],
+        standingsStrategyKey: 'INTERNATIONAL_POOL',
+        allowUnresolvedMatches: true,
+      }
+    );
+    const { preview } = await service.preview(sourceInput);
+    console.log(JSON.stringify({
+      mode: 'preview',
+      transport: 'offline-preview',
+      bundlePath,
+      editionId: null,
+      valid: preview.valid,
+      checksum: preview.checksum,
+      issues: preview.issues,
+      unresolved: preview.unresolved,
+      writes: preview.writes,
+      nextStep: preview.valid
+        ? 'Re-run with --apply against the selected database transport to persist this exact bundle'
+        : 'Resolve every blocking issue before applying',
+    }, null, 2));
+    if (!preview.valid) process.exitCode = 2;
+    return;
+  }
   const foundation = await upsertGlasgow2026Foundation(prisma);
   const planningState = await loadPrismaImportPlanningState(prisma, {
     sourceSystemId: foundation.sourceSystemId,

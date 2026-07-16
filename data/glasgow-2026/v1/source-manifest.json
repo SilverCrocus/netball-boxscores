@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": "v1",
+  "edition": "glasgow-2026",
+  "generatedAt": "2026-07-16T04:15:40.000Z",
+  "bundleFile": "bundle.json",
+  "bundleFileSha256": "da5e2f94662050b494611e97c57a8fb04723a9609a48c764123abb31142212ae",
+  "declarations": {
+    "sourceTimezone": "Europe/London",
+    "scheduleLocalAbbreviation": "BST",
+    "utcConversion": "Every published BST time was stored with a +01:00 offset and serialized to UTC.",
+    "venue": "The Hydro",
+    "matchCoverage": {
+      "total": 38,
+      "poolStage": 30,
+      "classification": 4,
+      "semiFinals": 2,
+      "medalMatches": 2,
+      "unresolvedSlots": 16
+    },
+    "squadPositionConvention": "Where an official source listed multiple positions, the first listed position is the database primary position.",
+    "squadCoverage": {
+      "AUS": {
+        "identity": "VERIFIED",
+        "positions": "UNAVAILABLE",
+        "importedPlayers": 0,
+        "note": "Final 12 announced; the fetched announcement did not state positions."
+      },
+      "ENG": {
+        "identity": "VERIFIED",
+        "positions": "VERIFIED",
+        "importedPlayers": 12
+      },
+      "RSA": {
+        "identity": "VERIFIED",
+        "positions": "UNAVAILABLE",
+        "importedPlayers": 0,
+        "note": "Final 12 announced; the fetched announcement did not state positions."
+      },
+      "MWI": {
+        "identity": "UNAVAILABLE",
+        "positions": "UNAVAILABLE",
+        "importedPlayers": 0,
+        "note": "Fetched reporting described a 16-player preliminary group, not the final travelling 12."
+      },
+      "TON": {
+        "identity": "UNAVAILABLE",
+        "positions": "UNAVAILABLE",
+        "importedPlayers": 0,
+        "note": "No successfully fetched primary final-squad list."
+      },
+      "NIR": {
+        "identity": "VERIFIED",
+        "positions": "PARTIAL",
+        "importedPlayers": 0,
+        "note": "Final 12 announced; positions were only stated for some players."
+      },
+      "NZL": {
+        "identity": "VERIFIED",
+        "positions": "VERIFIED",
+        "importedPlayers": 12
+      },
+      "JAM": {
+        "identity": "UNAVAILABLE",
+        "positions": "UNAVAILABLE",
+        "importedPlayers": 0,
+        "note": "No successfully fetched primary final-squad list with reusable text."
+      },
+      "WAL": {
+        "identity": "VERIFIED",
+        "positions": "VERIFIED",
+        "importedPlayers": 12
+      },
+      "UGA": {
+        "identity": "UNAVAILABLE",
+        "positions": "UNAVAILABLE",
+        "importedPlayers": 0,
+        "note": "No successfully fetched primary final-squad list."
+      },
+      "SCO": {
+        "identity": "VERIFIED",
+        "positions": "VERIFIED",
+        "importedPlayers": 12
+      },
+      "TTO": {
+        "identity": "UNAVAILABLE",
+        "positions": "UNAVAILABLE",
+        "importedPlayers": 0,
+        "note": "The fetched delegation announcement did not expose the netball roster."
+      }
+    },
+    "photoCoverage": {
+      "verifiedReusablePhotos": 3,
+      "license": "CC BY-SA 4.0",
+      "allOtherPlayers": "UNAVAILABLE"
+    },
+    "resultCoverage": "UNAVAILABLE — the tournament has not started.",
+    "publicationStatusRequired": "DRAFT"
+  },
+  "sources": [
+    {
+      "id": "glasgow-participants-pools",
+      "url": "https://www.glasgow2026.com/news/4396719/world-s-top-12-nations-confirmed-for-netball-at-glasgow-2026",
+      "purpose": "teams and qualification",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "glasgow-match-schedule",
+      "url": "https://www.glasgow2026.com/news/4406319/glasgow-2026-netball-match-schedule-announced",
+      "purpose": "pools and headline schedule",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "world-netball-hub",
+      "url": "https://netball.sport/events-and-results/commonwealth-games/",
+      "purpose": "complete match-by-match schedule and unresolved finals slots",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "glasgow-event-schedule-v15",
+      "url": "https://resources.cwg-qbr.pulselive.com/qbr-commonwealth-games/document/2026/07/13/8d784373-7f4e-45ba-8f94-3341a0e209da/CWG26-Event-ALL-SPORTS_V15.pdf",
+      "purpose": "latest official session schedule and local-time declaration",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "glasgow-sec-venue",
+      "url": "https://www.glasgow2026.com/venues/sec",
+      "purpose": "The Hydro venue",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "commonwealth-qualification-system",
+      "url": "https://commonwealthgames.com.au/wp-content/uploads/Netball_G2026-CWG-Qualification-System_FINAL.pdf",
+      "purpose": "final squad registration deadline",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "england-squad",
+      "url": "https://www.teamengland.org/news/ready-to-score-team-england-confirm-netball-squad-for-glasgow-2026",
+      "purpose": "England final squad identities and captain",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "england-positions",
+      "url": "https://www.englandnetball.co.uk/vitality-roses/current-squad/",
+      "purpose": "England player positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "england-jayda-position",
+      "url": "https://www.englandnetball.co.uk/news/vitality-roses-squad-confirmed-for-jamaica-series/",
+      "purpose": "Jayda Pechová position",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "new-zealand-squad",
+      "url": "https://www.silverferns.co.nz/silver-ferns/news/latest-news/new-zealand-netball-team-ready-for-glasgow-2026-commonwealth-games-challenge.html",
+      "purpose": "New Zealand final squad identities and captain",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "new-zealand-positions",
+      "url": "https://www.silverferns.co.nz/silver-ferns/team/sf-squad.html",
+      "purpose": "New Zealand player positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "scotland-squad",
+      "url": "https://www.glasgow2026.com/news/4528552/meet-the-12-thistles-headed-for-the-hydro",
+      "purpose": "Scotland final squad identities and positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "wales-squad",
+      "url": "https://walesnetball.com/wales-netball-announces-team-wales-netball-squad-for-glasgow-2026/",
+      "purpose": "Wales final squad announcement",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "wales-squad-list-image",
+      "url": "https://walesnetball.com/wp-content/uploads/2026/06/WALES-NETBALL_CWG-ANNOUNCEMENT-LIST-1.jpg",
+      "purpose": "Wales final squad identities and positions",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "australia-squad",
+      "url": "https://netball.com.au/news/team-announced-contend-gold-glasgow",
+      "purpose": "Australia final squad identities; positions absent",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "south-africa-squad",
+      "url": "https://netball-sa.org.za/netball-south-africa-and-sascoc-confirm-commonwealth-squad/",
+      "purpose": "South Africa final squad identities; positions absent",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "northern-ireland-squad",
+      "url": "https://www.sportni.net/news/teamni-netball-squad-ready-to-shoot-their-shot-in-glasgow/",
+      "purpose": "Northern Ireland final squad identities; positions incomplete",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "funmi-photo",
+      "url": "https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg",
+      "purpose": "Funmi Fadoju reusable photo and licence",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "olivia-photo",
+      "url": "https://commons.wikimedia.org/wiki/File:England_Netball_player_Olivia_Tchine.jpg",
+      "purpose": "Olivia Tchine reusable photo and licence",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    },
+    {
+      "id": "eleanor-photo",
+      "url": "https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg",
+      "purpose": "Eleanor Cardwell reusable photo and licence",
+      "retrievedAt": "2026-07-16T04:15:40.000Z",
+      "fetchStatus": "VERIFIED"
+    }
+  ]
+}
