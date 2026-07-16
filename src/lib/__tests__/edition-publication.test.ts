@@ -6,6 +6,10 @@ const identity = {
   competitionSlug: 'commonwealth-games-netball',
   editionSlug: 'glasgow-2026',
 };
+const publishableIdentity = {
+  competitionSlug: 'commonwealth-games-netball',
+  editionSlug: 'sydney-2027',
+};
 
 function publicationClient(input: { entries: number; matches: number }) {
   const update = vi.fn().mockReturnValue({ operation: 'publish-edition' });
@@ -40,10 +44,21 @@ describe('publishEdition', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('publishes an imported edition and its stages in one transaction', async () => {
+  it('blocks Glasgow until match labels and reused-photo attribution are safe on every public surface', async () => {
     const { client, update, updateMany, transaction } = publicationClient({ entries: 12, matches: 38 });
 
-    const result = await publishEdition(client, identity);
+    await expect(publishEdition(client, identity)).rejects.toThrow(
+      'Glasgow pool-stage public surfaces must render roundLabel or stage context before publication; Glasgow reused-photo thumbnails and Open Graph images require user-visible attribution before publication',
+    );
+    expect(update).not.toHaveBeenCalled();
+    expect(updateMany).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('publishes an imported edition without outstanding edition-specific blockers in one transaction', async () => {
+    const { client, update, updateMany, transaction } = publicationClient({ entries: 12, matches: 38 });
+
+    const result = await publishEdition(client, publishableIdentity);
 
     expect(result).toMatchObject({
       editionId: 'glasgow-edition',

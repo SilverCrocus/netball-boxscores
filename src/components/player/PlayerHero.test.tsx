@@ -23,6 +23,9 @@ describe('PlayerHero', () => {
           name: 'Alexandria Verylongsurname-Williams',
           position: 'GS',
           photoUrl: null,
+          photoSourceUrl: null,
+          photoCredit: null,
+          photoLicense: null,
           nationality: 'Australia',
           dateOfBirth: null,
           height: null,
@@ -45,6 +48,42 @@ describe('PlayerHero', () => {
     expect(within(highlights).getByText('Goals Scored').parentElement).toHaveClass(
       'snap-start',
       'min-w-[8.5rem]',
+    );
+  });
+
+  it('shows reusable-photo credit, source, and licence links on the player profile', () => {
+    render(
+      <PlayerHero
+        player={{
+          name: 'Funmi Fadoju',
+          position: 'GD',
+          photoUrl: 'https://upload.wikimedia.org/example.jpg',
+          photoSourceUrl: 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg',
+          photoCredit: 'Amy Martin Photography',
+          photoLicense: 'CC BY-SA 4.0',
+          nationality: 'England',
+          dateOfBirth: null,
+          height: null,
+          teamId: 'team-1',
+          team: {
+            name: 'England',
+            slug: 'england-glasgow-2026',
+            logoUrl: null,
+            primaryColor: '#ef4444',
+          },
+        }}
+        positionConfig={positionConfig}
+        statHighlightValues={[0, 0, 0]}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Amy Martin Photography' })).toHaveAttribute(
+      'href',
+      'https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg',
+    );
+    expect(screen.getByRole('link', { name: 'CC BY-SA 4.0' })).toHaveAttribute(
+      'href',
+      'https://creativecommons.org/licenses/by-sa/4.0/',
     );
   });
 });

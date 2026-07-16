@@ -1,16 +1,16 @@
 # Graph Report - netball-boxscores  (2026-07-16)
 
 ## Corpus Check
-- 372 files · ~332,215 words
+- 372 files · ~332,744 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2398 nodes · 3823 edges · 177 communities (156 shown, 21 thin omitted)
+- 2402 nodes · 3828 edges · 173 communities (151 shown, 22 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c54bd3ae`
+- Built from commit: `a724e86f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -154,17 +154,14 @@
 - [[_COMMUNITY_Community 141|Community 141]]
 - [[_COMMUNITY_Community 142|Community 142]]
 - [[_COMMUNITY_Community 154|Community 154]]
-- [[_COMMUNITY_Community 155|Community 155]]
 - [[_COMMUNITY_Community 156|Community 156]]
 - [[_COMMUNITY_Community 157|Community 157]]
 - [[_COMMUNITY_Community 158|Community 158]]
-- [[_COMMUNITY_Community 159|Community 159]]
 - [[_COMMUNITY_Community 160|Community 160]]
 - [[_COMMUNITY_Community 161|Community 161]]
 - [[_COMMUNITY_Community 162|Community 162]]
 - [[_COMMUNITY_Community 163|Community 163]]
 - [[_COMMUNITY_Community 164|Community 164]]
-- [[_COMMUNITY_Community 165|Community 165]]
 - [[_COMMUNITY_Community 166|Community 166]]
 - [[_COMMUNITY_Community 167|Community 167]]
 - [[_COMMUNITY_Community 168|Community 168]]
@@ -175,7 +172,6 @@
 - [[_COMMUNITY_Community 173|Community 173]]
 - [[_COMMUNITY_Community 174|Community 174]]
 - [[_COMMUNITY_Community 175|Community 175]]
-- [[_COMMUNITY_Community 176|Community 176]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `getPublicCompetitions()` - 33 edges
@@ -194,33 +190,33 @@
   scripts/prepare-glasgow-2026.ts → src/lib/glasgow/edition.ts
 - `main()` --calls--> `recalculateStandings()`  [EXTRACTED]
   scripts/recalculate-standings.ts → src/lib/standings.ts
-- `main()` --calls--> `publishEdition()`  [EXTRACTED]
-  scripts/publish-edition.ts → src/lib/edition-publication.ts
 - `main()` --calls--> `fetchFixture()`  [EXTRACTED]
   scripts/resync-completed-scores.ts → src/lib/champion-data.ts
+- `main()` --calls--> `publishEdition()`  [EXTRACTED]
+  scripts/publish-edition.ts → src/lib/edition-publication.ts
 - `main()` --calls--> `recalculateStandings()`  [EXTRACTED]
   scripts/resync-completed-scores.ts → src/lib/standings.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (177 total, 21 thin omitted)
+## Communities (173 total, 22 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.06
-Nodes (62): AnalyticsEntityType, MetricDefinition, clientIdentifier(), POST(), resultCount(), RecordSnapshotQuery, RecordScope, loadParserContext() (+54 more)
+Nodes (59): clientIdentifier(), POST(), resultCount(), loadParserContext(), comparisonQuestions, goldenParserContext, GoldenQuestion, goldenQuestions (+51 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.16
-Nodes (14): computeAge(), formatHeight(), personJsonLd(), PlayerBioCard(), PlayerBioCardProps, PlayerGameLog(), PlayerHero(), positionConfig (+6 more)
+Cohesion: 0.06
+Nodes (40): computeAge(), formatHeight(), getPlayerAnalyticsProfile(), metricSelection(), personJsonLd(), getStatValue(), PlayerBioCard(), PlayerBioCardProps (+32 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.06
-Nodes (32): inter, lexend, manrope, metadata, AuthButton(), AuthButtonProps, GoogleAnalytics(), fetchLiveStatus() (+24 more)
+Cohesion: 0.05
+Nodes (35): inter, lexend, manrope, metadata, AuthButton(), AuthButtonProps, GoogleAnalytics(), fetchLiveStatus() (+27 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.09
-Nodes (38): buildFixtureResponse(), buildMatchStatsResponse(), advanceState(), breakTickCounts, cleanupOrphanedSimData(), createSimState(), generateGoals(), generatePlayerStatsForTick() (+30 more)
+Cohesion: 0.07
+Nodes (45): app, handle, port, stopWorker(), app, handle, port, buildFixtureResponse() (+37 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.08
@@ -243,40 +239,40 @@ Cohesion: 0.05
 Nodes (40): awaySquadId, finalCode, finalShortCode, homeSquadId, isNetball2pt, localStartTime, matchId, matchNumber (+32 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.14
-Nodes (16): GET(), toCard(), requireAuth(), resolveCompetition(), computeBreakdown(), LivePage(), GET(), { findFirstMock, findManyMock, getLiveStateMock } (+8 more)
+Cohesion: 0.16
+Nodes (13): GET(), toCard(), computeBreakdown(), ResolvedHomepageMatch, LivePage(), { findFirstMock, findManyMock, getLiveStateMock }, fixture, { findFollowsMock, findMatchesMock, requireAuthMock } (+5 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.12
 Nodes (13): TeamData, COLUMN_TOOLTIPS, LiveLineups(), LiveLineupsProps, POSITION_ORDER, SortDirection, SortState, STANDARD_POSITIONS (+5 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.11
-Nodes (22): badRequest(), GET(), RouteContext, cursorFor(), decodeTimelineCursor(), encodeTimelineCursor(), loadMatchTimeline(), MatchTimelineFilters (+14 more)
+Cohesion: 0.10
+Nodes (23): badRequest(), GET(), RouteContext, cursorFor(), decodeTimelineCursor(), encodeTimelineCursor(), loadMatchTimeline(), MatchTimelineFilters (+15 more)
 
 ### Community 12 - "Community 12"
 Cohesion: 0.05
 Nodes (36): 1.1 Root Layout Metadata (`src/app/layout.tsx`), 1.2 SEO Helper Library (`src/lib/seo.ts`), 1.3 Dynamic Sitemap (`src/app/sitemap.ts`), 1.4 Robots Configuration (`src/app/robots.ts`), 1. Shared SEO Infrastructure, 2.10 Settings Page (`/settings`), 2.1 Homepage (`/`), 2.2 Match Page (`/match/[matchId]`) (+28 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.11
-Nodes (23): MetricAggregation, MetricUnit, PlayerRankingRequest, calculateRecordSnapshot(), candidateFromResult(), coverageLabel(), normalizeCrossEditionFacts(), scopeKey() (+15 more)
+Cohesion: 0.12
+Nodes (23): AnalyticsEntityType, MetricAggregation, MetricUnit, calculateRecordSnapshot(), candidateFromResult(), coverageLabel(), normalizeCrossEditionFacts(), scopeKey() (+15 more)
 
 ### Community 14 - "Community 14"
 Cohesion: 0.13
-Nodes (15): buildLiveQuarters(), LiveGameClient(), LiveGameClientProps, MatchEventData, ScoreProgressChart, sumStat(), VALID_POSITIONS, mockMatch (+7 more)
+Nodes (16): buildLiveQuarters(), LiveGameClient(), LiveGameClientProps, MatchEventData, mergePlayerStats(), ScoreProgressChart, sumStat(), VALID_POSITIONS (+8 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.11
-Nodes (30): buildPeriodScores(), buildScoreFlow(), mapMatchStatus(), mapRawTeamStats(), MatchStatus, TransformedFixtureMatch, TransformedPlayerStats, transformFixtureMatch() (+22 more)
+Cohesion: 0.10
+Nodes (30): buildPeriodScores(), buildScoreFlow(), mapRawTeamStats(), MatchStatus, TransformedFixtureMatch, TransformedPlayerStats, transformFixtureMatch(), transformPlayerStats() (+22 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.06
 Nodes (32): Age Computation, Bar Chart (all variants), Charts & Visualizations, Common Elements (all positions), Component Architecture, Data Availability (from TheSportsDB), Data Fetching, Data Model Changes (+24 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.12
-Nodes (13): calculateMetric(), FINAL_QUALITIES, selectWindow(), USABLE_COVERAGE, AnalyticsCapability, AnalyticsFact, AnalyticsRawField, AnalyticsResultStatus (+5 more)
+Cohesion: 0.08
+Nodes (22): FINAL_QUALITIES, selectWindow(), USABLE_COVERAGE, AnalyticsInvalidation, AnalyticsInvalidationStore, assertInvalidationLimit(), boxScoreCapabilities, compositeMetric() (+14 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.06
@@ -287,24 +283,24 @@ Cohesion: 0.06
 Nodes (30): Agent Team Assignment Summary, File Structure, Modified Files, New Files, Phase 1: Shared Infrastructure (Sequential), Phase 2: Page-by-Page SEO (Parallel via Agent Team), Phase 3: Verification (Sequential), SEO Implementation Plan (+22 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.11
-Nodes (17): DisplayMetric, getPlayerAnalyticsProfile(), metricSelection(), PlayerAnalyticsProfile, PlayerFactRow, statFieldMap, calculateCentrePassImpact(), CentrePassImpactResult (+9 more)
+Cohesion: 0.10
+Nodes (18): AnalyticsCoverageState, PlayerAnalyticsProfile, PlayerFactRow, statFieldMap, calculateCentrePassImpact(), CentrePassImpactResult, FeatureDefinition, featureDefinitions() (+10 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.10
-Nodes (23): HomePage(), MyTeams(), formatGameClock(), formatMatchDate(), formatMatchDateTime(), formatMatchTime(), deriveHomeHeader(), websiteJsonLd() (+15 more)
+Cohesion: 0.11
+Nodes (18): MyTeams(), formatGameClock(), formatMatchDate(), formatMatchDateTime(), formatMatchTime(), LiveScoreHero(), ScoreBreakdown, MatchResource (+10 more)
 
 ### Community 22 - "Community 22"
-Cohesion: 0.08
-Nodes (25): boundedInteger(), dateLabel(), metadata, PLAYER_METRICS, PlayerRankingTable(), POSITIONS, rankingHref(), RankingsPage() (+17 more)
+Cohesion: 0.18
+Nodes (15): calculatePlayerRankingSnapshot(), lastNFactsByPlayer(), scopeKey(), validateRequest(), getTeamPowerSnapshot(), calculateTeamPowerSnapshot(), expectedScore(), scopeKey() (+7 more)
 
 ### Community 23 - "Community 23"
-Cohesion: 0.12
-Nodes (21): getMvpSupportingStats(), breadcrumbJsonLd(), JsonLd(), sportsEventJsonLd(), sportsTeamJsonLd(), timedQuery(), generateMetadata(), getMatch (+13 more)
+Cohesion: 0.13
+Nodes (20): HomePage(), resolveCompetition(), breadcrumbJsonLd(), JsonLd(), sportsTeamJsonLd(), websiteJsonLd(), timedQuery(), COLUMNS (+12 more)
 
 ### Community 24 - "Community 24"
 Cohesion: 0.11
-Nodes (15): { GET, POST, DELETE }, AuthenticatedUser, AuthResult, badRequest(), authOptions, normalizeEmail(), createUserResourceHandlers(), getDelegate() (+7 more)
+Nodes (16): { GET, POST, DELETE }, AuthenticatedUser, AuthResult, badRequest(), requireAuth(), authOptions, normalizeEmail(), createUserResourceHandlers() (+8 more)
 
 ### Community 25 - "Community 25"
 Cohesion: 0.08
@@ -315,12 +311,12 @@ Cohesion: 0.08
 Nodes (25): Architecture, Authentication & Personalization, Champion Data (Primary), Colors (MD3 Tokens), Data Sources, Database Schema, Deployment (Render), Design System (+17 more)
 
 ### Community 27 - "Community 27"
-Cohesion: 0.24
-Nodes (12): classify_file(), generate_markdown(), get_route_path(), main(), parse_prisma_schema(), parse_ts_file(), Extract model names and their fields from schema.prisma., Generate the CODEBASE.md content. (+4 more)
+Cohesion: 0.18
+Nodes (13): getLiveState(), LiveState, CalendarDate, getCalendarDate(), getSydneyDayBounds(), getTimeZoneOffsetMs(), localMidnightToUtc(), nextCalendarDate() (+5 more)
 
 ### Community 28 - "Community 28"
-Cohesion: 0.19
-Nodes (16): AnalyticsCoverageState, MetricResult, calculatePlayerComparison(), combinedCoverage(), metricFor(), percentile(), valueWithPercentile(), fields (+8 more)
+Cohesion: 0.17
+Nodes (18): calculateMetric(), getMetricDefinition(), MetricResult, calculatePlayerComparison(), combinedCoverage(), metricFor(), percentile(), valueWithPercentile() (+10 more)
 
 ### Community 29 - "Community 29"
 Cohesion: 0.08
@@ -331,20 +327,20 @@ Cohesion: 0.08
 Nodes (23): 1. Score Banner (LiveScoreHero), 2. Live Lineups (LiveLineups), 3. Live Feed (LivePlayByPlay), 4. Key Match Stats (MatchStatsComparison), 5. Data Flow Changes, 6. Component Changes Summary, 7. What's NOT Changing, 8. Design Reference (+15 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.09
-Nodes (20): sitemap(), matchTeamSelect, teamBySlugQuery(), teamsQuery(), competitionOptionSelect, CompetitionResolution, EditionResolution, EditionRouteIdentity (+12 more)
+Cohesion: 0.11
+Nodes (14): sitemap(), getPublicCompetitions(), PublicMatchLayout(), PlayerOgImage(), size, metadata, RecordsPage(), RecordsPageProps (+6 more)
 
 ### Community 32 - "Community 32"
-Cohesion: 0.24
-Nodes (7): CourtClient(), CourtClientProps, FullMatch, mockSocket, useMatchSocket(), LiveIndicator(), LiveIndicatorProps
+Cohesion: 0.14
+Nodes (9): boundedInteger(), dateLabel(), metadata, PLAYER_METRICS, PlayerRankingTable(), POSITIONS, rankingHref(), RankingsPage() (+1 more)
 
 ### Community 33 - "Community 33"
-Cohesion: 0.10
-Nodes (24): app, handle, port, getWorkerHealth(), globalForWorkerHealth, recordPoll(), setCurrentInterval(), WorkerHealthStatus (+16 more)
+Cohesion: 0.15
+Nodes (17): getWorkerHealth(), globalForWorkerHealth, recordPoll(), setCurrentInterval(), WorkerHealthStatus, WorkerHealthStore, DATABASE_ENVIRONMENTS, DatabaseEnvironment (+9 more)
 
 ### Community 34 - "Community 34"
-Cohesion: 0.17
-Nodes (19): getMetricDefinition(), getPlayerComparison(), getCompetitionPlayerFacts(), getPlayerRankingSnapshot(), metadata, RecordsPage(), RecordsPageProps, SCOPES (+11 more)
+Cohesion: 0.34
+Nodes (13): getPlayerComparison(), getCompetitionPlayerFacts(), getPlayerRankingSnapshot(), getRecordSnapshot(), aggregationLabel(), executeComparison(), ExecutedStatQuery, executeLeaderboard() (+5 more)
 
 ### Community 35 - "Community 35"
 Cohesion: 0.13
@@ -363,16 +359,16 @@ Cohesion: 0.15
 Nodes (15): fetchFromTSDB(), fetchPlayersByTeam(), fetchTeams(), getBaseUrl(), CD_TO_TSDB_NAME, POSITION_MAP, prisma, TEAM_COLOURS (+7 more)
 
 ### Community 39 - "Community 39"
-Cohesion: 0.08
-Nodes (27): getComparisonPlayers(), getLiveState(), LiveState, CalendarDate, getCalendarDate(), getSydneyDayBounds(), getTimeZoneOffsetMs(), localMidnightToUtc() (+19 more)
+Cohesion: 0.14
+Nodes (14): getComparisonPlayers(), ComparisonPlayerOption, GroupedPlayerOptions(), GroupedPlayerOptionsProps, groupPlayersByTeam(), ComparePageProps, ComparePlayersPage(), metadata (+6 more)
 
 ### Community 40 - "Community 40"
-Cohesion: 0.09
-Nodes (29): EditionContext, EditionContextProvider(), EditionContextState, EditionSelector(), EditionSelectorProps, EditionLayout(), EditionLayoutProps, generateMetadata() (+21 more)
+Cohesion: 0.07
+Nodes (34): EditionContext, EditionContextProvider(), EditionContextState, EditionSelector(), EditionSelectorProps, EditionLayout(), EditionLayoutProps, generateMetadata() (+26 more)
 
 ### Community 41 - "Community 41"
-Cohesion: 0.08
-Nodes (27): CourtPage(), Props, hasResolvedLegacyMatch(), LegacyMatchIdentity, MatchProjectionInput, MatchSideProjection, ProjectableSlot, ProjectableTeam (+19 more)
+Cohesion: 0.15
+Nodes (14): LegacyMatchIdentity, MatchProjectionInput, MatchSideProjection, ProjectableSlot, ProjectableTeam, projectMatchSides(), projectSide(), ResolvedLegacyMatch (+6 more)
 
 ### Community 42 - "Community 42"
 Cohesion: 0.10
@@ -399,44 +395,44 @@ Cohesion: 0.11
 Nodes (19): Libraries, `src/lib/api-auth.ts` (28L), `src/lib/auth.ts` (72L), `src/lib/champion-data.ts` (273L), `src/lib/db.ts` (10L), `src/lib/format.ts` (67L), `src/lib/match-sync.ts` (296L), `src/lib/navigation.ts` (17L) (+11 more)
 
 ### Community 48 - "Community 48"
-Cohesion: 0.29
-Nodes (7): fetchFixture(), recalculateStandings(), TeamRecord, main(), main(), COMP, { mockFindUnique, mockFindMany, mockUpsert }
+Cohesion: 0.27
+Nodes (7): globalForPrisma, recalculateStandings(), TeamRecord, main(), main(), COMP, { mockFindUnique, mockFindMany, mockUpsert }
 
 ### Community 49 - "Community 49"
-Cohesion: 0.16
-Nodes (24): fetchMatchStats(), ingestFromChampionData(), applyChanges(), ChangeResult, detectChanges(), detectStaleCompletedMatches(), ExtendedPlayerFields, finalizeCompletedMatches() (+16 more)
+Cohesion: 0.17
+Nodes (23): persistAndBroadcastStatEvents(), mapMatchStatus(), applyChanges(), detectChanges(), detectStaleCompletedMatches(), ExtendedPlayerFields, finalizeCompletedMatches(), PlayerInfo (+15 more)
 
 ### Community 50 - "Community 50"
-Cohesion: 0.11
-Nodes (17): bundle, bundleFileSha256, capabilities, localToUtc(), manifest, matches, outputDirectory, photoEvidence (+9 more)
+Cohesion: 0.10
+Nodes (18): bundle, bundleFileSha256, capabilities, dependentMatch(), localToUtc(), manifest, matches, outputDirectory (+10 more)
 
 ### Community 51 - "Community 51"
-Cohesion: 0.14
-Nodes (13): players, CATEGORY_CELL_COLORS, CATEGORY_HEADER_COLORS, ColumnDef, COLUMNS, PlayerStatsTable(), PlayerStatsTableProps, PlayerStatWithPhoto (+5 more)
+Cohesion: 0.09
+Nodes (19): EVENT_CONFIG, MatchPlayByPlay(), MatchPlayByPlayProps, PlayByPlayEntry, players, PlayerAvatar(), PlayerAvatarProps, CATEGORY_CELL_COLORS (+11 more)
 
 ### Community 52 - "Community 52"
 Cohesion: 0.11
 Nodes (18): devDependencies, dotenv, eslint, eslint-config-next, jsdom, tailwindcss, @tailwindcss/postcss, @testing-library/jest-dom (+10 more)
 
 ### Community 53 - "Community 53"
-Cohesion: 0.14
-Nodes (16): HomeResults(), HomeResultsProps, CompletedCursor, CompletedMatchesPage, decodeCompletedCursor(), encodeCompletedCursor(), groupCompletedMatches(), HomeHeaderState (+8 more)
+Cohesion: 0.15
+Nodes (16): HomeResults(), HomeResultsProps, CompletedCursor, CompletedMatchesPage, decodeCompletedCursor(), deriveHomeHeader(), encodeCompletedCursor(), groupCompletedMatches() (+8 more)
 
 ### Community 54 - "Community 54"
 Cohesion: 0.11
 Nodes (17): 1. Desktop Tests (1280x800), 2. Mobile Tests (390x844), 3. API Health Checks, 4. Match Completion Verification, After Testing, Common Issues to Watch For, Completed Match Box Score Mobile, Completed Match Page (+9 more)
 
 ### Community 55 - "Community 55"
-Cohesion: 0.22
-Nodes (9): AnalyticsInvalidation, AnalyticsInvalidationStore, assertInvalidationLimit(), boxScoreCapabilities, compositeMetric(), countMetric(), findMetricCandidates(), metricCatalogue (+1 more)
+Cohesion: 0.28
+Nodes (9): hasResolvedLegacyMatch(), FINALS_LABELS, formatMatchStage(), computeTeamStrengthPrior(), generateMetadata(), LiveGamePage(), Props, MatchOgImage() (+1 more)
 
 ### Community 56 - "Community 56"
 Cohesion: 0.12
 Nodes (16): scripts, build, check, db:import:glasgow, db:migrate:deploy, db:prepare:glasgow, db:publish:edition, db:push (+8 more)
 
 ### Community 57 - "Community 57"
-Cohesion: 0.25
-Nodes (7): AWAY_POSITION_COORDS, CourtPlayer, NetballCourt(), NetballCourtProps, POSITION_COORDS, mockAwayPlayers, mockHomePlayers
+Cohesion: 0.12
+Nodes (14): CourtClient(), CourtClientProps, FullMatch, CourtPage(), Props, mockSocket, useMatchSocket(), AWAY_POSITION_COORDS (+6 more)
 
 ### Community 58 - "Community 58"
 Cohesion: 0.12
@@ -455,8 +451,8 @@ Cohesion: 0.22
 Nodes (6): JsonCompetitionAdapter, ManualCompetitionAdapter, CsvCompetitionAdapter, parseCsv(), NormalizedCompetitionImport, validImport()
 
 ### Community 62 - "Community 62"
-Cohesion: 0.20
-Nodes (17): broadcastCompletion(), broadcastMatchChanges(), broadcastPlayerStats(), broadcastScoreFlowDelta(), DbMatchWithTeams, EventType, matchScoreFlowSnapshots, persistAndBroadcastStatEvents() (+9 more)
+Cohesion: 0.19
+Nodes (17): broadcastCompletion(), broadcastMatchChanges(), broadcastPlayerStats(), broadcastScoreFlowDelta(), DbMatchWithTeams, EventType, matchScoreFlowSnapshots, resetScoreFlowTracking() (+9 more)
 
 ### Community 63 - "Community 63"
 Cohesion: 0.13
@@ -515,12 +511,12 @@ Cohesion: 0.18
 Nodes (9): CentrePass, Data Sources, Deterministic statistical queries, Getting Started, Live Game Simulation, Project Structure, Safe worktree development, Scripts (+1 more)
 
 ### Community 77 - "Community 77"
-Cohesion: 0.17
-Nodes (12): declarations, photoCoverage, publicationStatusRequired, resultCoverage, scheduleLocalAbbreviation, sourceTimezone, squadPositionConvention, utcConversion (+4 more)
+Cohesion: 0.15
+Nodes (13): declarations, photoCoverage, publicationBlockers, publicationStatusRequired, resultCoverage, scheduleLocalAbbreviation, sourceTimezone, squadPositionConvention (+5 more)
 
 ### Community 78 - "Community 78"
-Cohesion: 0.20
-Nodes (9): COMMON_COLUMNS, DEFENDER_CONFIG, GameLogColumn, getPositionConfig(), MIDCOURT_CONFIG, POSITION_MAP, PositionGroup, SHOOTER_CONFIG (+1 more)
+Cohesion: 0.25
+Nodes (3): matchTeamSelect, teamBySlugQuery(), teamsQuery()
 
 ### Community 79 - "Community 79"
 Cohesion: 0.20
@@ -543,16 +539,12 @@ Cohesion: 0.36
 Nodes (6): GLASGOW_2026_FOUNDATION, upsertGlasgow2026Foundation(), main(), usage(), main(), loadPrismaImportPlanningState()
 
 ### Community 84 - "Community 84"
-Cohesion: 0.24
-Nodes (8): ProcessedMatchState, aggregateStats(), emptyStats(), STAT_FIELDS, StatFieldName, StatRecord, StatValues, CDTeamStats
+Cohesion: 0.32
+Nodes (6): aggregateStats(), emptyStats(), STAT_FIELDS, StatFieldName, StatRecord, StatValues
 
 ### Community 85 - "Community 85"
 Cohesion: 0.20
 Nodes (9): Architecture, Components Modified, Design Decisions, Goal, Homepage Behavior, Live Tracking Completion — Design Spec, Problem, UI Changes (+1 more)
-
-### Community 86 - "Community 86"
-Cohesion: 0.29
-Nodes (5): computeShootingPct(), getStatValue(), ShooterDonutChart(), computeSeasonTotal(), computeStatHighlightValues()
 
 ### Community 87 - "Community 87"
 Cohesion: 0.25
@@ -599,8 +591,8 @@ Cohesion: 0.33
 Nodes (6): 13.1 Navigation, 13.2 Followed teams, 13.3 Favourites and reminders, 13.4 Search, 13.5 Acceptance criteria, 13. Phase 3 — Account Discovery and Personalization
 
 ### Community 99 - "Community 99"
-Cohesion: 0.40
-Nodes (4): MatchActions(), MatchActionsProps, UserMatchResource, { pushMock, useSessionMock }
+Cohesion: 0.50
+Nodes (4): WAL, identity, importedPlayers, positions
 
 ### Community 100 - "Community 100"
 Cohesion: 0.40
@@ -659,8 +651,8 @@ Cohesion: 0.60
 Nodes (3): name, private, version
 
 ### Community 114 - "Community 114"
-Cohesion: 0.12
-Nodes (6): size, size, Path, migrationPath, newPublicTables, migrationPath
+Cohesion: 0.09
+Nodes (18): size, size, Path, classify_file(), generate_markdown(), get_route_path(), main(), parse_prisma_schema() (+10 more)
 
 ### Community 117 - "Community 117"
 Cohesion: 0.50
@@ -682,13 +674,9 @@ Nodes (3): 3.1 Primary goals, 3.2 Success metrics, 3. Product Goals
 Cohesion: 0.27
 Nodes (7): PreMatchPrior, MatchData, LiveScoreHeroProps, quarters, QuarterData, QuarterScoreBar(), QuarterScoreBarProps
 
-### Community 155 - "Community 155"
-Cohesion: 0.27
-Nodes (6): ALL_STAT_FIELDS, CompetitionInfo, computeProgressPercentage(), computeSeasonMax(), computeTrend(), StatHighlightCard()
-
 ### Community 156 - "Community 156"
-Cohesion: 0.22
-Nodes (9): squadCoverage, identity, importedPlayers, positions, NZL, WAL, identity, importedPlayers (+1 more)
+Cohesion: 0.50
+Nodes (4): identity, importedPlayers, positions, NZL
 
 ### Community 157 - "Community 157"
 Cohesion: 0.25
@@ -698,33 +686,25 @@ Nodes (7): bundleFile, bundleFileSha256, bundleVersion, edition, generatedAt, sc
 Cohesion: 0.36
 Nodes (6): calculateWinProbability(), normalCDF(), WinProbabilityInput, WinProbabilityResult, WinProbabilityBar(), WinProbabilityBarProps
 
-### Community 159 - "Community 159"
-Cohesion: 0.32
-Nodes (5): MatchTimeline(), MatchTabs(), MatchTabsProps, awayTeam, homeTeam
-
 ### Community 160 - "Community 160"
-Cohesion: 0.29
-Nodes (5): DEFENSIVE_POSITIONS, MvpStatSource, MvpSupportingStat, SHOOTING_POSITIONS, baseStats
+Cohesion: 0.12
+Nodes (18): DEFENSIVE_POSITIONS, getMvpSupportingStats(), MvpStatSource, MvpSupportingStat, SHOOTING_POSITIONS, sportsEventJsonLd(), computeShootingPct(), MatchActions() (+10 more)
 
 ### Community 161 - "Community 161"
 Cohesion: 0.29
 Nodes (6): bundle, bundleBase64, [bundleFile, previewFile], preview, previewAudit, previewBase64
 
 ### Community 162 - "Community 162"
-Cohesion: 0.29
-Nodes (7): matchCoverage, classification, medalMatches, poolStage, semiFinals, total, unresolvedSlots
+Cohesion: 0.25
+Nodes (8): matchCoverage, classification, dependentSlots, medalMatches, poolStage, semiFinals, total, unresolvedSlots
 
 ### Community 163 - "Community 163"
-Cohesion: 0.33
-Nodes (5): mockFetchFixture, mockFetchMatchStats, mockMatchFindMany, mockPollLogCreate, mockPollLogDeleteMany
+Cohesion: 0.31
+Nodes (8): fetchFixture(), fetchMatchStats(), ingestFromChampionData(), mockFetchFixture, mockFetchMatchStats, mockMatchFindMany, mockPollLogCreate, mockPollLogDeleteMany
 
 ### Community 164 - "Community 164"
 Cohesion: 0.70
 Nodes (3): getScoreFlowIdentity(), mergeScoreFlows(), ScoreFlowIdentity
-
-### Community 165 - "Community 165"
-Cohesion: 0.40
-Nodes (5): PlayerChartsProps, PlayerGameLogProps, PlayerHeroProps, PlayerSeasonStatsProps, PositionConfig
 
 ### Community 166 - "Community 166"
 Cohesion: 0.40
@@ -759,32 +739,28 @@ Cohesion: 0.40
 Nodes (5): UGA, identity, importedPlayers, note, positions
 
 ### Community 175 - "Community 175"
-Cohesion: 0.50
-Nodes (4): identity, importedPlayers, positions, ENG
-
-### Community 176 - "Community 176"
-Cohesion: 0.50
-Nodes (4): identity, importedPlayers, positions, SCO
+Cohesion: 0.22
+Nodes (9): squadCoverage, identity, importedPlayers, positions, identity, importedPlayers, positions, ENG (+1 more)
 
 ## Knowledge Gaps
-- **1153 isolated node(s):** `config`, `dev`, `build`, `start`, `lint` (+1148 more)
+- **1156 isolated node(s):** `config`, `dev`, `build`, `start`, `lint` (+1151 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **22 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SearchResponse` connect `Community 2` to `Community 31`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
-- **Why does `getPublicCompetitions()` connect `Community 31` to `Community 0`, `Community 1`, `Community 34`, `Community 39`, `Community 40`, `Community 9`, `Community 41`, `Community 13`, `Community 22`?**
-  _High betweenness centrality (0.010) - this node is a cross-community bridge._
-- **Why does `Path` connect `Community 114` to `Community 41`, `Community 27`, `Community 31`?**
-  _High betweenness centrality (0.007) - this node is a cross-community bridge._
+- **Why does `Path` connect `Community 114` to `Community 31`, `Community 55`?**
+  _High betweenness centrality (0.017) - this node is a cross-community bridge._
+- **Why does `getPublicCompetitions()` connect `Community 31` to `Community 32`, `Community 1`, `Community 34`, `Community 2`, `Community 0`, `Community 39`, `Community 40`, `Community 13`, `Community 78`, `Community 23`, `Community 55`?**
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **What connects `config`, `dev`, `build` to the rest of the system?**
-  _1158 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1161 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.05809979494190021 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05945945945945946 - nodes in this community are weakly interconnected._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.05909090909090909 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.06033182503770739 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05451127819548872 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.08880666049953746 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.0707070707070707 - nodes in this community are weakly interconnected._

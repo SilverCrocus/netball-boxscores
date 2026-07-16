@@ -151,14 +151,13 @@ const poolSchedule = [
 const localToUtc = (date, time) => new Date(`${date}T${time}:00+01:00`).toISOString();
 const matchId = (date, time, sideA, sideB) => `${date}-${time.replace(':', '')}-${sideA.toLowerCase()}-${sideB.toLowerCase()}`;
 
-const matches = poolSchedule.map(([date, time, pool, sideA, sideB], index) => ({
+const matches = poolSchedule.map(([date, time, pool, sideA, sideB]) => ({
   externalId: matchId(date, time, sideA, sideB),
   stageSlug: 'pool-stage',
   groupSlug: `pool-${pool.toLowerCase()}`,
   scheduledAt: localToUtc(date, time),
   venue: 'The Hydro',
   neutralVenue: true,
-  round: index + 1,
   roundLabel: `Pool ${pool} — ${date}`,
   status: 'SCHEDULED',
   sideA: { sourceType: 'TEAM', teamExternalId: sideA },
@@ -177,6 +176,26 @@ const unresolvedMatch = (externalId, stageSlug, date, time, roundLabel, sideALab
   sideB: { sourceType: 'UNRESOLVED', sourceLabel: sideBLabel },
 });
 
+const dependentMatch = (externalId, date, time, roundLabel, sourceType, sideALabel, sideBLabel) => ({
+  externalId,
+  stageSlug: 'medal-matches',
+  scheduledAt: localToUtc(date, time),
+  venue: 'The Hydro',
+  neutralVenue: true,
+  roundLabel,
+  status: 'SCHEDULED',
+  sideA: {
+    sourceType,
+    sourceMatchExternalId: '2026-08-01-0900-semi-final-1',
+    sourceLabel: sideALabel,
+  },
+  sideB: {
+    sourceType,
+    sourceMatchExternalId: '2026-08-01-1300-semi-final-2',
+    sourceLabel: sideBLabel,
+  },
+});
+
 matches.push(
   unresolvedMatch('2026-07-31-0900-classification-11-12', 'classification', '2026-07-31', '09:00', 'Classification Match 1 — 11th v 12th', '11th place after pool stage', '12th place after pool stage'),
   unresolvedMatch('2026-07-31-1100-classification-9-10', 'classification', '2026-07-31', '11:00', 'Classification Match 2 — 9th v 10th', '9th place after pool stage', '10th place after pool stage'),
@@ -184,8 +203,8 @@ matches.push(
   unresolvedMatch('2026-07-31-1600-classification-5-6', 'classification', '2026-07-31', '16:00', 'Classification Match 4 — 5th v 6th', '5th place after pool stage', '6th place after pool stage'),
   unresolvedMatch('2026-08-01-0900-semi-final-1', 'semi-finals', '2026-08-01', '09:00', 'Semi-final 1', 'Semi-finalist TBC', 'Semi-finalist TBC'),
   unresolvedMatch('2026-08-01-1300-semi-final-2', 'semi-finals', '2026-08-01', '13:00', 'Semi-final 2', 'Semi-finalist TBC', 'Semi-finalist TBC'),
-  unresolvedMatch('2026-08-02-0900-bronze-medal', 'medal-matches', '2026-08-02', '09:00', 'Bronze medal match', 'Bronze-medal participant TBC', 'Bronze-medal participant TBC'),
-  unresolvedMatch('2026-08-02-1300-gold-medal', 'medal-matches', '2026-08-02', '13:00', 'Gold medal match', 'Gold-medal participant TBC', 'Gold-medal participant TBC'),
+  dependentMatch('2026-08-02-0900-bronze-medal', '2026-08-02', '09:00', 'Bronze medal match', 'MATCH_LOSER', 'Loser of Semi-final 1', 'Loser of Semi-final 2'),
+  dependentMatch('2026-08-02-1300-gold-medal', '2026-08-02', '13:00', 'Gold medal match', 'MATCH_WINNER', 'Winner of Semi-final 1', 'Winner of Semi-final 2'),
 );
 
 const capabilities = [
@@ -264,12 +283,16 @@ const manifest = {
     scheduleLocalAbbreviation: 'BST',
     utcConversion: 'Every published BST time was stored with a +01:00 offset and serialized to UTC.',
     venue: 'The Hydro',
-    matchCoverage: { total: 38, poolStage: 30, classification: 4, semiFinals: 2, medalMatches: 2, unresolvedSlots: 16 },
+    matchCoverage: { total: 38, poolStage: 30, classification: 4, semiFinals: 2, medalMatches: 2, unresolvedSlots: 12, dependentSlots: 4 },
     squadPositionConvention: 'Where an official source listed multiple positions, the first listed position is the database primary position.',
     squadCoverage,
     photoCoverage: { verifiedReusablePhotos: 3, license: 'CC BY-SA 4.0', allOtherPlayers: 'UNAVAILABLE' },
     resultCoverage: 'UNAVAILABLE — the tournament has not started.',
     publicationStatusRequired: 'DRAFT',
+    publicationBlockers: [
+      'Public match surfaces must render Glasgow pool-stage roundLabel or stage context instead of a numerical Round N before publication.',
+      'Reused player photos shown in team and match thumbnails or Open Graph images need a user-visible attribution treatment before publication; player profiles expose the required source, credit, and licence links.',
+    ],
   },
   sources,
 };

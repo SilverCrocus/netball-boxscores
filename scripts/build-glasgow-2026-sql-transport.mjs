@@ -223,7 +223,7 @@ BEGIN
   END LOOP;
 
   INSERT INTO "MatchSlot" (
-    id, "matchId", side, "sourceType", "resolvedEntryId", "sourceLabel", "resolvedAt"
+    id, "matchId", side, "sourceType", "resolvedEntryId", "sourceMatchId", "sourceLabel", "resolvedAt"
   )
   SELECT
     gen_random_uuid()::text,
@@ -231,6 +231,7 @@ BEGIN
     sides.side,
     (sides.payload->>'sourceType')::"MatchSlotSourceType",
     entry.id,
+    source_match_mapping."internalEntityId",
     sides.payload->>'sourceLabel',
     CASE WHEN entry.id IS NULL THEN NULL ELSE retrieved_at END
   FROM jsonb_array_elements(bundle->'matches') AS match_payload(value)
@@ -251,12 +252,17 @@ BEGIN
   LEFT JOIN "EditionEntry" entry
     ON entry."competitionId" = competition_id
    AND entry."teamId" = team_mapping."internalEntityId"
+  LEFT JOIN "SourceEntityMapping" source_match_mapping
+    ON source_match_mapping."sourceSystemId" = source_system_id
+   AND source_match_mapping."competitionId" = competition_id
+   AND source_match_mapping."entityType" = 'MATCH'
+   AND source_match_mapping."externalId" = sides.payload->>'sourceMatchExternalId'
   ON CONFLICT ("matchId", side) DO UPDATE SET
     "sourceType" = EXCLUDED."sourceType",
     "resolvedEntryId" = EXCLUDED."resolvedEntryId",
     "sourceGroupId" = NULL,
     "sourceRank" = NULL,
-    "sourceMatchId" = NULL,
+    "sourceMatchId" = EXCLUDED."sourceMatchId",
     "sourceLabel" = EXCLUDED."sourceLabel",
     "resolvedAt" = EXCLUDED."resolvedAt";
 

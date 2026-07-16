@@ -13,7 +13,8 @@ async function loadSourceBundle() {
     bundleFileSha256: string;
     declarations: {
       publicationStatusRequired: string;
-      matchCoverage: { unresolvedSlots: number };
+      publicationBlockers: string[];
+      matchCoverage: { unresolvedSlots: number; dependentSlots: number };
     };
   };
   return {
@@ -29,6 +30,10 @@ describe('Glasgow 2026 source bundle', () => {
 
     expect(createHash('sha256').update(bundleText).digest('hex')).toBe(manifest.bundleFileSha256);
     expect(manifest.declarations.publicationStatusRequired).toBe('DRAFT');
+    expect(manifest.declarations.publicationBlockers).toEqual([
+      expect.stringContaining('roundLabel'),
+      expect.stringContaining('team and match thumbnails or Open Graph images'),
+    ]);
   });
 
   it('contains the complete tournament structure without inventing unresolved teams', async () => {
@@ -36,6 +41,11 @@ describe('Glasgow 2026 source bundle', () => {
     const countsByStage = Object.groupBy(bundle.matches, (match) => match.stageSlug);
     const unresolvedSlots = bundle.matches.flatMap((match) => [match.sideA, match.sideB])
       .filter((side) => side.sourceType === 'UNRESOLVED');
+    const dependentSlots = bundle.matches.flatMap((match) => [match.sideA, match.sideB])
+      .filter((side) => side.sourceType === 'MATCH_WINNER' || side.sourceType === 'MATCH_LOSER');
+    const poolMatches = bundle.matches.filter((match) => match.stageSlug === 'pool-stage');
+    const bronzeMatch = bundle.matches.find((match) => match.externalId === '2026-08-02-0900-bronze-medal');
+    const goldMatch = bundle.matches.find((match) => match.externalId === '2026-08-02-1300-gold-medal');
 
     expect(bundle.teams).toHaveLength(12);
     expect(bundle.teams.filter((team) => team.groupSlug === 'pool-a')).toHaveLength(6);
@@ -47,6 +57,29 @@ describe('Glasgow 2026 source bundle', () => {
     expect(countsByStage['medal-matches']).toHaveLength(2);
     expect(unresolvedSlots).toHaveLength(manifest.declarations.matchCoverage.unresolvedSlots);
     expect(unresolvedSlots.every((slot) => slot.sourceLabel && !slot.teamExternalId)).toBe(true);
+    expect(dependentSlots).toHaveLength(manifest.declarations.matchCoverage.dependentSlots);
+    expect(poolMatches.every((match) => match.round === undefined)).toBe(true);
+    expect(poolMatches.every((match) => match.roundLabel?.startsWith('Pool '))).toBe(true);
+    expect(bronzeMatch?.sideA).toMatchObject({
+      sourceType: 'MATCH_LOSER',
+      sourceMatchExternalId: '2026-08-01-0900-semi-final-1',
+      sourceLabel: 'Loser of Semi-final 1',
+    });
+    expect(bronzeMatch?.sideB).toMatchObject({
+      sourceType: 'MATCH_LOSER',
+      sourceMatchExternalId: '2026-08-01-1300-semi-final-2',
+      sourceLabel: 'Loser of Semi-final 2',
+    });
+    expect(goldMatch?.sideA).toMatchObject({
+      sourceType: 'MATCH_WINNER',
+      sourceMatchExternalId: '2026-08-01-0900-semi-final-1',
+      sourceLabel: 'Winner of Semi-final 1',
+    });
+    expect(goldMatch?.sideB).toMatchObject({
+      sourceType: 'MATCH_WINNER',
+      sourceMatchExternalId: '2026-08-01-1300-semi-final-2',
+      sourceLabel: 'Winner of Semi-final 2',
+    });
     expect(bundle.matches.every((match) => match.scheduledAt.endsWith('Z'))).toBe(true);
     expect(bundle.matches.every((match) => match.venue === 'The Hydro')).toBe(true);
   });

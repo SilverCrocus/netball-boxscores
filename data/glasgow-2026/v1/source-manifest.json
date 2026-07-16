@@ -4,7 +4,7 @@
   "edition": "glasgow-2026",
   "generatedAt": "2026-07-16T04:15:40.000Z",
   "bundleFile": "bundle.json",
-  "bundleFileSha256": "ff8ebb9ccddafd8846a2f761cb75dffe42452d195925df95367634e67d0c5ed2",
+  "bundleFileSha256": "2825df17d6e94976b50c9835e80f2b919faaa8fc39a4a16d99592eea12f22f06",
   "declarations": {
     "sourceTimezone": "Europe/London",
     "scheduleLocalAbbreviation": "BST",
@@ -16,7 +16,8 @@
       "classification": 4,
       "semiFinals": 2,
       "medalMatches": 2,
-      "unresolvedSlots": 16
+      "unresolvedSlots": 12,
+      "dependentSlots": 4
     },
     "squadPositionConvention": "Where an official source listed multiple positions, the first listed position is the database primary position.",
     "squadCoverage": {
@@ -95,7 +96,11 @@
       "allOtherPlayers": "UNAVAILABLE"
     },
     "resultCoverage": "UNAVAILABLE — the tournament has not started.",
-    "publicationStatusRequired": "DRAFT"
+    "publicationStatusRequired": "DRAFT",
+    "publicationBlockers": [
+      "Public match surfaces must render Glasgow pool-stage roundLabel or stage context instead of a numerical Round N before publication.",
+      "Reused player photos shown in team and match thumbnails or Open Graph images need a user-visible attribution treatment before publication; player profiles expose the required source, credit, and licence links."
+    ]
   },
   "sources": [
     {

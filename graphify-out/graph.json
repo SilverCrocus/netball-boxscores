@@ -693,7 +693,7 @@
       "source_file": "server.ts",
       "source_location": "L1",
       "id": "server_ts",
-      "community": 33,
+      "community": 3,
       "norm_label": "server.ts"
     },
     {
@@ -702,7 +702,7 @@
       "source_file": "server.ts",
       "source_location": "L12",
       "id": "netball_boxscores_server_port",
-      "community": 33,
+      "community": 3,
       "norm_label": "port"
     },
     {
@@ -711,7 +711,7 @@
       "source_file": "server.ts",
       "source_location": "L14",
       "id": "netball_boxscores_server_app",
-      "community": 33,
+      "community": 3,
       "norm_label": "app"
     },
     {
@@ -720,7 +720,7 @@
       "source_file": "server.ts",
       "source_location": "L15",
       "id": "netball_boxscores_server_handle",
-      "community": 33,
+      "community": 3,
       "norm_label": "handle"
     },
     {
@@ -2392,16 +2392,25 @@
       "label": "unresolvedMatch()",
       "file_type": "code",
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
-      "source_location": "L168",
+      "source_location": "L167",
       "id": "scripts_build_glasgow_2026_source_bundle_unresolvedmatch",
       "community": 50,
       "norm_label": "unresolvedmatch()"
     },
     {
+      "label": "dependentMatch()",
+      "file_type": "code",
+      "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
+      "source_location": "L179",
+      "id": "scripts_build_glasgow_2026_source_bundle_dependentmatch",
+      "community": 50,
+      "norm_label": "dependentmatch()"
+    },
+    {
       "label": "capabilities",
       "file_type": "code",
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
-      "source_location": "L191",
+      "source_location": "L210",
       "id": "scripts_build_glasgow_2026_source_bundle_capabilities",
       "community": 50,
       "norm_label": "capabilities"
@@ -2410,7 +2419,7 @@
       "label": "bundle",
       "file_type": "code",
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
-      "source_location": "L196",
+      "source_location": "L215",
       "id": "scripts_build_glasgow_2026_source_bundle_bundle",
       "community": 50,
       "norm_label": "bundle"
@@ -2419,7 +2428,7 @@
       "label": "sources",
       "file_type": "code",
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
-      "source_location": "L215",
+      "source_location": "L234",
       "id": "scripts_build_glasgow_2026_source_bundle_sources",
       "community": 50,
       "norm_label": "sources"
@@ -2428,7 +2437,7 @@
       "label": "squadCoverage",
       "file_type": "code",
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
-      "source_location": "L238",
+      "source_location": "L257",
       "id": "scripts_build_glasgow_2026_source_bundle_squadcoverage",
       "community": 50,
       "norm_label": "squadcoverage"
@@ -2437,7 +2446,7 @@
       "label": "bundleFileSha256",
       "file_type": "code",
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
-      "source_location": "L254",
+      "source_location": "L273",
       "id": "scripts_build_glasgow_2026_source_bundle_bundlefilesha256",
       "community": 50,
       "norm_label": "bundlefilesha256"
@@ -2446,7 +2455,7 @@
       "label": "manifest",
       "file_type": "code",
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
-      "source_location": "L255",
+      "source_location": "L274",
       "id": "scripts_build_glasgow_2026_source_bundle_manifest",
       "community": 50,
       "norm_label": "manifest"
@@ -2673,7 +2682,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L1",
       "id": "users_diyagamah_documents_personal_netball_boxscores_scripts_generate_codebase_md_py",
-      "community": 27,
+      "community": 114,
       "norm_label": "generate-codebase-md.py"
     },
     {
@@ -2682,7 +2691,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L25",
       "id": "scripts_generate_codebase_md_classify_file",
-      "community": 27,
+      "community": 114,
       "norm_label": "classify_file()"
     },
     {
@@ -2691,7 +2700,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L25",
       "id": "str",
-      "community": 27,
+      "community": 114,
       "norm_label": "str"
     },
     {
@@ -2700,7 +2709,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L57",
       "id": "scripts_generate_codebase_md_get_route_path",
-      "community": 27,
+      "community": 114,
       "norm_label": "get_route_path()"
     },
     {
@@ -2709,7 +2718,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L67",
       "id": "scripts_generate_codebase_md_parse_ts_file",
-      "community": 27,
+      "community": 114,
       "norm_label": "parse_ts_file()"
     },
     {
@@ -2727,7 +2736,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L186",
       "id": "scripts_generate_codebase_md_parse_prisma_schema",
-      "community": 27,
+      "community": 114,
       "norm_label": "parse_prisma_schema()"
     },
     {
@@ -2736,7 +2745,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L216",
       "id": "scripts_generate_codebase_md_generate_markdown",
-      "community": 27,
+      "community": 114,
       "norm_label": "generate_markdown()"
     },
     {
@@ -2745,7 +2754,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L351",
       "id": "scripts_generate_codebase_md_main",
-      "community": 27,
+      "community": 114,
       "norm_label": "main()"
     },
     {
@@ -2754,7 +2763,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L26",
       "id": "scripts_generate_codebase_md_rationale_26",
-      "community": 27,
+      "community": 114,
       "norm_label": "classify a file by its role in the next.js app."
     },
     {
@@ -2763,7 +2772,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L58",
       "id": "scripts_generate_codebase_md_rationale_58",
-      "community": 27,
+      "community": 114,
       "norm_label": "convert file path to next.js route path."
     },
     {
@@ -2772,7 +2781,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L68",
       "id": "scripts_generate_codebase_md_rationale_68",
-      "community": 27,
+      "community": 114,
       "norm_label": "extract exports, imports, and metadata from a ts/tsx file."
     },
     {
@@ -2781,7 +2790,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L187",
       "id": "scripts_generate_codebase_md_rationale_187",
-      "community": 27,
+      "community": 114,
       "norm_label": "extract model names and their fields from schema.prisma."
     },
     {
@@ -2790,7 +2799,7 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores/scripts/generate-codebase-md.py",
       "source_location": "L217",
       "id": "scripts_generate_codebase_md_rationale_217",
-      "community": 27,
+      "community": 114,
       "norm_label": "generate the codebase.md content."
     },
     {
@@ -2965,10 +2974,19 @@
       "norm_label": "unresolvedslots"
     },
     {
+      "label": "dependentSlots",
+      "file_type": "code",
+      "source_file": "data/glasgow-2026/v1/source-manifest.json",
+      "source_location": "L20",
+      "id": "v1_source_manifest_matchcoverage_dependentslots",
+      "community": 162,
+      "norm_label": "dependentslots"
+    },
+    {
       "label": "squadPositionConvention",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L21",
+      "source_location": "L22",
       "id": "v1_source_manifest_declarations_squadpositionconvention",
       "community": 77,
       "norm_label": "squadpositionconvention"
@@ -2977,16 +2995,16 @@
       "label": "squadCoverage",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L22",
+      "source_location": "L23",
       "id": "v1_source_manifest_declarations_squadcoverage",
-      "community": 156,
+      "community": 175,
       "norm_label": "squadcoverage"
     },
     {
       "label": "AUS",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L23",
+      "source_location": "L24",
       "id": "v1_source_manifest_squadcoverage_aus",
       "community": 166,
       "norm_label": "aus"
@@ -2995,7 +3013,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L24",
+      "source_location": "L25",
       "id": "v1_source_manifest_aus_identity",
       "community": 166,
       "norm_label": "identity"
@@ -3004,7 +3022,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L25",
+      "source_location": "L26",
       "id": "v1_source_manifest_aus_positions",
       "community": 166,
       "norm_label": "positions"
@@ -3013,7 +3031,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L26",
+      "source_location": "L27",
       "id": "v1_source_manifest_aus_importedplayers",
       "community": 166,
       "norm_label": "importedplayers"
@@ -3022,7 +3040,7 @@
       "label": "note",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L27",
+      "source_location": "L28",
       "id": "v1_source_manifest_aus_note",
       "community": 166,
       "norm_label": "note"
@@ -3031,7 +3049,7 @@
       "label": "ENG",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L29",
+      "source_location": "L30",
       "id": "v1_source_manifest_squadcoverage_eng",
       "community": 175,
       "norm_label": "eng"
@@ -3040,7 +3058,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L30",
+      "source_location": "L31",
       "id": "v1_source_manifest_eng_identity",
       "community": 175,
       "norm_label": "identity"
@@ -3049,7 +3067,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L31",
+      "source_location": "L32",
       "id": "v1_source_manifest_eng_positions",
       "community": 175,
       "norm_label": "positions"
@@ -3058,7 +3076,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L32",
+      "source_location": "L33",
       "id": "v1_source_manifest_eng_importedplayers",
       "community": 175,
       "norm_label": "importedplayers"
@@ -3067,7 +3085,7 @@
       "label": "RSA",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L34",
+      "source_location": "L35",
       "id": "v1_source_manifest_squadcoverage_rsa",
       "community": 170,
       "norm_label": "rsa"
@@ -3076,7 +3094,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L35",
+      "source_location": "L36",
       "id": "v1_source_manifest_rsa_identity",
       "community": 170,
       "norm_label": "identity"
@@ -3085,7 +3103,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L36",
+      "source_location": "L37",
       "id": "v1_source_manifest_rsa_positions",
       "community": 170,
       "norm_label": "positions"
@@ -3094,7 +3112,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L37",
+      "source_location": "L38",
       "id": "v1_source_manifest_rsa_importedplayers",
       "community": 170,
       "norm_label": "importedplayers"
@@ -3103,7 +3121,7 @@
       "label": "note",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L38",
+      "source_location": "L39",
       "id": "v1_source_manifest_rsa_note",
       "community": 170,
       "norm_label": "note"
@@ -3112,7 +3130,7 @@
       "label": "MWI",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L40",
+      "source_location": "L41",
       "id": "v1_source_manifest_squadcoverage_mwi",
       "community": 168,
       "norm_label": "mwi"
@@ -3121,7 +3139,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L41",
+      "source_location": "L42",
       "id": "v1_source_manifest_mwi_identity",
       "community": 168,
       "norm_label": "identity"
@@ -3130,7 +3148,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L42",
+      "source_location": "L43",
       "id": "v1_source_manifest_mwi_positions",
       "community": 168,
       "norm_label": "positions"
@@ -3139,7 +3157,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L43",
+      "source_location": "L44",
       "id": "v1_source_manifest_mwi_importedplayers",
       "community": 168,
       "norm_label": "importedplayers"
@@ -3148,7 +3166,7 @@
       "label": "note",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L44",
+      "source_location": "L45",
       "id": "v1_source_manifest_mwi_note",
       "community": 168,
       "norm_label": "note"
@@ -3157,7 +3175,7 @@
       "label": "TON",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L46",
+      "source_location": "L47",
       "id": "v1_source_manifest_squadcoverage_ton",
       "community": 171,
       "norm_label": "ton"
@@ -3166,7 +3184,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L47",
+      "source_location": "L48",
       "id": "v1_source_manifest_ton_identity",
       "community": 171,
       "norm_label": "identity"
@@ -3175,7 +3193,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L48",
+      "source_location": "L49",
       "id": "v1_source_manifest_ton_positions",
       "community": 171,
       "norm_label": "positions"
@@ -3184,7 +3202,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L49",
+      "source_location": "L50",
       "id": "v1_source_manifest_ton_importedplayers",
       "community": 171,
       "norm_label": "importedplayers"
@@ -3193,7 +3211,7 @@
       "label": "note",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L50",
+      "source_location": "L51",
       "id": "v1_source_manifest_ton_note",
       "community": 171,
       "norm_label": "note"
@@ -3202,7 +3220,7 @@
       "label": "NIR",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L52",
+      "source_location": "L53",
       "id": "v1_source_manifest_squadcoverage_nir",
       "community": 169,
       "norm_label": "nir"
@@ -3211,7 +3229,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L53",
+      "source_location": "L54",
       "id": "v1_source_manifest_nir_identity",
       "community": 169,
       "norm_label": "identity"
@@ -3220,7 +3238,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L54",
+      "source_location": "L55",
       "id": "v1_source_manifest_nir_positions",
       "community": 169,
       "norm_label": "positions"
@@ -3229,7 +3247,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L55",
+      "source_location": "L56",
       "id": "v1_source_manifest_nir_importedplayers",
       "community": 169,
       "norm_label": "importedplayers"
@@ -3238,7 +3256,7 @@
       "label": "note",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L56",
+      "source_location": "L57",
       "id": "v1_source_manifest_nir_note",
       "community": 169,
       "norm_label": "note"
@@ -3247,7 +3265,7 @@
       "label": "NZL",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L58",
+      "source_location": "L59",
       "id": "v1_source_manifest_squadcoverage_nzl",
       "community": 156,
       "norm_label": "nzl"
@@ -3256,7 +3274,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L59",
+      "source_location": "L60",
       "id": "v1_source_manifest_nzl_identity",
       "community": 156,
       "norm_label": "identity"
@@ -3265,7 +3283,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L60",
+      "source_location": "L61",
       "id": "v1_source_manifest_nzl_positions",
       "community": 156,
       "norm_label": "positions"
@@ -3274,7 +3292,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L61",
+      "source_location": "L62",
       "id": "v1_source_manifest_nzl_importedplayers",
       "community": 156,
       "norm_label": "importedplayers"
@@ -3283,7 +3301,7 @@
       "label": "JAM",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L63",
+      "source_location": "L64",
       "id": "v1_source_manifest_squadcoverage_jam",
       "community": 167,
       "norm_label": "jam"
@@ -3292,7 +3310,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L64",
+      "source_location": "L65",
       "id": "v1_source_manifest_jam_identity",
       "community": 167,
       "norm_label": "identity"
@@ -3301,7 +3319,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L65",
+      "source_location": "L66",
       "id": "v1_source_manifest_jam_positions",
       "community": 167,
       "norm_label": "positions"
@@ -3310,7 +3328,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L66",
+      "source_location": "L67",
       "id": "v1_source_manifest_jam_importedplayers",
       "community": 167,
       "norm_label": "importedplayers"
@@ -3319,7 +3337,7 @@
       "label": "note",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L67",
+      "source_location": "L68",
       "id": "v1_source_manifest_jam_note",
       "community": 167,
       "norm_label": "note"
@@ -3328,43 +3346,43 @@
       "label": "WAL",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L69",
+      "source_location": "L70",
       "id": "v1_source_manifest_squadcoverage_wal",
-      "community": 156,
+      "community": 99,
       "norm_label": "wal"
     },
     {
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L70",
+      "source_location": "L71",
       "id": "v1_source_manifest_wal_identity",
-      "community": 156,
+      "community": 99,
       "norm_label": "identity"
     },
     {
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L71",
+      "source_location": "L72",
       "id": "v1_source_manifest_wal_positions",
-      "community": 156,
+      "community": 99,
       "norm_label": "positions"
     },
     {
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L72",
+      "source_location": "L73",
       "id": "v1_source_manifest_wal_importedplayers",
-      "community": 156,
+      "community": 99,
       "norm_label": "importedplayers"
     },
     {
       "label": "UGA",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L74",
+      "source_location": "L75",
       "id": "v1_source_manifest_squadcoverage_uga",
       "community": 173,
       "norm_label": "uga"
@@ -3373,7 +3391,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L75",
+      "source_location": "L76",
       "id": "v1_source_manifest_uga_identity",
       "community": 173,
       "norm_label": "identity"
@@ -3382,7 +3400,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L76",
+      "source_location": "L77",
       "id": "v1_source_manifest_uga_positions",
       "community": 173,
       "norm_label": "positions"
@@ -3391,7 +3409,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L77",
+      "source_location": "L78",
       "id": "v1_source_manifest_uga_importedplayers",
       "community": 173,
       "norm_label": "importedplayers"
@@ -3400,7 +3418,7 @@
       "label": "note",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L78",
+      "source_location": "L79",
       "id": "v1_source_manifest_uga_note",
       "community": 173,
       "norm_label": "note"
@@ -3409,43 +3427,43 @@
       "label": "SCO",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L80",
+      "source_location": "L81",
       "id": "v1_source_manifest_squadcoverage_sco",
-      "community": 176,
+      "community": 175,
       "norm_label": "sco"
     },
     {
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L81",
+      "source_location": "L82",
       "id": "v1_source_manifest_sco_identity",
-      "community": 176,
+      "community": 175,
       "norm_label": "identity"
     },
     {
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L82",
+      "source_location": "L83",
       "id": "v1_source_manifest_sco_positions",
-      "community": 176,
+      "community": 175,
       "norm_label": "positions"
     },
     {
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L83",
+      "source_location": "L84",
       "id": "v1_source_manifest_sco_importedplayers",
-      "community": 176,
+      "community": 175,
       "norm_label": "importedplayers"
     },
     {
       "label": "TTO",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L85",
+      "source_location": "L86",
       "id": "v1_source_manifest_squadcoverage_tto",
       "community": 172,
       "norm_label": "tto"
@@ -3454,7 +3472,7 @@
       "label": "identity",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L86",
+      "source_location": "L87",
       "id": "v1_source_manifest_tto_identity",
       "community": 172,
       "norm_label": "identity"
@@ -3463,7 +3481,7 @@
       "label": "positions",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L87",
+      "source_location": "L88",
       "id": "v1_source_manifest_tto_positions",
       "community": 172,
       "norm_label": "positions"
@@ -3472,7 +3490,7 @@
       "label": "importedPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L88",
+      "source_location": "L89",
       "id": "v1_source_manifest_tto_importedplayers",
       "community": 172,
       "norm_label": "importedplayers"
@@ -3481,7 +3499,7 @@
       "label": "note",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L89",
+      "source_location": "L90",
       "id": "v1_source_manifest_tto_note",
       "community": 172,
       "norm_label": "note"
@@ -3490,7 +3508,7 @@
       "label": "photoCoverage",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L92",
+      "source_location": "L93",
       "id": "v1_source_manifest_declarations_photocoverage",
       "community": 77,
       "norm_label": "photocoverage"
@@ -3499,7 +3517,7 @@
       "label": "verifiedReusablePhotos",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L93",
+      "source_location": "L94",
       "id": "v1_source_manifest_photocoverage_verifiedreusablephotos",
       "community": 77,
       "norm_label": "verifiedreusablephotos"
@@ -3508,7 +3526,7 @@
       "label": "license",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L94",
+      "source_location": "L95",
       "id": "v1_source_manifest_photocoverage_license",
       "community": 77,
       "norm_label": "license"
@@ -3517,7 +3535,7 @@
       "label": "allOtherPlayers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L95",
+      "source_location": "L96",
       "id": "v1_source_manifest_photocoverage_allotherplayers",
       "community": 77,
       "norm_label": "allotherplayers"
@@ -3526,7 +3544,7 @@
       "label": "resultCoverage",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L97",
+      "source_location": "L98",
       "id": "v1_source_manifest_declarations_resultcoverage",
       "community": 77,
       "norm_label": "resultcoverage"
@@ -3535,16 +3553,25 @@
       "label": "publicationStatusRequired",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
-      "source_location": "L98",
+      "source_location": "L99",
       "id": "v1_source_manifest_declarations_publicationstatusrequired",
       "community": 77,
       "norm_label": "publicationstatusrequired"
     },
     {
-      "label": "sources",
+      "label": "publicationBlockers",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L100",
+      "id": "v1_source_manifest_declarations_publicationblockers",
+      "community": 77,
+      "norm_label": "publicationblockers"
+    },
+    {
+      "label": "sources",
+      "file_type": "code",
+      "source_file": "data/glasgow-2026/v1/source-manifest.json",
+      "source_location": "L105",
       "id": "v1_source_manifest_sources",
       "community": 157,
       "norm_label": "sources"
@@ -3643,7 +3670,7 @@
       "label": "results",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/bundle.json",
-      "source_location": "L1421",
+      "source_location": "L1395",
       "id": "v1_bundle_results",
       "community": 72,
       "norm_label": "results"
@@ -3652,7 +3679,7 @@
       "label": "coverage",
       "file_type": "code",
       "source_file": "data/glasgow-2026/v1/bundle.json",
-      "source_location": "L1422",
+      "source_location": "L1396",
       "id": "v1_bundle_coverage",
       "community": 72,
       "norm_label": "coverage"
@@ -3825,7 +3852,7 @@
       "source_file": "src/types/champion-data.ts",
       "source_location": "L98",
       "id": "types_champion_data_cdteamstats",
-      "community": 84,
+      "community": 15,
       "norm_label": "cdteamstats"
     },
     {
@@ -4311,7 +4338,7 @@
       "source_file": "src/app/page.tsx",
       "source_location": "L1",
       "id": "src_app_page_tsx",
-      "community": 21,
+      "community": 23,
       "norm_label": "page.tsx"
     },
     {
@@ -4320,7 +4347,7 @@
       "source_file": "src/app/page.tsx",
       "source_location": "L25",
       "id": "app_page_homepage",
-      "community": 21,
+      "community": 23,
       "norm_label": "homepage()"
     },
     {
@@ -4410,7 +4437,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L1",
       "id": "src_app_records_page_tsx",
-      "community": 34,
+      "community": 31,
       "norm_label": "page.tsx"
     },
     {
@@ -4419,7 +4446,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L9",
       "id": "records_page_metadata",
-      "community": 34,
+      "community": 31,
       "norm_label": "metadata"
     },
     {
@@ -4428,7 +4455,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L14",
       "id": "records_page_recordspageprops",
-      "community": 34,
+      "community": 31,
       "norm_label": "recordspageprops"
     },
     {
@@ -4437,7 +4464,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L18",
       "id": "records_page_scopes",
-      "community": 34,
+      "community": 31,
       "norm_label": "scopes"
     },
     {
@@ -4446,7 +4473,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L27",
       "id": "records_page_scopevalue",
-      "community": 34,
+      "community": 31,
       "norm_label": "scopevalue()"
     },
     {
@@ -4455,7 +4482,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L31",
       "id": "records_page_formatvalue",
-      "community": 34,
+      "community": 31,
       "norm_label": "formatvalue()"
     },
     {
@@ -4464,7 +4491,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L36",
       "id": "records_page_recordspage",
-      "community": 34,
+      "community": 31,
       "norm_label": "recordspage()"
     },
     {
@@ -4473,7 +4500,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L131",
       "id": "records_page_filter",
-      "community": 34,
+      "community": 31,
       "norm_label": "filter()"
     },
     {
@@ -4482,7 +4509,7 @@
       "source_file": "src/app/records/page.tsx",
       "source_location": "L135",
       "id": "records_page_auditcard",
-      "community": 34,
+      "community": 31,
       "norm_label": "auditcard()"
     },
     {
@@ -4626,7 +4653,7 @@
       "source_file": "src/app/match/[matchId]/MatchTabs.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_matchtabs_tsx",
-      "community": 159,
+      "community": 11,
       "norm_label": "matchtabs.tsx"
     },
     {
@@ -4635,7 +4662,7 @@
       "source_file": "src/app/match/[matchId]/MatchTabs.tsx",
       "source_location": "L5",
       "id": "matchid_matchtabs_matchtabsprops",
-      "community": 159,
+      "community": 11,
       "norm_label": "matchtabsprops"
     },
     {
@@ -4644,7 +4671,7 @@
       "source_file": "src/app/match/[matchId]/MatchTabs.tsx",
       "source_location": "L11",
       "id": "matchid_matchtabs_matchtabs",
-      "community": 159,
+      "community": 11,
       "norm_label": "matchtabs()"
     },
     {
@@ -4653,7 +4680,7 @@
       "source_file": "src/app/match/[matchId]/opengraph-image.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_opengraph_image_tsx",
-      "community": 41,
+      "community": 55,
       "norm_label": "opengraph-image.tsx"
     },
     {
@@ -4662,7 +4689,7 @@
       "source_file": "src/app/match/[matchId]/opengraph-image.tsx",
       "source_location": "L11",
       "id": "matchid_opengraph_image_size",
-      "community": 41,
+      "community": 55,
       "norm_label": "size"
     },
     {
@@ -4671,7 +4698,7 @@
       "source_file": "src/app/match/[matchId]/opengraph-image.tsx",
       "source_location": "L14",
       "id": "matchid_opengraph_image_matchogimage",
-      "community": 41,
+      "community": 55,
       "norm_label": "matchogimage()"
     },
     {
@@ -4698,7 +4725,7 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_page_tsx",
-      "community": 23,
+      "community": 160,
       "norm_label": "page.tsx"
     },
     {
@@ -4707,7 +4734,7 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L24",
       "id": "matchid_page_getmatch",
-      "community": 23,
+      "community": 160,
       "norm_label": "getmatch"
     },
     {
@@ -4716,7 +4743,7 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L86",
       "id": "matchid_page_matchpageprops",
-      "community": 23,
+      "community": 160,
       "norm_label": "matchpageprops"
     },
     {
@@ -4725,7 +4752,7 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L90",
       "id": "matchid_page_generatemetadata",
-      "community": 23,
+      "community": 160,
       "norm_label": "generatemetadata()"
     },
     {
@@ -4734,7 +4761,7 @@
       "source_file": "src/app/match/[matchId]/page.tsx",
       "source_location": "L109",
       "id": "matchid_page_matchpage",
-      "community": 23,
+      "community": 160,
       "norm_label": "matchpage()"
     },
     {
@@ -4743,7 +4770,7 @@
       "source_file": "src/app/match/[matchId]/court/CourtClient.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_court_courtclient_tsx",
-      "community": 32,
+      "community": 57,
       "norm_label": "courtclient.tsx"
     },
     {
@@ -4752,7 +4779,7 @@
       "source_file": "src/app/match/[matchId]/court/CourtClient.tsx",
       "source_location": "L8",
       "id": "court_courtclient_fullmatch",
-      "community": 32,
+      "community": 57,
       "norm_label": "fullmatch"
     },
     {
@@ -4761,7 +4788,7 @@
       "source_file": "src/app/match/[matchId]/court/CourtClient.tsx",
       "source_location": "L13",
       "id": "court_courtclient_courtclientprops",
-      "community": 32,
+      "community": 57,
       "norm_label": "courtclientprops"
     },
     {
@@ -4770,7 +4797,7 @@
       "source_file": "src/app/match/[matchId]/court/CourtClient.tsx",
       "source_location": "L17",
       "id": "court_courtclient_courtclient",
-      "community": 32,
+      "community": 57,
       "norm_label": "courtclient()"
     },
     {
@@ -4779,7 +4806,7 @@
       "source_file": "src/app/match/[matchId]/court/page.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_court_page_tsx",
-      "community": 41,
+      "community": 57,
       "norm_label": "page.tsx"
     },
     {
@@ -4788,7 +4815,7 @@
       "source_file": "src/app/match/[matchId]/court/page.tsx",
       "source_location": "L7",
       "id": "court_page_props",
-      "community": 41,
+      "community": 57,
       "norm_label": "props"
     },
     {
@@ -4797,7 +4824,7 @@
       "source_file": "src/app/match/[matchId]/court/page.tsx",
       "source_location": "L11",
       "id": "court_page_generatemetadata",
-      "community": 41,
+      "community": 57,
       "norm_label": "generatemetadata()"
     },
     {
@@ -4806,7 +4833,7 @@
       "source_file": "src/app/match/[matchId]/court/page.tsx",
       "source_location": "L29",
       "id": "court_page_courtpage",
-      "community": 41,
+      "community": 57,
       "norm_label": "courtpage()"
     },
     {
@@ -4815,7 +4842,7 @@
       "source_file": "src/app/match/[matchId]/__tests__/page.test.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_tests_page_test_tsx",
-      "community": 23,
+      "community": 160,
       "norm_label": "page.test.tsx"
     },
     {
@@ -4824,7 +4851,7 @@
       "source_file": "src/app/match/[matchId]/__tests__/MatchTabs.test.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_tests_matchtabs_test_tsx",
-      "community": 159,
+      "community": 11,
       "norm_label": "matchtabs.test.tsx"
     },
     {
@@ -4923,7 +4950,7 @@
       "source_file": "src/app/match/[matchId]/live/LiveGameClient.tsx",
       "source_location": "L75",
       "id": "live_livegameclient_mergeplayerstats",
-      "community": 15,
+      "community": 14,
       "norm_label": "mergeplayerstats()"
     },
     {
@@ -4959,7 +4986,7 @@
       "source_file": "src/app/match/[matchId]/live/page.tsx",
       "source_location": "L1",
       "id": "src_app_match_matchid_live_page_tsx",
-      "community": 41,
+      "community": 55,
       "norm_label": "page.tsx"
     },
     {
@@ -4968,7 +4995,7 @@
       "source_file": "src/app/match/[matchId]/live/page.tsx",
       "source_location": "L10",
       "id": "live_page_props",
-      "community": 41,
+      "community": 55,
       "norm_label": "props"
     },
     {
@@ -4977,7 +5004,7 @@
       "source_file": "src/app/match/[matchId]/live/page.tsx",
       "source_location": "L14",
       "id": "live_page_generatemetadata",
-      "community": 41,
+      "community": 55,
       "norm_label": "generatemetadata()"
     },
     {
@@ -4986,7 +5013,7 @@
       "source_file": "src/app/match/[matchId]/live/page.tsx",
       "source_location": "L39",
       "id": "live_page_livegamepage",
-      "community": 41,
+      "community": 55,
       "norm_label": "livegamepage()"
     },
     {
@@ -5616,7 +5643,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L1",
       "id": "src_app_rankings_page_tsx",
-      "community": 22,
+      "community": 32,
       "norm_label": "page.tsx"
     },
     {
@@ -5625,7 +5652,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L9",
       "id": "rankings_page_metadata",
-      "community": 22,
+      "community": 32,
       "norm_label": "metadata"
     },
     {
@@ -5634,7 +5661,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L14",
       "id": "rankings_page_rankingspageprops",
-      "community": 22,
+      "community": 32,
       "norm_label": "rankingspageprops"
     },
     {
@@ -5643,7 +5670,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L26",
       "id": "rankings_page_positions",
-      "community": 22,
+      "community": 32,
       "norm_label": "positions"
     },
     {
@@ -5652,7 +5679,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L27",
       "id": "rankings_page_player_metrics",
-      "community": 22,
+      "community": 32,
       "norm_label": "player_metrics"
     },
     {
@@ -5661,7 +5688,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L29",
       "id": "rankings_page_boundedinteger",
-      "community": 22,
+      "community": 32,
       "norm_label": "boundedinteger()"
     },
     {
@@ -5670,7 +5697,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L34",
       "id": "rankings_page_valuelabel",
-      "community": 22,
+      "community": 32,
       "norm_label": "valuelabel()"
     },
     {
@@ -5679,7 +5706,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L40",
       "id": "rankings_page_datelabel",
-      "community": 22,
+      "community": 32,
       "norm_label": "datelabel()"
     },
     {
@@ -5688,7 +5715,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L45",
       "id": "rankings_page_ordinal",
-      "community": 22,
+      "community": 32,
       "norm_label": "ordinal()"
     },
     {
@@ -5697,7 +5724,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L55",
       "id": "rankings_page_rankingspage",
-      "community": 22,
+      "community": 32,
       "norm_label": "rankingspage()"
     },
     {
@@ -5706,7 +5733,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L165",
       "id": "rankings_page_rankinghref",
-      "community": 22,
+      "community": 32,
       "norm_label": "rankinghref()"
     },
     {
@@ -5715,7 +5742,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L171",
       "id": "rankings_page_rankingtab",
-      "community": 22,
+      "community": 32,
       "norm_label": "rankingtab()"
     },
     {
@@ -5724,7 +5751,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L175",
       "id": "rankings_page_filter",
-      "community": 22,
+      "community": 32,
       "norm_label": "filter()"
     },
     {
@@ -5733,7 +5760,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L179",
       "id": "rankings_page_auditcard",
-      "community": 22,
+      "community": 32,
       "norm_label": "auditcard()"
     },
     {
@@ -5742,7 +5769,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L183",
       "id": "rankings_page_emptystate",
-      "community": 22,
+      "community": 32,
       "norm_label": "emptystate()"
     },
     {
@@ -5751,7 +5778,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L187",
       "id": "rankings_page_playerrankingtable",
-      "community": 22,
+      "community": 32,
       "norm_label": "playerrankingtable()"
     },
     {
@@ -5760,7 +5787,7 @@
       "source_file": "src/app/rankings/page.tsx",
       "source_location": "L213",
       "id": "rankings_page_teampowertable",
-      "community": 22,
+      "community": 32,
       "norm_label": "teampowertable()"
     },
     {
@@ -5769,7 +5796,7 @@
       "source_file": "src/app/__tests__/page.test.tsx",
       "source_location": "L1",
       "id": "src_app_tests_page_test_tsx",
-      "community": 21,
+      "community": 23,
       "norm_label": "page.test.tsx"
     },
     {
@@ -5778,7 +5805,7 @@
       "source_file": "src/app/__tests__/page.test.tsx",
       "source_location": "L7",
       "id": "tests_page_test_findcompetitionsmock_findmatchesmock",
-      "community": 21,
+      "community": 23,
       "norm_label": "{ findcompetitionsmock, findmatchesmock }"
     },
     {
@@ -5787,7 +5814,7 @@
       "source_file": "src/app/__tests__/page.test.tsx",
       "source_location": "L22",
       "id": "tests_page_test_matches",
-      "community": 21,
+      "community": 23,
       "norm_label": "matches"
     },
     {
@@ -6192,7 +6219,7 @@
       "source_file": "src/app/api/matches/route.ts",
       "source_location": "L1",
       "id": "src_app_api_matches_route_ts",
-      "community": 9,
+      "community": 86,
       "norm_label": "route.ts"
     },
     {
@@ -6201,7 +6228,7 @@
       "source_file": "src/app/api/matches/route.ts",
       "source_location": "L7",
       "id": "matches_route_get",
-      "community": 9,
+      "community": 86,
       "norm_label": "get()"
     },
     {
@@ -6273,7 +6300,7 @@
       "source_file": "src/app/api/matches/__tests__/route.test.ts",
       "source_location": "L1",
       "id": "src_app_api_matches_tests_route_test_ts",
-      "community": 9,
+      "community": 86,
       "norm_label": "route.test.ts"
     },
     {
@@ -6282,7 +6309,7 @@
       "source_file": "src/app/api/matches/__tests__/route.test.ts",
       "source_location": "L3",
       "id": "tests_route_test_loadpagemock_resolvecompetitionmock",
-      "community": 9,
+      "community": 86,
       "norm_label": "{ loadpagemock, resolvecompetitionmock }"
     },
     {
@@ -6408,7 +6435,7 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L1",
       "id": "src_app_api_search_route_ts",
-      "community": 31,
+      "community": 2,
       "norm_label": "route.ts"
     },
     {
@@ -6417,7 +6444,7 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L10",
       "id": "search_route_empty_results",
-      "community": 31,
+      "community": 2,
       "norm_label": "empty_results"
     },
     {
@@ -6426,7 +6453,7 @@
       "source_file": "src/app/api/search/route.ts",
       "source_location": "L12",
       "id": "search_route_get",
-      "community": 31,
+      "community": 2,
       "norm_label": "get()"
     },
     {
@@ -6435,7 +6462,7 @@
       "source_file": "src/app/api/search/__tests__/route.test.ts",
       "source_location": "L1",
       "id": "src_app_api_search_tests_route_test_ts",
-      "community": 31,
+      "community": 2,
       "norm_label": "route.test.ts"
     },
     {
@@ -6444,7 +6471,7 @@
       "source_file": "src/app/api/search/__tests__/route.test.ts",
       "source_location": "L3",
       "id": "tests_route_test_findmatchesmock_findplayersmock_findteamsmock",
-      "community": 31,
+      "community": 2,
       "norm_label": "{ findmatchesmock, findplayersmock, findteamsmock }"
     },
     {
@@ -6516,7 +6543,7 @@
       "source_file": "src/app/api/live-status/route.ts",
       "source_location": "L1",
       "id": "src_app_api_live_status_route_ts",
-      "community": 39,
+      "community": 27,
       "norm_label": "route.ts"
     },
     {
@@ -6525,7 +6552,7 @@
       "source_file": "src/app/api/live-status/route.ts",
       "source_location": "L6",
       "id": "live_status_route_get",
-      "community": 39,
+      "community": 27,
       "norm_label": "get()"
     },
     {
@@ -6606,7 +6633,7 @@
       "source_file": "src/app/api/today-matches/route.ts",
       "source_location": "L1",
       "id": "src_app_api_today_matches_route_ts",
-      "community": 39,
+      "community": 27,
       "norm_label": "route.ts"
     },
     {
@@ -6615,7 +6642,7 @@
       "source_file": "src/app/api/today-matches/route.ts",
       "source_location": "L7",
       "id": "today_matches_route_get",
-      "community": 39,
+      "community": 27,
       "norm_label": "get()"
     },
     {
@@ -6732,7 +6759,7 @@
       "source_file": "src/app/player/[playerId]/page.tsx",
       "source_location": "L84",
       "id": "playerid_page_computestathighlightvalues",
-      "community": 86,
+      "community": 1,
       "norm_label": "computestathighlightvalues()"
     },
     {
@@ -6768,7 +6795,7 @@
       "source_file": "src/components/ui/PlayerAvatar.tsx",
       "source_location": "L1",
       "id": "src_components_ui_playeravatar_tsx",
-      "community": 23,
+      "community": 51,
       "norm_label": "playeravatar.tsx"
     },
     {
@@ -6777,7 +6804,7 @@
       "source_file": "src/components/ui/PlayerAvatar.tsx",
       "source_location": "L6",
       "id": "ui_playeravatar_playeravatarprops",
-      "community": 23,
+      "community": 51,
       "norm_label": "playeravatarprops"
     },
     {
@@ -6786,7 +6813,7 @@
       "source_file": "src/components/ui/PlayerAvatar.tsx",
       "source_location": "L14",
       "id": "ui_playeravatar_playeravatar",
-      "community": 23,
+      "community": 51,
       "norm_label": "playeravatar()"
     },
     {
@@ -6903,7 +6930,7 @@
       "source_file": "src/components/ui/LiveIndicator.tsx",
       "source_location": "L1",
       "id": "src_components_ui_liveindicator_tsx",
-      "community": 32,
+      "community": 160,
       "norm_label": "liveindicator.tsx"
     },
     {
@@ -6912,7 +6939,7 @@
       "source_file": "src/components/ui/LiveIndicator.tsx",
       "source_location": "L1",
       "id": "ui_liveindicator_liveindicatorprops",
-      "community": 32,
+      "community": 160,
       "norm_label": "liveindicatorprops"
     },
     {
@@ -6921,7 +6948,7 @@
       "source_file": "src/components/ui/LiveIndicator.tsx",
       "source_location": "L5",
       "id": "ui_liveindicator_liveindicator",
-      "community": 32,
+      "community": 160,
       "norm_label": "liveindicator()"
     },
     {
@@ -6930,7 +6957,7 @@
       "source_file": "src/components/ui/Countdown.tsx",
       "source_location": "L1",
       "id": "src_components_ui_countdown_tsx",
-      "community": 21,
+      "community": 23,
       "norm_label": "countdown.tsx"
     },
     {
@@ -6939,7 +6966,7 @@
       "source_file": "src/components/ui/Countdown.tsx",
       "source_location": "L5",
       "id": "ui_countdown_countdownprops",
-      "community": 21,
+      "community": 23,
       "norm_label": "countdownprops"
     },
     {
@@ -6948,7 +6975,7 @@
       "source_file": "src/components/ui/Countdown.tsx",
       "source_location": "L9",
       "id": "ui_countdown_countdown",
-      "community": 21,
+      "community": 23,
       "norm_label": "countdown()"
     },
     {
@@ -7146,7 +7173,7 @@
       "source_file": "src/components/ui/__tests__/LiveIndicator.test.tsx",
       "source_location": "L1",
       "id": "src_components_ui_tests_liveindicator_test_tsx",
-      "community": 32,
+      "community": 160,
       "norm_label": "liveindicator.test.tsx"
     },
     {
@@ -7254,7 +7281,7 @@
       "source_file": "src/components/ui/__tests__/PlayerAvatar.test.tsx",
       "source_location": "L1",
       "id": "src_components_ui_tests_playeravatar_test_tsx",
-      "community": 23,
+      "community": 51,
       "norm_label": "playeravatar.test.tsx"
     },
     {
@@ -7398,7 +7425,7 @@
       "source_file": "src/components/match/LiveScoreHero.tsx",
       "source_location": "L1",
       "id": "src_components_match_livescorehero_tsx",
-      "community": 41,
+      "community": 21,
       "norm_label": "livescorehero.tsx"
     },
     {
@@ -7407,7 +7434,7 @@
       "source_file": "src/components/match/LiveScoreHero.tsx",
       "source_location": "L7",
       "id": "match_livescorehero_scorebreakdown",
-      "community": 41,
+      "community": 21,
       "norm_label": "scorebreakdown"
     },
     {
@@ -7425,7 +7452,7 @@
       "source_file": "src/components/match/LiveScoreHero.tsx",
       "source_location": "L35",
       "id": "match_livescorehero_quartergrid",
-      "community": 41,
+      "community": 21,
       "norm_label": "quartergrid()"
     },
     {
@@ -7434,7 +7461,7 @@
       "source_file": "src/components/match/LiveScoreHero.tsx",
       "source_location": "L134",
       "id": "match_livescorehero_livescorehero",
-      "community": 41,
+      "community": 21,
       "norm_label": "livescorehero()"
     },
     {
@@ -7488,7 +7515,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L1",
       "id": "src_components_match_matchplaybyplay_tsx",
-      "community": 11,
+      "community": 51,
       "norm_label": "matchplaybyplay.tsx"
     },
     {
@@ -7497,7 +7524,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L10",
       "id": "match_matchplaybyplay_playbyplayentry",
-      "community": 11,
+      "community": 51,
       "norm_label": "playbyplayentry"
     },
     {
@@ -7506,7 +7533,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L15",
       "id": "match_matchplaybyplay_event_config",
-      "community": 11,
+      "community": 51,
       "norm_label": "event_config"
     },
     {
@@ -7515,7 +7542,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L23",
       "id": "match_matchplaybyplay_matchplaybyplayprops",
-      "community": 11,
+      "community": 51,
       "norm_label": "matchplaybyplayprops"
     },
     {
@@ -7524,7 +7551,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L29",
       "id": "match_matchplaybyplay_formattime",
-      "community": 11,
+      "community": 51,
       "norm_label": "formattime()"
     },
     {
@@ -7533,7 +7560,7 @@
       "source_file": "src/components/match/MatchPlayByPlay.tsx",
       "source_location": "L35",
       "id": "match_matchplaybyplay_matchplaybyplay",
-      "community": 11,
+      "community": 51,
       "norm_label": "matchplaybyplay()"
     },
     {
@@ -7596,7 +7623,7 @@
       "source_file": "src/components/match/MatchTimeline.tsx",
       "source_location": "L19",
       "id": "match_matchtimeline_matchtimeline",
-      "community": 159,
+      "community": 11,
       "norm_label": "matchtimeline()"
     },
     {
@@ -7605,7 +7632,7 @@
       "source_file": "src/components/match/MatchActions.tsx",
       "source_location": "L1",
       "id": "src_components_match_matchactions_tsx",
-      "community": 99,
+      "community": 160,
       "norm_label": "matchactions.tsx"
     },
     {
@@ -7614,7 +7641,7 @@
       "source_file": "src/components/match/MatchActions.tsx",
       "source_location": "L8",
       "id": "match_matchactions_matchactionsprops",
-      "community": 99,
+      "community": 160,
       "norm_label": "matchactionsprops"
     },
     {
@@ -7623,7 +7650,7 @@
       "source_file": "src/components/match/MatchActions.tsx",
       "source_location": "L13",
       "id": "match_matchactions_usermatchresource",
-      "community": 99,
+      "community": 160,
       "norm_label": "usermatchresource"
     },
     {
@@ -7632,7 +7659,7 @@
       "source_file": "src/components/match/MatchActions.tsx",
       "source_location": "L17",
       "id": "match_matchactions_matchactions",
-      "community": 99,
+      "community": 160,
       "norm_label": "matchactions()"
     },
     {
@@ -7902,7 +7929,7 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L1",
       "id": "src_components_match_tests_matchtimeline_test_tsx",
-      "community": 159,
+      "community": 11,
       "norm_label": "matchtimeline.test.tsx"
     },
     {
@@ -7911,7 +7938,7 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L12",
       "id": "tests_matchtimeline_test_hometeam",
-      "community": 159,
+      "community": 11,
       "norm_label": "hometeam"
     },
     {
@@ -7920,7 +7947,7 @@
       "source_file": "src/components/match/__tests__/MatchTimeline.test.tsx",
       "source_location": "L13",
       "id": "tests_matchtimeline_test_awayteam",
-      "community": 159,
+      "community": 11,
       "norm_label": "awayteam"
     },
     {
@@ -7929,7 +7956,7 @@
       "source_file": "src/components/match/__tests__/MatchActions.test.tsx",
       "source_location": "L1",
       "id": "src_components_match_tests_matchactions_test_tsx",
-      "community": 99,
+      "community": 160,
       "norm_label": "matchactions.test.tsx"
     },
     {
@@ -7938,7 +7965,7 @@
       "source_file": "src/components/match/__tests__/MatchActions.test.tsx",
       "source_location": "L5",
       "id": "tests_matchactions_test_pushmock_usesessionmock",
-      "community": 99,
+      "community": 160,
       "norm_label": "{ pushmock, usesessionmock }"
     },
     {
@@ -8253,7 +8280,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.test.ts",
       "source_location": "L1",
       "id": "src_components_player_playerseasonstats_test_ts",
-      "community": 155,
+      "community": 1,
       "norm_label": "playerseasonstats.test.ts"
     },
     {
@@ -8271,14 +8298,14 @@
       "source_file": "src/components/player/PlayerHero.tsx",
       "source_location": "L8",
       "id": "player_playerhero_playerheroprops",
-      "community": 165,
+      "community": 1,
       "norm_label": "playerheroprops"
     },
     {
       "label": "PlayerHero()",
       "file_type": "code",
       "source_file": "src/components/player/PlayerHero.tsx",
-      "source_location": "L28",
+      "source_location": "L31",
       "id": "player_playerhero_playerhero",
       "community": 1,
       "norm_label": "playerhero()"
@@ -8289,7 +8316,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L1",
       "id": "src_components_player_playerseasonstats_tsx",
-      "community": 155,
+      "community": 1,
       "norm_label": "playerseasonstats.tsx"
     },
     {
@@ -8298,7 +8325,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L6",
       "id": "player_playerseasonstats_competitioninfo",
-      "community": 155,
+      "community": 1,
       "norm_label": "competitioninfo"
     },
     {
@@ -8307,7 +8334,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L14",
       "id": "player_playerseasonstats_playerseasonstatsprops",
-      "community": 165,
+      "community": 1,
       "norm_label": "playerseasonstatsprops"
     },
     {
@@ -8316,7 +8343,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L23",
       "id": "player_playerseasonstats_computeseasontotal",
-      "community": 86,
+      "community": 1,
       "norm_label": "computeseasontotal()"
     },
     {
@@ -8325,7 +8352,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L32",
       "id": "player_playerseasonstats_computeseasonmax",
-      "community": 155,
+      "community": 1,
       "norm_label": "computeseasonmax()"
     },
     {
@@ -8334,7 +8361,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L37",
       "id": "player_playerseasonstats_computetrend",
-      "community": 155,
+      "community": 1,
       "norm_label": "computetrend()"
     },
     {
@@ -8343,7 +8370,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L60",
       "id": "player_playerseasonstats_computeprogresspercentage",
-      "community": 155,
+      "community": 1,
       "norm_label": "computeprogresspercentage()"
     },
     {
@@ -8352,7 +8379,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L71",
       "id": "player_playerseasonstats_stathighlightcard",
-      "community": 155,
+      "community": 1,
       "norm_label": "stathighlightcard()"
     },
     {
@@ -8361,7 +8388,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L123",
       "id": "player_playerseasonstats_all_stat_fields",
-      "community": 155,
+      "community": 1,
       "norm_label": "all_stat_fields"
     },
     {
@@ -8370,7 +8397,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L137",
       "id": "player_playerseasonstats_playerseasonstats",
-      "community": 155,
+      "community": 1,
       "norm_label": "playerseasonstats()"
     },
     {
@@ -8379,7 +8406,7 @@
       "source_file": "src/components/player/PlayerSeasonStats.tsx",
       "source_location": "L245",
       "id": "player_playerseasonstats_editionselector",
-      "community": 155,
+      "community": 1,
       "norm_label": "editionselector()"
     },
     {
@@ -8388,7 +8415,7 @@
       "source_file": "src/components/player/position-config.test.ts",
       "source_location": "L1",
       "id": "src_components_player_position_config_test_ts",
-      "community": 78,
+      "community": 1,
       "norm_label": "position-config.test.ts"
     },
     {
@@ -8415,7 +8442,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L1",
       "id": "src_components_player_position_config_ts",
-      "community": 78,
+      "community": 1,
       "norm_label": "position-config.ts"
     },
     {
@@ -8424,7 +8451,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L3",
       "id": "player_position_config_positiongroup",
-      "community": 78,
+      "community": 1,
       "norm_label": "positiongroup"
     },
     {
@@ -8433,7 +8460,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L5",
       "id": "player_position_config_stathighlight",
-      "community": 78,
+      "community": 1,
       "norm_label": "stathighlight"
     },
     {
@@ -8442,7 +8469,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L13",
       "id": "player_position_config_gamelogcolumn",
-      "community": 78,
+      "community": 1,
       "norm_label": "gamelogcolumn"
     },
     {
@@ -8451,7 +8478,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L21",
       "id": "player_position_config_positionconfig",
-      "community": 165,
+      "community": 1,
       "norm_label": "positionconfig"
     },
     {
@@ -8460,7 +8487,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L30",
       "id": "player_position_config_common_columns",
-      "community": 78,
+      "community": 1,
       "norm_label": "common_columns"
     },
     {
@@ -8469,7 +8496,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L36",
       "id": "player_position_config_shooter_config",
-      "community": 78,
+      "community": 1,
       "norm_label": "shooter_config"
     },
     {
@@ -8478,7 +8505,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L55",
       "id": "player_position_config_defender_config",
-      "community": 78,
+      "community": 1,
       "norm_label": "defender_config"
     },
     {
@@ -8487,7 +8514,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L74",
       "id": "player_position_config_midcourt_config",
-      "community": 78,
+      "community": 1,
       "norm_label": "midcourt_config"
     },
     {
@@ -8496,7 +8523,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L93",
       "id": "player_position_config_position_map",
-      "community": 78,
+      "community": 1,
       "norm_label": "position_map"
     },
     {
@@ -8505,7 +8532,7 @@
       "source_file": "src/components/player/position-config.ts",
       "source_location": "L103",
       "id": "player_position_config_getpositionconfig",
-      "community": 78,
+      "community": 1,
       "norm_label": "getpositionconfig()"
     },
     {
@@ -8541,7 +8568,7 @@
       "source_file": "src/components/player/PlayerGameLog.tsx",
       "source_location": "L28",
       "id": "player_playergamelog_playergamelogprops",
-      "community": 165,
+      "community": 1,
       "norm_label": "playergamelogprops"
     },
     {
@@ -8550,7 +8577,7 @@
       "source_file": "src/components/player/PlayerGameLog.tsx",
       "source_location": "L34",
       "id": "player_playergamelog_formatstatvalue",
-      "community": 41,
+      "community": 1,
       "norm_label": "formatstatvalue()"
     },
     {
@@ -8559,7 +8586,7 @@
       "source_file": "src/components/player/PlayerGameLog.tsx",
       "source_location": "L40",
       "id": "player_playergamelog_playergamelog",
-      "community": 1,
+      "community": 41,
       "norm_label": "playergamelog()"
     },
     {
@@ -8622,7 +8649,7 @@
       "source_file": "src/components/player/PlayerCharts.tsx",
       "source_location": "L1",
       "id": "src_components_player_playercharts_tsx",
-      "community": 86,
+      "community": 1,
       "norm_label": "playercharts.tsx"
     },
     {
@@ -8631,7 +8658,7 @@
       "source_file": "src/components/player/PlayerCharts.tsx",
       "source_location": "L5",
       "id": "player_playercharts_playerchartsprops",
-      "community": 165,
+      "community": 1,
       "norm_label": "playerchartsprops"
     },
     {
@@ -8640,7 +8667,7 @@
       "source_file": "src/components/player/PlayerCharts.tsx",
       "source_location": "L10",
       "id": "player_playercharts_primarybarchart",
-      "community": 86,
+      "community": 1,
       "norm_label": "primarybarchart()"
     },
     {
@@ -8649,7 +8676,7 @@
       "source_file": "src/components/player/PlayerCharts.tsx",
       "source_location": "L58",
       "id": "player_playercharts_shooterdonutchart",
-      "community": 86,
+      "community": 1,
       "norm_label": "shooterdonutchart()"
     },
     {
@@ -8658,7 +8685,7 @@
       "source_file": "src/components/player/PlayerCharts.tsx",
       "source_location": "L112",
       "id": "player_playercharts_defenderstackedbar",
-      "community": 86,
+      "community": 1,
       "norm_label": "defenderstackedbar()"
     },
     {
@@ -8667,7 +8694,7 @@
       "source_file": "src/components/player/PlayerCharts.tsx",
       "source_location": "L190",
       "id": "player_playercharts_midcourtfeeddistribution",
-      "community": 86,
+      "community": 1,
       "norm_label": "midcourtfeeddistribution()"
     },
     {
@@ -8676,7 +8703,7 @@
       "source_file": "src/components/player/PlayerCharts.tsx",
       "source_location": "L255",
       "id": "player_playercharts_playercharts",
-      "community": 86,
+      "community": 1,
       "norm_label": "playercharts()"
     },
     {
@@ -8775,7 +8802,7 @@
       "source_file": "src/__tests__/hooks/useMatchSocket.test.ts",
       "source_location": "L1",
       "id": "src_tests_hooks_usematchsocket_test_ts",
-      "community": 32,
+      "community": 57,
       "norm_label": "usematchsocket.test.ts"
     },
     {
@@ -8784,7 +8811,7 @@
       "source_file": "src/__tests__/hooks/useMatchSocket.test.ts",
       "source_location": "L5",
       "id": "hooks_usematchsocket_test_mocksocket",
-      "community": 32,
+      "community": 57,
       "norm_label": "mocksocket"
     },
     {
@@ -9063,7 +9090,7 @@
       "source_file": "src/hooks/useMatchSocket.ts",
       "source_location": "L27",
       "id": "hooks_usematchsocket_usematchsocket",
-      "community": 32,
+      "community": 57,
       "norm_label": "usematchsocket()"
     },
     {
@@ -9072,7 +9099,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L1",
       "id": "src_lib_competitions_ts",
-      "community": 31,
+      "community": 40,
       "norm_label": "competitions.ts"
     },
     {
@@ -9081,7 +9108,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L4",
       "id": "lib_competitions_competitionoptionselect",
-      "community": 31,
+      "community": 40,
       "norm_label": "competitionoptionselect"
     },
     {
@@ -9090,7 +9117,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L52",
       "id": "lib_competitions_competitionsquery",
-      "community": 31,
+      "community": 40,
       "norm_label": "competitionsquery()"
     },
     {
@@ -9108,7 +9135,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L75",
       "id": "lib_competitions_iseditionpubliclyready",
-      "community": 31,
+      "community": 40,
       "norm_label": "iseditionpubliclyready()"
     },
     {
@@ -9126,7 +9153,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L87",
       "id": "lib_competitions_editionrouteidentity",
-      "community": 31,
+      "community": 40,
       "norm_label": "editionrouteidentity"
     },
     {
@@ -9135,7 +9162,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L92",
       "id": "lib_competitions_editionresolution",
-      "community": 31,
+      "community": 40,
       "norm_label": "editionresolution"
     },
     {
@@ -9162,7 +9189,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L123",
       "id": "lib_competitions_competitionresolution",
-      "community": 31,
+      "community": 40,
       "norm_label": "competitionresolution"
     },
     {
@@ -9171,7 +9198,7 @@
       "source_file": "src/lib/competitions.ts",
       "source_location": "L133",
       "id": "lib_competitions_resolvecompetition",
-      "community": 9,
+      "community": 23,
       "norm_label": "resolvecompetition()"
     },
     {
@@ -9252,7 +9279,7 @@
       "source_file": "src/lib/champion-data.ts",
       "source_location": "L39",
       "id": "lib_champion_data_fetchfixture",
-      "community": 48,
+      "community": 163,
       "norm_label": "fetchfixture()"
     },
     {
@@ -9306,7 +9333,7 @@
       "source_file": "src/lib/champion-data.ts",
       "source_location": "L232",
       "id": "lib_champion_data_fetchmatchstats",
-      "community": 49,
+      "community": 163,
       "norm_label": "fetchmatchstats()"
     },
     {
@@ -9315,7 +9342,7 @@
       "source_file": "src/lib/champion-data.ts",
       "source_location": "L246",
       "id": "lib_champion_data_mapmatchstatus",
-      "community": 15,
+      "community": 49,
       "norm_label": "mapmatchstatus()"
     },
     {
@@ -9459,7 +9486,7 @@
       "source_file": "src/lib/home-feed.ts",
       "source_location": "L28",
       "id": "lib_home_feed_resolvedhomepagematch",
-      "community": 53,
+      "community": 9,
       "norm_label": "resolvedhomepagematch"
     },
     {
@@ -9576,7 +9603,7 @@
       "source_file": "src/lib/home-feed.ts",
       "source_location": "L188",
       "id": "lib_home_feed_derivehomeheader",
-      "community": 21,
+      "community": 53,
       "norm_label": "derivehomeheader()"
     },
     {
@@ -9675,7 +9702,7 @@
       "source_file": "src/lib/edition-match.ts",
       "source_location": "L53",
       "id": "lib_edition_match_hasresolvedlegacymatch",
-      "community": 41,
+      "community": 55,
       "norm_label": "hasresolvedlegacymatch()"
     },
     {
@@ -9909,7 +9936,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L41",
       "id": "lib_processing_processedmatchstate",
-      "community": 84,
+      "community": 15,
       "norm_label": "processedmatchstate"
     },
     {
@@ -9927,7 +9954,7 @@
       "source_file": "src/lib/processing.ts",
       "source_location": "L75",
       "id": "lib_processing_changeresult",
-      "community": 49,
+      "community": 62,
       "norm_label": "changeresult"
     },
     {
@@ -10107,7 +10134,7 @@
       "source_file": "src/lib/api-auth.ts",
       "source_location": "L15",
       "id": "lib_api_auth_requireauth",
-      "community": 9,
+      "community": 24,
       "norm_label": "requireauth()"
     },
     {
@@ -10125,7 +10152,7 @@
       "source_file": "src/lib/live-state.ts",
       "source_location": "L1",
       "id": "src_lib_live_state_ts",
-      "community": 39,
+      "community": 27,
       "norm_label": "live-state.ts"
     },
     {
@@ -10134,7 +10161,7 @@
       "source_file": "src/lib/live-state.ts",
       "source_location": "L4",
       "id": "lib_live_state_livestate",
-      "community": 39,
+      "community": 27,
       "norm_label": "livestate"
     },
     {
@@ -10143,7 +10170,7 @@
       "source_file": "src/lib/live-state.ts",
       "source_location": "L11",
       "id": "lib_live_state_getlivestate",
-      "community": 39,
+      "community": 27,
       "norm_label": "getlivestate()"
     },
     {
@@ -10233,7 +10260,7 @@
       "source_file": "src/lib/broadcasting.ts",
       "source_location": "L163",
       "id": "lib_broadcasting_persistandbroadcaststatevents",
-      "community": 62,
+      "community": 49,
       "norm_label": "persistandbroadcaststatevents()"
     },
     {
@@ -10438,7 +10465,7 @@
       "label": "EditionPublicationReadiness",
       "file_type": "code",
       "source_file": "src/lib/edition-publication.ts",
-      "source_location": "L13",
+      "source_location": "L14",
       "id": "lib_edition_publication_editionpublicationreadiness",
       "community": 40,
       "norm_label": "editionpublicationreadiness"
@@ -10447,7 +10474,7 @@
       "label": "evaluateEditionPublicationReadiness()",
       "file_type": "code",
       "source_file": "src/lib/edition-publication.ts",
-      "source_location": "L18",
+      "source_location": "L19",
       "id": "lib_edition_publication_evaluateeditionpublicationreadiness",
       "community": 40,
       "norm_label": "evaluateeditionpublicationreadiness()"
@@ -10456,7 +10483,7 @@
       "label": "publishEdition()",
       "file_type": "code",
       "source_file": "src/lib/edition-publication.ts",
-      "source_location": "L36",
+      "source_location": "L41",
       "id": "lib_edition_publication_publishedition",
       "community": 40,
       "norm_label": "publishedition()"
@@ -10512,7 +10539,7 @@
       "source_file": "src/lib/mvp-stats.ts",
       "source_location": "L23",
       "id": "lib_mvp_stats_getmvpsupportingstats",
-      "community": 23,
+      "community": 160,
       "norm_label": "getmvpsupportingstats()"
     },
     {
@@ -10521,7 +10548,7 @@
       "source_file": "src/lib/match-label.test.ts",
       "source_location": "L1",
       "id": "src_lib_match_label_test_ts",
-      "community": 41,
+      "community": 55,
       "norm_label": "match-label.test.ts"
     },
     {
@@ -10674,7 +10701,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L1",
       "id": "src_lib_cached_queries_ts",
-      "community": 31,
+      "community": 78,
       "norm_label": "cached-queries.ts"
     },
     {
@@ -10683,7 +10710,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L6",
       "id": "lib_cached_queries_matchteamselect",
-      "community": 31,
+      "community": 78,
       "norm_label": "matchteamselect"
     },
     {
@@ -10692,7 +10719,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L8",
       "id": "lib_cached_queries_standingsquery",
-      "community": 31,
+      "community": 78,
       "norm_label": "standingsquery()"
     },
     {
@@ -10701,7 +10728,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L17",
       "id": "lib_cached_queries_teamsquery",
-      "community": 31,
+      "community": 78,
       "norm_label": "teamsquery()"
     },
     {
@@ -10710,7 +10737,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L37",
       "id": "lib_cached_queries_teambyslugquery",
-      "community": 31,
+      "community": 78,
       "norm_label": "teambyslugquery()"
     },
     {
@@ -10719,7 +10746,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L51",
       "id": "lib_cached_queries_teamstandingquery",
-      "community": 31,
+      "community": 78,
       "norm_label": "teamstandingquery()"
     },
     {
@@ -10728,7 +10755,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L56",
       "id": "lib_cached_queries_recentteammatchesquery",
-      "community": 31,
+      "community": 78,
       "norm_label": "recentteammatchesquery()"
     },
     {
@@ -10737,7 +10764,7 @@
       "source_file": "src/lib/cached-queries.ts",
       "source_location": "L74",
       "id": "lib_cached_queries_upcomingteammatchesquery",
-      "community": 31,
+      "community": 78,
       "norm_label": "upcomingteammatchesquery()"
     },
     {
@@ -10746,7 +10773,7 @@
       "source_file": "src/lib/time-zone.ts",
       "source_location": "L1",
       "id": "src_lib_time_zone_ts",
-      "community": 39,
+      "community": 27,
       "norm_label": "time-zone.ts"
     },
     {
@@ -10755,7 +10782,7 @@
       "source_file": "src/lib/time-zone.ts",
       "source_location": "L3",
       "id": "lib_time_zone_calendardate",
-      "community": 39,
+      "community": 27,
       "norm_label": "calendardate"
     },
     {
@@ -10764,7 +10791,7 @@
       "source_file": "src/lib/time-zone.ts",
       "source_location": "L9",
       "id": "lib_time_zone_getcalendardate",
-      "community": 39,
+      "community": 27,
       "norm_label": "getcalendardate()"
     },
     {
@@ -10773,7 +10800,7 @@
       "source_file": "src/lib/time-zone.ts",
       "source_location": "L23",
       "id": "lib_time_zone_gettimezoneoffsetms",
-      "community": 39,
+      "community": 27,
       "norm_label": "gettimezoneoffsetms()"
     },
     {
@@ -10782,7 +10809,7 @@
       "source_file": "src/lib/time-zone.ts",
       "source_location": "L35",
       "id": "lib_time_zone_localmidnighttoutc",
-      "community": 39,
+      "community": 27,
       "norm_label": "localmidnighttoutc()"
     },
     {
@@ -10791,7 +10818,7 @@
       "source_file": "src/lib/time-zone.ts",
       "source_location": "L50",
       "id": "lib_time_zone_nextcalendardate",
-      "community": 39,
+      "community": 27,
       "norm_label": "nextcalendardate()"
     },
     {
@@ -10800,7 +10827,7 @@
       "source_file": "src/lib/time-zone.ts",
       "source_location": "L59",
       "id": "lib_time_zone_getsydneydaybounds",
-      "community": 39,
+      "community": 27,
       "norm_label": "getsydneydaybounds()"
     },
     {
@@ -10935,7 +10962,7 @@
       "source_file": "src/lib/win-probability.ts",
       "source_location": "L180",
       "id": "lib_win_probability_computeteamstrengthprior",
-      "community": 41,
+      "community": 55,
       "norm_label": "computeteamstrengthprior()"
     },
     {
@@ -10998,7 +11025,7 @@
       "source_file": "src/lib/match-label.ts",
       "source_location": "L1",
       "id": "src_lib_match_label_ts",
-      "community": 41,
+      "community": 55,
       "norm_label": "match-label.ts"
     },
     {
@@ -11007,7 +11034,7 @@
       "source_file": "src/lib/match-label.ts",
       "source_location": "L1",
       "id": "lib_match_label_finals_labels",
-      "community": 41,
+      "community": 55,
       "norm_label": "finals_labels"
     },
     {
@@ -11016,7 +11043,7 @@
       "source_file": "src/lib/match-label.ts",
       "source_location": "L7",
       "id": "lib_match_label_formatmatchstage",
-      "community": 41,
+      "community": 55,
       "norm_label": "formatmatchstage()"
     },
     {
@@ -11169,7 +11196,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L45",
       "id": "lib_stat_utils_computeshootingpct",
-      "community": 86,
+      "community": 160,
       "norm_label": "computeshootingpct()"
     },
     {
@@ -11178,7 +11205,7 @@
       "source_file": "src/lib/stat-utils.ts",
       "source_location": "L53",
       "id": "lib_stat_utils_getstatvalue",
-      "community": 86,
+      "community": 1,
       "norm_label": "getstatvalue()"
     },
     {
@@ -11205,7 +11232,7 @@
       "source_file": "src/lib/player-analytics.ts",
       "source_location": "L43",
       "id": "lib_player_analytics_displaymetric",
-      "community": 20,
+      "community": 28,
       "norm_label": "displaymetric"
     },
     {
@@ -11250,7 +11277,7 @@
       "source_file": "src/lib/player-analytics.ts",
       "source_location": "L161",
       "id": "lib_player_analytics_metricselection",
-      "community": 20,
+      "community": 1,
       "norm_label": "metricselection()"
     },
     {
@@ -11259,7 +11286,7 @@
       "source_file": "src/lib/player-analytics.ts",
       "source_location": "L189",
       "id": "lib_player_analytics_getplayeranalyticsprofile",
-      "community": 20,
+      "community": 1,
       "norm_label": "getplayeranalyticsprofile()"
     },
     {
@@ -11286,7 +11313,7 @@
       "source_file": "src/lib/seo.ts",
       "source_location": "L23",
       "id": "lib_seo_websitejsonld",
-      "community": 21,
+      "community": 23,
       "norm_label": "websitejsonld()"
     },
     {
@@ -11304,7 +11331,7 @@
       "source_file": "src/lib/seo.ts",
       "source_location": "L45",
       "id": "lib_seo_sportseventjsonld",
-      "community": 23,
+      "community": 160,
       "norm_label": "sportseventjsonld()"
     },
     {
@@ -11331,7 +11358,7 @@
       "source_file": "src/lib/db.ts",
       "source_location": "L1",
       "id": "src_lib_db_ts",
-      "community": 31,
+      "community": 48,
       "norm_label": "db.ts"
     },
     {
@@ -11340,7 +11367,7 @@
       "source_file": "src/lib/db.ts",
       "source_location": "L3",
       "id": "lib_db_globalforprisma",
-      "community": 31,
+      "community": 48,
       "norm_label": "globalforprisma"
     },
     {
@@ -11349,7 +11376,7 @@
       "source_file": "src/lib/ingestion.ts",
       "source_location": "L1",
       "id": "src_lib_ingestion_ts",
-      "community": 15,
+      "community": 163,
       "norm_label": "ingestion.ts"
     },
     {
@@ -11367,7 +11394,7 @@
       "source_file": "src/lib/ingestion.ts",
       "source_location": "L14",
       "id": "lib_ingestion_ingestfromchampiondata",
-      "community": 49,
+      "community": 163,
       "norm_label": "ingestfromchampiondata()"
     },
     {
@@ -11520,7 +11547,7 @@
       "source_file": "src/lib/worker.ts",
       "source_location": "L278",
       "id": "lib_worker_stopworker",
-      "community": 33,
+      "community": 3,
       "norm_label": "stopworker()"
     },
     {
@@ -11637,7 +11664,7 @@
       "source_file": "src/lib/records/types.ts",
       "source_location": "L5",
       "id": "records_types_recordscope",
-      "community": 0,
+      "community": 13,
       "norm_label": "recordscope"
     },
     {
@@ -11781,7 +11808,7 @@
       "source_file": "src/lib/records/service.ts",
       "source_location": "L8",
       "id": "records_service_factrow",
-      "community": 13,
+      "community": 20,
       "norm_label": "factrow"
     },
     {
@@ -11826,7 +11853,7 @@
       "source_file": "src/lib/records/service.ts",
       "source_location": "L139",
       "id": "records_service_recordsnapshotquery",
-      "community": 0,
+      "community": 13,
       "norm_label": "recordsnapshotquery"
     },
     {
@@ -12069,7 +12096,7 @@
       "source_file": "src/lib/stat-query/context.ts",
       "source_location": "L1",
       "id": "src_lib_stat_query_context_ts",
-      "community": 31,
+      "community": 0,
       "norm_label": "context.ts"
     },
     {
@@ -12312,7 +12339,7 @@
       "source_file": "src/lib/stat-query/types.ts",
       "source_location": "L9",
       "id": "stat_query_types_querymetricspec",
-      "community": 13,
+      "community": 0,
       "norm_label": "querymetricspec"
     },
     {
@@ -13041,7 +13068,7 @@
       "source_file": "src/lib/rankings/player-rankings.ts",
       "source_location": "L20",
       "id": "rankings_player_rankings_impactasmetricresult",
-      "community": 22,
+      "community": 20,
       "norm_label": "impactasmetricresult()"
     },
     {
@@ -13095,7 +13122,7 @@
       "source_file": "src/lib/rankings/types.ts",
       "source_location": "L15",
       "id": "rankings_types_playerrankingrequest",
-      "community": 13,
+      "community": 22,
       "norm_label": "playerrankingrequest"
     },
     {
@@ -13131,7 +13158,7 @@
       "source_file": "src/lib/rankings/types.ts",
       "source_location": "L62",
       "id": "rankings_types_teampowerentry",
-      "community": 22,
+      "community": 20,
       "norm_label": "teampowerentry"
     },
     {
@@ -13216,10 +13243,19 @@
       "norm_label": "identity"
     },
     {
+      "label": "publishableIdentity",
+      "file_type": "code",
+      "source_file": "src/lib/__tests__/edition-publication.test.ts",
+      "source_location": "L9",
+      "id": "tests_edition_publication_test_publishableidentity",
+      "community": 40,
+      "norm_label": "publishableidentity"
+    },
+    {
       "label": "publicationClient()",
       "file_type": "code",
       "source_file": "src/lib/__tests__/edition-publication.test.ts",
-      "source_location": "L10",
+      "source_location": "L14",
       "id": "tests_edition_publication_test_publicationclient",
       "community": 40,
       "norm_label": "publicationclient()"
@@ -13482,7 +13518,7 @@
       "source_file": "src/lib/__tests__/live-state.test.ts",
       "source_location": "L1",
       "id": "src_lib_tests_live_state_test_ts",
-      "community": 39,
+      "community": 27,
       "norm_label": "live-state.test.ts"
     },
     {
@@ -13491,7 +13527,7 @@
       "source_file": "src/lib/__tests__/live-state.test.ts",
       "source_location": "L17",
       "id": "tests_live_state_test_mockfindmany",
-      "community": 39,
+      "community": 27,
       "norm_label": "mockfindmany"
     },
     {
@@ -13500,7 +13536,7 @@
       "source_file": "src/lib/__tests__/live-state.test.ts",
       "source_location": "L18",
       "id": "tests_live_state_test_mockfindfirst",
-      "community": 39,
+      "community": 27,
       "norm_label": "mockfindfirst"
     },
     {
@@ -13509,7 +13545,7 @@
       "source_file": "src/lib/__tests__/live-state.test.ts",
       "source_location": "L19",
       "id": "tests_live_state_test_mockcount",
-      "community": 39,
+      "community": 27,
       "norm_label": "mockcount"
     },
     {
@@ -13644,7 +13680,7 @@
       "source_file": "src/lib/__tests__/time-zone.test.ts",
       "source_location": "L1",
       "id": "src_lib_tests_time_zone_test_ts",
-      "community": 39,
+      "community": 27,
       "norm_label": "time-zone.test.ts"
     },
     {
@@ -14931,7 +14967,7 @@
       "source_file": "src/lib/analytics/cache-invalidation.ts",
       "source_location": "L1",
       "id": "src_lib_analytics_cache_invalidation_ts",
-      "community": 55,
+      "community": 17,
       "norm_label": "cache-invalidation.ts"
     },
     {
@@ -14940,7 +14976,7 @@
       "source_file": "src/lib/analytics/cache-invalidation.ts",
       "source_location": "L1",
       "id": "analytics_cache_invalidation_analyticsinvalidation",
-      "community": 55,
+      "community": 17,
       "norm_label": "analyticsinvalidation"
     },
     {
@@ -14949,7 +14985,7 @@
       "source_file": "src/lib/analytics/cache-invalidation.ts",
       "source_location": "L9",
       "id": "analytics_cache_invalidation_analyticsinvalidationstore",
-      "community": 55,
+      "community": 17,
       "norm_label": "analyticsinvalidationstore"
     },
     {
@@ -14958,7 +14994,7 @@
       "source_file": "src/lib/analytics/cache-invalidation.ts",
       "source_location": "L14",
       "id": "analytics_cache_invalidation_assertinvalidationlimit",
-      "community": 55,
+      "community": 17,
       "norm_label": "assertinvalidationlimit()"
     },
     {
@@ -14967,7 +15003,7 @@
       "source_file": "src/lib/analytics/catalogue.ts",
       "source_location": "L1",
       "id": "src_lib_analytics_catalogue_ts",
-      "community": 55,
+      "community": 17,
       "norm_label": "catalogue.ts"
     },
     {
@@ -14976,7 +15012,7 @@
       "source_file": "src/lib/analytics/catalogue.ts",
       "source_location": "L3",
       "id": "analytics_catalogue_boxscorecapabilities",
-      "community": 55,
+      "community": 17,
       "norm_label": "boxscorecapabilities"
     },
     {
@@ -14985,7 +15021,7 @@
       "source_file": "src/lib/analytics/catalogue.ts",
       "source_location": "L8",
       "id": "analytics_catalogue_countmetric",
-      "community": 55,
+      "community": 17,
       "norm_label": "countmetric()"
     },
     {
@@ -14994,7 +15030,7 @@
       "source_file": "src/lib/analytics/catalogue.ts",
       "source_location": "L34",
       "id": "analytics_catalogue_compositemetric",
-      "community": 55,
+      "community": 17,
       "norm_label": "compositemetric()"
     },
     {
@@ -15003,7 +15039,7 @@
       "source_file": "src/lib/analytics/catalogue.ts",
       "source_location": "L49",
       "id": "analytics_catalogue_metriccatalogue",
-      "community": 55,
+      "community": 17,
       "norm_label": "metriccatalogue"
     },
     {
@@ -15012,7 +15048,7 @@
       "source_file": "src/lib/analytics/catalogue.ts",
       "source_location": "L188",
       "id": "analytics_catalogue_metricsbyid",
-      "community": 55,
+      "community": 17,
       "norm_label": "metricsbyid"
     },
     {
@@ -15021,7 +15057,7 @@
       "source_file": "src/lib/analytics/catalogue.ts",
       "source_location": "L192",
       "id": "analytics_catalogue_getmetricdefinition",
-      "community": 34,
+      "community": 28,
       "norm_label": "getmetricdefinition()"
     },
     {
@@ -15030,7 +15066,7 @@
       "source_file": "src/lib/analytics/catalogue.ts",
       "source_location": "L196",
       "id": "analytics_catalogue_findmetriccandidates",
-      "community": 55,
+      "community": 17,
       "norm_label": "findmetriccandidates()"
     },
     {
@@ -15048,7 +15084,7 @@
       "source_file": "src/lib/analytics/types.ts",
       "source_location": "L1",
       "id": "analytics_types_analyticsentitytype",
-      "community": 0,
+      "community": 13,
       "norm_label": "analyticsentitytype"
     },
     {
@@ -15075,7 +15111,7 @@
       "source_file": "src/lib/analytics/types.ts",
       "source_location": "L12",
       "id": "analytics_types_analyticscoveragestate",
-      "community": 28,
+      "community": 20,
       "norm_label": "analyticscoveragestate"
     },
     {
@@ -15120,7 +15156,7 @@
       "source_file": "src/lib/analytics/types.ts",
       "source_location": "L54",
       "id": "analytics_types_metricdefinition",
-      "community": 0,
+      "community": 17,
       "norm_label": "metricdefinition"
     },
     {
@@ -15165,7 +15201,7 @@
       "source_file": "src/lib/analytics/index.ts",
       "source_location": "L1",
       "id": "src_lib_analytics_index_ts",
-      "community": 55,
+      "community": 17,
       "norm_label": "index.ts"
     },
     {
@@ -15237,7 +15273,7 @@
       "source_file": "src/lib/analytics/aggregate.ts",
       "source_location": "L46",
       "id": "analytics_aggregate_calculatemetric",
-      "community": 17,
+      "community": 28,
       "norm_label": "calculatemetric()"
     },
     {
@@ -15246,7 +15282,7 @@
       "source_file": "src/lib/analytics/__tests__/cache-invalidation.test.ts",
       "source_location": "L1",
       "id": "src_lib_analytics_tests_cache_invalidation_test_ts",
-      "community": 55,
+      "community": 17,
       "norm_label": "cache-invalidation.test.ts"
     },
     {
@@ -15255,7 +15291,7 @@
       "source_file": "src/lib/analytics/__tests__/catalogue.test.ts",
       "source_location": "L1",
       "id": "src_lib_analytics_tests_catalogue_test_ts",
-      "community": 55,
+      "community": 17,
       "norm_label": "catalogue.test.ts"
     },
     {
@@ -21536,7 +21572,7 @@
       "file_type": "code",
       "source_file": "server.ts",
       "source_location": "L12",
-      "community": 33,
+      "community": 3,
       "norm_label": "port",
       "id": "cp_12c_ask_centrepass_release_server_port"
     },
@@ -21545,7 +21581,7 @@
       "file_type": "code",
       "source_file": "server.ts",
       "source_location": "L14",
-      "community": 33,
+      "community": 3,
       "norm_label": "app",
       "id": "cp_12c_ask_centrepass_release_server_app"
     },
@@ -21554,7 +21590,7 @@
       "file_type": "code",
       "source_file": "server.ts",
       "source_location": "L15",
-      "community": 33,
+      "community": 3,
       "norm_label": "handle",
       "id": "cp_12c_ask_centrepass_release_server_handle"
     },
@@ -21603,9 +21639,9 @@
       "source_file": "postcss.config.mjs",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "postcss_config_mjs",
-      "target": "netball_boxscores_postcss_config_config",
-      "confidence_score": 1.0
+      "target": "netball_boxscores_postcss_config_config"
     },
     {
       "relation": "contains",
@@ -21613,9 +21649,9 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-12c-ask-centrepass-release/package.json",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_diyagamah_documents_personal_netball_boxscores_worktrees_cp_12c_ask_centrepass_release_package_json",
-      "target": "cp_12c_ask_centrepass_release_package_dependencies",
-      "confidence_score": 1.0
+      "target": "cp_12c_ask_centrepass_release_package_dependencies"
     },
     {
       "relation": "contains",
@@ -21623,9 +21659,9 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-12c-ask-centrepass-release/package.json",
       "source_location": "L37",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_diyagamah_documents_personal_netball_boxscores_worktrees_cp_12c_ask_centrepass_release_package_json",
-      "target": "cp_12c_ask_centrepass_release_package_devdependencies",
-      "confidence_score": 1.0
+      "target": "cp_12c_ask_centrepass_release_package_devdependencies"
     },
     {
       "relation": "contains",
@@ -21633,9 +21669,9 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-12c-ask-centrepass-release/package.json",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_diyagamah_documents_personal_netball_boxscores_worktrees_cp_12c_ask_centrepass_release_package_json",
-      "target": "cp_12c_ask_centrepass_release_package_name",
-      "confidence_score": 1.0
+      "target": "cp_12c_ask_centrepass_release_package_name"
     },
     {
       "relation": "contains",
@@ -21643,9 +21679,9 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-12c-ask-centrepass-release/package.json",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_diyagamah_documents_personal_netball_boxscores_worktrees_cp_12c_ask_centrepass_release_package_json",
-      "target": "cp_12c_ask_centrepass_release_package_private",
-      "confidence_score": 1.0
+      "target": "cp_12c_ask_centrepass_release_package_private"
     },
     {
       "relation": "contains",
@@ -21653,9 +21689,9 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-12c-ask-centrepass-release/package.json",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_diyagamah_documents_personal_netball_boxscores_worktrees_cp_12c_ask_centrepass_release_package_json",
-      "target": "cp_12c_ask_centrepass_release_package_scripts",
-      "confidence_score": 1.0
+      "target": "cp_12c_ask_centrepass_release_package_scripts"
     },
     {
       "relation": "contains",
@@ -21663,9 +21699,9 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-12c-ask-centrepass-release/package.json",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_diyagamah_documents_personal_netball_boxscores_worktrees_cp_12c_ask_centrepass_release_package_json",
-      "target": "cp_12c_ask_centrepass_release_package_version",
-      "confidence_score": 1.0
+      "target": "cp_12c_ask_centrepass_release_package_version"
     },
     {
       "relation": "contains",
@@ -22458,9 +22494,9 @@
       "source_file": "server.ts",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "server_ts",
-      "target": "netball_boxscores_server_app",
-      "confidence_score": 1.0
+      "target": "netball_boxscores_server_app"
     },
     {
       "relation": "contains",
@@ -22468,9 +22504,9 @@
       "source_file": "server.ts",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "server_ts",
-      "target": "netball_boxscores_server_handle",
-      "confidence_score": 1.0
+      "target": "netball_boxscores_server_handle"
     },
     {
       "relation": "contains",
@@ -22478,9 +22514,9 @@
       "source_file": "server.ts",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "server_ts",
-      "target": "netball_boxscores_server_port",
-      "confidence_score": 1.0
+      "target": "netball_boxscores_server_port"
     },
     {
       "relation": "imports",
@@ -22553,9 +22589,9 @@
       "source_file": "eslint.config.mjs",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "eslint_config_mjs",
-      "target": "netball_boxscores_eslint_config_eslintconfig",
-      "confidence_score": 1.0
+      "target": "netball_boxscores_eslint_config_eslintconfig"
     },
     {
       "relation": "contains",
@@ -22573,9 +22609,9 @@
       "source_file": "next.config.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "next_config_ts",
-      "target": "netball_boxscores_next_config_nextconfig",
-      "confidence_score": 1.0
+      "target": "netball_boxscores_next_config_nextconfig"
     },
     {
       "relation": "contains",
@@ -24333,9 +24369,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L196",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_bundle",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_bundle"
     },
     {
       "relation": "contains",
@@ -24343,9 +24379,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L254",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_bundlefilesha256",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_bundlefilesha256"
     },
     {
       "relation": "contains",
@@ -24353,8 +24389,18 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L191",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_capabilities",
+      "target": "scripts_build_glasgow_2026_source_bundle_capabilities"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
+      "source_location": "L179",
+      "weight": 1.0,
+      "source": "scripts_build_glasgow_2026_source_bundle_mjs",
+      "target": "scripts_build_glasgow_2026_source_bundle_dependentmatch",
       "confidence_score": 1.0
     },
     {
@@ -24363,9 +24409,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L151",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_localtoutc",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_localtoutc"
     },
     {
       "relation": "contains",
@@ -24373,9 +24419,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L255",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_manifest",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_manifest"
     },
     {
       "relation": "contains",
@@ -24383,9 +24429,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L154",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_matches",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_matches"
     },
     {
       "relation": "contains",
@@ -24393,9 +24439,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L152",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_matchid",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_matchid"
     },
     {
       "relation": "contains",
@@ -24403,9 +24449,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_outputdirectory",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_outputdirectory"
     },
     {
       "relation": "contains",
@@ -24413,9 +24459,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L91",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_photoevidence",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_photoevidence"
     },
     {
       "relation": "contains",
@@ -24423,9 +24469,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_players",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_players"
     },
     {
       "relation": "contains",
@@ -24433,9 +24479,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L133",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_poolschedule",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_poolschedule"
     },
     {
       "relation": "contains",
@@ -24443,9 +24489,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L126",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_rosters",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_rosters"
     },
     {
       "relation": "contains",
@@ -24453,9 +24499,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L84",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_slugify",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_slugify"
     },
     {
       "relation": "contains",
@@ -24463,9 +24509,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L215",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_sources",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_sources"
     },
     {
       "relation": "contains",
@@ -24473,9 +24519,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L238",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_squadcoverage",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_squadcoverage"
     },
     {
       "relation": "contains",
@@ -24483,9 +24529,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_squadrows",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_squadrows"
     },
     {
       "relation": "contains",
@@ -24493,9 +24539,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_teamrows",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_teamrows"
     },
     {
       "relation": "contains",
@@ -24503,9 +24549,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_teams",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_teams"
     },
     {
       "relation": "contains",
@@ -24513,8 +24559,19 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L168",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_mjs",
-      "target": "scripts_build_glasgow_2026_source_bundle_unresolvedmatch",
+      "target": "scripts_build_glasgow_2026_source_bundle_unresolvedmatch"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
+      "source_location": "L182",
+      "weight": 1.0,
+      "source": "scripts_build_glasgow_2026_source_bundle_dependentmatch",
+      "target": "scripts_build_glasgow_2026_source_bundle_localtoutc",
       "confidence_score": 1.0
     },
     {
@@ -24524,9 +24581,9 @@
       "source_file": "scripts/build-glasgow-2026-source-bundle.mjs",
       "source_location": "L171",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_source_bundle_unresolvedmatch",
-      "target": "scripts_build_glasgow_2026_source_bundle_localtoutc",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_source_bundle_localtoutc"
     },
     {
       "relation": "imports",
@@ -24786,9 +24843,9 @@
       "source_file": "scripts/build-glasgow-2026-sql-transport.mjs",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_sql_transport_mjs",
-      "target": "scripts_build_glasgow_2026_sql_transport_bundle",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_sql_transport_bundle"
     },
     {
       "relation": "contains",
@@ -24796,9 +24853,9 @@
       "source_file": "scripts/build-glasgow-2026-sql-transport.mjs",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_sql_transport_mjs",
-      "target": "scripts_build_glasgow_2026_sql_transport_bundlebase64",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_sql_transport_bundlebase64"
     },
     {
       "relation": "contains",
@@ -24806,9 +24863,9 @@
       "source_file": "scripts/build-glasgow-2026-sql-transport.mjs",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_sql_transport_mjs",
-      "target": "scripts_build_glasgow_2026_sql_transport_bundlefile_previewfile",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_sql_transport_bundlefile_previewfile"
     },
     {
       "relation": "contains",
@@ -24816,9 +24873,9 @@
       "source_file": "scripts/build-glasgow-2026-sql-transport.mjs",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_sql_transport_mjs",
-      "target": "scripts_build_glasgow_2026_sql_transport_preview",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_sql_transport_preview"
     },
     {
       "relation": "contains",
@@ -24826,9 +24883,9 @@
       "source_file": "scripts/build-glasgow-2026-sql-transport.mjs",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_sql_transport_mjs",
-      "target": "scripts_build_glasgow_2026_sql_transport_previewaudit",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_sql_transport_previewaudit"
     },
     {
       "relation": "contains",
@@ -24836,9 +24893,9 @@
       "source_file": "scripts/build-glasgow-2026-sql-transport.mjs",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_build_glasgow_2026_sql_transport_mjs",
-      "target": "scripts_build_glasgow_2026_sql_transport_previewbase64",
-      "confidence_score": 1.0
+      "target": "scripts_build_glasgow_2026_sql_transport_previewbase64"
     },
     {
       "relation": "imports",
@@ -25328,9 +25385,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_source_manifest_json",
-      "target": "v1_source_manifest_bundlefile",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_bundlefile"
     },
     {
       "relation": "contains",
@@ -25338,9 +25395,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_source_manifest_json",
-      "target": "v1_source_manifest_bundlefilesha256",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_bundlefilesha256"
     },
     {
       "relation": "contains",
@@ -25348,9 +25405,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_source_manifest_json",
-      "target": "v1_source_manifest_bundleversion",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_bundleversion"
     },
     {
       "relation": "contains",
@@ -25358,9 +25415,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_source_manifest_json",
-      "target": "v1_source_manifest_declarations",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations"
     },
     {
       "relation": "contains",
@@ -25368,9 +25425,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_source_manifest_json",
-      "target": "v1_source_manifest_edition",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_edition"
     },
     {
       "relation": "contains",
@@ -25378,9 +25435,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_source_manifest_json",
-      "target": "v1_source_manifest_generatedat",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_generatedat"
     },
     {
       "relation": "contains",
@@ -25388,9 +25445,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_source_manifest_json",
-      "target": "v1_source_manifest_schemaversion",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_schemaversion"
     },
     {
       "relation": "contains",
@@ -25398,9 +25455,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L100",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_source_manifest_json",
-      "target": "v1_source_manifest_sources",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_sources"
     },
     {
       "relation": "contains",
@@ -25408,9 +25465,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_matchcoverage",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_matchcoverage"
     },
     {
       "relation": "contains",
@@ -25418,8 +25475,18 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L92",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_photocoverage",
+      "target": "v1_source_manifest_declarations_photocoverage"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "data/glasgow-2026/v1/source-manifest.json",
+      "source_location": "L100",
+      "weight": 1.0,
+      "source": "v1_source_manifest_declarations",
+      "target": "v1_source_manifest_declarations_publicationblockers",
       "confidence_score": 1.0
     },
     {
@@ -25428,9 +25495,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L98",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_publicationstatusrequired",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_publicationstatusrequired"
     },
     {
       "relation": "contains",
@@ -25438,9 +25505,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L97",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_resultcoverage",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_resultcoverage"
     },
     {
       "relation": "contains",
@@ -25448,9 +25515,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_schedulelocalabbreviation",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_schedulelocalabbreviation"
     },
     {
       "relation": "contains",
@@ -25458,9 +25525,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_sourcetimezone",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_sourcetimezone"
     },
     {
       "relation": "contains",
@@ -25468,9 +25535,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_squadcoverage",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_squadcoverage"
     },
     {
       "relation": "contains",
@@ -25478,9 +25545,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_squadpositionconvention",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_squadpositionconvention"
     },
     {
       "relation": "contains",
@@ -25488,9 +25555,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_utcconversion",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_utcconversion"
     },
     {
       "relation": "contains",
@@ -25498,9 +25565,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations",
-      "target": "v1_source_manifest_declarations_venue",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_declarations_venue"
     },
     {
       "relation": "contains",
@@ -25508,8 +25575,18 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_matchcoverage",
-      "target": "v1_source_manifest_matchcoverage_classification",
+      "target": "v1_source_manifest_matchcoverage_classification"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "data/glasgow-2026/v1/source-manifest.json",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "v1_source_manifest_declarations_matchcoverage",
+      "target": "v1_source_manifest_matchcoverage_dependentslots",
       "confidence_score": 1.0
     },
     {
@@ -25518,9 +25595,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_matchcoverage",
-      "target": "v1_source_manifest_matchcoverage_medalmatches",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_matchcoverage_medalmatches"
     },
     {
       "relation": "contains",
@@ -25528,9 +25605,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_matchcoverage",
-      "target": "v1_source_manifest_matchcoverage_poolstage",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_matchcoverage_poolstage"
     },
     {
       "relation": "contains",
@@ -25538,9 +25615,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_matchcoverage",
-      "target": "v1_source_manifest_matchcoverage_semifinals",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_matchcoverage_semifinals"
     },
     {
       "relation": "contains",
@@ -25548,9 +25625,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_matchcoverage",
-      "target": "v1_source_manifest_matchcoverage_total",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_matchcoverage_total"
     },
     {
       "relation": "contains",
@@ -25558,9 +25635,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_matchcoverage",
-      "target": "v1_source_manifest_matchcoverage_unresolvedslots",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_matchcoverage_unresolvedslots"
     },
     {
       "relation": "contains",
@@ -25568,9 +25645,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_aus",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_aus"
     },
     {
       "relation": "contains",
@@ -25578,9 +25655,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_eng",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_eng"
     },
     {
       "relation": "contains",
@@ -25588,9 +25665,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L63",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_jam",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_jam"
     },
     {
       "relation": "contains",
@@ -25598,9 +25675,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L40",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_mwi",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_mwi"
     },
     {
       "relation": "contains",
@@ -25608,9 +25685,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_nir",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_nir"
     },
     {
       "relation": "contains",
@@ -25618,9 +25695,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L58",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_nzl",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_nzl"
     },
     {
       "relation": "contains",
@@ -25628,9 +25705,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L34",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_rsa",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_rsa"
     },
     {
       "relation": "contains",
@@ -25638,9 +25715,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L80",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_sco",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_sco"
     },
     {
       "relation": "contains",
@@ -25648,9 +25725,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L46",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_ton",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_ton"
     },
     {
       "relation": "contains",
@@ -25658,9 +25735,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L85",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_tto",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_tto"
     },
     {
       "relation": "contains",
@@ -25668,9 +25745,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L74",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_uga",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_uga"
     },
     {
       "relation": "contains",
@@ -25678,9 +25755,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L69",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_squadcoverage",
-      "target": "v1_source_manifest_squadcoverage_wal",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_squadcoverage_wal"
     },
     {
       "relation": "contains",
@@ -25688,9 +25765,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_aus",
-      "target": "v1_source_manifest_aus_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_aus_identity"
     },
     {
       "relation": "contains",
@@ -25698,9 +25775,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L26",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_aus",
-      "target": "v1_source_manifest_aus_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_aus_importedplayers"
     },
     {
       "relation": "contains",
@@ -25708,9 +25785,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L27",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_aus",
-      "target": "v1_source_manifest_aus_note",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_aus_note"
     },
     {
       "relation": "contains",
@@ -25718,9 +25795,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_aus",
-      "target": "v1_source_manifest_aus_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_aus_positions"
     },
     {
       "relation": "contains",
@@ -25728,9 +25805,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L30",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_eng",
-      "target": "v1_source_manifest_eng_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_eng_identity"
     },
     {
       "relation": "contains",
@@ -25738,9 +25815,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L32",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_eng",
-      "target": "v1_source_manifest_eng_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_eng_importedplayers"
     },
     {
       "relation": "contains",
@@ -25748,9 +25825,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_eng",
-      "target": "v1_source_manifest_eng_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_eng_positions"
     },
     {
       "relation": "contains",
@@ -25758,9 +25835,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_rsa",
-      "target": "v1_source_manifest_rsa_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_rsa_identity"
     },
     {
       "relation": "contains",
@@ -25768,9 +25845,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L37",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_rsa",
-      "target": "v1_source_manifest_rsa_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_rsa_importedplayers"
     },
     {
       "relation": "contains",
@@ -25778,9 +25855,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L38",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_rsa",
-      "target": "v1_source_manifest_rsa_note",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_rsa_note"
     },
     {
       "relation": "contains",
@@ -25788,9 +25865,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_rsa",
-      "target": "v1_source_manifest_rsa_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_rsa_positions"
     },
     {
       "relation": "contains",
@@ -25798,9 +25875,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L41",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_mwi",
-      "target": "v1_source_manifest_mwi_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_mwi_identity"
     },
     {
       "relation": "contains",
@@ -25808,9 +25885,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L43",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_mwi",
-      "target": "v1_source_manifest_mwi_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_mwi_importedplayers"
     },
     {
       "relation": "contains",
@@ -25818,9 +25895,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_mwi",
-      "target": "v1_source_manifest_mwi_note",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_mwi_note"
     },
     {
       "relation": "contains",
@@ -25828,9 +25905,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L42",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_mwi",
-      "target": "v1_source_manifest_mwi_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_mwi_positions"
     },
     {
       "relation": "contains",
@@ -25838,9 +25915,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L47",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_ton",
-      "target": "v1_source_manifest_ton_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_ton_identity"
     },
     {
       "relation": "contains",
@@ -25848,9 +25925,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L49",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_ton",
-      "target": "v1_source_manifest_ton_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_ton_importedplayers"
     },
     {
       "relation": "contains",
@@ -25858,9 +25935,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L50",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_ton",
-      "target": "v1_source_manifest_ton_note",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_ton_note"
     },
     {
       "relation": "contains",
@@ -25868,9 +25945,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L48",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_ton",
-      "target": "v1_source_manifest_ton_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_ton_positions"
     },
     {
       "relation": "contains",
@@ -25878,9 +25955,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L53",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_nir",
-      "target": "v1_source_manifest_nir_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_nir_identity"
     },
     {
       "relation": "contains",
@@ -25888,9 +25965,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L55",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_nir",
-      "target": "v1_source_manifest_nir_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_nir_importedplayers"
     },
     {
       "relation": "contains",
@@ -25898,9 +25975,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L56",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_nir",
-      "target": "v1_source_manifest_nir_note",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_nir_note"
     },
     {
       "relation": "contains",
@@ -25908,9 +25985,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L54",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_nir",
-      "target": "v1_source_manifest_nir_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_nir_positions"
     },
     {
       "relation": "contains",
@@ -25918,9 +25995,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L59",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_nzl",
-      "target": "v1_source_manifest_nzl_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_nzl_identity"
     },
     {
       "relation": "contains",
@@ -25928,9 +26005,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L61",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_nzl",
-      "target": "v1_source_manifest_nzl_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_nzl_importedplayers"
     },
     {
       "relation": "contains",
@@ -25938,9 +26015,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L60",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_nzl",
-      "target": "v1_source_manifest_nzl_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_nzl_positions"
     },
     {
       "relation": "contains",
@@ -25948,9 +26025,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L64",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_jam",
-      "target": "v1_source_manifest_jam_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_jam_identity"
     },
     {
       "relation": "contains",
@@ -25958,9 +26035,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L66",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_jam",
-      "target": "v1_source_manifest_jam_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_jam_importedplayers"
     },
     {
       "relation": "contains",
@@ -25968,9 +26045,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L67",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_jam",
-      "target": "v1_source_manifest_jam_note",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_jam_note"
     },
     {
       "relation": "contains",
@@ -25978,9 +26055,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L65",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_jam",
-      "target": "v1_source_manifest_jam_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_jam_positions"
     },
     {
       "relation": "contains",
@@ -25988,9 +26065,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L70",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_wal",
-      "target": "v1_source_manifest_wal_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_wal_identity"
     },
     {
       "relation": "contains",
@@ -25998,9 +26075,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L72",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_wal",
-      "target": "v1_source_manifest_wal_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_wal_importedplayers"
     },
     {
       "relation": "contains",
@@ -26008,9 +26085,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L71",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_wal",
-      "target": "v1_source_manifest_wal_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_wal_positions"
     },
     {
       "relation": "contains",
@@ -26018,9 +26095,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L75",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_uga",
-      "target": "v1_source_manifest_uga_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_uga_identity"
     },
     {
       "relation": "contains",
@@ -26028,9 +26105,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_uga",
-      "target": "v1_source_manifest_uga_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_uga_importedplayers"
     },
     {
       "relation": "contains",
@@ -26038,9 +26115,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L78",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_uga",
-      "target": "v1_source_manifest_uga_note",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_uga_note"
     },
     {
       "relation": "contains",
@@ -26048,9 +26125,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L76",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_uga",
-      "target": "v1_source_manifest_uga_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_uga_positions"
     },
     {
       "relation": "contains",
@@ -26058,9 +26135,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L81",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_sco",
-      "target": "v1_source_manifest_sco_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_sco_identity"
     },
     {
       "relation": "contains",
@@ -26068,9 +26145,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L83",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_sco",
-      "target": "v1_source_manifest_sco_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_sco_importedplayers"
     },
     {
       "relation": "contains",
@@ -26078,9 +26155,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L82",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_sco",
-      "target": "v1_source_manifest_sco_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_sco_positions"
     },
     {
       "relation": "contains",
@@ -26088,9 +26165,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L86",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_tto",
-      "target": "v1_source_manifest_tto_identity",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_tto_identity"
     },
     {
       "relation": "contains",
@@ -26098,9 +26175,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L88",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_tto",
-      "target": "v1_source_manifest_tto_importedplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_tto_importedplayers"
     },
     {
       "relation": "contains",
@@ -26108,9 +26185,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L89",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_tto",
-      "target": "v1_source_manifest_tto_note",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_tto_note"
     },
     {
       "relation": "contains",
@@ -26118,9 +26195,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L87",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_squadcoverage_tto",
-      "target": "v1_source_manifest_tto_positions",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_tto_positions"
     },
     {
       "relation": "contains",
@@ -26128,9 +26205,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L95",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_photocoverage",
-      "target": "v1_source_manifest_photocoverage_allotherplayers",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_photocoverage_allotherplayers"
     },
     {
       "relation": "contains",
@@ -26138,9 +26215,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L94",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_photocoverage",
-      "target": "v1_source_manifest_photocoverage_license",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_photocoverage_license"
     },
     {
       "relation": "contains",
@@ -26148,9 +26225,9 @@
       "source_file": "data/glasgow-2026/v1/source-manifest.json",
       "source_location": "L93",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_source_manifest_declarations_photocoverage",
-      "target": "v1_source_manifest_photocoverage_verifiedreusablephotos",
-      "confidence_score": 1.0
+      "target": "v1_source_manifest_photocoverage_verifiedreusablephotos"
     },
     {
       "relation": "contains",
@@ -26158,9 +26235,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_bundle_json",
-      "target": "v1_bundle_context",
-      "confidence_score": 1.0
+      "target": "v1_bundle_context"
     },
     {
       "relation": "contains",
@@ -26168,9 +26245,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L1422",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_bundle_json",
-      "target": "v1_bundle_coverage",
-      "confidence_score": 1.0
+      "target": "v1_bundle_coverage"
     },
     {
       "relation": "contains",
@@ -26178,9 +26255,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L713",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_bundle_json",
-      "target": "v1_bundle_matches",
-      "confidence_score": 1.0
+      "target": "v1_bundle_matches"
     },
     {
       "relation": "contains",
@@ -26188,9 +26265,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L118",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_bundle_json",
-      "target": "v1_bundle_players",
-      "confidence_score": 1.0
+      "target": "v1_bundle_players"
     },
     {
       "relation": "contains",
@@ -26198,9 +26275,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L1421",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_bundle_json",
-      "target": "v1_bundle_results",
-      "confidence_score": 1.0
+      "target": "v1_bundle_results"
     },
     {
       "relation": "contains",
@@ -26208,9 +26285,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L423",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_bundle_json",
-      "target": "v1_bundle_rosters",
-      "confidence_score": 1.0
+      "target": "v1_bundle_rosters"
     },
     {
       "relation": "contains",
@@ -26218,9 +26295,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "data_glasgow_2026_v1_bundle_json",
-      "target": "v1_bundle_teams",
-      "confidence_score": 1.0
+      "target": "v1_bundle_teams"
     },
     {
       "relation": "contains",
@@ -26228,9 +26305,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_bundle_context",
-      "target": "v1_bundle_context_editionexternalid",
-      "confidence_score": 1.0
+      "target": "v1_bundle_context_editionexternalid"
     },
     {
       "relation": "contains",
@@ -26238,9 +26315,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_bundle_context",
-      "target": "v1_bundle_context_retrievedat",
-      "confidence_score": 1.0
+      "target": "v1_bundle_context_retrievedat"
     },
     {
       "relation": "contains",
@@ -26248,9 +26325,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_bundle_context",
-      "target": "v1_bundle_context_sourcekey",
-      "confidence_score": 1.0
+      "target": "v1_bundle_context_sourcekey"
     },
     {
       "relation": "contains",
@@ -26258,9 +26335,9 @@
       "source_file": "data/glasgow-2026/v1/bundle.json",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "v1_bundle_context",
-      "target": "v1_bundle_context_sourceurl",
-      "confidence_score": 1.0
+      "target": "v1_bundle_context_sourceurl"
     },
     {
       "relation": "contains",
@@ -47241,9 +47318,9 @@
       "source_file": "src/lib/glasgow/source-bundle.test.ts",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_glasgow_source_bundle_test_ts",
-      "target": "glasgow_source_bundle_test_bundlepath",
-      "confidence_score": 1.0
+      "target": "glasgow_source_bundle_test_bundlepath"
     },
     {
       "relation": "contains",
@@ -47251,9 +47328,9 @@
       "source_file": "src/lib/glasgow/source-bundle.test.ts",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_glasgow_source_bundle_test_ts",
-      "target": "glasgow_source_bundle_test_loadsourcebundle",
-      "confidence_score": 1.0
+      "target": "glasgow_source_bundle_test_loadsourcebundle"
     },
     {
       "relation": "contains",
@@ -47261,9 +47338,9 @@
       "source_file": "src/lib/glasgow/source-bundle.test.ts",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_glasgow_source_bundle_test_ts",
-      "target": "glasgow_source_bundle_test_manifestpath",
-      "confidence_score": 1.0
+      "target": "glasgow_source_bundle_test_manifestpath"
     },
     {
       "relation": "imports",
@@ -47272,9 +47349,9 @@
       "source_file": "src/lib/glasgow/source-bundle.test.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_glasgow_source_bundle_test_ts",
-      "target": "sources_types_normalizedcompetitionimport",
-      "confidence_score": 1.0
+      "target": "sources_types_normalizedcompetitionimport"
     },
     {
       "relation": "imports_from",
@@ -47283,9 +47360,9 @@
       "source_file": "src/lib/glasgow/source-bundle.test.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_lib_glasgow_source_bundle_test_ts",
-      "target": "src_lib_sources_types_ts",
-      "confidence_score": 1.0
+      "target": "src_lib_sources_types_ts"
     },
     {
       "relation": "contains",
@@ -50855,6 +50932,16 @@
       "confidence_score": 1.0,
       "source": "src_lib_tests_edition_publication_test_ts",
       "target": "tests_edition_publication_test_publicationclient"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/__tests__/edition-publication.test.ts",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "src_lib_tests_edition_publication_test_ts",
+      "target": "tests_edition_publication_test_publishableidentity",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -55013,9 +55100,9 @@
       "source_file": "/Users/diyagamah/Documents/personal/netball-boxscores-worktrees/cp-12c-ask-centrepass-release/README.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_diyagamah_documents_personal_netball_boxscores_worktrees_cp_12c_ask_centrepass_release_readme_md",
-      "target": "cp_12c_ask_centrepass_release_readme_centrepass",
-      "confidence_score": 1.0
+      "target": "cp_12c_ask_centrepass_release_readme_centrepass"
     },
     {
       "relation": "contains",
@@ -61599,5 +61686,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "c54bd3aee0abd87407aa9223a335a51cbbb3e0e9"
+  "built_at_commit": "a724e86fbd78517aadf15f10cece0218856346c8"
 }

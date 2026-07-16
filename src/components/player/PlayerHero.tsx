@@ -10,6 +10,9 @@ interface PlayerHeroProps {
     name: string;
     position: Position;
     photoUrl: string | null;
+    photoSourceUrl: string | null;
+    photoCredit: string | null;
+    photoLicense: string | null;
     nationality: string | null;
     dateOfBirth: Date | null;
     height: string | null;
@@ -29,6 +32,9 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
   const [firstName, ...restName] = player.name.split(' ');
   const lastName = restName.join(' ');
   const teamColor = player.team.primaryColor || '#a3e635';
+  const photoLicenseUrl = player.photoLicense === 'CC BY-SA 4.0'
+    ? 'https://creativecommons.org/licenses/by-sa/4.0/'
+    : null;
 
   return (
     <section className="kinetic-gradient relative overflow-hidden rounded-xl p-4 text-white shadow-2xl sm:p-8 md:p-12">
@@ -52,18 +58,44 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
         {/* Left: photo + name + bio info */}
         <div className="flex min-w-0 flex-1 flex-col items-start gap-6 md:flex-row md:items-end md:gap-8">
           {/* Player photo */}
-          <div
-            className="w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden bg-white/10 backdrop-blur-xl border-4 flex-shrink-0 shadow-inner"
-            style={{ borderColor: teamColor }}
-          >
-            <PlayerAvatar
-              decorative
-              name={player.name}
-              photoUrl={player.photoUrl}
-              size={176}
-              className="!h-full !w-full !rounded-none"
-            />
-          </div>
+          <figure className="w-32 flex-shrink-0 md:w-44">
+            <div
+              className="h-32 w-32 overflow-hidden rounded-full border-4 bg-white/10 shadow-inner backdrop-blur-xl md:h-44 md:w-44"
+              style={{ borderColor: teamColor }}
+            >
+              <PlayerAvatar
+                decorative
+                name={player.name}
+                photoUrl={player.photoUrl}
+                size={176}
+                className="!h-full !w-full !rounded-none"
+              />
+            </div>
+            {player.photoUrl && player.photoSourceUrl && player.photoCredit && player.photoLicense && (
+              <figcaption className="mt-3 text-center font-label text-[10px] leading-4 text-slate-300">
+                Photo:{' '}
+                <a
+                  href={player.photoSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline decoration-slate-500 underline-offset-2 hover:text-white"
+                >
+                  {player.photoCredit}
+                </a>
+                {' · '}
+                {photoLicenseUrl ? (
+                  <a
+                    href={photoLicenseUrl}
+                    target="_blank"
+                    rel="license noopener noreferrer"
+                    className="underline decoration-slate-500 underline-offset-2 hover:text-white"
+                  >
+                    {player.photoLicense}
+                  </a>
+                ) : player.photoLicense}
+              </figcaption>
+            )}
+          </figure>
 
           <div className="min-w-0 flex-1">
             {/* Position badge */}

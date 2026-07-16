@@ -718,7 +718,6 @@
       "scheduledAt": "2026-07-25T08:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 1,
       "roundLabel": "Pool B — 2026-07-25",
       "status": "SCHEDULED",
       "sideA": {
@@ -737,7 +736,6 @@
       "scheduledAt": "2026-07-25T10:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 2,
       "roundLabel": "Pool A — 2026-07-25",
       "status": "SCHEDULED",
       "sideA": {
@@ -756,7 +754,6 @@
       "scheduledAt": "2026-07-25T13:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 3,
       "roundLabel": "Pool A — 2026-07-25",
       "status": "SCHEDULED",
       "sideA": {
@@ -775,7 +772,6 @@
       "scheduledAt": "2026-07-25T15:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 4,
       "roundLabel": "Pool B — 2026-07-25",
       "status": "SCHEDULED",
       "sideA": {
@@ -794,7 +790,6 @@
       "scheduledAt": "2026-07-25T18:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 5,
       "roundLabel": "Pool B — 2026-07-25",
       "status": "SCHEDULED",
       "sideA": {
@@ -813,7 +808,6 @@
       "scheduledAt": "2026-07-25T20:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 6,
       "roundLabel": "Pool A — 2026-07-25",
       "status": "SCHEDULED",
       "sideA": {
@@ -832,7 +826,6 @@
       "scheduledAt": "2026-07-26T08:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 7,
       "roundLabel": "Pool B — 2026-07-26",
       "status": "SCHEDULED",
       "sideA": {
@@ -851,7 +844,6 @@
       "scheduledAt": "2026-07-26T10:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 8,
       "roundLabel": "Pool A — 2026-07-26",
       "status": "SCHEDULED",
       "sideA": {
@@ -870,7 +862,6 @@
       "scheduledAt": "2026-07-26T13:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 9,
       "roundLabel": "Pool A — 2026-07-26",
       "status": "SCHEDULED",
       "sideA": {
@@ -889,7 +880,6 @@
       "scheduledAt": "2026-07-26T15:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 10,
       "roundLabel": "Pool A — 2026-07-26",
       "status": "SCHEDULED",
       "sideA": {
@@ -908,7 +898,6 @@
       "scheduledAt": "2026-07-26T18:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 11,
       "roundLabel": "Pool B — 2026-07-26",
       "status": "SCHEDULED",
       "sideA": {
@@ -927,7 +916,6 @@
       "scheduledAt": "2026-07-26T20:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 12,
       "roundLabel": "Pool B — 2026-07-26",
       "status": "SCHEDULED",
       "sideA": {
@@ -946,7 +934,6 @@
       "scheduledAt": "2026-07-27T13:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 13,
       "roundLabel": "Pool A — 2026-07-27",
       "status": "SCHEDULED",
       "sideA": {
@@ -965,7 +952,6 @@
       "scheduledAt": "2026-07-27T15:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 14,
       "roundLabel": "Pool A — 2026-07-27",
       "status": "SCHEDULED",
       "sideA": {
@@ -984,7 +970,6 @@
       "scheduledAt": "2026-07-27T18:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 15,
       "roundLabel": "Pool B — 2026-07-27",
       "status": "SCHEDULED",
       "sideA": {
@@ -1003,7 +988,6 @@
       "scheduledAt": "2026-07-27T20:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 16,
       "roundLabel": "Pool B — 2026-07-27",
       "status": "SCHEDULED",
       "sideA": {
@@ -1022,7 +1006,6 @@
       "scheduledAt": "2026-07-28T13:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 17,
       "roundLabel": "Pool A — 2026-07-28",
       "status": "SCHEDULED",
       "sideA": {
@@ -1041,7 +1024,6 @@
       "scheduledAt": "2026-07-28T15:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 18,
       "roundLabel": "Pool B — 2026-07-28",
       "status": "SCHEDULED",
       "sideA": {
@@ -1060,7 +1042,6 @@
       "scheduledAt": "2026-07-28T18:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 19,
       "roundLabel": "Pool B — 2026-07-28",
       "status": "SCHEDULED",
       "sideA": {
@@ -1079,7 +1060,6 @@
       "scheduledAt": "2026-07-28T20:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 20,
       "roundLabel": "Pool A — 2026-07-28",
       "status": "SCHEDULED",
       "sideA": {
@@ -1098,7 +1078,6 @@
       "scheduledAt": "2026-07-29T13:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 21,
       "roundLabel": "Pool B — 2026-07-29",
       "status": "SCHEDULED",
       "sideA": {
@@ -1117,7 +1096,6 @@
       "scheduledAt": "2026-07-29T15:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 22,
       "roundLabel": "Pool A — 2026-07-29",
       "status": "SCHEDULED",
       "sideA": {
@@ -1136,7 +1114,6 @@
       "scheduledAt": "2026-07-29T18:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 23,
       "roundLabel": "Pool B — 2026-07-29",
       "status": "SCHEDULED",
       "sideA": {
@@ -1155,7 +1132,6 @@
       "scheduledAt": "2026-07-29T20:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 24,
       "roundLabel": "Pool A — 2026-07-29",
       "status": "SCHEDULED",
       "sideA": {
@@ -1174,7 +1150,6 @@
       "scheduledAt": "2026-07-30T08:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 25,
       "roundLabel": "Pool A — 2026-07-30",
       "status": "SCHEDULED",
       "sideA": {
@@ -1193,7 +1168,6 @@
       "scheduledAt": "2026-07-30T10:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 26,
       "roundLabel": "Pool B — 2026-07-30",
       "status": "SCHEDULED",
       "sideA": {
@@ -1212,7 +1186,6 @@
       "scheduledAt": "2026-07-30T13:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 27,
       "roundLabel": "Pool B — 2026-07-30",
       "status": "SCHEDULED",
       "sideA": {
@@ -1231,7 +1204,6 @@
       "scheduledAt": "2026-07-30T15:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 28,
       "roundLabel": "Pool A — 2026-07-30",
       "status": "SCHEDULED",
       "sideA": {
@@ -1250,7 +1222,6 @@
       "scheduledAt": "2026-07-30T18:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 29,
       "roundLabel": "Pool B — 2026-07-30",
       "status": "SCHEDULED",
       "sideA": {
@@ -1269,7 +1240,6 @@
       "scheduledAt": "2026-07-30T20:00:00.000Z",
       "venue": "The Hydro",
       "neutralVenue": true,
-      "round": 30,
       "roundLabel": "Pool A — 2026-07-30",
       "status": "SCHEDULED",
       "sideA": {
@@ -1392,12 +1362,14 @@
       "roundLabel": "Bronze medal match",
       "status": "SCHEDULED",
       "sideA": {
-        "sourceType": "UNRESOLVED",
-        "sourceLabel": "Bronze-medal participant TBC"
+        "sourceType": "MATCH_LOSER",
+        "sourceMatchExternalId": "2026-08-01-0900-semi-final-1",
+        "sourceLabel": "Loser of Semi-final 1"
       },
       "sideB": {
-        "sourceType": "UNRESOLVED",
-        "sourceLabel": "Bronze-medal participant TBC"
+        "sourceType": "MATCH_LOSER",
+        "sourceMatchExternalId": "2026-08-01-1300-semi-final-2",
+        "sourceLabel": "Loser of Semi-final 2"
       }
     },
     {
@@ -1409,12 +1381,14 @@
       "roundLabel": "Gold medal match",
       "status": "SCHEDULED",
       "sideA": {
-        "sourceType": "UNRESOLVED",
-        "sourceLabel": "Gold-medal participant TBC"
+        "sourceType": "MATCH_WINNER",
+        "sourceMatchExternalId": "2026-08-01-0900-semi-final-1",
+        "sourceLabel": "Winner of Semi-final 1"
       },
       "sideB": {
-        "sourceType": "UNRESOLVED",
-        "sourceLabel": "Gold-medal participant TBC"
+        "sourceType": "MATCH_WINNER",
+        "sourceMatchExternalId": "2026-08-01-1300-semi-final-2",
+        "sourceLabel": "Winner of Semi-final 2"
       }
     }
   ],
