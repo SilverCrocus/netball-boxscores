@@ -14,8 +14,10 @@ interface LiveScoreHeroProps {
   awayTeam: TeamInfo;
   homeScore: number;
   awayScore: number;
-  round: number;
+  round: number | null;
   finalCode?: string | null;
+  roundLabel?: string | null;
+  stageName?: string | null;
   venue: string;
   currentQuarter?: number | null;
   currentTime?: string | null;
@@ -138,6 +140,8 @@ export function LiveScoreHero({
   awayScore: dbAwayScore,
   round,
   finalCode,
+  roundLabel,
+  stageName,
   venue,
   currentQuarter: dbQuarter,
   currentTime: dbTime,
@@ -253,7 +257,7 @@ export function LiveScoreHero({
             />
           )}
           <p className="font-label text-xs uppercase tracking-widest text-secondary-fixed font-bold mt-4">
-            {formatMatchStage(round, finalCode)} &bull; {venue}
+            {formatMatchStage(round, finalCode, roundLabel, stageName)} &bull; {venue}
           </p>
         </div>
 

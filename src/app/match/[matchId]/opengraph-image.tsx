@@ -4,7 +4,7 @@ import { join } from 'path';
 import { prisma } from '@/lib/db';
 import { getPublicCompetitions } from '@/lib/competitions';
 import { formatMatchStage } from '@/lib/match-label';
-import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
 
 export const runtime = 'nodejs';
 export const alt = 'Match Score';
@@ -24,7 +24,9 @@ export default async function MatchOgImage({
       homeTeamId: true,
       awayTeamId: true,
       round: true,
+      roundLabel: true,
       finalCode: true,
+      stage: { select: { name: true } },
       venue: true,
       status: true,
       homeScore: true,
@@ -33,7 +35,7 @@ export default async function MatchOgImage({
       awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
     },
   });
-  const resolvedMatch = match && hasResolvedLegacyMatch(match) ? match : null;
+  const resolvedMatch = match && hasResolvedMatchTeams(match) ? match : null;
 
   const lexendBold = await readFile(
     join(process.cwd(), 'src/assets/fonts/Lexend-Bold.ttf'),
@@ -63,7 +65,14 @@ export default async function MatchOgImage({
       >
         {/* Round label */}
         <div style={{ display: 'flex', fontSize: 24, color: '#94A3B8' }}>
-          {resolvedMatch ? formatMatchStage(resolvedMatch.round, resolvedMatch.finalCode) : 'Match'}
+          {resolvedMatch
+            ? formatMatchStage(
+                resolvedMatch.round,
+                resolvedMatch.finalCode,
+                resolvedMatch.roundLabel,
+                resolvedMatch.stage?.name,
+              )
+            : 'Match'}
         </div>
 
         {/* Score row */}

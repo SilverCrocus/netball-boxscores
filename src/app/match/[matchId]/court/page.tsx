@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { CourtClient } from './CourtClient';
-import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -53,7 +53,7 @@ export default async function CourtPage({ params }: Props) {
     },
   });
 
-  if (!match || !hasResolvedLegacyMatch(match)) return notFound();
+  if (!match || !hasResolvedMatchTeams(match)) return notFound();
 
   return <CourtClient match={match} />;
 }

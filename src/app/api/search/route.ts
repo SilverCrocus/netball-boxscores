@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, excludeSimData } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
 import type { SearchResponse } from '@/types/search';
-import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { getPublicCompetitions } from '@/lib/competitions';
 
 export const dynamic = 'force-dynamic';
@@ -66,7 +66,9 @@ export async function GET(request: Request) {
           homeTeamId: true,
           awayTeamId: true,
           round: true,
+          roundLabel: true,
           finalCode: true,
+          stage: { select: { name: true } },
           status: true,
           homeScore: true,
           awayScore: true,
@@ -93,13 +95,13 @@ export async function GET(request: Request) {
         meta: team.abbreviation,
         href: `/team/${team.slug}`,
       })),
-      matches: matches.filter(hasResolvedLegacyMatch).map((match) => ({
+      matches: matches.filter(hasResolvedMatchTeams).map((match) => ({
         id: match.id,
         kind: 'match' as const,
         label: `${match.homeTeam.name} v ${match.awayTeam.name}`,
         meta: match.status === 'COMPLETED'
-          ? `${match.homeScore}-${match.awayScore} · ${formatMatchStage(match.round, match.finalCode)}`
-          : formatMatchStage(match.round, match.finalCode),
+          ? `${match.homeScore}-${match.awayScore} · ${formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name)}`
+          : formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name),
         href: match.status === 'LIVE' ? `/match/${match.id}/live` : `/match/${match.id}`,
       })),
     } satisfies SearchResponse);

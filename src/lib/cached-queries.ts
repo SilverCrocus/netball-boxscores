@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { excludeSimData, prisma } from '@/lib/db';
-import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { getPublicCompetitions } from '@/lib/competitions';
 
 const matchTeamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
@@ -68,7 +68,7 @@ const recentTeamMatchesQuery = async (competitionId: string, teamId: string) => 
     orderBy: { scheduledAt: 'desc' },
     take: 5,
   });
-  return matches.filter(hasResolvedLegacyMatch);
+  return matches.filter(hasResolvedMatchTeams);
 };
 
 const upcomingTeamMatchesQuery = async (competitionId: string, teamId: string) => {
@@ -87,7 +87,7 @@ const upcomingTeamMatchesQuery = async (competitionId: string, teamId: string) =
     orderBy: { scheduledAt: 'asc' },
     take: 3,
   });
-  return matches.filter(hasResolvedLegacyMatch);
+  return matches.filter(hasResolvedMatchTeams);
 };
 
 export const getStandingsForCompetition = process.env.NODE_ENV === 'test'

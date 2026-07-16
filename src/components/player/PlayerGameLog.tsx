@@ -6,7 +6,7 @@ import type { PlayerMatchStats } from '@prisma/client';
 import type { TeamInfoWithId } from '@/types/team';
 import type { StatValues } from '@/lib/stat-utils';
 import type { PositionConfig } from './position-config';
-import { hasResolvedLegacyMatch, type ResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams, type ResolvedMatchTeams } from '@/lib/edition-match';
 
 interface MatchWithTeams {
   id: string;
@@ -39,8 +39,8 @@ function formatStatValue(stat: MatchStat, statField: string): string {
 
 export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLogProps) {
   const resolvedStats = matchStats.filter(
-    (stat): stat is MatchStat & { match: ResolvedLegacyMatch<MatchWithTeams> } =>
-      hasResolvedLegacyMatch(stat.match)
+    (stat): stat is MatchStat & { match: ResolvedMatchTeams<MatchWithTeams> } =>
+      hasResolvedMatchTeams(stat.match)
   );
 
   if (resolvedStats.length === 0) {

@@ -5,7 +5,7 @@ import { LiveGameClient } from './LiveGameClient';
 import { pickStatFields, emptyStats } from '@/lib/stat-utils';
 import { computeTeamStrengthPrior } from '@/lib/win-probability';
 import { formatMatchStage } from '@/lib/match-label';
-import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -20,18 +20,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       homeTeamId: true,
       awayTeamId: true,
       round: true,
+      roundLabel: true,
       finalCode: true,
+      stage: { select: { name: true } },
       homeTeam: { select: { name: true } },
       awayTeam: { select: { name: true } },
     },
   });
 
-  if (!match || !hasResolvedLegacyMatch(match)) return { title: 'Match Not Found' };
+  if (!match || !hasResolvedMatchTeams(match)) return { title: 'Match Not Found' };
 
   const statusPrefix = match.status === 'COMPLETED' ? 'Full Time:' : 'LIVE:';
 
   return {
-    title: `${statusPrefix} ${match.homeTeam.name} vs ${match.awayTeam.name} | ${formatMatchStage(match.round, match.finalCode)}`,
+    title: `${statusPrefix} ${match.homeTeam.name} vs ${match.awayTeam.name} | ${formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name)}`,
     robots: { index: false },
   };
 }
@@ -42,6 +44,7 @@ export default async function LiveGamePage({ params }: Props) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
+      stage: { select: { name: true } },
       homeTeam: {
         include: {
           players: {
@@ -98,7 +101,7 @@ export default async function LiveGamePage({ params }: Props) {
     },
   });
 
-  if (!match || !hasResolvedLegacyMatch(match)) return notFound();
+  if (!match || !hasResolvedMatchTeams(match)) return notFound();
 
   function serializeTeam(team: NonNullable<NonNullable<typeof match>['homeTeam']>) {
     return {
@@ -129,6 +132,8 @@ export default async function LiveGamePage({ params }: Props) {
   const serialized = {
     id: match.id,
     round: match.round,
+    roundLabel: match.roundLabel,
+    stageName: match.stage?.name ?? null,
     finalCode: match.finalCode,
     venue: match.venue,
     status: match.status,

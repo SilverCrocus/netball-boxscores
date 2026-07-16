@@ -19,7 +19,8 @@ import { formatMatchDateTime } from '@/lib/format';
 import { formatMatchStage } from '@/lib/match-label';
 import { timedQuery } from '@/lib/server-timing';
 import { getMvpSupportingStats } from '@/lib/mvp-stats';
-import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
+import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 
 const getMatch = cache((matchId: string) =>
   timedQuery('match_base', () => prisma.match.findUnique({
@@ -32,7 +33,9 @@ const getMatch = cache((matchId: string) =>
       currentQuarter: true,
       currentTime: true,
       round: true,
+      roundLabel: true,
       finalCode: true,
+      stage: { select: { name: true } },
       venue: true,
       scheduledAt: true,
       homeTeamId: true,
@@ -60,7 +63,16 @@ const getMatch = cache((matchId: string) =>
           netPoints: true,
           gain: true,
           player: {
-            select: { id: true, name: true, position: true, photoUrl: true, teamId: true },
+            select: {
+              id: true,
+              name: true,
+              position: true,
+              photoUrl: true,
+              photoSourceUrl: true,
+              photoCredit: true,
+              photoLicense: true,
+              teamId: true,
+            },
           },
         },
         orderBy: { goals: 'desc' },
@@ -91,10 +103,10 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
   const { matchId } = await params;
   const match = await getMatch(matchId);
 
-  if (!match || !hasResolvedLegacyMatch(match)) return { title: 'Match Not Found' };
+  if (!match || !hasResolvedMatchTeams(match)) return { title: 'Match Not Found' };
 
   const isCompleted = match.status === 'COMPLETED';
-  const stage = formatMatchStage(match.round, match.finalCode);
+  const stage = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
   const title = isCompleted
     ? `${match.homeTeam.name} ${match.homeScore} - ${match.awayTeam.name} ${match.awayScore} | ${stage}`
     : `${match.homeTeam.name} vs ${match.awayTeam.name} | ${stage}`;
@@ -110,7 +122,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
   const { matchId } = await params;
   const match = await getMatch(matchId);
 
-  if (!match || !hasResolvedLegacyMatch(match)) notFound();
+  if (!match || !hasResolvedMatchTeams(match)) notFound();
 
   const superShotsByPlayer = new Map<string, number>();
   let homeSuperShots = 0, awaySuperShots = 0;
@@ -135,7 +147,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
       playerId: ps.player.id,
       name: ps.player.name,
       position: ps.player.position,
-      photoUrl: ps.player.photoUrl,
+      photoUrl: secondaryPlayerPhotoUrl(ps.player),
       superShots: superShotsByPlayer.get(ps.player.id) || 0,
       ...pickStatFields(ps),
     };
@@ -178,7 +190,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
   ];
 
   const isLive = match.status === 'LIVE';
-  const stage = formatMatchStage(match.round, match.finalCode);
+  const stage = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -189,7 +201,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
         scheduledAt: match.scheduledAt,
         homeScore: match.homeScore,
         awayScore: match.awayScore,
-        round: match.round,
+        matchLabel: stage,
       })} />
       <JsonLd data={breadcrumbJsonLd([
         { name: 'Home', url: '/' },
@@ -315,7 +327,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
                       <PlayerAvatar
                         decorative
                         name={mvp.player.name}
-                        photoUrl={mvp.player.photoUrl}
+                        photoUrl={secondaryPlayerPhotoUrl(mvp.player)}
                         size={120}
                         className="mb-3 border-2 border-secondary/20"
                       />

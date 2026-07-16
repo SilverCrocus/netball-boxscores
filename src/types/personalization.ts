@@ -8,7 +8,9 @@ export interface PersonalizedMatchCard {
   homeScore: number;
   awayScore: number;
   venue: string;
-  round: number;
+  round: number | null;
+  roundLabel: string | null;
+  stageName: string | null;
   finalCode: string | null;
   currentQuarter: number | null;
   currentTime: string | null;

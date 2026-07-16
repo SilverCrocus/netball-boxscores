@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/api-auth';
 import { excludeSimData, prisma } from '@/lib/db';
 import { resolveCompetition } from '@/lib/competitions';
 import { computeBreakdown, homepageMatchSelect, type ResolvedHomepageMatch } from '@/lib/home-feed';
-import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import type { MyTeamHubItem, PersonalizedMatchCard } from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,8 @@ function toCard(match: ResolvedHomepageMatch): PersonalizedMatchCard {
     awayScore: match.awayScore,
     venue: match.venue,
     round: match.round,
+    roundLabel: match.roundLabel,
+    stageName: match.stage?.name ?? null,
     finalCode: match.finalCode,
     currentQuarter: match.currentQuarter,
     currentTime: match.currentTime,
@@ -76,8 +78,8 @@ export async function GET() {
       }),
     ]);
 
-    const resolvedUpcoming = upcoming.filter(hasResolvedLegacyMatch);
-    const resolvedCompleted = completed.filter(hasResolvedLegacyMatch);
+    const resolvedUpcoming = upcoming.filter(hasResolvedMatchTeams);
+    const resolvedCompleted = completed.filter(hasResolvedMatchTeams);
     const items: MyTeamHubItem[] = follows.map((follow) => {
       const nextMatch = resolvedUpcoming.find(
         (match) => match.homeTeamId === follow.teamId || match.awayTeamId === follow.teamId,

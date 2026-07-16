@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
+import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 import { formatMatchDate, formatMatchTime, formatShortDate } from '@/lib/format';
 import { JsonLd, sportsTeamJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { resolveCompetition } from '@/lib/competitions';
@@ -201,7 +202,13 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
                   <tr key={player.id} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <PlayerAvatar decorative name={player.name} photoUrl={player.photoUrl} size={40} className="rounded" />
+                        <PlayerAvatar
+                          decorative
+                          name={player.name}
+                          photoUrl={secondaryPlayerPhotoUrl(player)}
+                          size={40}
+                          className="rounded"
+                        />
                         <Link prefetch={false} href={`/player/${player.id}`} className="font-body font-bold text-primary hover:text-secondary transition-colors">
                           {player.name}
                         </Link>

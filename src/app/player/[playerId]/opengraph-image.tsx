@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { prisma } from '@/lib/db';
 import { getPublicCompetitions } from '@/lib/competitions';
+import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 
 export const runtime = 'nodejs';
 export const alt = 'Player Profile';
@@ -28,6 +29,9 @@ export default async function PlayerOgImage({
       name: true,
       position: true,
       photoUrl: true,
+      photoSourceUrl: true,
+      photoCredit: true,
+      photoLicense: true,
       team: { select: { name: true, abbreviation: true, logoUrl: true } },
     },
   });
@@ -38,6 +42,7 @@ export default async function PlayerOgImage({
   const manropeRegular = await readFile(
     join(process.cwd(), 'src/assets/fonts/Manrope-Regular.ttf'),
   );
+  const playerPhotoUrl = player ? secondaryPlayerPhotoUrl(player) : null;
 
   return new ImageResponse(
     (
@@ -55,10 +60,10 @@ export default async function PlayerOgImage({
       >
         {/* Player photo */}
         <div style={{ display: 'flex', flexShrink: 0 }}>
-          {player?.photoUrl ? (
+          {playerPhotoUrl ? (
             <img
-              src={player.photoUrl}
-              alt={player.name}
+              src={playerPhotoUrl}
+              alt={player?.name ?? 'Player'}
               width={200}
               height={200}
               style={{ objectFit: 'cover', borderRadius: 100 }}
