@@ -1,0 +1,1448 @@
+{
+  "context": {
+    "sourceKey": "glasgow-2026-public-data",
+    "editionExternalId": "glasgow-2026",
+    "retrievedAt": "2026-07-16T04:15:40.000Z",
+    "sourceUrl": "https://netball.sport/events-and-results/commonwealth-games/"
+  },
+  "teams": [
+    {
+      "externalId": "AUS",
+      "name": "Australia",
+      "slug": "australia",
+      "abbreviation": "AUS",
+      "groupSlug": "pool-a",
+      "seed": 1,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "ENG",
+      "name": "England",
+      "slug": "england",
+      "abbreviation": "ENG",
+      "groupSlug": "pool-a",
+      "seed": 4,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "RSA",
+      "name": "South Africa",
+      "slug": "south-africa",
+      "abbreviation": "RSA",
+      "groupSlug": "pool-a",
+      "seed": 5,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "MWI",
+      "name": "Malawi",
+      "slug": "malawi",
+      "abbreviation": "MWI",
+      "groupSlug": "pool-a",
+      "seed": 8,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "TON",
+      "name": "Tonga",
+      "slug": "tonga",
+      "abbreviation": "TON",
+      "groupSlug": "pool-a",
+      "seed": 9,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "NIR",
+      "name": "Northern Ireland",
+      "slug": "northern-ireland",
+      "abbreviation": "NIR",
+      "groupSlug": "pool-a",
+      "seed": 12,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "NZL",
+      "name": "New Zealand",
+      "slug": "new-zealand",
+      "abbreviation": "NZL",
+      "groupSlug": "pool-b",
+      "seed": 2,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "JAM",
+      "name": "Jamaica",
+      "slug": "jamaica",
+      "abbreviation": "JAM",
+      "groupSlug": "pool-b",
+      "seed": 3,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "WAL",
+      "name": "Wales",
+      "slug": "wales",
+      "abbreviation": "WAL",
+      "groupSlug": "pool-b",
+      "seed": 6,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "UGA",
+      "name": "Uganda",
+      "slug": "uganda",
+      "abbreviation": "UGA",
+      "groupSlug": "pool-b",
+      "seed": 7,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "SCO",
+      "name": "Scotland",
+      "slug": "scotland",
+      "abbreviation": "SCO",
+      "groupSlug": "pool-b",
+      "seed": 10,
+      "status": "ACTIVE"
+    },
+    {
+      "externalId": "TTO",
+      "name": "Trinidad & Tobago",
+      "slug": "trinidad-and-tobago",
+      "abbreviation": "TTO",
+      "groupSlug": "pool-b",
+      "seed": 11,
+      "status": "ACTIVE"
+    }
+  ],
+  "players": [
+    {
+      "externalId": "ENG-halimat-adio",
+      "teamExternalId": "ENG",
+      "name": "Halimat Adio",
+      "position": "GK"
+    },
+    {
+      "externalId": "ENG-francesca-williams",
+      "teamExternalId": "ENG",
+      "name": "Francesca Williams",
+      "position": "GD"
+    },
+    {
+      "externalId": "ENG-funmi-fadoju",
+      "teamExternalId": "ENG",
+      "name": "Funmi Fadoju",
+      "position": "WD",
+      "photoUrl": "https://upload.wikimedia.org/wikipedia/commons/3/34/England_Netball_player_Funmi_Fadoju.jpg",
+      "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg",
+      "photoCredit": "Amy Martin Photography",
+      "photoLicense": "CC BY-SA 4.0",
+      "photoVerifiedAt": "2026-07-16T04:15:40.000Z"
+    },
+    {
+      "externalId": "ENG-jayda-pechova",
+      "teamExternalId": "ENG",
+      "name": "Jayda Pechová",
+      "position": "GK"
+    },
+    {
+      "externalId": "ENG-imogen-allison",
+      "teamExternalId": "ENG",
+      "name": "Imogen Allison",
+      "position": "WD"
+    },
+    {
+      "externalId": "ENG-jess-shaw",
+      "teamExternalId": "ENG",
+      "name": "Jess Shaw",
+      "position": "WA"
+    },
+    {
+      "externalId": "ENG-amy-carter",
+      "teamExternalId": "ENG",
+      "name": "Amy Carter",
+      "position": "C"
+    },
+    {
+      "externalId": "ENG-natalie-metcalf",
+      "teamExternalId": "ENG",
+      "name": "Natalie Metcalf",
+      "position": "GA"
+    },
+    {
+      "externalId": "ENG-sasha-glasgow",
+      "teamExternalId": "ENG",
+      "name": "Sasha Glasgow",
+      "position": "GS"
+    },
+    {
+      "externalId": "ENG-olivia-tchine",
+      "teamExternalId": "ENG",
+      "name": "Olivia Tchine",
+      "position": "GS",
+      "photoUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6d/England_Netball_player_Olivia_Tchine.jpg",
+      "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:England_Netball_player_Olivia_Tchine.jpg",
+      "photoCredit": "Amy Martin Photography",
+      "photoLicense": "CC BY-SA 4.0",
+      "photoVerifiedAt": "2026-07-16T04:15:40.000Z"
+    },
+    {
+      "externalId": "ENG-eleanor-cardwell",
+      "teamExternalId": "ENG",
+      "name": "Eleanor Cardwell",
+      "position": "GS",
+      "photoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Thunderbirds_shooter_Eleanor_Cardwell.jpg",
+      "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg",
+      "photoCredit": "トりン",
+      "photoLicense": "CC BY-SA 4.0",
+      "photoVerifiedAt": "2026-07-16T04:15:40.000Z"
+    },
+    {
+      "externalId": "ENG-lois-pearson",
+      "teamExternalId": "ENG",
+      "name": "Lois Pearson",
+      "position": "GA"
+    },
+    {
+      "externalId": "NZL-georgia-heffernan",
+      "teamExternalId": "NZL",
+      "name": "Georgia Heffernan",
+      "position": "GS"
+    },
+    {
+      "externalId": "NZL-grace-nweke",
+      "teamExternalId": "NZL",
+      "name": "Grace Nweke",
+      "position": "GS"
+    },
+    {
+      "externalId": "NZL-martina-salmon",
+      "teamExternalId": "NZL",
+      "name": "Martina Salmon",
+      "position": "GS"
+    },
+    {
+      "externalId": "NZL-amelia-walmsley",
+      "teamExternalId": "NZL",
+      "name": "Amelia Walmsley",
+      "position": "GS"
+    },
+    {
+      "externalId": "NZL-madeline-gordon",
+      "teamExternalId": "NZL",
+      "name": "Madeline Gordon",
+      "position": "C"
+    },
+    {
+      "externalId": "NZL-kate-heffernan",
+      "teamExternalId": "NZL",
+      "name": "Kate Heffernan",
+      "position": "WD"
+    },
+    {
+      "externalId": "NZL-kimiora-poi",
+      "teamExternalId": "NZL",
+      "name": "Kimiora Poi",
+      "position": "C"
+    },
+    {
+      "externalId": "NZL-mila-reuelu-buchanan",
+      "teamExternalId": "NZL",
+      "name": "Mila Reuelu-Buchanan",
+      "position": "C"
+    },
+    {
+      "externalId": "NZL-karin-burger",
+      "teamExternalId": "NZL",
+      "name": "Karin Burger",
+      "position": "GK"
+    },
+    {
+      "externalId": "NZL-catherine-hall",
+      "teamExternalId": "NZL",
+      "name": "Catherine Hall",
+      "position": "GK"
+    },
+    {
+      "externalId": "NZL-kelly-jackson",
+      "teamExternalId": "NZL",
+      "name": "Kelly Jackson",
+      "position": "GK"
+    },
+    {
+      "externalId": "NZL-carys-stythe",
+      "teamExternalId": "NZL",
+      "name": "Carys Stythe",
+      "position": "GK"
+    },
+    {
+      "externalId": "SCO-emma-barrie",
+      "teamExternalId": "SCO",
+      "name": "Emma Barrie",
+      "position": "GS"
+    },
+    {
+      "externalId": "SCO-cerys-cairns",
+      "teamExternalId": "SCO",
+      "name": "Cerys Cairns",
+      "position": "GA"
+    },
+    {
+      "externalId": "SCO-iona-christian",
+      "teamExternalId": "SCO",
+      "name": "Iona Christian",
+      "position": "WA"
+    },
+    {
+      "externalId": "SCO-rachel-conway",
+      "teamExternalId": "SCO",
+      "name": "Rachel Conway",
+      "position": "GK"
+    },
+    {
+      "externalId": "SCO-cerys-finn",
+      "teamExternalId": "SCO",
+      "name": "Cerys Finn",
+      "position": "GK"
+    },
+    {
+      "externalId": "SCO-lexy-gillies",
+      "teamExternalId": "SCO",
+      "name": "Lexy Gillies",
+      "position": "C"
+    },
+    {
+      "externalId": "SCO-bethan-goodwin",
+      "teamExternalId": "SCO",
+      "name": "Bethan Goodwin",
+      "position": "GS"
+    },
+    {
+      "externalId": "SCO-hannah-grant",
+      "teamExternalId": "SCO",
+      "name": "Hannah Grant",
+      "position": "WD"
+    },
+    {
+      "externalId": "SCO-hannah-leighton",
+      "teamExternalId": "SCO",
+      "name": "Hannah Leighton",
+      "position": "C"
+    },
+    {
+      "externalId": "SCO-niamh-mccall",
+      "teamExternalId": "SCO",
+      "name": "Niamh McCall",
+      "position": "GA"
+    },
+    {
+      "externalId": "SCO-jazmine-moore",
+      "teamExternalId": "SCO",
+      "name": "Jazmine Moore",
+      "position": "WA"
+    },
+    {
+      "externalId": "SCO-emily-nicholl",
+      "teamExternalId": "SCO",
+      "name": "Emily Nicholl",
+      "position": "GD"
+    },
+    {
+      "externalId": "WAL-vicky-booth",
+      "teamExternalId": "WAL",
+      "name": "Vicky Booth",
+      "position": "C"
+    },
+    {
+      "externalId": "WAL-bethan-dyke",
+      "teamExternalId": "WAL",
+      "name": "Bethan Dyke",
+      "position": "WA"
+    },
+    {
+      "externalId": "WAL-alex-johnson",
+      "teamExternalId": "WAL",
+      "name": "Alex Johnson",
+      "position": "GK"
+    },
+    {
+      "externalId": "WAL-nansi-kuti",
+      "teamExternalId": "WAL",
+      "name": "Nansi Kuti",
+      "position": "GS"
+    },
+    {
+      "externalId": "WAL-zoe-matthewman",
+      "teamExternalId": "WAL",
+      "name": "Zoe Matthewman",
+      "position": "GA"
+    },
+    {
+      "externalId": "WAL-leah-middleton",
+      "teamExternalId": "WAL",
+      "name": "Leah Middleton",
+      "position": "GK"
+    },
+    {
+      "externalId": "WAL-caris-morgan",
+      "teamExternalId": "WAL",
+      "name": "Caris Morgan",
+      "position": "GD"
+    },
+    {
+      "externalId": "WAL-megan-pilkington",
+      "teamExternalId": "WAL",
+      "name": "Megan Pilkington",
+      "position": "C"
+    },
+    {
+      "externalId": "WAL-georgia-rowe",
+      "teamExternalId": "WAL",
+      "name": "Georgia Rowe",
+      "position": "GS"
+    },
+    {
+      "externalId": "WAL-poppy-tydeman",
+      "teamExternalId": "WAL",
+      "name": "Poppy Tydeman",
+      "position": "WD"
+    },
+    {
+      "externalId": "WAL-lowri-windsor",
+      "teamExternalId": "WAL",
+      "name": "Lowri Windsor",
+      "position": "WA"
+    },
+    {
+      "externalId": "WAL-phillipa-yarranton",
+      "teamExternalId": "WAL",
+      "name": "Phillipa Yarranton",
+      "position": "GA"
+    }
+  ],
+  "rosters": [
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-halimat-adio",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-francesca-williams",
+      "status": "ACTIVE",
+      "isCaptain": true
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-funmi-fadoju",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-jayda-pechova",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-imogen-allison",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-jess-shaw",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-amy-carter",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-natalie-metcalf",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-sasha-glasgow",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-olivia-tchine",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-eleanor-cardwell",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "ENG",
+      "playerExternalId": "ENG-lois-pearson",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-georgia-heffernan",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-grace-nweke",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-martina-salmon",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-amelia-walmsley",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-madeline-gordon",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-kate-heffernan",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-kimiora-poi",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-mila-reuelu-buchanan",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-karin-burger",
+      "status": "ACTIVE",
+      "isCaptain": true
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-catherine-hall",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-kelly-jackson",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "NZL",
+      "playerExternalId": "NZL-carys-stythe",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-emma-barrie",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-cerys-cairns",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-iona-christian",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-rachel-conway",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-cerys-finn",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-lexy-gillies",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-bethan-goodwin",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-hannah-grant",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-hannah-leighton",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-niamh-mccall",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-jazmine-moore",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "SCO",
+      "playerExternalId": "SCO-emily-nicholl",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-vicky-booth",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-bethan-dyke",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-alex-johnson",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-nansi-kuti",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-zoe-matthewman",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-leah-middleton",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-caris-morgan",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-megan-pilkington",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-georgia-rowe",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-poppy-tydeman",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-lowri-windsor",
+      "status": "ACTIVE",
+      "isCaptain": false
+    },
+    {
+      "teamExternalId": "WAL",
+      "playerExternalId": "WAL-phillipa-yarranton",
+      "status": "ACTIVE",
+      "isCaptain": false
+    }
+  ],
+  "matches": [
+    {
+      "externalId": "2026-07-25-0900-nzl-sco",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-25T08:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-25",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NZL"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "SCO"
+      }
+    },
+    {
+      "externalId": "2026-07-25-1100-aus-ton",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-25T10:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-25",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "AUS"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TON"
+      }
+    },
+    {
+      "externalId": "2026-07-25-1400-eng-nir",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-25T13:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-25",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "ENG"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NIR"
+      }
+    },
+    {
+      "externalId": "2026-07-25-1600-wal-uga",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-25T15:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-25",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "WAL"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "UGA"
+      }
+    },
+    {
+      "externalId": "2026-07-25-1900-jam-tto",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-25T18:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-25",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "JAM"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TTO"
+      }
+    },
+    {
+      "externalId": "2026-07-25-2100-rsa-mwi",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-25T20:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-25",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "RSA"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "MWI"
+      }
+    },
+    {
+      "externalId": "2026-07-26-0900-wal-sco",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-26T08:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-26",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "WAL"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "SCO"
+      }
+    },
+    {
+      "externalId": "2026-07-26-1100-aus-eng",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-26T10:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-26",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "AUS"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "ENG"
+      }
+    },
+    {
+      "externalId": "2026-07-26-1400-mwi-nir",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-26T13:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-26",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "MWI"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NIR"
+      }
+    },
+    {
+      "externalId": "2026-07-26-1600-rsa-ton",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-26T15:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-26",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "RSA"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TON"
+      }
+    },
+    {
+      "externalId": "2026-07-26-1900-uga-tto",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-26T18:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-26",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "UGA"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TTO"
+      }
+    },
+    {
+      "externalId": "2026-07-26-2100-nzl-jam",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-26T20:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-26",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NZL"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "JAM"
+      }
+    },
+    {
+      "externalId": "2026-07-27-1400-eng-mwi",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-27T13:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-27",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "ENG"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "MWI"
+      }
+    },
+    {
+      "externalId": "2026-07-27-1600-ton-nir",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-27T15:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-27",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TON"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NIR"
+      }
+    },
+    {
+      "externalId": "2026-07-27-1900-jam-uga",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-27T18:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-27",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "JAM"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "UGA"
+      }
+    },
+    {
+      "externalId": "2026-07-27-2100-sco-tto",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-27T20:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-27",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "SCO"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TTO"
+      }
+    },
+    {
+      "externalId": "2026-07-28-1400-rsa-nir",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-28T13:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-28",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "RSA"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NIR"
+      }
+    },
+    {
+      "externalId": "2026-07-28-1600-wal-tto",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-28T15:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-28",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "WAL"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TTO"
+      }
+    },
+    {
+      "externalId": "2026-07-28-1900-nzl-uga",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-28T18:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-28",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NZL"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "UGA"
+      }
+    },
+    {
+      "externalId": "2026-07-28-2100-aus-mwi",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-28T20:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-28",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "AUS"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "MWI"
+      }
+    },
+    {
+      "externalId": "2026-07-29-1400-jam-sco",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-29T13:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-29",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "JAM"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "SCO"
+      }
+    },
+    {
+      "externalId": "2026-07-29-1600-eng-ton",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-29T15:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-29",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "ENG"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TON"
+      }
+    },
+    {
+      "externalId": "2026-07-29-1900-nzl-wal",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-29T18:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-29",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NZL"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "WAL"
+      }
+    },
+    {
+      "externalId": "2026-07-29-2100-aus-rsa",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-29T20:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-29",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "AUS"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "RSA"
+      }
+    },
+    {
+      "externalId": "2026-07-30-0900-mwi-ton",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-30T08:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-30",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "MWI"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TON"
+      }
+    },
+    {
+      "externalId": "2026-07-30-1100-uga-sco",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-30T10:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-30",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "UGA"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "SCO"
+      }
+    },
+    {
+      "externalId": "2026-07-30-1400-nzl-tto",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-30T13:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-30",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NZL"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "TTO"
+      }
+    },
+    {
+      "externalId": "2026-07-30-1600-aus-nir",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-30T15:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-30",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "AUS"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "NIR"
+      }
+    },
+    {
+      "externalId": "2026-07-30-1900-jam-wal",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-b",
+      "scheduledAt": "2026-07-30T18:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool B — 2026-07-30",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "JAM"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "WAL"
+      }
+    },
+    {
+      "externalId": "2026-07-30-2100-eng-rsa",
+      "stageSlug": "pool-stage",
+      "groupSlug": "pool-a",
+      "scheduledAt": "2026-07-30T20:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Pool A — 2026-07-30",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "TEAM",
+        "teamExternalId": "ENG"
+      },
+      "sideB": {
+        "sourceType": "TEAM",
+        "teamExternalId": "RSA"
+      }
+    },
+    {
+      "externalId": "2026-07-31-0900-classification-11-12",
+      "stageSlug": "classification",
+      "scheduledAt": "2026-07-31T08:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Classification Match 1 — 11th v 12th",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "11th place after pool stage"
+      },
+      "sideB": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "12th place after pool stage"
+      }
+    },
+    {
+      "externalId": "2026-07-31-1100-classification-9-10",
+      "stageSlug": "classification",
+      "scheduledAt": "2026-07-31T10:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Classification Match 2 — 9th v 10th",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "9th place after pool stage"
+      },
+      "sideB": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "10th place after pool stage"
+      }
+    },
+    {
+      "externalId": "2026-07-31-1400-classification-7-8",
+      "stageSlug": "classification",
+      "scheduledAt": "2026-07-31T13:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Classification Match 3 — 7th v 8th",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "7th place after pool stage"
+      },
+      "sideB": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "8th place after pool stage"
+      }
+    },
+    {
+      "externalId": "2026-07-31-1600-classification-5-6",
+      "stageSlug": "classification",
+      "scheduledAt": "2026-07-31T15:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Classification Match 4 — 5th v 6th",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "5th place after pool stage"
+      },
+      "sideB": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "6th place after pool stage"
+      }
+    },
+    {
+      "externalId": "2026-08-01-0900-semi-final-1",
+      "stageSlug": "semi-finals",
+      "scheduledAt": "2026-08-01T08:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Semi-final 1",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "Semi-finalist TBC"
+      },
+      "sideB": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "Semi-finalist TBC"
+      }
+    },
+    {
+      "externalId": "2026-08-01-1300-semi-final-2",
+      "stageSlug": "semi-finals",
+      "scheduledAt": "2026-08-01T12:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Semi-final 2",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "Semi-finalist TBC"
+      },
+      "sideB": {
+        "sourceType": "UNRESOLVED",
+        "sourceLabel": "Semi-finalist TBC"
+      }
+    },
+    {
+      "externalId": "2026-08-02-0900-bronze-medal",
+      "stageSlug": "medal-matches",
+      "scheduledAt": "2026-08-02T08:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Bronze medal match",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "MATCH_LOSER",
+        "sourceMatchExternalId": "2026-08-01-0900-semi-final-1",
+        "sourceLabel": "Loser of Semi-final 1"
+      },
+      "sideB": {
+        "sourceType": "MATCH_LOSER",
+        "sourceMatchExternalId": "2026-08-01-1300-semi-final-2",
+        "sourceLabel": "Loser of Semi-final 2"
+      }
+    },
+    {
+      "externalId": "2026-08-02-1300-gold-medal",
+      "stageSlug": "medal-matches",
+      "scheduledAt": "2026-08-02T12:00:00.000Z",
+      "venue": "The Hydro",
+      "neutralVenue": true,
+      "roundLabel": "Gold medal match",
+      "status": "SCHEDULED",
+      "sideA": {
+        "sourceType": "MATCH_WINNER",
+        "sourceMatchExternalId": "2026-08-01-0900-semi-final-1",
+        "sourceLabel": "Winner of Semi-final 1"
+      },
+      "sideB": {
+        "sourceType": "MATCH_WINNER",
+        "sourceMatchExternalId": "2026-08-01-1300-semi-final-2",
+        "sourceLabel": "Winner of Semi-final 2"
+      }
+    }
+  ],
+  "results": [],
+  "coverage": [
+    {
+      "capability": "FINAL_SCORE",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "PERIOD_SCORES",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "TEAM_BOX_SCORE",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "PLAYER_BOX_SCORE",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "SCORE_FLOW",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "MATCH_EVENTS",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "SUBSTITUTIONS",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "NET_POINTS",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "SUPER_SHOTS",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    },
+    {
+      "capability": "LINEUPS",
+      "state": "UNAVAILABLE",
+      "notes": "Pre-tournament source bundle: results and match-performance data are not yet available."
+    }
+  ]
+}
