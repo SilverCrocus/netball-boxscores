@@ -4510,13 +4510,13 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/app/team/[teamSlug]/page.tsx": {
-    "mtime": 1784204410.0018082,
-    "ast_hash": "dd25afc558e3243571af505d2a2eca23",
+    "mtime": 1784212468.2309663,
+    "ast_hash": "962295148aad71c8de9c38849a946ab1",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/app/team/[teamSlug]/__tests__/page.test.tsx": {
-    "mtime": 1784204411.7179444,
-    "ast_hash": "4e6465b5a5c179276f436a5ff98f197b",
+    "mtime": 1784212469.0598536,
+    "ast_hash": "654fe1af196443ff88bdf7e15889aef6",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/app/live/page.tsx": {
@@ -4690,8 +4690,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/ui/TeamBadge.tsx": {
-    "mtime": 1784197214.2271767,
-    "ast_hash": "ecfc9e23e07cc9599142d646307a72b8",
+    "mtime": 1784212466.5436199,
+    "ast_hash": "26cd376f89aae5df3918a105ba8f8cf8",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/ui/MatchMomentum.tsx": {
@@ -4750,8 +4750,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/ui/__tests__/TeamBadge.test.tsx": {
-    "mtime": 1784197214.2289426,
-    "ast_hash": "4ae4005efdd7cc2e34b068975351db1a",
+    "mtime": 1784212467.3917468,
+    "ast_hash": "a95af44c01ffc7c7b7021cf52dbc3064",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/ui/__tests__/MatchMomentum.test.tsx": {
@@ -4835,8 +4835,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/match/LiveLineups.tsx": {
-    "mtime": 1784203724.4140267,
-    "ast_hash": "e41bb5bb93e8ef71763a5f8f422eec73",
+    "mtime": 1784212213.6361182,
+    "ast_hash": "afc13d44df3aa5c0207071b66c7d7b7e",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/match/NetballCourt.tsx": {
@@ -4930,8 +4930,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/player/PlayerHero.tsx": {
-    "mtime": 1784201302.2810528,
-    "ast_hash": "35ade28bb6b3081afdc960953c6d74cf",
+    "mtime": 1784212212.0116968,
+    "ast_hash": "25125e906128757b3c7dce934b5a0a9a",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/player/PlayerSeasonStats.tsx": {
@@ -4945,8 +4945,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/player/PlayerHero.test.tsx": {
-    "mtime": 1784201303.1058092,
-    "ast_hash": "388d46a50b356642ed5791f90d7c2314",
+    "mtime": 1784212212.8229878,
+    "ast_hash": "6dd513a97672f7343c77df7ff9873971",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/player/position-config.ts": {
@@ -6217,6 +6217,86 @@
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/components/match/__tests__/EditionContextLinks.test.tsx": {
     "mtime": 1784203756.243187,
     "ast_hash": "02efb481dc46380b049ee9a72a07963c",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/lib/country-flags.ts": {
+    "mtime": 1784212464.8194375,
+    "ast_hash": "6a2be3ad7a9c75c9923e65dfc2128b0f",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/lib/__tests__/country-flags.test.ts": {
+    "mtime": 1784212505.5376697,
+    "ast_hash": "cb7d18165edb23e1a2a0b49b7a093bc4",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/LICENSE.flag-icons.txt": {
+    "mtime": 1784212407.1778445,
+    "ast_hash": "da7844045193ab5afea115817e500704",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/README.md": {
+    "mtime": 1784212407.9955053,
+    "ast_hash": "cfb93af5152872f9507f8931b4064551",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/gb-nir.svg": {
+    "mtime": 1784212401.588753,
+    "ast_hash": "d7bd7dfda1671592433372c74ac7adf3",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/nz.svg": {
+    "mtime": 1784212402.381122,
+    "ast_hash": "229d2fadba8d00df102927eae199d46f",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/au.svg": {
+    "mtime": 1784212397.5828183,
+    "ast_hash": "26b17d670b64aafb25fdaecf3b74e934",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/tt.svg": {
+    "mtime": 1784212406.3780844,
+    "ast_hash": "12c225a0602ef42490ab814b5ade9274",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/ug.svg": {
+    "mtime": 1784212404.7893167,
+    "ast_hash": "5090179bc7a21448ec49d70179c8d074",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/mw.svg": {
+    "mtime": 1784212399.9468563,
+    "ast_hash": "59ec0e8339665d309116b12d39b9baf1",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/gb-sct.svg": {
+    "mtime": 1784212405.6198044,
+    "ast_hash": "ade55ed456211d6577b2f80c06e40c51",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/gb-wls.svg": {
+    "mtime": 1784212403.9673235,
+    "ast_hash": "a9f3880f26c469eb5031cce59fef8cc4",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/za.svg": {
+    "mtime": 1784212399.146146,
+    "ast_hash": "da9e50f2ae3cc80343b9be4f2a5f599d",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/to.svg": {
+    "mtime": 1784212400.7650986,
+    "ast_hash": "cccdba4c3dfd080aeda7302c23588c7a",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/gb-eng.svg": {
+    "mtime": 1784212398.3843532,
+    "ast_hash": "7caecb785400d1cca7b319887a9d81bf",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/public/flags/glasgow-2026/jm.svg": {
+    "mtime": 1784212403.169669,
+    "ast_hash": "4370e5279f135a52435cb1435fb51d25",
     "semantic_hash": ""
   }
 }
