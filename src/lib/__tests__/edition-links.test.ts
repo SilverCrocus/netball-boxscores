@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { EditionContextValue } from '@/lib/edition-context';
 import {
+  editionAwareNavigationHref,
+  editionContextFromPathname,
   editionHref,
   editionNavigationHref,
   editionSwitchHref,
+  navigationEditionFromPathname,
 } from '@/lib/edition-links';
 
 const ssn: EditionContextValue = {
@@ -45,6 +48,35 @@ describe('edition links', () => {
       glasgow,
       '/competitions/suncorp-super-netball/2026/standings'
     )).toBe('/competitions/commonwealth-games/glasgow-2026/standings');
+  });
+
+  it('preserves supported legacy sections when switching editions', () => {
+    expect(editionSwitchHref(glasgow, '/standings')).toBe(
+      '/competitions/commonwealth-games/glasgow-2026/standings'
+    );
+  });
+
+  it('resolves edition paths exactly without falling back on unknown slugs', () => {
+    const editions = [ssn, glasgow];
+
+    expect(editionContextFromPathname(
+      editions,
+      '/competitions/commonwealth-games/glasgow-2026/teams'
+    )).toBe(glasgow);
+    expect(navigationEditionFromPathname(
+      editions,
+      '/competitions/commonwealth-games/not-an-edition'
+    )).toBeNull();
+  });
+
+  it('scopes edition-aware global navigation while retaining global-only pages', () => {
+    expect(editionAwareNavigationHref(glasgow, '/')).toBe(
+      '/competitions/commonwealth-games/glasgow-2026'
+    );
+    expect(editionAwareNavigationHref(glasgow, '/teams')).toBe(
+      '/competitions/commonwealth-games/glasgow-2026/teams'
+    );
+    expect(editionAwareNavigationHref(glasgow, '/rankings')).toBe('/rankings');
   });
 
   it('falls back to the edition landing path for unrelated routes', () => {

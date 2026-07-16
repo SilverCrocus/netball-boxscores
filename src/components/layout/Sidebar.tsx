@@ -7,19 +7,27 @@ import { NAV_ITEMS, isActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
+import { GlobalEditionSelector } from '@/components/competition/GlobalEditionSelector';
+import type { EditionContextValue } from '@/lib/edition-context';
+import {
+  editionAwareNavigationHref,
+  navigationEditionFromPathname,
+} from '@/lib/edition-links';
 
-export function Sidebar() {
+export function Sidebar({ editions = [] }: { editions?: EditionContextValue[] }) {
   const pathname = usePathname();
   const { hasLive, minutesUntilNext } = useLiveStatus();
+  const currentEdition = navigationEditionFromPathname(editions, pathname);
 
   return (
-    <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 bg-slate-900 py-8 z-40 shadow-xl">
+    <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 overflow-y-auto bg-slate-900 py-8 z-40 shadow-xl">
       <Link href="/" className="px-6 mb-8 flex items-center gap-3">
         <Image
           src="/netball-cleaned-white.png"
           alt=""
           width={500}
           height={453}
+          priority
           className="h-8 w-auto"
           style={{ width: 'auto' }}
         />
@@ -30,14 +38,20 @@ export function Sidebar() {
       <div className="mb-5 px-4">
         <GlobalSearch dark />
       </div>
+      {editions.length > 0 && (
+        <div className="mb-5 px-4">
+          <GlobalEditionSelector editions={editions} appearance="dark" />
+        </div>
+      )}
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
-          const active = isActive(pathname, item.href);
+          const href = editionAwareNavigationHref(currentEdition, item.href);
+          const active = isActive(pathname, item.href) || isActive(pathname, href);
           const isLiveItem = item.href === '/live';
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={href}
               className={`flex items-center gap-4 py-3 pl-4 border-l-4 transition-all font-headline font-medium text-sm ${
                 active
                   ? 'text-lime-400 border-lime-400 bg-slate-800/30'

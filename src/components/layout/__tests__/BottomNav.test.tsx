@@ -1,6 +1,16 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { BottomNav } from '../BottomNav';
+import type { EditionContextValue } from '@/lib/edition-context';
+
+const glasgow: EditionContextValue = {
+  id: 'glasgow',
+  competitionSlug: 'commonwealth-games',
+  competitionName: 'Commonwealth Games',
+  editionSlug: 'glasgow-2026',
+  editionLabel: 'Glasgow 2026',
+  sourceTimezone: 'Europe/London',
+};
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
@@ -60,5 +70,24 @@ describe('BottomNav', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(moreButton).toHaveFocus();
+  });
+
+  it('scopes fixtures, standings, and teams to the selected edition', () => {
+    render(<BottomNav editions={[glasgow]} />);
+
+    expect(screen.getByText('Fixtures').closest('a')).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026'
+    );
+    expect(screen.getByText('Standings').closest('a')).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026/standings'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('link', { name: /Browse teams/ })).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026/teams'
+    );
   });
 });

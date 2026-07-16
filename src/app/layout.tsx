@@ -3,6 +3,8 @@ import { Lexend, Manrope, Inter } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
 import { Providers } from "@/components/providers/Providers";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { getPublicCompetitions } from "@/lib/competitions";
+import { toEditionContexts } from "@/lib/edition-context";
 import "./globals.css";
 
 const lexend = Lexend({
@@ -45,11 +47,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+async function loadNavigationEditions() {
+  try {
+    return toEditionContexts(await getPublicCompetitions());
+  } catch (error) {
+    console.warn('[Navigation] Competition selector unavailable', error);
+    return [];
+  }
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const editions = await loadNavigationEditions();
+
   return (
     <html
       lang="en"
@@ -72,7 +85,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <GoogleAnalytics />
         <Providers>
-          <AppShell>{children}</AppShell>
+          <AppShell editions={editions}>{children}</AppShell>
         </Providers>
       </body>
     </html>

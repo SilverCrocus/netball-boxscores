@@ -1,6 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Sidebar } from '../Sidebar';
+import type { EditionContextValue } from '@/lib/edition-context';
+
+const glasgow: EditionContextValue = {
+  id: 'glasgow',
+  competitionSlug: 'commonwealth-games',
+  competitionName: 'Commonwealth Games',
+  editionSlug: 'glasgow-2026',
+  editionLabel: 'Glasgow 2026',
+  sourceTimezone: 'Europe/London',
+};
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
@@ -53,5 +63,22 @@ describe('Sidebar', () => {
     expect(screen.getByText('sensors')).toHaveClass('material-symbols-outlined');
     expect(screen.getByText('leaderboard')).toHaveClass('material-symbols-outlined');
     expect(screen.getByText('groups')).toHaveClass('material-symbols-outlined');
+  });
+
+  it('scopes supported links to the selected edition', () => {
+    render(<Sidebar editions={[glasgow]} />);
+
+    expect(screen.getByText('Home').closest('a')).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026'
+    );
+    expect(screen.getByText('Standings').closest('a')).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026/standings'
+    );
+    expect(screen.getByText('Teams').closest('a')).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026/teams'
+    );
   });
 });

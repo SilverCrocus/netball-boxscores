@@ -2,6 +2,15 @@ import type { EditionContextValue } from '@/lib/edition-context';
 
 export type EditionDestination = '' | 'standings' | 'teams' | 'pools' | 'bracket';
 
+const EDITION_ROUTE_PATTERN =
+  /^\/competitions\/([^/]+)\/([^/]+)(?:\/(standings|teams|pools|bracket))?\/?$/;
+
+const EDITION_AWARE_LEGACY_DESTINATIONS: Record<string, EditionDestination> = {
+  '/': '',
+  '/standings': 'standings',
+  '/teams': 'teams',
+};
+
 export function editionBasePath(context: EditionContextValue): string {
   return `/competitions/${encodeURIComponent(context.competitionSlug)}/${encodeURIComponent(context.editionSlug)}`;
 }
@@ -26,9 +35,51 @@ export function editionSwitchHref(
   target: EditionContextValue,
   currentPathname: string
 ): string {
-  const match = currentPathname.match(
-    /^\/competitions\/[^/]+\/[^/]+(?:\/(standings|teams|pools|bracket))?\/?$/
-  );
-  const destination = (match?.[1] ?? '') as EditionDestination;
+  const editionMatch = currentPathname.match(EDITION_ROUTE_PATTERN);
+  const legacyDestination = EDITION_AWARE_LEGACY_DESTINATIONS[currentPathname];
+  const destination = (editionMatch?.[3] ?? legacyDestination ?? '') as EditionDestination;
   return editionHref(target, destination);
+}
+
+export function editionContextFromPathname(
+  editions: EditionContextValue[],
+  pathname: string
+): EditionContextValue | null {
+  const match = pathname.match(EDITION_ROUTE_PATTERN);
+  if (!match) return null;
+
+  const competitionSlug = decodeURIComponent(match[1]);
+  const editionSlug = decodeURIComponent(match[2]);
+
+  return editions.find((edition) =>
+    edition.competitionSlug === competitionSlug
+      && edition.editionSlug === editionSlug
+  ) ?? null;
+}
+
+export function isEditionRoutePathname(pathname: string): boolean {
+  return pathname === '/competitions' || pathname.startsWith('/competitions/');
+}
+
+/**
+ * Legacy pages keep the first public edition selected. Edition routes resolve
+ * exactly, so an unknown slug never silently selects another tournament.
+ */
+export function navigationEditionFromPathname(
+  editions: EditionContextValue[],
+  pathname: string
+): EditionContextValue | null {
+  const exactEdition = editionContextFromPathname(editions, pathname);
+  if (exactEdition || isEditionRoutePathname(pathname)) return exactEdition;
+  return editions[0] ?? null;
+}
+
+export function editionAwareNavigationHref(
+  edition: EditionContextValue | null,
+  legacyHref: string
+): string {
+  const destination = EDITION_AWARE_LEGACY_DESTINATIONS[legacyHref];
+  return edition && destination !== undefined
+    ? editionNavigationHref(edition, destination)
+    : legacyHref;
 }
