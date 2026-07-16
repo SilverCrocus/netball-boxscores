@@ -1,0 +1,208 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  findFirst: vi.fn(),
+  findMany: vi.fn(),
+}));
+
+vi.mock('@/lib/db', () => ({
+  prisma: {
+    stage: {
+      findFirst: mocks.findFirst,
+      findMany: mocks.findMany,
+    },
+  },
+}));
+
+import {
+  getTournamentBracket,
+  getTournamentPools,
+  getTournamentPoolStandings,
+  projectBracketMatch,
+} from '@/lib/tournament/service';
+
+function entry(seed: number, pool: 'a' | 'b') {
+  const abbreviation = `${pool.toUpperCase()}${seed}`;
+  return {
+    id: `entry-${pool}-${seed}`,
+    seed,
+    displayName: null,
+    team: {
+      id: `team-${pool}-${seed}`,
+      name: `Team ${abbreviation}`,
+      slug: `team-${pool}-${seed}`,
+      abbreviation,
+      logoUrl: null,
+    },
+  };
+}
+
+function group(pool: 'a' | 'b') {
+  return {
+    id: `pool-${pool}`,
+    slug: `pool-${pool}`,
+    name: `Pool ${pool.toUpperCase()}`,
+    sequence: pool === 'a' ? 1 : 2,
+    primaryEntries: Array.from({ length: 6 }, (_, index) => entry(index + 1, pool)),
+  };
+}
+
+describe('tournament data service', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('loads six canonical entries for each published Glasgow pool', async () => {
+    mocks.findFirst.mockResolvedValue({
+      id: 'pool-stage',
+      name: 'Pool Stage',
+      groups: [group('a'), group('b')],
+    });
+
+    const overview = await getTournamentPools('glasgow-2026');
+
+    expect(overview?.participantCount).toBe(12);
+    expect(overview?.pools).toHaveLength(2);
+    expect(overview?.pools[0].teams).toHaveLength(6);
+    expect(overview?.pools[1].teams).toHaveLength(6);
+    expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        competitionId: 'glasgow-2026',
+        type: 'POOL',
+        isPublished: true,
+      },
+    }));
+  });
+
+  it('uses StageStanding rows when official pool standings exist', async () => {
+    const pool = group('a');
+    mocks.findFirst.mockResolvedValue({
+      id: 'pool-stage',
+      name: 'Pool Stage',
+      groups: [{
+        ...pool,
+        standings: [{
+          id: 'standing-2',
+          editionEntryId: 'entry-a-2',
+          rank: 1,
+          played: 3,
+          wins: 3,
+          losses: 0,
+          draws: 0,
+          goalsFor: 180,
+          goalsAgainst: 132,
+          goalPercentage: 136.4,
+          points: 6,
+        }],
+      }],
+    });
+
+    const overview = await getTournamentPoolStandings('glasgow-2026');
+
+    expect(overview?.hasAnyStandings).toBe(true);
+    expect(overview?.pools[0].rows[0]).toMatchObject({
+      entryId: 'entry-a-2',
+      standing: {
+        rank: 1,
+        played: 3,
+        wins: 3,
+        points: 6,
+      },
+    });
+    expect(overview?.pools[0].rows[1].standing).toBeNull();
+  });
+
+  it('keeps pre-event statistics absent instead of manufacturing zero rows', async () => {
+    mocks.findFirst.mockResolvedValue({
+      id: 'pool-stage',
+      name: 'Pool Stage',
+      groups: [{ ...group('a'), standings: [] }],
+    });
+
+    const overview = await getTournamentPoolStandings('glasgow-2026');
+
+    expect(overview?.hasAnyStandings).toBe(false);
+    expect(overview?.pools[0].hasStandings).toBe(false);
+    expect(overview?.pools[0].rows.every((row) => row.standing === null)).toBe(true);
+  });
+
+  it('projects unresolved source labels and hides scheduled zero score defaults', () => {
+    const projected = projectBracketMatch({
+      id: 'gold-medal',
+      round: null,
+      roundLabel: 'Gold medal match',
+      finalCode: null,
+      scheduledAt: new Date('2026-08-02T12:00:00.000Z'),
+      venue: 'The Hydro',
+      status: 'SCHEDULED',
+      homeScore: 0,
+      awayScore: 0,
+      homeTeam: null,
+      awayTeam: null,
+      slots: [
+        {
+          side: 'A',
+          sourceLabel: 'Winner of Semi-final 1',
+          resolvedEntry: null,
+        },
+        {
+          side: 'B',
+          sourceLabel: 'Winner of Semi-final 2',
+          resolvedEntry: null,
+        },
+      ],
+    }, 'Medal Matches');
+
+    expect(projected.sideA).toMatchObject({
+      label: 'Winner of Semi-final 1',
+      resolved: false,
+      team: null,
+      score: null,
+    });
+    expect(projected.sideB.label).toBe('Winner of Semi-final 2');
+  });
+
+  it('loads only the published classification, semi-final and medal stages', async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: 'classification',
+        slug: 'classification',
+        name: 'Classification Matches',
+        type: 'CLASSIFICATION',
+        sequence: 2,
+        matches: [],
+      },
+      {
+        id: 'semi-finals',
+        slug: 'semi-finals',
+        name: 'Semi-finals',
+        type: 'SEMI_FINALS',
+        sequence: 3,
+        matches: [],
+      },
+      {
+        id: 'medals',
+        slug: 'medal-matches',
+        name: 'Medal Matches',
+        type: 'MEDAL_MATCHES',
+        sequence: 4,
+        matches: [],
+      },
+    ]);
+
+    const stages = await getTournamentBracket('glasgow-2026');
+
+    expect(stages.map((stage) => stage.type)).toEqual([
+      'CLASSIFICATION',
+      'SEMI_FINALS',
+      'MEDAL_MATCHES',
+    ]);
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        competitionId: 'glasgow-2026',
+        type: { in: ['CLASSIFICATION', 'SEMI_FINALS', 'MEDAL_MATCHES'] },
+        isPublished: true,
+      },
+    }));
+  });
+});
