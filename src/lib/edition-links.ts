@@ -23,6 +23,19 @@ export function editionHref(
   return destination ? `${base}/${destination}` : base;
 }
 
+/**
+ * Scope a legacy detail URL to a canonical competition edition. The edition
+ * remains optional so older callers and historical links continue to work.
+ */
+export function editionScopedHref(
+  href: string,
+  editionId?: string | null,
+): string {
+  if (!editionId) return href;
+  const separator = href.includes('?') ? '&' : '?';
+  return `${href}${separator}edition=${encodeURIComponent(editionId)}`;
+}
+
 /** All navigation surfaces share this helper so route context cannot drift. */
 export function editionNavigationHref(
   context: EditionContextValue,

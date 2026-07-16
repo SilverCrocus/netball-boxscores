@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getStatValue, computeShootingPct } from '@/lib/stat-utils';
 import { getPositionConfig } from '@/components/player/position-config';
@@ -42,7 +42,7 @@ function selectPlayerEdition(
 ): PlayerEditionSelection {
   if (!edition && !competition && !season) {
     return {
-      competition: competitions[0] ?? null,
+      competition: null,
       invalidExplicitSelection: false,
     };
   }
@@ -98,13 +98,78 @@ function selectPlayerEdition(
   };
 }
 
+const getPlayerEditionIdentity = cache((playerId: string, publicEditionIds: string[]) =>
+  prisma.player.findFirst({
+    where: {
+      id: playerId,
+      OR: [
+        { team: { competitionId: { in: publicEditionIds } } },
+        {
+          rosterMemberships: {
+            some: {
+              status: 'ACTIVE',
+              validTo: null,
+              editionEntry: {
+                status: 'ACTIVE',
+                competitionId: { in: publicEditionIds },
+              },
+            },
+          },
+        },
+      ],
+    },
+    select: {
+      team: { select: { competitionId: true } },
+      rosterMemberships: {
+        where: {
+          status: 'ACTIVE',
+          validTo: null,
+          editionEntry: {
+            status: 'ACTIVE',
+            competitionId: { in: publicEditionIds },
+          },
+        },
+        select: {
+          editionEntry: { select: { competitionId: true } },
+        },
+      },
+    },
+  })
+);
+
+type PlayerEditionIdentity = NonNullable<Awaited<ReturnType<typeof getPlayerEditionIdentity>>>;
+
+function playerBelongsToEdition(
+  player: PlayerEditionIdentity,
+  edition: CompetitionOption,
+): boolean {
+  const hasActiveRosterMembership = player.rosterMemberships.some(
+    (membership) => membership.editionEntry.competitionId === edition.id,
+  );
+  const hasLegacyLeagueMembership = edition.series?.kind === 'LEAGUE'
+    && player.team.competitionId === edition.id;
+
+  return hasActiveRosterMembership || hasLegacyLeagueMembership;
+}
+
 const getPlayer = cache((playerId: string, competitionId: string | undefined, publicEditionIds: string[]) =>
   prisma.player.findFirst({
     where: {
       id: playerId,
       OR: [
         { team: { competitionId: { in: publicEditionIds } } },
-        { rosterMemberships: { some: { editionEntry: { competitionId: { in: publicEditionIds } } } } },
+        {
+          rosterMemberships: {
+            some: {
+              status: 'ACTIVE',
+              validTo: null,
+              editionEntry: {
+                status: 'ACTIVE',
+                competitionId: { in: publicEditionIds },
+              },
+            },
+          },
+        },
       ],
     },
     include: {
@@ -129,7 +194,13 @@ const getPlayer = cache((playerId: string, competitionId: string | undefined, pu
         orderBy: { match: { scheduledAt: 'desc' } },
       },
       rosterMemberships: {
-        where: competitionId ? { editionEntry: { competitionId } } : undefined,
+        where: {
+          status: 'ACTIVE',
+          validTo: null,
+          editionEntry: competitionId
+            ? { status: 'ACTIVE', competitionId }
+            : { status: 'ACTIVE', competitionId: { in: publicEditionIds } },
+        },
         include: { editionEntry: { include: { team: true, competition: true } } },
         orderBy: { validFrom: 'desc' },
       },
@@ -188,17 +259,39 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
   const competitions = await getPublicCompetitions();
   const selection = selectPlayerEdition(competitions, editionSearch);
   if (selection.invalidExplicitSelection) notFound();
-  const selectedCompetition = selection.competition;
+
+  const publicEditionIds = competitions.map((competition) => competition.id);
+  const playerEditionIdentity = await getPlayerEditionIdentity(playerId, publicEditionIds);
+  if (!playerEditionIdentity) notFound();
+
+  const playerCompetitions = competitions.filter((competition) =>
+    playerBelongsToEdition(playerEditionIdentity, competition),
+  );
+  const selectedCompetition = selection.competition
+    ?? playerCompetitions[0]
+    ?? null;
+  if (!selectedCompetition
+    || !playerBelongsToEdition(playerEditionIdentity, selectedCompetition)) {
+    notFound();
+  }
+
+  if (editionSearch.edition !== selectedCompetition.id) {
+    redirect(
+      `/player/${encodeURIComponent(playerId)}?edition=${encodeURIComponent(selectedCompetition.id)}`,
+    );
+  }
 
   const player = await getPlayer(
     playerId,
-    selectedCompetition?.id,
-    competitions.map((competition) => competition.id),
+    selectedCompetition.id,
+    publicEditionIds,
   );
 
   if (!player) notFound();
 
-  const rosterMembership = player.rosterMemberships[0];
+  const rosterMembership = player.rosterMemberships.find(
+    (candidate) => candidate.editionEntry.competitionId === selectedCompetition.id,
+  );
   const membership = rosterMembership?.editionEntry;
   const displayPosition = rosterMembership?.designatedPosition ?? player.position;
   const displayTeam = membership?.team ?? player.team;
@@ -252,7 +345,7 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
             matchStats={player.matchStats}
             positionConfig={config}
             totalSuperShots={analytics?.superShotMatchIds.length ? totalSuperShots : undefined}
-            competitions={competitions}
+            competitions={playerCompetitions}
             selectedCompetitionId={selectedCompetition?.id}
             playerId={playerId}
           />

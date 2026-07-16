@@ -17,6 +17,7 @@ import { LiveGameClient } from '@/app/match/[matchId]/live/LiveGameClient';
 
 const mockMatch = {
   id: 'match-1',
+  competitionId: 'ssn-2026',
   round: 5,
   venue: 'Melbourne Arena',
   status: 'LIVE',
@@ -112,6 +113,13 @@ describe('LiveGameClient', () => {
     expect(screen.getAllByText('Sarah Jenkins').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Jessica Chen').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Linda Blair').length).toBeGreaterThan(0);
+  });
+
+  it('should preserve the canonical edition in live player links', () => {
+    render(<LiveGameClient match={mockMatch} />);
+    for (const link of screen.getAllByRole('link', { name: 'Sarah Jenkins' })) {
+      expect(link).toHaveAttribute('href', '/player/p1?edition=ssn-2026');
+    }
   });
 
   it('should render Key Match Stats section', () => {

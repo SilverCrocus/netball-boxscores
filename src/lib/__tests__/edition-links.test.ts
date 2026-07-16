@@ -5,6 +5,7 @@ import {
   editionContextFromPathname,
   editionHref,
   editionNavigationHref,
+  editionScopedHref,
   editionSwitchHref,
   navigationEditionFromPathname,
   navigationEditionFromLocation,
@@ -33,6 +34,16 @@ describe('edition links', () => {
     expect(editionHref(ssn, 'standings')).toBe(
       '/competitions/suncorp-super-netball/2026/standings'
     );
+  });
+
+  it('scopes legacy detail links to a canonical edition without breaking legacy callers', () => {
+    expect(editionScopedHref('/match/match-1', 'ssn 2026')).toBe(
+      '/match/match-1?edition=ssn%202026'
+    );
+    expect(editionScopedHref('/player/player-1?view=form', 'glasgow-2026')).toBe(
+      '/player/player-1?view=form&edition=glasgow-2026'
+    );
+    expect(editionScopedHref('/match/legacy-match')).toBe('/match/legacy-match');
   });
 
   it.each(['desktop', 'mobile'] as const)(

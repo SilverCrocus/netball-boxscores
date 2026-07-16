@@ -4,8 +4,8 @@ import { MatchTabs } from '@/app/match/[matchId]/MatchTabs';
 import { MatchTimeline } from '../MatchTimeline';
 
 vi.mock('@/components/match/MatchPlayByPlay', () => ({
-  MatchPlayByPlay: ({ entries }: { entries: Array<{ id: string }> }) => (
-    <div>{entries.map((entry) => <span key={entry.id}>{entry.id}</span>)}</div>
+  MatchPlayByPlay: ({ entries, competitionId }: { entries: Array<{ id: string }>; competitionId?: string }) => (
+    <div data-competition-id={competitionId}>{entries.map((entry) => <span key={entry.id}>{entry.id}</span>)}</div>
   ),
 }));
 
@@ -61,5 +61,31 @@ describe('MatchTimeline', () => {
       '/api/matches/match-1/events?limit=75&quarter=4',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     ));
+  });
+
+  it('passes canonical edition context into play-by-play profile links', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        entries: [{
+          id: 'event-1', period: 1, periodSeconds: 10, eventType: 'goal',
+          teamId: 'home', homeScore: 1, awayScore: 0,
+        }],
+        nextCursor: null,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MatchTimeline
+        matchId="match-1"
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+        competitionId="ssn-2026"
+      />,
+    );
+
+    const event = await screen.findByText('event-1');
+    expect(event.parentElement).toHaveAttribute('data-competition-id', 'ssn-2026');
   });
 });

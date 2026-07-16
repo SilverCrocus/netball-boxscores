@@ -233,6 +233,6 @@ describe('buildEditionSchedule', () => {
     expect(schedule.timezoneLabel).toBe('Australia/Sydney');
     expect(scheduled.score).toBeNull();
     expect(completed.score).toEqual({ sideA: 61, sideB: 40 });
-    expect(completed.href).toBe('/match/grand-final');
+    expect(completed.href).toBe('/match/grand-final?edition=ssn-2026');
   });
 });

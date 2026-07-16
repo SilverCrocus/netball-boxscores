@@ -4,6 +4,7 @@ import { computeShootingPct } from '@/lib/stat-utils';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { StatsLegend } from '@/components/ui/StatsLegend';
+import { editionScopedHref } from '@/lib/edition-links';
 
 interface PlayerStatWithPhoto extends PlayerStatRow {
   playerId?: string;
@@ -20,6 +21,7 @@ interface StatsTeam {
 interface PlayerStatsTableProps {
   team: StatsTeam;
   players: PlayerStatWithPhoto[];
+  competitionId?: string | null;
 }
 
 type StatCategory = 'attack' | 'defence' | 'general';
@@ -59,7 +61,7 @@ const COLUMNS: ColumnDef[] = [
 
 const TD_BASE = 'px-3 py-3 text-right font-label text-sm';
 
-export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
+export function PlayerStatsTable({ team, players, competitionId }: PlayerStatsTableProps) {
 
   return (
     <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
@@ -104,7 +106,7 @@ export function PlayerStatsTable({ team, players }: PlayerStatsTableProps) {
                     <div className="flex items-center gap-2">
                       <PlayerAvatar decorative name={player.name} photoUrl={player.photoUrl} size={28} />
                       {player.playerId ? (
-                        <Link prefetch={false} href={`/player/${player.playerId}`} className="font-bold font-headline text-primary-container text-sm hover:underline truncate max-w-[110px]">
+                        <Link prefetch={false} href={editionScopedHref(`/player/${player.playerId}`, competitionId)} className="font-bold font-headline text-primary-container text-sm hover:underline truncate max-w-[110px]">
                           {player.name}
                         </Link>
                       ) : (

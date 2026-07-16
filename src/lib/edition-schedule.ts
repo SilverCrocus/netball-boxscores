@@ -7,6 +7,7 @@ import type {
 } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { CompetitionOption } from '@/lib/competitions';
+import { editionScopedHref } from '@/lib/edition-links';
 import { formatMatchStage } from '@/lib/match-label';
 
 const scheduleTeamSelect = {
@@ -270,6 +271,7 @@ function canShowScore(status: MatchStatus): boolean {
 function projectFixture(
   match: EditionScheduleMatchRecord,
   timeZone: string,
+  competitionId: string,
 ): EditionScheduleFixture {
   const date = dateParts(match.scheduledAt, timeZone);
   const sideA = projectSide(match, 'A');
@@ -293,7 +295,9 @@ function projectFixture(
     score: canShowScore(match.status)
       ? { sideA: match.homeScore, sideB: match.awayScore }
       : null,
-    href: sideA.resolved && sideB.resolved ? `/match/${match.id}` : null,
+    href: sideA.resolved && sideB.resolved
+      ? editionScopedHref(`/match/${match.id}`, competitionId)
+      : null,
   };
 }
 
@@ -339,7 +343,7 @@ export function buildEditionSchedule(
       sequence: match.stage?.sequence ?? Number.MAX_SAFE_INTEGER,
       fixtures: [],
     };
-    bucket.fixtures.push(projectFixture(match, edition.sourceTimezone));
+    bucket.fixtures.push(projectFixture(match, edition.sourceTimezone, edition.id));
     stageBuckets.set(stageId, bucket);
   }
 

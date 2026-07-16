@@ -5,12 +5,18 @@ import { getPublicCompetitions } from '@/lib/competitions';
 import { prisma } from '@/lib/db';
 import { getPlayerAnalyticsProfile } from '@/lib/player-analytics';
 
-const { heroSpy } = vi.hoisted(() => ({ heroSpy: vi.fn() }));
+const { heroSpy, redirectMock } = vi.hoisted(() => ({
+  heroSpy: vi.fn(),
+  redirectMock: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
+}));
 
 vi.mock('next/navigation', () => ({
   notFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
   }),
+  redirect: redirectMock,
 }));
 
 vi.mock('@/lib/competitions', () => ({
@@ -95,6 +101,7 @@ const clubTeam = {
   id: 'club-team-id',
   name: 'Adelaide Thunderbirds',
   slug: 'adelaide-thunderbirds',
+  competitionId: 'ssn-id',
   logoUrl: null,
   primaryColor: '#e91e63',
 };
@@ -103,12 +110,30 @@ const jamaicaTeam = {
   id: 'jamaica-team-id',
   name: 'Jamaica',
   slug: 'jamaica',
+  competitionId: 'glasgow-id',
   logoUrl: null,
   primaryColor: '#ffcd00',
 };
 
-function playerFor(position: 'C' | 'WD') {
-  const isGlasgow = position === 'WD';
+function rosterMembership(
+  position: 'C' | 'WD',
+  edition: typeof glasgowEdition | typeof ssnEdition,
+  team: typeof jamaicaTeam | typeof clubTeam,
+) {
+  return {
+    designatedPosition: position,
+    editionEntry: {
+      competitionId: edition.id,
+      displayName: team.name,
+      team,
+      competition: edition,
+    },
+  };
+}
+
+function playerWithMemberships(
+  rosterMemberships: ReturnType<typeof rosterMembership>[],
+) {
   return {
     id: 'canonical-player-id',
     name: 'Canonical Player',
@@ -124,17 +149,19 @@ function playerFor(position: 'C' | 'WD') {
     height: null,
     biography: null,
     matchStats: [],
-    rosterMemberships: [
-      {
-        designatedPosition: position,
-        editionEntry: {
-          displayName: isGlasgow ? 'Jamaica' : 'Adelaide Thunderbirds',
-          team: isGlasgow ? jamaicaTeam : clubTeam,
-          competition: isGlasgow ? glasgowEdition : ssnEdition,
-        },
-      },
-    ],
+    rosterMemberships,
   };
+}
+
+function sharedPlayer() {
+  return playerWithMemberships([
+    rosterMembership('WD', glasgowEdition, jamaicaTeam),
+    rosterMembership('C', ssnEdition, clubTeam),
+  ]);
+}
+
+function ssnOnlyPlayer() {
+  return playerWithMemberships([]);
 }
 
 describe('PlayerPage edition context', () => {
@@ -145,12 +172,10 @@ describe('PlayerPage edition context', () => {
     vi.mocked(getPlayerAnalyticsProfile).mockResolvedValue({
       superShotMatchIds: [],
     } as never);
-    vi.mocked(prisma.player.findFirst).mockResolvedValue(playerFor('C') as never);
+    vi.mocked(prisma.player.findFirst).mockResolvedValue(sharedPlayer() as never);
   });
 
   it('uses Glasgow roster position instead of the canonical SSN position everywhere', async () => {
-    vi.mocked(prisma.player.findFirst).mockResolvedValueOnce(playerFor('WD') as never);
-
     const page = await PlayerPage({
       params: Promise.resolve({ playerId: 'canonical-player-id' }),
       searchParams: Promise.resolve({ edition: 'glasgow-id' }),
@@ -168,10 +193,28 @@ describe('PlayerPage edition context', () => {
       'glasgow-id',
       'WD',
     );
+    expect(prisma.player.findFirst).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      select: expect.objectContaining({
+        rosterMemberships: expect.objectContaining({
+          where: {
+            status: 'ACTIVE',
+            validTo: null,
+            editionEntry: {
+              status: 'ACTIVE',
+              competitionId: { in: ['glasgow-id', 'ssn-id'] },
+            },
+          },
+        }),
+      }),
+    }));
     expect(prisma.player.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       include: expect.objectContaining({
         rosterMemberships: expect.objectContaining({
-          where: { editionEntry: { competitionId: 'glasgow-id' } },
+          where: {
+            status: 'ACTIVE',
+            validTo: null,
+            editionEntry: { status: 'ACTIVE', competitionId: 'glasgow-id' },
+          },
         }),
       }),
     }));
@@ -183,37 +226,58 @@ describe('PlayerPage edition context', () => {
     expect(personJsonLd?.textContent).toContain('"name":"Jamaica"');
   });
 
-  it('uses the latest public edition as the sensible no-query default', async () => {
-    vi.mocked(prisma.player.findFirst).mockResolvedValueOnce(playerFor('WD') as never);
-
-    await PlayerPage({
+  it('redirects the shared player no-query default to its canonical latest edition', async () => {
+    await expect(PlayerPage({
       params: Promise.resolve({ playerId: 'canonical-player-id' }),
       searchParams: Promise.resolve({}),
-    });
+    })).rejects.toThrow('NEXT_REDIRECT:/player/canonical-player-id?edition=glasgow-id');
 
-    expect(getPlayerAnalyticsProfile).toHaveBeenCalledWith(
-      'canonical-player-id',
-      'glasgow-id',
-      'WD',
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/player/canonical-player-id?edition=glasgow-id',
     );
+    expect(prisma.player.findFirst).toHaveBeenCalledTimes(1);
+    expect(getPlayerAnalyticsProfile).not.toHaveBeenCalled();
   });
 
-  it('accepts a competition-qualified edition slug without global guessing', async () => {
-    vi.mocked(prisma.player.findFirst).mockResolvedValueOnce(playerFor('WD') as never);
+  it('redirects an SSN-only player past the globally latest Glasgow edition', async () => {
+    vi.mocked(prisma.player.findFirst).mockResolvedValue(ssnOnlyPlayer() as never);
 
-    await PlayerPage({
+    await expect(PlayerPage({
+      params: Promise.resolve({ playerId: 'ssn-only-player-id' }),
+      searchParams: Promise.resolve({}),
+    })).rejects.toThrow('NEXT_REDIRECT:/player/ssn-only-player-id?edition=ssn-id');
+
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/player/ssn-only-player-id?edition=ssn-id',
+    );
+    expect(getPlayerAnalyticsProfile).not.toHaveBeenCalled();
+  });
+
+  it('404s explicit Glasgow selection for an SSN-only player before scoped data is fetched', async () => {
+    vi.mocked(prisma.player.findFirst).mockResolvedValue(ssnOnlyPlayer() as never);
+
+    await expect(PlayerPage({
+      params: Promise.resolve({ playerId: 'ssn-only-player-id' }),
+      searchParams: Promise.resolve({ edition: 'glasgow-id' }),
+    })).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(prisma.player.findFirst).toHaveBeenCalledTimes(1);
+    expect(getPlayerAnalyticsProfile).not.toHaveBeenCalled();
+  });
+
+  it('redirects a competition-qualified edition slug to its canonical id', async () => {
+    await expect(PlayerPage({
       params: Promise.resolve({ playerId: 'canonical-player-id' }),
       searchParams: Promise.resolve({
         competition: 'commonwealth-games-netball',
         edition: '2026',
       }),
-    });
+    })).rejects.toThrow('NEXT_REDIRECT:/player/canonical-player-id?edition=glasgow-id');
 
-    expect(getPlayerAnalyticsProfile).toHaveBeenCalledWith(
-      'canonical-player-id',
-      'glasgow-id',
-      'WD',
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/player/canonical-player-id?edition=glasgow-id',
     );
+    expect(getPlayerAnalyticsProfile).not.toHaveBeenCalled();
   });
 
   it('retains the SSN roster position when SSN is selected', async () => {
@@ -231,17 +295,16 @@ describe('PlayerPage edition context', () => {
     );
   });
 
-  it('keeps legacy year selection league-scoped without confusing the tournament', async () => {
-    await PlayerPage({
+  it('redirects a legacy league-scoped year to the canonical SSN id', async () => {
+    await expect(PlayerPage({
       params: Promise.resolve({ playerId: 'canonical-player-id' }),
       searchParams: Promise.resolve({ season: '2026' }),
-    });
+    })).rejects.toThrow('NEXT_REDIRECT:/player/canonical-player-id?edition=ssn-id');
 
-    expect(getPlayerAnalyticsProfile).toHaveBeenCalledWith(
-      'canonical-player-id',
-      'ssn-id',
-      'C',
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/player/canonical-player-id?edition=ssn-id',
     );
+    expect(getPlayerAnalyticsProfile).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -256,5 +319,6 @@ describe('PlayerPage edition context', () => {
 
     expect(prisma.player.findFirst).not.toHaveBeenCalled();
     expect(getPlayerAnalyticsProfile).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 });

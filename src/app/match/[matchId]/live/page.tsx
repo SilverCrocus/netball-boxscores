@@ -131,6 +131,7 @@ export default async function LiveGamePage({ params }: Props) {
 
   const serialized = {
     id: match.id,
+    competitionId: match.competitionId,
     round: match.round,
     roundLabel: match.roundLabel,
     stageName: match.stage?.name ?? null,

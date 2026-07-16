@@ -21,12 +21,14 @@ import { timedQuery } from '@/lib/server-timing';
 import { getMvpSupportingStats } from '@/lib/mvp-stats';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
+import { editionScopedHref } from '@/lib/edition-links';
 
 const getMatch = cache((matchId: string) =>
   timedQuery('match_base', () => prisma.match.findUnique({
     where: { id: matchId },
     select: {
       id: true,
+      competitionId: true,
       status: true,
       homeScore: true,
       awayScore: true,
@@ -206,7 +208,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
       <JsonLd data={breadcrumbJsonLd([
         { name: 'Home', url: '/' },
         { name: 'Scores', url: '/' },
-        { name: `${match.homeTeam.abbreviation} vs ${match.awayTeam.abbreviation}`, url: `/match/${match.id}` },
+        { name: `${match.homeTeam.abbreviation} vs ${match.awayTeam.abbreviation}`, url: editionScopedHref(`/match/${match.id}`, match.competitionId) },
       ])} />
 
       {/* Hero Header */}
@@ -271,7 +273,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
         </div>
       </section>
 
-      <MatchActions matchId={match.id} status={match.status} />
+      <MatchActions matchId={match.id} status={match.status} competitionId={match.competitionId} />
 
       <MatchTabs
         hasPlayByPlay={match.scoreFlow.length > 0 || match._count.matchEvents > 0}
@@ -302,8 +304,8 @@ export default async function MatchPage({ params }: MatchPageProps) {
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
               {/* Left Column: Tables */}
               <div className="xl:col-span-3 space-y-8">
-                <PlayerStatsTable team={match.homeTeam} players={homePlayerStats} />
-                <PlayerStatsTable team={match.awayTeam} players={awayPlayerStats} />
+                <PlayerStatsTable team={match.homeTeam} players={homePlayerStats} competitionId={match.competitionId} />
+                <PlayerStatsTable team={match.awayTeam} players={awayPlayerStats} competitionId={match.competitionId} />
               </div>
 
               {/* Right Column: Sidebar */}
@@ -331,7 +333,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
                         size={120}
                         className="mb-3 border-2 border-secondary/20"
                       />
-                      <Link prefetch={false} href={`/player/${mvp.player.id}`} className="hover:underline">
+                      <Link prefetch={false} href={editionScopedHref(`/player/${mvp.player.id}`, match.competitionId)} className="hover:underline">
                         <h3 className="font-headline text-xl font-black text-primary-container uppercase">
                           {mvp.player.name}
                         </h3>
@@ -382,6 +384,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
         playByPlay={
           <MatchTimeline
             matchId={match.id}
+            competitionId={match.competitionId}
             homeTeam={{ id: match.homeTeamId, ...match.homeTeam }}
             awayTeam={{ id: match.awayTeamId, ...match.awayTeam }}
           />

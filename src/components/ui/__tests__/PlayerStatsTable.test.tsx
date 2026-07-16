@@ -5,6 +5,7 @@ import { PlayerStatsTable } from '../PlayerStatsTable';
 const players = [
   {
     id: '1',
+    playerId: 'player-1',
     name: 'Elena Rodriguez',
     position: 'GS' as const,
     photoUrl: null,
@@ -49,6 +50,14 @@ describe('PlayerStatsTable', () => {
     render(<PlayerStatsTable team={{ name: 'Thunder', abbreviation: 'THU', logoUrl: null }} players={players} />);
     expect(screen.getByText('Elena Rodriguez')).toBeInTheDocument();
     expect(screen.getByText('Tasha Banks')).toBeInTheDocument();
+  });
+
+  it('preserves canonical edition context in player profile links', () => {
+    render(<PlayerStatsTable team={{ name: 'Thunder', abbreviation: 'THU', logoUrl: null }} players={players} competitionId="ssn-2026" />);
+    expect(screen.getByRole('link', { name: 'Elena Rodriguez' })).toHaveAttribute(
+      'href',
+      '/player/player-1?edition=ssn-2026',
+    );
   });
 
   it('renders position badges', () => {

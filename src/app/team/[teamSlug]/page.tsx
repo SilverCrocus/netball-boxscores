@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { TeamBadge } from '@/components/ui/TeamBadge';
@@ -7,11 +7,9 @@ import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 import { formatMatchDate, formatMatchTime, formatShortDate } from '@/lib/format';
 import { JsonLd, sportsTeamJsonLd, breadcrumbJsonLd } from '@/lib/seo';
-import { resolveCompetition } from '@/lib/competitions';
-import { resolveCompetitionById } from '@/lib/competitions';
-import { resolveLegacyLeagueCompetition } from '@/lib/competitions';
+import { getPublicCompetitions, type CompetitionOption } from '@/lib/competitions';
 import { toEditionContext } from '@/lib/edition-context';
-import { editionHref } from '@/lib/edition-links';
+import { editionHref, editionScopedHref } from '@/lib/edition-links';
 import {
   getRecentTeamMatches,
   getTeamEditionRoster,
@@ -23,7 +21,76 @@ import { timedQuery } from '@/lib/server-timing';
 
 interface TeamPageProps {
   params: Promise<{ teamSlug: string }>;
-  searchParams?: Promise<{ edition?: string; season?: string }>;
+  searchParams?: Promise<{ edition?: string; competition?: string; season?: string }>;
+}
+
+type TeamWithEditions = NonNullable<Awaited<ReturnType<typeof getTeamBySlug>>>;
+
+function teamBelongsToEdition(
+  team: TeamWithEditions,
+  competition: CompetitionOption,
+): boolean {
+  const hasActiveEditionEntry = team.editionEntries.some(
+    (entry) => entry.competitionId === competition.id,
+  );
+  const hasLegacyLeagueMembership = competition.series?.kind === 'LEAGUE'
+    && team.competitionId === competition.id;
+
+  return hasActiveEditionEntry || hasLegacyLeagueMembership;
+}
+
+function selectTeamCompetition(
+  team: TeamWithEditions,
+  competitions: readonly CompetitionOption[],
+  selection: { edition?: string; competition?: string; season?: string },
+): CompetitionOption | null {
+  const teamCompetitions = competitions.filter((competition) =>
+    teamBelongsToEdition(team, competition),
+  );
+
+  if (selection.edition) {
+    let selected: CompetitionOption | undefined;
+
+    if (selection.competition) {
+      const qualifiedMatches = competitions.filter((competition) =>
+        competition.series?.slug === selection.competition
+          && (competition.id === selection.edition || competition.slug === selection.edition),
+      );
+      selected = qualifiedMatches.length === 1 ? qualifiedMatches[0] : undefined;
+    } else {
+      const routeParts = selection.edition.split('/');
+      if (routeParts.length === 2 && routeParts.every(Boolean)) {
+        const [competitionSlug, editionSlug] = routeParts;
+        const qualifiedMatches = competitions.filter((competition) =>
+          competition.series?.slug === competitionSlug && competition.slug === editionSlug,
+        );
+        selected = qualifiedMatches.length === 1 ? qualifiedMatches[0] : undefined;
+      } else {
+        selected = competitions.find((competition) => competition.id === selection.edition);
+        if (!selected) {
+          const slugMatches = competitions.filter(
+            (competition) => competition.slug === selection.edition,
+          );
+          selected = slugMatches.length === 1 ? slugMatches[0] : undefined;
+        }
+      }
+    }
+
+    return selected && teamBelongsToEdition(team, selected) ? selected : null;
+  }
+
+  if (selection.competition) return null;
+
+  if (selection.season) {
+    if (!/^\d{4}$/.test(selection.season)) return null;
+    const leagueMatches = teamCompetitions.filter((competition) =>
+      competition.series?.kind === 'LEAGUE'
+        && competition.season.toString() === selection.season,
+    );
+    return leagueMatches.length === 1 ? leagueMatches[0] : null;
+  }
+
+  return teamCompetitions[0] ?? null;
 }
 
 export async function generateMetadata({ params }: TeamPageProps): Promise<Metadata> {
@@ -40,20 +107,26 @@ export async function generateMetadata({ params }: TeamPageProps): Promise<Metad
 
 export default async function TeamPage({ params, searchParams = Promise.resolve({}) }: TeamPageProps) {
   const { teamSlug } = await params;
-  const { edition, season } = await searchParams;
+  const { edition, competition: competitionSlug, season } = await searchParams;
 
-  const [team, { competition }] = await Promise.all([
+  const [team, competitions] = await Promise.all([
     timedQuery('team_profile', () => getTeamBySlug(teamSlug)),
-    timedQuery('competition_lookup', () => (
-      edition
-        ? resolveCompetitionById(edition)
-        : season
-          ? resolveLegacyLeagueCompetition(season)
-          : resolveCompetition()
-    )),
+    timedQuery('competition_lookup', () => getPublicCompetitions()),
   ]);
 
   if (!team) notFound();
+  const competition = selectTeamCompetition(team, competitions, {
+    edition,
+    competition: competitionSlug,
+    season,
+  });
+  if (!competition) notFound();
+
+  if (edition !== competition.id) {
+    redirect(
+      `/team/${encodeURIComponent(teamSlug)}?edition=${encodeURIComponent(competition.id)}`,
+    );
+  }
 
   const teamsHref = competition?.series && competition.slug
     ? editionHref(toEditionContext(competition), 'teams')
@@ -80,7 +153,9 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
         ...membership.player,
         position: membership.designatedPosition ?? membership.player.position,
       }))
-    : team.players;
+    : competition.id === team.competitionId
+      ? team.players
+      : [];
   const withOpponent = (match: (typeof recentMatches)[number]) => {
     const isHome = match.homeTeamId === team.id;
     const opponentTeam = isHome ? match.awayTeam : match.homeTeam;
@@ -99,7 +174,10 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
       <JsonLd data={breadcrumbJsonLd([
         { name: 'Home', url: '/' },
         { name: 'Teams', url: teamsHref },
-        { name: team.name, url: `/team/${team.slug}` },
+        {
+          name: team.name,
+          url: editionScopedHref(`/team/${team.slug}`, competition.id),
+        },
       ])} />
       {/* Hero */}
       <section className="kinetic-gradient relative flex min-h-[400px] items-center overflow-hidden rounded-xl p-4 text-white shadow-2xl sm:p-8 md:p-12">
@@ -184,7 +262,7 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
               return (
                 <Link
                   key={m.id}
-                  href={`/match/${m.id}`}
+                  href={editionScopedHref(`/match/${m.id}`, competition.id)}
                   prefetch={false}
                   className={`flex-shrink-0 snap-start flex items-center gap-3 px-6 py-4 bg-surface-container-lowest rounded-xl shadow-sm border-b-2 ${
                     borderColor
@@ -269,7 +347,7 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
             {upcoming.map((m) => (
               <Link
                 key={m.id}
-                href={`/match/${m.id}`}
+                href={editionScopedHref(`/match/${m.id}`, competition.id)}
                 prefetch={false}
                 className="block bg-surface-container-lowest p-5 rounded-xl border-l-4 border-secondary shadow-sm"
               >

@@ -42,6 +42,7 @@ interface MatchEventData {
 
 interface MatchData {
   id: string;
+  competitionId: string;
   round: number | null;
   roundLabel?: string | null;
   stageName?: string | null;
@@ -430,12 +431,13 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
             homeTeam={{ ...match.homeTeam, players: homePlayers }}
             awayTeam={{ ...match.awayTeam, players: awayPlayers }}
             superShotsByPlayer={superShotsByPlayer}
+            competitionId={match.competitionId}
           />
           <MatchStatsComparison stats={comparisonStats} />
         </div>
 
         <div className="lg:col-span-1">
-          <LivePlayByPlay entries={feedEntries} />
+          <LivePlayByPlay entries={feedEntries} competitionId={match.competitionId} />
         </div>
       </div>
     </section>

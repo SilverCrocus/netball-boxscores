@@ -37,10 +37,26 @@ const teamBySlugQuery = (teamSlug: string, publicEditionIds: string[]) =>
       slug: teamSlug,
       OR: [
         { competitionId: { in: publicEditionIds } },
-        { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
+        {
+          editionEntries: {
+            some: {
+              competitionId: { in: publicEditionIds },
+              status: 'ACTIVE',
+            },
+          },
+        },
       ],
     },
-    include: { players: { orderBy: { name: 'asc' } } },
+    include: {
+      players: { orderBy: { name: 'asc' } },
+      editionEntries: {
+        where: {
+          competitionId: { in: publicEditionIds },
+          status: 'ACTIVE',
+        },
+        select: { competitionId: true },
+      },
+    },
   });
 
 const teamStandingQuery = (competitionId: string, teamId: string) =>
@@ -51,7 +67,7 @@ const teamStandingQuery = (competitionId: string, teamId: string) =>
 const teamEditionRosterQuery = (competitionId: string, teamId: string) =>
   prisma.rosterMembership.findMany({
     where: {
-      editionEntry: { competitionId, teamId },
+      editionEntry: { competitionId, teamId, status: 'ACTIVE' },
       status: 'ACTIVE',
       validTo: null,
     },
@@ -115,7 +131,7 @@ const getTeamsForEditionIds = process.env.NODE_ENV === 'test'
 
 const getTeamBySlugForEditionIds = process.env.NODE_ENV === 'test'
   ? teamBySlugQuery
-  : unstable_cache(teamBySlugQuery, ['team-by-slug-v1'], {
+  : unstable_cache(teamBySlugQuery, ['team-by-slug-v2'], {
       revalidate: 3600,
       tags: ['teams'],
     });
@@ -139,7 +155,7 @@ export const getTeamStanding = process.env.NODE_ENV === 'test'
 
 export const getTeamEditionRoster = process.env.NODE_ENV === 'test'
   ? teamEditionRosterQuery
-  : unstable_cache(teamEditionRosterQuery, ['team-edition-roster-v2'], {
+  : unstable_cache(teamEditionRosterQuery, ['team-edition-roster-v3'], {
       revalidate: 3600,
       tags: ['teams', 'rosters'],
     });

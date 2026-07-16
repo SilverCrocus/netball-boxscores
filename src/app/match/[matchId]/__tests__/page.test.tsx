@@ -9,6 +9,7 @@ vi.mock('@/lib/db', () => ({
     match: {
       findUnique: vi.fn().mockResolvedValue({
         id: '1',
+        competitionId: 'ssn-2026',
         status: 'COMPLETED',
         homeScore: 64,
         awayScore: 58,
@@ -74,6 +75,19 @@ describe('MatchPage', () => {
     expect(screen.getAllByText('Elena Rodriguez').length).toBeGreaterThanOrEqual(1);
   });
 
+  it('uses the match canonical edition for every rendered player profile link', async () => {
+    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+    render(page);
+
+    expect(screen.getByRole('link', { name: 'Elena Rodriguez' })).toHaveAttribute(
+      'href',
+      '/player/p1?edition=ssn-2026',
+    );
+    for (const link of screen.getAllByRole('link', { name: 'Jade Clarke' })) {
+      expect(link).toHaveAttribute('href', '/player/p2?edition=ssn-2026');
+    }
+  });
+
   it('labels the top player as a NetPoints leader rather than an official MVP', async () => {
     const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
     render(page);
@@ -94,6 +108,7 @@ describe('MatchPage', () => {
     const query = vi.mocked(prisma.match.findUnique).mock.calls.at(-1)?.[0];
     expect(query?.select).not.toHaveProperty('matchEvents');
     expect(query?.select).toEqual(expect.objectContaining({
+      competitionId: true,
       _count: { select: { matchEvents: true } },
       playerStats: expect.objectContaining({
         select: expect.objectContaining({ player: expect.any(Object) }),
