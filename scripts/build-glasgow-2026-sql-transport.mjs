@@ -272,7 +272,7 @@ BEGIN
   SELECT
     gen_random_uuid()::text, import_run_id,
     mutation_sequence + row_number() OVER (ORDER BY match."scheduledAt", slot.side),
-    (CASE WHEN slot."resolvedEntryId" IS NULL THEN 'INSERT' ELSE 'UPDATE' END)::"ImportMutationOperation",
+    'INSERT'::"ImportMutationOperation",
     'MATCH_SLOT'::"ImportMutationTarget", slot.id, to_jsonb(slot)
   FROM "MatchSlot" slot
   JOIN "Match" match ON match.id = slot."matchId"

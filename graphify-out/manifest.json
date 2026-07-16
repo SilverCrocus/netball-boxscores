@@ -2025,8 +2025,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/next.config.ts": {
-    "mtime": 1784174864.5103827,
-    "ast_hash": "12cb1177be4ff5096d68b35cc76473ab",
+    "mtime": 1784180387.6474688,
+    "ast_hash": "204bdc143d4d8c644e405c441173b232",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/test-data/live-snapshots/match_129490301_20260328_180007.json": {
@@ -2165,8 +2165,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/scripts/build-glasgow-2026-source-bundle.mjs": {
-    "mtime": 1784179071.0913687,
-    "ast_hash": "7c85beb3f5356abd872b544178a2fa94",
+    "mtime": 1784180387.6470366,
+    "ast_hash": "d866fd503a23fb34f6b631ea8d0d3341",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/scripts/publish-edition.ts": {
@@ -2185,8 +2185,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/scripts/build-glasgow-2026-sql-transport.mjs": {
-    "mtime": 1784179095.4826052,
-    "ast_hash": "31b6bb2977ce78eaa7ef5d9a40b57c11",
+    "mtime": 1784180539.0103164,
+    "ast_hash": "74cff6cd20daeedaa7bed15202c2ddf1",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/scripts/import-glasgow-2026.ts": {
@@ -2205,13 +2205,13 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/data/glasgow-2026/v1/source-manifest.json": {
-    "mtime": 1784179130.0482113,
-    "ast_hash": "35426651a986e65bc7a3c83de9f74a15",
+    "mtime": 1784180394.1703734,
+    "ast_hash": "95195cd62c75b0b44e524f8e03f18583",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/data/glasgow-2026/v1/bundle.json": {
-    "mtime": 1784179130.0478754,
-    "ast_hash": "eeaa5499765bfd1426f1ba834f81e427",
+    "mtime": 1784180394.1697805,
+    "ast_hash": "0037cb5c1806f80cb5e738ed63119dea",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/test-setup.ts": {
@@ -2905,8 +2905,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/components/player/PlayerHero.tsx": {
-    "mtime": 1784179123.8294733,
-    "ast_hash": "81761864cea1658b8cc513c60239e1a5",
+    "mtime": 1784180556.3089359,
+    "ast_hash": "19cda6f0d77a52ed769b143851a3ada3",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/components/player/PlayerSeasonStats.tsx": {
@@ -2920,8 +2920,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/components/player/PlayerHero.test.tsx": {
-    "mtime": 1784179123.8299353,
-    "ast_hash": "aabf561f6e853eee38e495f41694e1b2",
+    "mtime": 1784180556.3091774,
+    "ast_hash": "3d374edbd0956b1c69559fd9d1fef857",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/components/player/position-config.ts": {
@@ -3275,8 +3275,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/lib/glasgow/source-bundle.test.ts": {
-    "mtime": 1784179071.091755,
-    "ast_hash": "2c14a890e65267b54487142e2e530994",
+    "mtime": 1784180387.6477318,
+    "ast_hash": "6bb2f6ad260db5a9404a0f47becceba8",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/lib/glasgow/edition.ts": {
@@ -4002,6 +4002,11 @@
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/app/icon.png": {
     "mtime": 1784174864.606684,
     "ast_hash": "6536133e0c760602669e72e6089f4ba8",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/lib/glasgow/sql-transport.test.ts": {
+    "mtime": 1784180539.0105832,
+    "ast_hash": "08f31e53d94c40cd542e6dfdb52a97d3",
     "semantic_hash": ""
   }
 }

@@ -85,5 +85,6 @@ describe('PlayerHero', () => {
       'href',
       'https://creativecommons.org/licenses/by-sa/4.0/',
     );
+    expect(screen.getByText(/cropped for display/)).toBeInTheDocument();
   });
 });

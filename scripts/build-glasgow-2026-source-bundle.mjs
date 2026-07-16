@@ -90,21 +90,21 @@ const slugify = (value) => value
 
 const photoEvidence = {
   'ENG-funmi-fadoju': {
-    photoUrl: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/England%20Netball%20player%20Funmi%20Fadoju.jpg',
+    photoUrl: 'https://upload.wikimedia.org/wikipedia/commons/3/34/England_Netball_player_Funmi_Fadoju.jpg',
     photoSourceUrl: 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg',
     photoCredit: 'Amy Martin Photography',
     photoLicense: 'CC BY-SA 4.0',
     photoVerifiedAt: retrievedAt,
   },
   'ENG-olivia-tchine': {
-    photoUrl: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/England%20Netball%20player%20Olivia%20Tchine.jpg',
+    photoUrl: 'https://upload.wikimedia.org/wikipedia/commons/6/6d/England_Netball_player_Olivia_Tchine.jpg',
     photoSourceUrl: 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Olivia_Tchine.jpg',
     photoCredit: 'Amy Martin Photography',
     photoLicense: 'CC BY-SA 4.0',
     photoVerifiedAt: retrievedAt,
   },
   'ENG-eleanor-cardwell': {
-    photoUrl: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Thunderbirds%20shooter%20Eleanor%20Cardwell.jpg',
+    photoUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4b/Thunderbirds_shooter_Eleanor_Cardwell.jpg',
     photoSourceUrl: 'https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg',
     photoCredit: 'トりン',
     photoLicense: 'CC BY-SA 4.0',

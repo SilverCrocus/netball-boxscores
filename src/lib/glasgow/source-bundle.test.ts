@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { NormalizedCompetitionImport } from '@/lib/sources/types';
+import nextConfig from '../../../next.config';
 
 const bundlePath = path.resolve('data/glasgow-2026/v1/bundle.json');
 const manifestPath = path.resolve('data/glasgow-2026/v1/source-manifest.json');
@@ -102,6 +103,11 @@ describe('Glasgow 2026 source bundle', () => {
       playerExternalId: 'WAL-phillipa-yarranton',
     }));
     expect(playersWithPhotos).toHaveLength(3);
+    expect(playersWithPhotos.map((player) => player.photoUrl).sort()).toEqual([
+      'https://upload.wikimedia.org/wikipedia/commons/3/34/England_Netball_player_Funmi_Fadoju.jpg',
+      'https://upload.wikimedia.org/wikipedia/commons/4/4b/Thunderbirds_shooter_Eleanor_Cardwell.jpg',
+      'https://upload.wikimedia.org/wikipedia/commons/6/6d/England_Netball_player_Olivia_Tchine.jpg',
+    ]);
     expect(playersWithPhotos.every((player) => (
       player.photoSourceUrl
       && player.photoCredit
@@ -110,5 +116,24 @@ describe('Glasgow 2026 source bundle', () => {
     ))).toBe(true);
     expect(bundle.results).toEqual([]);
     expect(bundle.coverage.every((coverage) => coverage.state === 'UNAVAILABLE')).toBe(true);
+  });
+
+  it('allows only the narrow Wikimedia image host and Commons path used by the bundle', async () => {
+    const { bundle } = await loadSourceBundle();
+    const playersWithPhotos = bundle.players.filter((player) => player.photoUrl);
+    const remotePatterns = nextConfig.images?.remotePatterns ?? [];
+
+    expect(remotePatterns).toContainEqual({
+      protocol: 'https',
+      hostname: 'upload.wikimedia.org',
+      pathname: '/wikipedia/commons/**',
+    });
+    expect(remotePatterns).not.toContainEqual(expect.objectContaining({ hostname: 'commons.wikimedia.org' }));
+    expect(playersWithPhotos.every((player) => {
+      const photoUrl = new URL(player.photoUrl!);
+      return photoUrl.protocol === 'https:'
+        && photoUrl.hostname === 'upload.wikimedia.org'
+        && photoUrl.pathname.startsWith('/wikipedia/commons/');
+    })).toBe(true);
   });
 });

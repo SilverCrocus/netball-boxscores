@@ -93,6 +93,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
                     {player.photoLicense}
                   </a>
                 ) : player.photoLicense}
+                {' · cropped for display'}
               </figcaption>
             )}
           </figure>
