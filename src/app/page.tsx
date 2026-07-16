@@ -19,6 +19,10 @@ import { resolveCompetition } from '@/lib/competitions';
 import { timedQuery } from '@/lib/server-timing';
 import Link from 'next/link';
 import Image from 'next/image';
+import {
+  isUpstreamPreviewMode,
+  loadUpstreamCompletedMatches,
+} from '@/lib/upstream-preview';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,33 +32,45 @@ export default async function HomePage() {
   let completedPage = { groups: [], nextCursor: null } as Awaited<ReturnType<typeof getCompletedMatchesPage>>;
   let season: number | null = null;
   let databaseUnavailable = false;
+  let usingUpstreamPreview = false;
 
-  try {
-    const { competition } = await timedQuery('competition_lookup', () => resolveCompetition());
-
-    if (competition) {
-      season = competition.season;
-      const baseWhere = { ...excludeSimData, competitionId: competition.id };
-      const [live, upcoming, history] = await Promise.all([
-        timedQuery('home_live_matches', () => prisma.match.findMany({
-          where: { ...baseWhere, status: 'LIVE' },
-          select: homepageMatchSelect,
-          orderBy: { scheduledAt: 'asc' },
-        })),
-        timedQuery('home_upcoming_matches', () => prisma.match.findMany({
-          where: { ...baseWhere, status: 'SCHEDULED' },
-          select: homepageMatchSelect,
-          orderBy: { scheduledAt: 'asc' },
-          take: 4,
-        })),
-        timedQuery('home_completed_history', () => getCompletedMatchesPage(competition.id)),
-      ]);
-      liveMatches = live.filter(hasResolvedMatchTeams);
-      upcomingMatches = upcoming.filter(hasResolvedMatchTeams);
-      completedPage = history;
+  if (isUpstreamPreviewMode()) {
+    const previewPage = await loadUpstreamCompletedMatches();
+    if (previewPage) {
+      completedPage = previewPage;
+      season = new Date().getFullYear();
+      usingUpstreamPreview = true;
+    } else {
+      databaseUnavailable = true;
     }
-  } catch {
-    databaseUnavailable = true;
+  } else {
+    try {
+      const { competition } = await timedQuery('competition_lookup', () => resolveCompetition());
+
+      if (competition) {
+        season = competition.season;
+        const baseWhere = { ...excludeSimData, competitionId: competition.id };
+        const [live, upcoming, history] = await Promise.all([
+          timedQuery('home_live_matches', () => prisma.match.findMany({
+            where: { ...baseWhere, status: 'LIVE' },
+            select: homepageMatchSelect,
+            orderBy: { scheduledAt: 'asc' },
+          })),
+          timedQuery('home_upcoming_matches', () => prisma.match.findMany({
+            where: { ...baseWhere, status: 'SCHEDULED' },
+            select: homepageMatchSelect,
+            orderBy: { scheduledAt: 'asc' },
+            take: 4,
+          })),
+          timedQuery('home_completed_history', () => getCompletedMatchesPage(competition.id)),
+        ]);
+        liveMatches = live.filter(hasResolvedMatchTeams);
+        upcomingMatches = upcoming.filter(hasResolvedMatchTeams);
+        completedPage = history;
+      }
+    } catch {
+      databaseUnavailable = true;
+    }
   }
 
   const featured = upcomingMatches[0];
@@ -111,6 +127,12 @@ export default async function HomePage() {
             The latest season is set up, but its match schedule has not been published.
           </p>
         </section>
+      )}
+
+      {usingUpstreamPreview && (
+        <p className="mb-8 rounded-xl border border-secondary/20 bg-secondary/5 px-4 py-3 font-label text-xs text-on-surface-variant">
+          Local preview: showing current CentrePass results through the hosted read-only API.
+        </p>
       )}
 
       {/* Live Matches */}

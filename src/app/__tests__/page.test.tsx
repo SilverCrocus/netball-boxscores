@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import HomePage from '../page';
 
 vi.mock('@/components/home/MyTeams', () => ({ MyTeams: () => null }));
@@ -107,6 +107,8 @@ const MATCHES = [
 
 describe('HomePage', () => {
   beforeEach(() => {
+    delete process.env.CENTREPASS_PREVIEW_DATA_MODE;
+    delete process.env.CENTREPASS_UPSTREAM_ORIGIN;
     findCompetitionsMock.mockReset().mockResolvedValue([{
       id: 'competition-2026',
       name: 'Suncorp Super Netball',
@@ -121,6 +123,12 @@ describe('HomePage', () => {
     findMatchesMock.mockReset().mockImplementation(({ where }: { where: { status: string } }) =>
       Promise.resolve(MATCHES.filter((match) => match.status === where.status)),
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.CENTREPASS_PREVIEW_DATA_MODE;
+    delete process.env.CENTREPASS_UPSTREAM_ORIGIN;
   });
 
   it('renders a state-aware live heading', async () => {
@@ -247,5 +255,38 @@ describe('HomePage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Scores temporarily unavailable');
     expect(screen.queryByText('No fixtures yet')).not.toBeInTheDocument();
+  });
+
+  it('renders hosted results in explicit localhost preview mode without querying the database', async () => {
+    process.env.CENTREPASS_PREVIEW_DATA_MODE = 'upstream';
+    process.env.CENTREPASS_UPSTREAM_ORIGIN = 'https://centrepass.example';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        groups: [{
+          label: 'Grand Final',
+          matches: [{
+            id: 'hosted-grand-final',
+            status: 'COMPLETED',
+            scheduledAt: '2026-07-04T09:30:00.000Z',
+            homeScore: 61,
+            awayScore: 40,
+            venue: 'John Cain Arena',
+            round: 3,
+            finalCode: 'GRAND',
+            homeTeam: { name: 'Adelaide Thunderbirds', abbreviation: 'THU', logoUrl: null },
+            awayTeam: { name: 'Melbourne Vixens', abbreviation: 'VIX', logoUrl: null },
+          }],
+        }],
+        nextCursor: null,
+      }),
+    }));
+
+    render(await HomePage());
+
+    expect(screen.getByText('RESULTS')).toBeInTheDocument();
+    expect(screen.getByText('Adelaide Thunderbirds')).toBeInTheDocument();
+    expect(screen.getByText(/Local preview: showing current CentrePass results/)).toBeInTheDocument();
+    expect(findCompetitionsMock).not.toHaveBeenCalled();
   });
 });
