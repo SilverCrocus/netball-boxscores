@@ -64,6 +64,11 @@ export function planCompetitionImport(
   };
 
   for (const team of input.teams) addWrite('TEAM', 'TEAM', team.externalId);
+  for (const team of input.teams) {
+    if (team.groupSlug && !context.knownGroupSlugs?.includes(team.groupSlug)) {
+      unresolved.push({ entityType: 'GROUP', externalId: team.groupSlug, referencedBy: `team:${team.externalId}` });
+    }
+  }
   for (const player of input.players) {
     if (!incomingTeams.has(player.teamExternalId) && !known('TEAM', player.teamExternalId)) {
       unresolved.push({ entityType: 'TEAM', externalId: player.teamExternalId, referencedBy: `player:${player.externalId}` });
@@ -89,12 +94,22 @@ export function planCompetitionImport(
     if (!context.knownStageSlugs.includes(match.stageSlug)) {
       unresolved.push({ entityType: 'STAGE', externalId: match.stageSlug, referencedBy: `match:${match.externalId}` });
     }
+    if (match.groupSlug && !context.knownGroupSlugs?.includes(match.groupSlug)) {
+      unresolved.push({ entityType: 'GROUP', externalId: match.groupSlug, referencedBy: `match:${match.externalId}` });
+    }
     for (const [side, value] of [['A', match.sideA], ['B', match.sideB]] as const) {
-      if (value.teamExternalId) {
+      const sourceType = value.sourceType ?? (value.teamExternalId ? 'TEAM' : 'UNRESOLVED');
+      if (sourceType === 'TEAM' && value.teamExternalId) {
         if (!incomingTeams.has(value.teamExternalId) && !known('TEAM', value.teamExternalId)) {
           unresolved.push({ entityType: 'TEAM', externalId: value.teamExternalId, referencedBy: `match:${match.externalId}:side${side}` });
         }
-      } else if (!context.allowUnresolvedMatches) {
+      } else if (sourceType === 'GROUP_RANK' && value.sourceGroupSlug && !context.knownGroupSlugs?.includes(value.sourceGroupSlug)) {
+        unresolved.push({ entityType: 'GROUP', externalId: value.sourceGroupSlug, referencedBy: `match:${match.externalId}:side${side}` });
+      } else if ((sourceType === 'MATCH_WINNER' || sourceType === 'MATCH_LOSER') && value.sourceMatchExternalId) {
+        if (!incomingMatches.has(value.sourceMatchExternalId) && !known('MATCH', value.sourceMatchExternalId)) {
+          unresolved.push({ entityType: 'MATCH', externalId: value.sourceMatchExternalId, referencedBy: `match:${match.externalId}:side${side}` });
+        }
+      } else if (sourceType === 'UNRESOLVED' && !context.allowUnresolvedMatches) {
         unresolved.push({ entityType: 'TEAM', externalId: value.sourceLabel ?? 'UNRESOLVED', referencedBy: `match:${match.externalId}:side${side}` });
       }
     }

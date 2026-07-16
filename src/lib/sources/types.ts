@@ -1,6 +1,8 @@
 import type {
   CoverageState,
   DataCapability,
+  EditionEntryStatus,
+  MatchSlotSourceType,
   MatchStatus,
   Position,
   SourceEntityType,
@@ -18,6 +20,9 @@ export interface NormalizedTeamInput {
   name: string;
   slug: string;
   abbreviation: string;
+  groupSlug?: string;
+  seed?: number;
+  status?: EditionEntryStatus;
 }
 
 export interface NormalizedPlayerInput {
@@ -42,6 +47,10 @@ export interface NormalizedRosterInput {
 
 export interface NormalizedMatchSideInput {
   teamExternalId?: string;
+  sourceType?: MatchSlotSourceType;
+  sourceGroupSlug?: string;
+  sourceRank?: number;
+  sourceMatchExternalId?: string;
   sourceLabel?: string;
 }
 
@@ -136,6 +145,7 @@ export interface ImportPlanningContext {
   competitionId: string;
   existingIdentities: ExistingSourceIdentity[];
   knownStageSlugs: string[];
+  knownGroupSlugs?: string[];
   standingsStrategyKey: string;
   allowUnresolvedMatches?: boolean;
 }

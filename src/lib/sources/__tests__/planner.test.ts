@@ -8,6 +8,7 @@ const planningContext = {
   competitionId: 'edition-id',
   existingIdentities: [],
   knownStageSlugs: ['pool-stage'],
+  knownGroupSlugs: ['pool-a', 'pool-b'],
   standingsStrategyKey: 'WORLD_NETBALL_2_1_0',
 };
 
@@ -75,5 +76,37 @@ describe('provider-scoped import planning', () => {
       expect.objectContaining({ entityType: 'TEAM', externalId: 'Pool B winner' }),
       expect.objectContaining({ entityType: 'MATCH', externalId: 'missing-match' }),
     ]));
+  });
+
+  it('validates pool entries and structured knockout match slots', () => {
+    const input = validImport();
+    input.teams[0].groupSlug = 'pool-a';
+    input.teams[1].groupSlug = 'pool-b';
+    input.matches.push({
+      externalId: 'semi-final-1',
+      stageSlug: 'pool-stage',
+      scheduledAt: '2026-08-01T09:00:00.000Z',
+      venue: 'SEC',
+      neutralVenue: true,
+      sideA: {
+        sourceType: 'GROUP_RANK',
+        sourceGroupSlug: 'pool-a',
+        sourceRank: 1,
+        sourceLabel: 'Pool A 1st',
+      },
+      sideB: {
+        sourceType: 'MATCH_WINNER',
+        sourceMatchExternalId: 'match-1',
+        sourceLabel: 'Winner of match 1',
+      },
+    });
+
+    const preview = planCompetitionImport(input, {
+      ...planningContext,
+      allowUnresolvedMatches: true,
+    });
+
+    expect(preview.valid).toBe(true);
+    expect(preview.unresolved).toEqual([]);
   });
 });

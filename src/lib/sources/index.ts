@@ -4,6 +4,7 @@ export * from '@/lib/sources/coverage';
 export * from '@/lib/sources/csv-adapter';
 export * from '@/lib/sources/identity';
 export * from '@/lib/sources/planner';
+export * from '@/lib/sources/prisma-writer';
 export * from '@/lib/sources/service';
 export * from '@/lib/sources/types';
 export * from '@/lib/sources/transactional-writer';

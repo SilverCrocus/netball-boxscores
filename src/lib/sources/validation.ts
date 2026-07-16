@@ -1,9 +1,16 @@
-import type { DataCapability, Position } from '@prisma/client';
+import type { DataCapability, MatchSlotSourceType, Position } from '@prisma/client';
 import { ALL_DATA_CAPABILITIES } from '@/lib/sources/coverage';
 import type { ImportIssueInput, NormalizedCompetitionImport } from '@/lib/sources/types';
 
 const POSITIONS = new Set<Position>(['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']);
 const CAPABILITIES = new Set<DataCapability>(ALL_DATA_CAPABILITIES);
+const SLOT_SOURCE_TYPES = new Set<MatchSlotSourceType>([
+  'TEAM',
+  'GROUP_RANK',
+  'MATCH_WINNER',
+  'MATCH_LOSER',
+  'UNRESOLVED',
+]);
 
 function required(
   issues: ImportIssueInput[],
@@ -64,6 +71,9 @@ export function validateNormalizedImport(input: NormalizedCompetitionImport): Im
     required(issues, team.name, 'teams.name', team.externalId);
     required(issues, team.slug, 'teams.slug', team.externalId);
     required(issues, team.abbreviation, 'teams.abbreviation', team.externalId);
+    if (team.seed !== undefined && (!Number.isInteger(team.seed) || team.seed < 1)) {
+      issues.push({ severity: 'ERROR', code: 'INVALID_SEED', message: 'Team seed must be a positive integer', fieldPath: 'teams.seed', externalId: team.externalId });
+    }
   }
   for (const player of input.players) {
     required(issues, player.externalId, 'players.externalId', player.externalId);
@@ -89,6 +99,20 @@ export function validateNormalizedImport(input: NormalizedCompetitionImport): Im
     required(issues, match.stageSlug, 'matches.stageSlug', match.externalId);
     if (Number.isNaN(new Date(match.scheduledAt).getTime())) {
       issues.push({ severity: 'ERROR', code: 'INVALID_DATETIME', message: 'Match scheduledAt must be an ISO date', externalId: match.externalId, fieldPath: 'matches.scheduledAt' });
+    }
+    for (const [sideName, side] of [['sideA', match.sideA], ['sideB', match.sideB]] as const) {
+      const sourceType = side.sourceType ?? (side.teamExternalId ? 'TEAM' : 'UNRESOLVED');
+      if (!SLOT_SOURCE_TYPES.has(sourceType)) {
+        issues.push({ severity: 'ERROR', code: 'INVALID_SLOT_SOURCE', message: `Unknown match slot source type: ${sourceType}`, externalId: match.externalId, fieldPath: `matches.${sideName}.sourceType` });
+      } else if (sourceType === 'TEAM' && !side.teamExternalId) {
+        issues.push({ severity: 'ERROR', code: 'MISSING_SLOT_TEAM', message: 'TEAM match slots require teamExternalId', externalId: match.externalId, fieldPath: `matches.${sideName}.teamExternalId` });
+      } else if (sourceType === 'GROUP_RANK' && (!side.sourceGroupSlug || !Number.isInteger(side.sourceRank) || (side.sourceRank ?? 0) < 1)) {
+        issues.push({ severity: 'ERROR', code: 'INVALID_GROUP_RANK_SLOT', message: 'GROUP_RANK match slots require a group slug and positive source rank', externalId: match.externalId, fieldPath: `matches.${sideName}` });
+      } else if ((sourceType === 'MATCH_WINNER' || sourceType === 'MATCH_LOSER') && !side.sourceMatchExternalId) {
+        issues.push({ severity: 'ERROR', code: 'MISSING_SOURCE_MATCH', message: `${sourceType} match slots require sourceMatchExternalId`, externalId: match.externalId, fieldPath: `matches.${sideName}.sourceMatchExternalId` });
+      } else if (sourceType === 'UNRESOLVED' && !side.sourceLabel) {
+        issues.push({ severity: 'ERROR', code: 'MISSING_SLOT_LABEL', message: 'UNRESOLVED match slots require a display label', externalId: match.externalId, fieldPath: `matches.${sideName}.sourceLabel` });
+      }
     }
   }
   for (const item of input.coverage) {

@@ -75,6 +75,9 @@ export class CsvCompetitionAdapter implements CompetitionSourceAdapter<Competiti
       name: row.name,
       slug: row.slug,
       abbreviation: row.abbreviation,
+      groupSlug: optional(row.groupSlug),
+      seed: row.seed ? Number(row.seed) : undefined,
+      status: optional(row.status) as NormalizedTeamInput['status'],
     }));
     const players = parseCsv(bundle.players).map((row): NormalizedPlayerInput => ({
       externalId: row.externalId,
@@ -104,8 +107,22 @@ export class CsvCompetitionAdapter implements CompetitionSourceAdapter<Competiti
       round: row.round ? Number(row.round) : undefined,
       roundLabel: optional(row.roundLabel),
       status: optional(row.status) as NormalizedMatchInput['status'],
-      sideA: { teamExternalId: optional(row.sideATeamExternalId), sourceLabel: optional(row.sideALabel) },
-      sideB: { teamExternalId: optional(row.sideBTeamExternalId), sourceLabel: optional(row.sideBLabel) },
+      sideA: {
+        teamExternalId: optional(row.sideATeamExternalId),
+        sourceType: optional(row.sideASourceType) as NormalizedMatchInput['sideA']['sourceType'],
+        sourceGroupSlug: optional(row.sideASourceGroupSlug),
+        sourceRank: row.sideASourceRank ? Number(row.sideASourceRank) : undefined,
+        sourceMatchExternalId: optional(row.sideASourceMatchExternalId),
+        sourceLabel: optional(row.sideALabel),
+      },
+      sideB: {
+        teamExternalId: optional(row.sideBTeamExternalId),
+        sourceType: optional(row.sideBSourceType) as NormalizedMatchInput['sideB']['sourceType'],
+        sourceGroupSlug: optional(row.sideBSourceGroupSlug),
+        sourceRank: row.sideBSourceRank ? Number(row.sideBSourceRank) : undefined,
+        sourceMatchExternalId: optional(row.sideBSourceMatchExternalId),
+        sourceLabel: optional(row.sideBLabel),
+      },
     }));
     const results = parseCsv(bundle.results).map((row): NormalizedResultInput => ({
       matchExternalId: row.matchExternalId,

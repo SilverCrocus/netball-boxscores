@@ -1,0 +1,238 @@
+import type { PrismaClient } from '@prisma/client';
+import { describe, expect, it, vi } from 'vitest';
+import { planCompetitionImport } from '@/lib/sources/planner';
+import { PrismaCompetitionImportWriter } from '@/lib/sources/prisma-writer';
+import { validImport } from '@/lib/sources/__tests__/fixtures';
+
+function createFakePrisma() {
+  let sequence = 0;
+  const nextId = (prefix: string) => `${prefix}-${++sequence}`;
+  const state = {
+    runs: new Map<string, Record<string, unknown>>(),
+    teams: new Map<string, Record<string, unknown>>(),
+    entries: new Map<string, Record<string, unknown>>(),
+    players: new Map<string, Record<string, unknown>>(),
+    rosters: new Map<string, Record<string, unknown>>(),
+    matches: new Map<string, Record<string, unknown>>(),
+    slots: new Map<string, Record<string, unknown>>(),
+    quarters: new Map<string, Record<string, unknown>>(),
+    mappings: new Map<string, Record<string, unknown>>(),
+    coverage: new Map<string, Record<string, unknown>>(),
+    mutations: [] as Record<string, unknown>[],
+    snapshots: new Map<string, Record<string, unknown>>(),
+  };
+  const create = (map: Map<string, Record<string, unknown>>, prefix: string) =>
+    vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+      const row = { id: data.id ?? nextId(prefix), ...data };
+      map.set(String(row.id), row);
+      return row;
+    });
+  const update = (map: Map<string, Record<string, unknown>>) =>
+    vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+      const row = { ...map.get(where.id), ...data, id: where.id };
+      map.set(where.id, row);
+      return row;
+    });
+
+  const tx = {
+    sourceSystem: {
+      findUnique: vi.fn(async () => ({
+        id: 'source-id',
+        key: 'manual',
+        rawPayloadStorageAllowed: true,
+      })),
+    },
+    editionSource: {
+      findUnique: vi.fn(async () => ({
+        id: 'edition-source-id',
+        competitionId: 'edition-id',
+        sourceSystemId: 'source-id',
+        externalId: 'test-2026',
+      })),
+      update: vi.fn(async ({ where, data }) => ({ id: where.id, ...data })),
+    },
+    importRun: {
+      findFirst: vi.fn(async ({ where }) =>
+        [...state.runs.values()].find((run) =>
+          run.sourceSystemId === where.sourceSystemId &&
+          run.competitionId === where.competitionId &&
+          run.checksum === where.checksum &&
+          run.status === where.status
+        ) ?? null),
+      create: create(state.runs, 'run'),
+      update: update(state.runs),
+    },
+    importIssue: { createMany: vi.fn(async () => ({ count: 0 })) },
+    importMutation: {
+      create: vi.fn(async ({ data }) => {
+        const row = { id: nextId('mutation'), ...data };
+        state.mutations.push(row);
+        return row;
+      }),
+    },
+    stage: {
+      findMany: vi.fn(async () => [{ id: 'stage-pool', slug: 'pool-stage' }]),
+    },
+    stageGroup: {
+      findMany: vi.fn(async () => [{
+        id: 'group-a',
+        slug: 'pool-a',
+        stageId: 'stage-pool',
+        stage: { slug: 'pool-stage' },
+      }]),
+    },
+    sourceEntityMapping: {
+      findMany: vi.fn(async () => [...state.mappings.values()]),
+      create: create(state.mappings, 'mapping'),
+      update: update(state.mappings),
+    },
+    team: {
+      findFirst: vi.fn(async ({ where }) =>
+        [...state.teams.values()].find((team) =>
+          team.competitionId === where.competitionId && team.slug === where.slug
+        ) ?? null),
+      findUnique: vi.fn(async ({ where }) => {
+        if (where.id) return state.teams.get(where.id) ?? null;
+        if (where.slug) return [...state.teams.values()].find((team) => team.slug === where.slug) ?? null;
+        return null;
+      }),
+      create: create(state.teams, 'team'),
+      update: update(state.teams),
+    },
+    editionEntry: {
+      findUnique: vi.fn(async ({ where }) => {
+        const key = where.competitionId_teamId;
+        return [...state.entries.values()].find((entry) =>
+          entry.competitionId === key.competitionId && entry.teamId === key.teamId
+        ) ?? null;
+      }),
+      create: create(state.entries, 'entry'),
+      update: update(state.entries),
+    },
+    player: {
+      findUnique: vi.fn(async ({ where }) => state.players.get(where.id) ?? null),
+      create: create(state.players, 'player'),
+      update: update(state.players),
+    },
+    rosterMembership: {
+      findFirst: vi.fn(async ({ where }) =>
+        [...state.rosters.values()].find((roster) =>
+          roster.editionEntryId === where.editionEntryId &&
+          roster.playerId === where.playerId &&
+          roster.validTo == null
+        ) ?? null),
+      create: create(state.rosters, 'roster'),
+      update: update(state.rosters),
+    },
+    match: {
+      findUnique: vi.fn(async ({ where }) => state.matches.get(where.id) ?? null),
+      findUniqueOrThrow: vi.fn(async ({ where }) => {
+        const row = state.matches.get(where.id);
+        if (!row) throw new Error('missing match');
+        return row;
+      }),
+      create: create(state.matches, 'match'),
+      update: update(state.matches),
+    },
+    matchSlot: {
+      findUnique: vi.fn(async ({ where }) => {
+        const key = where.matchId_side;
+        return [...state.slots.values()].find((slot) =>
+          slot.matchId === key.matchId && slot.side === key.side
+        ) ?? null;
+      }),
+      create: create(state.slots, 'slot'),
+      update: update(state.slots),
+    },
+    matchQuarter: {
+      findUnique: vi.fn(async ({ where }) => {
+        const key = where.matchId_quarter;
+        return [...state.quarters.values()].find((quarter) =>
+          quarter.matchId === key.matchId && quarter.quarter === key.quarter
+        ) ?? null;
+      }),
+      create: create(state.quarters, 'quarter'),
+      update: update(state.quarters),
+    },
+    dataCoverage: {
+      findFirst: vi.fn(async ({ where }) =>
+        [...state.coverage.values()].find((coverage) =>
+          coverage.competitionId === where.competitionId &&
+          coverage.matchId === where.matchId &&
+          coverage.capability === where.capability
+        ) ?? null),
+      create: create(state.coverage, 'coverage'),
+      update: update(state.coverage),
+    },
+    sourceSnapshot: {
+      findUnique: vi.fn(async ({ where }) =>
+        [...state.snapshots.values()].find((snapshot) => snapshot.dedupeKey === where.dedupeKey) ?? null),
+      create: create(state.snapshots, 'snapshot'),
+    },
+  };
+  const prisma = {
+    $transaction: vi.fn(async (callback) => callback(tx)),
+    importRun: tx.importRun,
+  } as unknown as PrismaClient;
+  return { prisma, state };
+}
+
+describe('PrismaCompetitionImportWriter', () => {
+  it('persists the validated canonical bundle and skips an exact replay', async () => {
+    const input = validImport();
+    input.teams[0].groupSlug = 'pool-a';
+    input.matches[0].groupSlug = 'pool-a';
+    input.results[0].periods = [
+      { period: 1, sideAScore: 15, sideBScore: 12 },
+    ];
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      knownGroupSlugs: ['pool-a'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    expect(preview.valid).toBe(true);
+
+    const { prisma, state } = createFakePrisma();
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+    });
+    const first = await writer.execute(input, preview);
+
+    expect(first.inserted).toBeGreaterThan(0);
+    expect(state.teams).toHaveLength(2);
+    expect(state.entries).toHaveLength(2);
+    expect(state.players).toHaveLength(1);
+    expect(state.rosters).toHaveLength(1);
+    expect(state.matches).toHaveLength(1);
+    expect(state.slots).toHaveLength(2);
+    expect(state.quarters).toHaveLength(1);
+    expect(state.coverage).toHaveLength(10);
+    expect([...state.players.values()][0]).toMatchObject({
+      photoUrl: 'https://cdn.example.test/player.jpg',
+      photoSourceUrl: 'https://example.test/media/player',
+      photoCredit: 'Example Photographer',
+      photoLicense: 'CC BY 4.0',
+    });
+    expect(state.mutations.map((mutation) => mutation.target)).toEqual(expect.arrayContaining([
+      'TEAM',
+      'EDITION_ENTRY',
+      'PLAYER',
+      'ROSTER_MEMBERSHIP',
+      'MATCH',
+      'MATCH_SLOT',
+      'MATCH_QUARTER',
+      'DATA_COVERAGE',
+      'SOURCE_ENTITY_MAPPING',
+    ]));
+
+    const second = await writer.execute(input, preview);
+    expect(second).toMatchObject({ inserted: 0, updated: 0, skipped: preview.writes.length });
+    expect(state.teams).toHaveLength(2);
+    expect(state.matches).toHaveLength(1);
+  });
+});
