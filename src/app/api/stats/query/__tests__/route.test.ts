@@ -79,6 +79,6 @@ describe('POST /api/stats/query', () => {
       audit: { parserVersion: 'centrepass-rules.v1', cache: 'MISS', asOf: '2026-07-04T09:30:00.000Z' },
     });
     expect(mocks.setCached).toHaveBeenCalled();
-    expect(mocks.telemetry).toHaveBeenCalledWith(expect.objectContaining({ question: 'Grace goals average', rateLimitKeyHash: 'hashed-client' }));
+    expect(mocks.telemetry).toHaveBeenCalledWith(expect.objectContaining({ question: 'Grace goals average' }));
   });
 });

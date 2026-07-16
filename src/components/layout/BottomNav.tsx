@@ -14,7 +14,8 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const primaryItems = NAV_ITEMS.filter((item) => item.href !== '/teams');
+  const primaryItems = NAV_ITEMS.filter((item) => !['/teams', '/explore'].includes(item.href));
+  const moreItems = NAV_ITEMS.filter((item) => ['/explore', '/teams'].includes(item.href));
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -51,14 +52,19 @@ export function BottomNav() {
             </button>
           </div>
           <GlobalSearch onNavigate={closeMore} />
-          <Link
-            href="/teams"
-            onClick={closeMore}
-            className="my-4 flex min-h-11 items-center gap-3 rounded-xl bg-surface-container-low px-4 font-headline text-sm font-bold"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined">groups</span>
-            Browse teams
-          </Link>
+          <div className="my-4 grid gap-2">
+            {moreItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={closeMore}
+                className="flex min-h-11 items-center gap-3 rounded-xl bg-surface-container-low px-4 font-headline text-sm font-bold"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
+                {item.href === '/teams' ? 'Browse teams' : 'Ask CentrePass'}
+              </Link>
+            ))}
+          </div>
           <div className="border-t border-outline-variant/20 pt-4">
             <AuthButton onNavigate={closeMore} />
           </div>
@@ -108,7 +114,7 @@ export function BottomNav() {
           aria-expanded={moreOpen}
           aria-controls="mobile-more-menu"
           onClick={() => setMoreOpen((open) => !open)}
-          className={`relative flex flex-col items-center justify-center rounded-xl px-4 py-1 transition-all ${moreOpen || pathname.startsWith('/teams') || pathname.startsWith('/settings') ? 'bg-lime-500 text-slate-950' : 'text-slate-500 hover:bg-slate-800'}`}
+          className={`relative flex flex-col items-center justify-center rounded-xl px-4 py-1 transition-all ${moreOpen || pathname.startsWith('/teams') || pathname.startsWith('/explore') || pathname.startsWith('/settings') ? 'bg-lime-500 text-slate-950' : 'text-slate-500 hover:bg-slate-800'}`}
         >
           <span aria-hidden="true" className="material-symbols-outlined">more_horiz</span>
           <span className="font-headline text-[10px] font-bold uppercase tracking-tight">More</span>

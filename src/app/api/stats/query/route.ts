@@ -40,12 +40,12 @@ export async function POST(request: Request): Promise<NextResponse<StatQueryResp
     const parsed = parseStatQuestion(question, context);
     if (parsed.status === 'NEEDS_CLARIFICATION') {
       const latencyMs = Math.round(performance.now() - started);
-      await writeQueryTelemetry({ question, parseResult: parsed, rateLimitKeyHash: keyHash, resultStatus: parsed.status, resultCount: 0, latencyMs });
+      await writeQueryTelemetry({ question, parseResult: parsed, resultStatus: parsed.status, resultCount: 0, latencyMs });
       return NextResponse.json({ status: parsed.status, question, clarification: { reason: parsed.reason, question: parsed.question, options: parsed.options }, audit: { parserVersion: parsed.parserVersion, latencyMs, cache: 'MISS' } });
     }
     if (parsed.status === 'UNSUPPORTED') {
       const latencyMs = Math.round(performance.now() - started);
-      await writeQueryTelemetry({ question, parseResult: parsed, rateLimitKeyHash: keyHash, resultStatus: parsed.status, resultCount: 0, latencyMs, errorCode: parsed.code });
+      await writeQueryTelemetry({ question, parseResult: parsed, resultStatus: parsed.status, resultCount: 0, latencyMs, errorCode: parsed.code });
       return NextResponse.json({ status: parsed.status, question, error: { code: parsed.code, message: parsed.message, retryable: false }, audit: { parserVersion: parsed.parserVersion, latencyMs, cache: 'MISS' } }, { status: 400 });
     }
 
@@ -55,7 +55,7 @@ export async function POST(request: Request): Promise<NextResponse<StatQueryResp
     const executed = cached ?? await withStatQueryTimeout(executeQuerySpec(parsed.spec), STAT_QUERY_LIMITS.timeoutMs);
     if (!cached) setCachedResult(key, executed);
     const latencyMs = Math.round(performance.now() - started);
-    await writeQueryTelemetry({ question, parseResult: parsed, rateLimitKeyHash: keyHash, resultStatus: 'READY', resultCount: resultCount(executed.result), latencyMs });
+    await writeQueryTelemetry({ question, parseResult: parsed, resultStatus: 'READY', resultCount: resultCount(executed.result), latencyMs });
     return NextResponse.json({
       status: 'READY', question, interpretation: parsed.interpretation, spec: parsed.spec,
       answer: executed.answer, result: executed.result,

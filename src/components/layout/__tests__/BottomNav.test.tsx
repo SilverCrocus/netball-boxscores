@@ -38,6 +38,7 @@ describe('BottomNav', () => {
     expect(screen.getByText('Standings').closest('a')).toHaveAttribute('href', '/standings');
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
     expect(screen.getByRole('link', { name: /Browse teams/ })).toHaveAttribute('href', '/teams');
+    expect(screen.getByRole('link', { name: /^Ask CentrePass$/ })).toHaveAttribute('href', '/explore');
   });
 
   it('renders material icons', () => {

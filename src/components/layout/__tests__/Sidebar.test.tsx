@@ -34,6 +34,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('Live')).toBeInTheDocument();
     expect(screen.getByText('Standings')).toBeInTheDocument();
+    expect(screen.getByText('Ask CentrePass')).toBeInTheDocument();
     expect(screen.getByText('Teams')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', '/auth/signin');
   });
@@ -42,6 +43,7 @@ describe('Sidebar', () => {
     render(<Sidebar />);
     expect(screen.getByText('Home').closest('a')).toHaveAttribute('href', '/');
     expect(screen.getByText('Standings').closest('a')).toHaveAttribute('href', '/standings');
+    expect(screen.getByText('Ask CentrePass').closest('a')).toHaveAttribute('href', '/explore');
     expect(screen.getByText('Teams').closest('a')).toHaveAttribute('href', '/teams');
   });
 

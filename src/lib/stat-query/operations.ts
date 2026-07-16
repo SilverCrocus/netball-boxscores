@@ -25,14 +25,32 @@ export function rateLimitKey(identifier: string, now = new Date()): string {
 }
 
 export async function checkDurableRateLimit(keyHash: string): Promise<{ allowed: boolean; remaining: number }> {
-  const rows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
-    SELECT COUNT(*)::BIGINT AS count
-    FROM analytics.query_telemetry
-    WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '1 minute'
-      AND query_spec ->> 'rateLimitKeyHash' = ${keyHash}
-  `);
-  const count = Number(rows[0]?.count ?? 0);
-  return { allowed: count < RATE_LIMIT, remaining: Math.max(0, RATE_LIMIT - count - 1) };
+  return prisma.$transaction(async (transaction) => {
+    await transaction.$queryRaw(Prisma.sql`
+      WITH rate_limit_lock AS (
+        SELECT pg_advisory_xact_lock(hashtextextended(${keyHash}, 0))
+      )
+      SELECT 1::INTEGER AS locked FROM rate_limit_lock
+    `);
+    const rows = await transaction.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT COUNT(*)::BIGINT AS count
+      FROM analytics.query_telemetry
+      WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '1 minute'
+        AND result_status = 'RATE_LIMIT_RESERVATION'
+        AND query_spec ->> 'rateLimitKeyHash' = ${keyHash}
+    `);
+    const count = Number(rows[0]?.count ?? 0);
+    if (count >= RATE_LIMIT) return { allowed: false, remaining: 0 };
+
+    const reservation = JSON.stringify({ rateLimitKeyHash: keyHash });
+    await transaction.$executeRaw(Prisma.sql`
+      INSERT INTO analytics.query_telemetry
+        (question_hash, query_spec, parser_version, result_status, result_count, latency_ms)
+      VALUES
+        ('rate-limit-reservation', ${reservation}::JSONB, 'rate-limit.v1', 'RATE_LIMIT_RESERVATION', 0, 0)
+    `);
+    return { allowed: true, remaining: Math.max(0, RATE_LIMIT - count - 1) };
+  });
 }
 
 export async function analyticsRevision(): Promise<string> {
@@ -76,14 +94,13 @@ export async function withStatQueryTimeout<T>(operation: Promise<T>, timeoutMs: 
 export async function writeQueryTelemetry(input: {
   question: string;
   parseResult: ParseResult;
-  rateLimitKeyHash: string;
   resultStatus: string;
   resultCount: number;
   latencyMs: number;
   errorCode?: string;
 }): Promise<void> {
   const querySpec = input.parseResult.status === 'READY' ? input.parseResult.spec : null;
-  const payload = JSON.stringify({ spec: querySpec, rateLimitKeyHash: input.rateLimitKeyHash });
+  const payload = querySpec ? JSON.stringify(querySpec) : null;
   await prisma.$executeRaw(Prisma.sql`
     INSERT INTO analytics.query_telemetry
       (question_hash, query_spec, parser_version, result_status, result_count, latency_ms, error_code)

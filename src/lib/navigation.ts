@@ -16,5 +16,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/rankings', label: 'Rankings', icon: 'workspace_premium' },
   { href: '/records', label: 'Records', icon: 'trophy' },
   { href: '/compare/players', label: 'Compare', icon: 'compare_arrows' },
+  { href: '/explore', label: 'Ask', icon: 'query_stats', sidebarLabel: 'Ask CentrePass' },
   { href: '/teams', label: 'Teams', icon: 'groups' },
 ];

@@ -66,4 +66,9 @@ describe('GlobalSearch', () => {
 
     expect(pushMock).toHaveBeenCalledWith('/player/player-1');
   });
+
+  it('keeps entity search separate while linking to Ask CentrePass', () => {
+    render(<GlobalSearch />);
+    expect(screen.getByRole('link', { name: /Ask CentrePass about statistics/ })).toHaveAttribute('href', '/explore');
+  });
 });
