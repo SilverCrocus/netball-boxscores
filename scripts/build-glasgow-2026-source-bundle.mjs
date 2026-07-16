@@ -78,7 +78,7 @@ const squadRows = [
   ['WAL', 'Georgia Rowe', 'GS'],
   ['WAL', 'Poppy Tydeman', 'WD'],
   ['WAL', 'Lowri Windsor', 'WA'],
-  ['WAL', 'Philippa Yarranton', 'GA'],
+  ['WAL', 'Phillipa Yarranton', 'GA'],
 ];
 
 const slugify = (value) => value

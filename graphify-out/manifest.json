@@ -2165,8 +2165,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/scripts/build-glasgow-2026-source-bundle.mjs": {
-    "mtime": 1784175502.972174,
-    "ast_hash": "7bdcee2866c818762cf205806ed5230a",
+    "mtime": 1784178740.8968425,
+    "ast_hash": "212332049e1bd67b74b2dd533d82e2a2",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/scripts/publish-edition.ts": {
@@ -2205,13 +2205,13 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/data/glasgow-2026/v1/source-manifest.json": {
-    "mtime": 1784175508.2789426,
-    "ast_hash": "751a9c1206e1b0e92a4034f8efd475e7",
+    "mtime": 1784178745.4546387,
+    "ast_hash": "fdfe5518118b9d07bbe5efec91957b91",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/data/glasgow-2026/v1/bundle.json": {
-    "mtime": 1784175508.2784421,
-    "ast_hash": "23064c73cd64581b68a48f8963c5c00e",
+    "mtime": 1784178745.4538743,
+    "ast_hash": "2b0fa783b866294250661f7004149113",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/test-setup.ts": {
@@ -3275,8 +3275,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/lib/glasgow/source-bundle.test.ts": {
-    "mtime": 1784175526.6625285,
-    "ast_hash": "d97db57599e48352a7ad5e121600e48c",
+    "mtime": 1784178810.5352578,
+    "ast_hash": "79e91e288ff5636b1c6191ac0079eca4",
     "semantic_hash": ""
   },
   "/Users/diyagamah/.codex/worktrees/ab63/netball-boxscores/src/lib/glasgow/edition.ts": {

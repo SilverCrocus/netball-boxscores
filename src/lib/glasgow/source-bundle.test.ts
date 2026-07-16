@@ -60,6 +60,14 @@ describe('Glasgow 2026 source bundle', () => {
     expect(bundle.rosters).toHaveLength(48);
     expect(Object.keys(playerCounts).sort()).toEqual(['ENG', 'NZL', 'SCO', 'WAL']);
     expect(Object.values(playerCounts).every((players) => players?.length === 12)).toBe(true);
+    expect(bundle.players).toContainEqual(expect.objectContaining({
+      externalId: 'WAL-phillipa-yarranton',
+      name: 'Phillipa Yarranton',
+    }));
+    expect(bundle.players.some((player) => player.name === 'Philippa Yarranton')).toBe(false);
+    expect(bundle.rosters).toContainEqual(expect.objectContaining({
+      playerExternalId: 'WAL-phillipa-yarranton',
+    }));
     expect(playersWithPhotos).toHaveLength(3);
     expect(playersWithPhotos.every((player) => (
       player.photoSourceUrl

@@ -4,7 +4,7 @@
   "edition": "glasgow-2026",
   "generatedAt": "2026-07-16T04:15:40.000Z",
   "bundleFile": "bundle.json",
-  "bundleFileSha256": "da5e2f94662050b494611e97c57a8fb04723a9609a48c764123abb31142212ae",
+  "bundleFileSha256": "ff8ebb9ccddafd8846a2f761cb75dffe42452d195925df95367634e67d0c5ed2",
   "declarations": {
     "sourceTimezone": "Europe/London",
     "scheduleLocalAbbreviation": "BST",
