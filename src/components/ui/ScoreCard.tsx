@@ -21,6 +21,8 @@ interface ScoreCardMatch {
   currentQuarter?: number | null;
   currentTime?: string | null;
   round?: number | null;
+  roundLabel?: string | null;
+  stageName?: string | null;
   finalCode?: string | null;
   venue?: string;
   scheduledAt?: string | Date;
@@ -39,6 +41,11 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
   const matchHref = isLive ? `/match/${match.id}/live` : `/match/${match.id}`;
   const homeWon = isCompleted && match.homeScore > match.awayScore;
   const awayWon = isCompleted && match.awayScore > match.homeScore;
+  const hasStageContext = match.round != null
+    || Boolean(match.finalCode || match.roundLabel || match.stageName);
+  const stageLabel = hasStageContext
+    ? formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stageName)
+    : null;
 
   return (
     <Link
@@ -113,11 +120,11 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
       </div>
 
       {/* Footer */}
-      {(match.round || match.venue) && (
+      {(match.scheduledAt || stageLabel || match.venue) && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-surface-container pt-4">
           <span className="min-w-0 flex-1 text-[10px] font-medium text-on-surface-variant uppercase font-label break-words">
             {match.scheduledAt && formatMatchDate(match.scheduledAt)}
-            {match.round && ` \u2022 ${formatMatchStage(match.round, match.finalCode)}`}
+            {stageLabel && ` \u2022 ${stageLabel}`}
             {match.venue && ` \u2022 ${match.venue}`}
           </span>
           <span className="text-secondary font-bold text-xs flex items-center gap-1 group-hover:gap-2 transition-all">

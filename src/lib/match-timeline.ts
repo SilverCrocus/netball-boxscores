@@ -5,6 +5,7 @@ import type {
   MatchTimelineEventType,
   MatchTimelineResponse,
 } from '@/types/match-timeline';
+import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 
 export const MATCH_TIMELINE_PAGE_SIZE = 75;
 
@@ -105,7 +106,16 @@ export async function loadMatchTimeline(
             homeScore: true,
             awayScore: true,
             scorePoints: true,
-            scorerPlayer: { select: { id: true, name: true, photoUrl: true } },
+            scorerPlayer: {
+              select: {
+                id: true,
+                name: true,
+                photoUrl: true,
+                photoSourceUrl: true,
+                photoCredit: true,
+                photoLicense: true,
+              },
+            },
           },
           orderBy: [{ period: 'desc' }, { periodSeconds: 'desc' }, { id: 'desc' }],
           take: limit + 1,
@@ -120,7 +130,16 @@ export async function loadMatchTimeline(
             periodSeconds: true,
             type: true,
             teamId: true,
-            player: { select: { id: true, name: true, photoUrl: true } },
+            player: {
+              select: {
+                id: true,
+                name: true,
+                photoUrl: true,
+                photoSourceUrl: true,
+                photoCredit: true,
+                photoLicense: true,
+              },
+            },
           },
           orderBy: [{ period: 'desc' }, { periodSeconds: 'desc' }, { id: 'desc' }],
           take: limit + 1,
@@ -140,7 +159,9 @@ export async function loadMatchTimeline(
       scorePoints: score.scorePoints,
       playerId: score.scorerPlayer?.id,
       playerName: score.scorerPlayer?.name,
-      playerPhotoUrl: score.scorerPlayer?.photoUrl,
+      playerPhotoUrl: score.scorerPlayer
+        ? secondaryPlayerPhotoUrl(score.scorerPlayer)
+        : null,
     })),
     ...events.map((event) => ({
       id: event.id,
@@ -151,7 +172,7 @@ export async function loadMatchTimeline(
       teamId: event.teamId,
       playerId: event.player.id,
       playerName: event.player.name,
-      playerPhotoUrl: event.player.photoUrl,
+      playerPhotoUrl: secondaryPlayerPhotoUrl(event.player),
     })),
   ]
     .filter((entry) => !cursor || compareNewest(cursorFor(entry), cursor) > 0)

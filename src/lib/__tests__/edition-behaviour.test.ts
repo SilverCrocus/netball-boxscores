@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveCapability, resolveEditionFeatures, isFinalFixture } from '@/lib/edition-capabilities';
-import { projectMatchSides } from '@/lib/edition-match';
+import { hasResolvedMatchTeams, projectMatchSides } from '@/lib/edition-match';
 import { periodLabel, pointsForResult, stageLabel } from '@/lib/edition-rules';
 import { formatEditionMatchTimes } from '@/lib/edition-time';
 
@@ -28,6 +28,16 @@ describe('edition capability gates', () => {
 });
 
 describe('provider-neutral match projections', () => {
+  it('accepts resolved tournament teams without requiring a numerical round', () => {
+    expect(hasResolvedMatchTeams({
+      homeTeamId: 'eng',
+      awayTeamId: 'sco',
+      round: null,
+      homeTeam: { id: 'eng' },
+      awayTeam: { id: 'sco' },
+    })).toBe(true);
+  });
+
   it('renders neutral unresolved fixtures without home-away claims', () => {
     const projected = projectMatchSides({
       neutralVenue: true,

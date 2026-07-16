@@ -16,6 +16,8 @@ function result(id: string, round: number): HomeResultCard {
     awayScore: 58,
     venue: 'Arena',
     round,
+    roundLabel: null,
+    stageName: null,
     finalCode: null,
     homeTeam: { name: 'Vipers', abbreviation: 'VIP', logoUrl: null },
     awayTeam: { name: 'Stars', abbreviation: 'STA', logoUrl: null },

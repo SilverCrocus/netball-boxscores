@@ -26,15 +26,12 @@ async function loadSourceBundle() {
 }
 
 describe('Glasgow 2026 source bundle', () => {
-  it('matches the audited file checksum and stays gated as draft', async () => {
+  it('matches the audited file checksum and has no remaining public-surface blockers', async () => {
     const { bundleText, manifest } = await loadSourceBundle();
 
     expect(createHash('sha256').update(bundleText).digest('hex')).toBe(manifest.bundleFileSha256);
     expect(manifest.declarations.publicationStatusRequired).toBe('DRAFT');
-    expect(manifest.declarations.publicationBlockers).toEqual([
-      expect.stringContaining('roundLabel'),
-      expect.stringContaining('team and match thumbnails or Open Graph images'),
-    ]);
+    expect(manifest.declarations.publicationBlockers).toEqual([]);
   });
 
   it('contains the complete tournament structure without inventing unresolved teams', async () => {

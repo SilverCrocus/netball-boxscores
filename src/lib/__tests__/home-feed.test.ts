@@ -27,7 +27,9 @@ function match(overrides: Partial<HomepageMatch> = {}): HomepageMatch {
     awayScore: 58,
     venue: 'Arena',
     round: 10,
+    roundLabel: null,
     finalCode: null,
+    stage: null,
     currentQuarter: null,
     currentTime: null,
     homeTeamId: 'home',
@@ -79,6 +81,19 @@ describe('home results feed', () => {
     ]);
 
     expect(groups.map((group) => group.label)).toEqual(['Grand Final', 'Round 14']);
+  });
+
+  it('groups tournament matches by their explicit published label without a numerical round', () => {
+    const groups = groupCompletedMatches([
+      match({
+        id: 'pool-a-day-one',
+        round: null,
+        roundLabel: 'Pool A — 25 July',
+        stage: { name: 'Pool Stage' },
+      }),
+    ]);
+
+    expect(groups.map((group) => group.label)).toEqual(['Pool A — 25 July']);
   });
 
   it('derives useful headings from the current season state', () => {

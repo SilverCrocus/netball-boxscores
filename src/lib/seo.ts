@@ -49,11 +49,11 @@ export function sportsEventJsonLd(match: {
   scheduledAt: Date | string;
   homeScore: number;
   awayScore: number;
-  round: number;
+  matchLabel: string;
 }) {
   return {
     '@type': 'SportsEvent',
-    name: `${match.homeTeamName} vs ${match.awayTeamName} - Round ${match.round}`,
+    name: `${match.homeTeamName} vs ${match.awayTeamName} - ${match.matchLabel}`,
     startDate: new Date(match.scheduledAt).toISOString(),
     location: {
       '@type': 'Place',

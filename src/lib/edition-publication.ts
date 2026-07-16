@@ -30,11 +30,6 @@ export function evaluateEditionPublicationReadiness(
   if (input.matchCount < MIN_PUBLIC_EDITION_MATCHES) {
     blockers.push(`requires at least ${MIN_PUBLIC_EDITION_MATCHES} match; found ${input.matchCount}`);
   }
-  if (input.editionSlug === 'glasgow-2026') {
-    blockers.push('Glasgow pool-stage public surfaces must render roundLabel or stage context before publication');
-    blockers.push('Glasgow reused-photo thumbnails and Open Graph images require user-visible attribution before publication');
-  }
-
   return { ready: blockers.length === 0, blockers };
 }
 

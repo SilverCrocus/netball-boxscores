@@ -42,7 +42,9 @@ interface MatchEventData {
 
 interface MatchData {
   id: string;
-  round: number;
+  round: number | null;
+  roundLabel?: string | null;
+  stageName?: string | null;
   finalCode?: string | null;
   venue: string;
   status: string;
@@ -394,6 +396,8 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         awayScore={awayScore}
         round={match.round}
         finalCode={match.finalCode}
+        roundLabel={match.roundLabel}
+        stageName={match.stageName}
         venue={match.venue}
         currentQuarter={quarter}
         currentTime={time}

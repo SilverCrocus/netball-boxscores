@@ -121,6 +121,18 @@ describe('ScoreCard', () => {
     expect(screen.getByText('(63.3)')).toBeInTheDocument();
   });
 
+  it('shows a tournament round label when no numerical round exists', () => {
+    render(<ScoreCard match={{
+      ...scheduledMatch,
+      round: null,
+      roundLabel: 'Pool A — 25 July',
+      stageName: 'Pool Stage',
+    }} />);
+
+    expect(screen.getByText(/Pool A — 25 July/)).toBeInTheDocument();
+    expect(screen.queryByText(/Round null/)).not.toBeInTheDocument();
+  });
+
   it('does not show breakdown when no super shots', () => {
     render(<ScoreCard match={{
       ...completedMatch,

@@ -30,9 +30,12 @@ export interface MatchProjectionInput {
   slots?: readonly ProjectableSlot[];
 }
 
-interface LegacyMatchIdentity {
+interface MatchTeamIdentity {
   homeTeamId: string | null;
   awayTeamId: string | null;
+}
+
+interface LegacyMatchIdentity extends MatchTeamIdentity {
   round: number | null;
 }
 
@@ -40,19 +43,22 @@ type ResolvedRelation<T, K extends PropertyKey> = K extends keyof T
   ? { [P in K]-?: NonNullable<T[P]> }
   : unknown;
 
-export type ResolvedLegacyMatch<T extends LegacyMatchIdentity> = T & {
+export type ResolvedMatchTeams<T extends MatchTeamIdentity> = T & {
   homeTeamId: string;
   awayTeamId: string;
-  round: number;
 } & ResolvedRelation<T, 'homeTeam'> & ResolvedRelation<T, 'awayTeam'>;
 
+export type ResolvedLegacyMatch<T extends LegacyMatchIdentity> = ResolvedMatchTeams<T> & {
+  round: number;
+};
+
 /**
- * Legacy SSN surfaces call this before rendering a match. Tournament-aware
- * pages use projectMatchSides instead and can retain unresolved fixtures.
+ * Public match surfaces only require both teams to be resolved. Tournament
+ * fixtures can intentionally have no numerical round and use roundLabel/stage.
  */
-export function hasResolvedLegacyMatch<T extends LegacyMatchIdentity>(
-  match: T
-): match is ResolvedLegacyMatch<T> {
+export function hasResolvedMatchTeams<T extends MatchTeamIdentity>(
+  match: T,
+): match is ResolvedMatchTeams<T> {
   const relations = match as T & {
     homeTeam?: unknown | null;
     awayTeam?: unknown | null;
@@ -60,9 +66,17 @@ export function hasResolvedLegacyMatch<T extends LegacyMatchIdentity>(
 
   return match.homeTeamId !== null
     && match.awayTeamId !== null
-    && match.round !== null
     && (!('homeTeam' in relations) || relations.homeTeam != null)
     && (!('awayTeam' in relations) || relations.awayTeam != null);
+}
+
+/**
+ * Legacy ingestion paths use this where a numerical round is still required.
+ */
+export function hasResolvedLegacyMatch<T extends LegacyMatchIdentity>(
+  match: T
+): match is ResolvedLegacyMatch<T> {
+  return hasResolvedMatchTeams(match) && match.round !== null;
 }
 
 function slotFor(input: MatchProjectionInput, side: 'A' | 'B'): ProjectableSlot | undefined {

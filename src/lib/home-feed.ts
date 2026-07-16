@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { unstable_cache } from 'next/cache';
 import { prisma, excludeSimData } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
-import { hasResolvedLegacyMatch, type ResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams, type ResolvedMatchTeams } from '@/lib/edition-match';
 
 export const HOME_RESULTS_PAGE_SIZE = 8;
 
@@ -14,7 +14,9 @@ export const homepageMatchSelect = {
   awayScore: true,
   venue: true,
   round: true,
+  roundLabel: true,
   finalCode: true,
+  stage: { select: { name: true } },
   currentQuarter: true,
   currentTime: true,
   homeTeamId: true,
@@ -25,7 +27,7 @@ export const homepageMatchSelect = {
 } satisfies Prisma.MatchSelect;
 
 export type HomepageMatch = Prisma.MatchGetPayload<{ select: typeof homepageMatchSelect }>;
-export type ResolvedHomepageMatch = ResolvedLegacyMatch<HomepageMatch>;
+export type ResolvedHomepageMatch = ResolvedMatchTeams<HomepageMatch>;
 
 interface ScoreBreakdown {
   goals: number;
@@ -39,7 +41,9 @@ export interface HomeResultCard {
   homeScore: number;
   awayScore: number;
   venue: string;
-  round: number;
+  round: number | null;
+  roundLabel: string | null;
+  stageName: string | null;
   finalCode: string | null;
   homeTeam: NonNullable<HomepageMatch['homeTeam']>;
   awayTeam: NonNullable<HomepageMatch['awayTeam']>;
@@ -86,6 +90,8 @@ function toResultCard(match: ResolvedHomepageMatch): HomeResultCard {
     awayScore: match.awayScore,
     venue: match.venue,
     round: match.round,
+    roundLabel: match.roundLabel,
+    stageName: match.stage?.name ?? null,
     finalCode: match.finalCode,
     homeTeam: match.homeTeam,
     awayTeam: match.awayTeam,
@@ -97,8 +103,8 @@ export function groupCompletedMatches(matches: HomepageMatch[]): HomeResultGroup
   const grouped = new Map<string, HomeResultCard[]>();
 
   for (const match of matches) {
-    if (!hasResolvedLegacyMatch(match)) continue;
-    const label = formatMatchStage(match.round, match.finalCode);
+    if (!hasResolvedMatchTeams(match)) continue;
+    const label = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
     const group = grouped.get(label) ?? [];
     group.push(toResultCard(match));
     grouped.set(label, group);
@@ -147,7 +153,6 @@ export async function loadCompletedMatchesPage(
       status: 'COMPLETED',
       homeTeamId: { not: null },
       awayTeamId: { not: null },
-      round: { not: null },
       ...(cursorDate && decodedCursor
         ? {
             OR: [
@@ -162,7 +167,7 @@ export async function loadCompletedMatchesPage(
     take: HOME_RESULTS_PAGE_SIZE + 1,
   });
 
-  const pageMatches = matches.filter(hasResolvedLegacyMatch).slice(0, HOME_RESULTS_PAGE_SIZE);
+  const pageMatches = matches.filter(hasResolvedMatchTeams).slice(0, HOME_RESULTS_PAGE_SIZE);
   const hasMore = matches.length > HOME_RESULTS_PAGE_SIZE;
   const lastMatch = pageMatches.at(-1);
 

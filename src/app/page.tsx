@@ -14,7 +14,7 @@ import {
   homepageMatchSelect,
   type ResolvedHomepageMatch,
 } from '@/lib/home-feed';
-import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { resolveCompetition } from '@/lib/competitions';
 import { timedQuery } from '@/lib/server-timing';
 import Link from 'next/link';
@@ -49,8 +49,8 @@ export default async function HomePage() {
         })),
         timedQuery('home_completed_history', () => getCompletedMatchesPage(competition.id)),
       ]);
-      liveMatches = live.filter(hasResolvedLegacyMatch);
-      upcomingMatches = upcoming.filter(hasResolvedLegacyMatch);
+      liveMatches = live.filter(hasResolvedMatchTeams);
+      upcomingMatches = upcoming.filter(hasResolvedMatchTeams);
       completedPage = history;
     }
   } catch {
@@ -157,7 +157,12 @@ export default async function HomePage() {
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-lime-400 font-black font-label text-xs uppercase tracking-widest">
-                      Next Match &middot; {formatMatchStage(featured.round, featured.finalCode)}
+                      Next Match &middot; {formatMatchStage(
+                        featured.round,
+                        featured.finalCode,
+                        featured.roundLabel,
+                        featured.stage?.name,
+                      )}
                     </span>
                     <Countdown scheduledAt={featured.scheduledAt.toISOString()} />
                   </div>

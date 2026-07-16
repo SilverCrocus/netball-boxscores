@@ -97,10 +97,11 @@
     },
     "resultCoverage": "UNAVAILABLE — the tournament has not started.",
     "publicationStatusRequired": "DRAFT",
-    "publicationBlockers": [
-      "Public match surfaces must render Glasgow pool-stage roundLabel or stage context instead of a numerical Round N before publication.",
-      "Reused player photos shown in team and match thumbnails or Open Graph images need a user-visible attribution treatment before publication; player profiles expose the required source, credit, and licence links."
-    ]
+    "publicationBlockers": [],
+    "publicSurfacePolicy": {
+      "matchLabels": "Use roundLabel first, then final code, numerical round, or stage name.",
+      "reusablePlayerPhotos": "Show sourced reusable photos only on attributed player profiles; secondary thumbnails and Open Graph cards use initials."
+    }
   },
   "sources": [
     {
