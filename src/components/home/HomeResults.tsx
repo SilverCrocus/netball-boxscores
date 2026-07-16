@@ -83,7 +83,13 @@ export function HomeResults({ initialGroups, initialNextCursor, season }: HomeRe
             {group.matches.map((match) => (
               <ScoreCard
                 key={match.id}
-                match={{ ...match, round: undefined }}
+                match={{
+                  ...match,
+                  round: undefined,
+                  roundLabel: undefined,
+                  stageName: undefined,
+                  finalCode: undefined,
+                }}
                 showFinalBadge={false}
               />
             ))}

@@ -13,6 +13,7 @@ interface ScoreBreakdown {
 
 interface ScoreCardMatch {
   id: string;
+  href?: string;
   homeTeam: TeamInfo;
   awayTeam: TeamInfo;
   homeScore: number;
@@ -38,7 +39,7 @@ interface ScoreCardProps {
 export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
   const isLive = match.status === 'LIVE';
   const isCompleted = match.status === 'COMPLETED';
-  const matchHref = isLive ? `/match/${match.id}/live` : `/match/${match.id}`;
+  const matchHref = match.href ?? (isLive ? `/match/${match.id}/live` : `/match/${match.id}`);
   const homeWon = isCompleted && match.homeScore > match.awayScore;
   const awayWon = isCompleted && match.awayScore > match.homeScore;
   const hasStageContext = match.round != null

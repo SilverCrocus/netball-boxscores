@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { resolveCompetition } from '@/lib/competitions';
 import { getCompletedMatchesPage } from '@/lib/home-feed';
+import {
+  isUpstreamPreviewMode,
+  loadUpstreamCompletedMatches,
+} from '@/lib/upstream-preview';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +12,11 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const season = searchParams.get('season') ?? undefined;
   const cursor = searchParams.get('cursor') ?? undefined;
+
+  if (isUpstreamPreviewMode()) {
+    const previewPage = await loadUpstreamCompletedMatches(searchParams);
+    if (previewPage) return NextResponse.json(previewPage);
+  }
 
   try {
     const { competition } = await resolveCompetition(season);

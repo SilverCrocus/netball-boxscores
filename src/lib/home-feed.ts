@@ -36,6 +36,7 @@ interface ScoreBreakdown {
 
 export interface HomeResultCard {
   id: string;
+  href?: string;
   status: 'COMPLETED';
   scheduledAt: string;
   homeScore: number;
