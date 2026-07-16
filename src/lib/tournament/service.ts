@@ -33,6 +33,11 @@ function entryName(entry: {
 }): string {
   return entry.displayName?.trim() || entry.team.name;
 }
+
+function displaySourceLabel(label: string | null | undefined): string | null {
+  const value = label?.trim();
+  return value ? value.replace(/\bTBC\b/gi, 'to be confirmed') : null;
+}
 function compareTeams(left: TournamentTeam, right: TournamentTeam): number {
   const leftSeed = left.seed ?? Number.MAX_SAFE_INTEGER;
   const rightSeed = right.seed ?? Number.MAX_SAFE_INTEGER;
@@ -259,7 +264,7 @@ function projectBracketSide(
   const legacyTeam = side === 'A' ? match.homeTeam : match.awayTeam;
   const team = slot?.resolvedEntry?.team ?? legacyTeam;
   const resolvedDisplayName = slot?.resolvedEntry?.displayName?.trim();
-  const sourceLabel = slot?.sourceLabel?.trim();
+  const sourceLabel = displaySourceLabel(slot?.sourceLabel);
 
   return {
     side,

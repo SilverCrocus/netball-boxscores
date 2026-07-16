@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { NAV_ITEMS, isActive } from '@/lib/navigation';
+import { NAV_ITEMS, isResolvedNavigationActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
@@ -46,7 +46,7 @@ export function Sidebar({ editions = [] }: { editions?: EditionContextValue[] })
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const href = editionAwareNavigationHref(currentEdition, item.href);
-          const active = isActive(pathname, item.href) || isActive(pathname, href);
+          const active = isResolvedNavigationActive(pathname, item.href, href);
           const isLiveItem = item.href === '/live';
           return (
             <Link

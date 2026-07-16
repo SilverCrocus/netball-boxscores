@@ -162,6 +162,30 @@ describe('tournament data service', () => {
     expect(projected.sideB.label).toBe('Winner of Semi-final 2');
   });
 
+  it('expands TBC markers without creating a dummy participant identity', () => {
+    const projected = projectBracketMatch({
+      id: 'semi-final-one',
+      round: null,
+      roundLabel: 'Semi-final 1',
+      finalCode: null,
+      scheduledAt: new Date('2026-08-01T08:00:00.000Z'),
+      venue: 'The Hydro',
+      status: 'SCHEDULED',
+      homeScore: 0,
+      awayScore: 0,
+      homeTeam: null,
+      awayTeam: null,
+      slots: [
+        { side: 'A', sourceLabel: 'Semi-finalist TBC', resolvedEntry: null },
+        { side: 'B', sourceLabel: 'Semi-finalist TBC', resolvedEntry: null },
+      ],
+    }, 'Semi-finals');
+
+    expect(projected.sideA.label).toBe('Semi-finalist to be confirmed');
+    expect(projected.sideB.label).toBe('Semi-finalist to be confirmed');
+    expect(JSON.stringify(projected)).not.toContain('TBC');
+  });
+
   it('loads only the published classification, semi-final and medal stages', async () => {
     mocks.findMany.mockResolvedValue([
       {

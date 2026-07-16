@@ -129,6 +129,19 @@ describe('buildEditionSchedule', () => {
     expect(JSON.stringify(fixture)).not.toContain('TBC');
   });
 
+  it('normalizes timestamps rehydrated from the Next server cache', () => {
+    const cachedRecord = {
+      ...matchRecord({ id: 'cached-pool-match' }),
+      scheduledAt: '2026-07-25T08:00:00.000Z',
+    };
+
+    const schedule = buildEditionSchedule(GLASGOW_EDITION, [cachedRecord]);
+    const fixture = schedule.stages[0].dates[0].fixtures[0];
+
+    expect(fixture.scheduledAt).toBeInstanceOf(Date);
+    expect(fixture.localTimeLabel).toBe('09:00 BST');
+  });
+
   it('expands a source TBC marker without creating a dummy team identity', () => {
     const schedule = buildEditionSchedule(GLASGOW_EDITION, [matchRecord({
       id: 'semi-final-one',
@@ -217,6 +230,7 @@ describe('buildEditionSchedule', () => {
       stage.dates.flatMap((date) => date.fixtures)
     );
     expect(schedule.summary).toMatchObject({ fixtureCount: 2, teamCount: 8, stageCount: 2, completedCount: 1 });
+    expect(schedule.timezoneLabel).toBe('Australia/Sydney');
     expect(scheduled.score).toBeNull();
     expect(completed.score).toEqual({ sideA: 61, sideB: 40 });
     expect(completed.href).toBe('/match/grand-final');

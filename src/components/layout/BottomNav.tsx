@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { NAV_ITEMS, isActive } from '@/lib/navigation';
+import { NAV_ITEMS, isResolvedNavigationActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
@@ -23,8 +23,11 @@ export function BottomNav({ editions = [] }: { editions?: EditionContextValue[] 
   const moreItems = NAV_ITEMS.filter((item) => ['/explore', '/teams'].includes(item.href));
   const currentEdition = navigationEditionFromPathname(editions, pathname);
   const moreActive = moreItems.some((item) =>
-    isActive(pathname, item.href)
-      || isActive(pathname, editionAwareNavigationHref(currentEdition, item.href))
+    isResolvedNavigationActive(
+      pathname,
+      item.href,
+      editionAwareNavigationHref(currentEdition, item.href),
+    )
   );
 
   useEffect(() => {
@@ -80,16 +83,16 @@ export function BottomNav({ editions = [] }: { editions?: EditionContextValue[] 
           </div>
         </div>
       )}
-      <nav className="fixed bottom-0 left-0 z-50 flex w-full items-center justify-around rounded-t-2xl border-t border-slate-800/50 bg-slate-950 px-4 pb-6 pt-2 shadow-[0_-8px_24px_rgba(0,0,0,0.6)] lg:hidden">
+      <nav className="fixed bottom-0 left-0 z-50 flex w-full items-center rounded-t-2xl border-t border-slate-800/50 bg-slate-950 px-1 pb-6 pt-2 shadow-[0_-8px_24px_rgba(0,0,0,0.6)] lg:hidden">
       {primaryItems.map((item) => {
         const href = editionAwareNavigationHref(currentEdition, item.href);
-        const active = isActive(pathname, item.href) || isActive(pathname, href);
+        const active = isResolvedNavigationActive(pathname, item.href, href);
         const isLiveItem = item.href === '/live';
         return (
           <Link
             key={item.href}
             href={href}
-            className={`relative flex flex-col items-center justify-center py-1 px-4 rounded-xl transition-all ${
+            className={`relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 transition-all ${
               active
                 ? 'bg-lime-500 text-slate-950 scale-105'
                 : 'text-slate-500 hover:bg-slate-800'
@@ -102,7 +105,7 @@ export function BottomNav({ editions = [] }: { editions?: EditionContextValue[] 
             >
               {item.icon}
             </span>
-            <span className="font-bold font-headline text-[10px] tracking-tight uppercase">
+            <span className="max-w-full truncate font-label text-[8px] font-bold uppercase leading-tight tracking-[-0.03em]">
               {item.label}
             </span>
             {isLiveItem && hasLive && (
@@ -125,10 +128,10 @@ export function BottomNav({ editions = [] }: { editions?: EditionContextValue[] 
           aria-expanded={moreOpen}
           aria-controls="mobile-more-menu"
           onClick={() => setMoreOpen((open) => !open)}
-          className={`relative flex flex-col items-center justify-center rounded-xl px-4 py-1 transition-all ${moreOpen || moreActive || pathname.startsWith('/settings') ? 'bg-lime-500 text-slate-950' : 'text-slate-500 hover:bg-slate-800'}`}
+          className={`relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 transition-all ${moreOpen || moreActive || pathname.startsWith('/settings') ? 'bg-lime-500 text-slate-950' : 'text-slate-500 hover:bg-slate-800'}`}
         >
           <span aria-hidden="true" className="material-symbols-outlined">more_horiz</span>
-          <span className="font-headline text-[10px] font-bold uppercase tracking-tight">More</span>
+          <span className="font-label text-[8px] font-bold uppercase leading-tight tracking-[-0.03em]">More</span>
         </button>
       </nav>
     </>

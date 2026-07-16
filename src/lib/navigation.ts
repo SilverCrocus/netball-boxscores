@@ -9,6 +9,22 @@ export function isActive(pathname: string, href: string): boolean {
   return pathname === href || (href !== '/' && pathname.startsWith(href));
 }
 
+/**
+ * Edition landing links behave like the root home link: they are exact-only.
+ * Other resolved section links may remain active for their nested routes.
+ */
+export function isResolvedNavigationActive(
+  pathname: string,
+  legacyHref: string,
+  resolvedHref: string,
+): boolean {
+  const resolvedActive = legacyHref === '/' && resolvedHref !== '/'
+    ? pathname === resolvedHref
+    : isActive(pathname, resolvedHref);
+
+  return isActive(pathname, legacyHref) || resolvedActive;
+}
+
 export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Fixtures', icon: 'calendar_today', sidebarLabel: 'Home' },
   { href: '/live', label: 'Live', icon: 'sensors' },

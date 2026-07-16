@@ -23,6 +23,10 @@ export function EditionSchedule({ schedule }: EditionScheduleProps) {
     );
   }
 
+  const timezoneDescription = schedule.timezoneLabel === schedule.sourceTimezone
+    ? schedule.sourceTimezone
+    : `${schedule.timezoneLabel}, ${schedule.sourceTimezone}`;
+
   return (
     <section aria-labelledby="edition-schedule-heading">
       <header className="mb-7 flex flex-col gap-5 border-b border-outline-variant pb-6 lg:flex-row lg:items-end lg:justify-between">
@@ -34,7 +38,7 @@ export function EditionSchedule({ schedule }: EditionScheduleProps) {
             Full schedule
           </h2>
           <p className="mt-2 max-w-2xl font-body text-sm leading-6 text-on-surface-variant">
-            All times are shown in venue time ({schedule.timezoneLabel}, {schedule.sourceTimezone}).
+            All times are shown in venue time ({timezoneDescription}).
             Scheduled fixtures do not display a score until play begins.
           </p>
         </div>

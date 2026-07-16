@@ -67,6 +67,13 @@ export type EditionScheduleMatchRecord = Prisma.MatchGetPayload<{
   select: typeof editionScheduleMatchSelect;
 }>;
 
+export type EditionScheduleMatchInput = Omit<
+  EditionScheduleMatchRecord,
+  'scheduledAt'
+> & {
+  scheduledAt: Date | string;
+};
+
 export interface EditionScheduleTeam {
   id: string;
   name: string;
@@ -190,15 +197,17 @@ function localTimeLabel(date: Date, timeZone: string): string {
   }).format(date);
 }
 
-function timezoneLabel(date: Date | undefined, timeZone: string): string {
-  if (!date) return timeZone;
+function timezoneLabel(dates: Date[], timeZone: string): string {
+  if (dates.length === 0) return timeZone;
 
-  const part = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    timeZoneName: 'short',
-  }).formatToParts(date).find((item) => item.type === 'timeZoneName');
+  const labels = new Set(dates.map((date) =>
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      timeZoneName: 'short',
+    }).formatToParts(date).find((item) => item.type === 'timeZoneName')?.value ?? timeZone
+  ));
 
-  return part?.value ?? timeZone;
+  return labels.size === 1 ? [...labels][0] : timeZone;
 }
 
 function dateRangeLabel(
@@ -295,9 +304,19 @@ function projectFixture(
  */
 export function buildEditionSchedule(
   edition: EditionScheduleIdentity,
-  records: EditionScheduleMatchRecord[],
+  records: EditionScheduleMatchInput[],
 ): EditionSchedule {
-  const matches = [...records].sort((left, right) =>
+  const matches = records.map((record): EditionScheduleMatchRecord => {
+    const scheduledAt = record.scheduledAt instanceof Date
+      ? record.scheduledAt
+      : new Date(record.scheduledAt);
+
+    if (Number.isNaN(scheduledAt.getTime())) {
+      throw new Error(`Match ${record.id} has an invalid scheduledAt value`);
+    }
+
+    return { ...record, scheduledAt } as EditionScheduleMatchRecord;
+  }).sort((left, right) =>
     left.scheduledAt.getTime() - right.scheduledAt.getTime()
       || left.id.localeCompare(right.id)
   );
@@ -352,7 +371,10 @@ export function buildEditionSchedule(
     editionLabel: edition.editionLabel,
     competitionKind: edition.competitionKind,
     sourceTimezone: edition.sourceTimezone,
-    timezoneLabel: timezoneLabel(matches[0]?.scheduledAt, edition.sourceTimezone),
+    timezoneLabel: timezoneLabel(
+      matches.map((match) => match.scheduledAt),
+      edition.sourceTimezone,
+    ),
     summary: {
       fixtureCount: matches.length,
       teamCount: edition.teamCount,
