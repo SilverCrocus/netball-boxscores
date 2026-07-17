@@ -214,8 +214,16 @@ async function verifyPublicSchemaHardening() {
           WHERE routine_schema = 'public' AND grantee IN ('anon', 'authenticated'))::bigint AS "routineGrants",
         (SELECT COUNT(*) FROM pg_default_acl d
           CROSS JOIN LATERAL aclexplode(d.defaclacl) a JOIN pg_roles r ON r.oid = a.grantee
+          JOIN pg_roles owner_role ON owner_role.oid = d.defaclrole
           LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace
-          WHERE n.nspname = 'public' AND r.rolname IN ('anon', 'authenticated'))::bigint AS "defaultGrants"`),
+          WHERE n.nspname = 'public' AND owner_role.rolname = 'postgres'
+            AND r.rolname IN ('anon', 'authenticated')
+            AND (
+              (d.defaclobjtype = 'r' AND a.privilege_type IN (
+                'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'))
+              OR (d.defaclobjtype = 'S' AND a.privilege_type IN ('USAGE', 'SELECT', 'UPDATE'))
+              OR (d.defaclobjtype = 'f' AND a.privilege_type = 'EXECUTE')
+            ))::bigint AS "defaultGrants"`),
   ]);
   invariant(rls.length === tables.length && rls.every((row) => row.enabled && !row.forced),
     'RLS state does not exactly match the hardening migration');
