@@ -32,7 +32,7 @@ export default async function BracketPage({ params }: BracketPageProps) {
   const { edition } = await resolveEdition(identity);
   if (!edition) notFound();
 
-  const stagesPromise = getTournamentBracket(edition.id);
+  const stagesPromise = getTournamentBracket(edition.id, edition);
   const editionContext = toEditionContext(edition);
   const stages = await stagesPromise;
   const matchCount = stages.reduce((total, stage) => total + stage.matches.length, 0);
