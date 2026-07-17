@@ -501,8 +501,8 @@ BEGIN
     allowed := true;
   END IF;
 
-  remaining := pg_catalog.greatest(0, 30 - COALESCE(v_count, 30));
-  retry_after_seconds := pg_catalog.greatest(
+  remaining := GREATEST(0, 30 - COALESCE(v_count, 30));
+  retry_after_seconds := GREATEST(
     1,
     pg_catalog.ceil(
       EXTRACT(

@@ -144,6 +144,7 @@ describe('secure analytics query boundary', () => {
     expect(migration).toContain("pg_catalog.jsonb_typeof(p_query_spec) <> 'object'");
     expect(migration).toContain('pg_catalog.pg_column_size(p_query_spec) > 16384');
     expect(migration).not.toContain('pg_catalog.extract(');
+    expect(migration).not.toContain('pg_catalog.greatest(');
   });
 
   it('grants the analytics login an exact static view allowlist', () => {
