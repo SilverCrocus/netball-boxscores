@@ -119,13 +119,15 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
 
     socket.on('stat:event', (payload) => {
       if (payload.matchId === matchId) {
-        setState((prev) => ({
-          ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
-          statEvents: [
-            ...(prev.matchId === matchId ? prev.statEvents : []),
-            payload,
-          ],
-        }));
+        setState((prev) => {
+          const current = prev.matchId === matchId
+            ? prev
+            : { matchId, ...EMPTY_SOCKET_STATE };
+          if (current.statEvents.some((event) => event.eventId === payload.eventId)) {
+            return current;
+          }
+          return { ...current, statEvents: [...current.statEvents, payload] };
+        });
       }
     });
 

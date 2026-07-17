@@ -14,7 +14,8 @@ import {
 import {
   broadcastMatchChanges,
   broadcastPlayerStats,
-  persistAndBroadcastStatEvents,
+  broadcastPersistedStatEvents,
+  persistStatEvents,
   broadcastCompletion,
 } from '@/lib/broadcasting';
 import { recalculateStandings } from '@/lib/standings';
@@ -156,6 +157,21 @@ export async function pollChampionData(): Promise<void> {
           })
         : null;
 
+      let persistedStatEvents: Awaited<ReturnType<typeof persistStatEvents>> = [];
+      if (
+        changes.matchId
+        && oldStatMap
+        && matchDetail.playerStats
+        && dbMatch
+        && hasResolvedLegacyMatch(dbMatch)
+      ) {
+        const periodSecs = parseInt(changes.currentTime, 10) || 0;
+        persistedStatEvents = await persistStatEvents(
+          changes.matchId, matchDetail, dbMatch, oldStatMap,
+          changes.currentQuarter, periodSecs,
+        );
+      }
+
       let publicAccess = null;
       if (changes.matchId) {
         await applyChanges(changes, validation.validatedData);
@@ -167,19 +183,8 @@ export async function pollChampionData(): Promise<void> {
         }
       }
 
-      if (
-        changes.matchId
-        && oldStatMap
-        && matchDetail.playerStats
-        && dbMatch
-        && hasResolvedLegacyMatch(dbMatch)
-      ) {
-        const periodSecs = parseInt(changes.currentTime, 10) || 0;
-        await persistAndBroadcastStatEvents(
-          changes.matchId, matchDetail, dbMatch, oldStatMap,
-          changes.currentQuarter, periodSecs,
-          publicAccess,
-        );
+      if (changes.matchId && persistedStatEvents.length > 0) {
+        await broadcastPersistedStatEvents(changes.matchId, persistedStatEvents);
       }
 
       // Update PollLog to processed

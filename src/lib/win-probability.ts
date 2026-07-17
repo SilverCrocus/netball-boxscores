@@ -186,10 +186,21 @@ export async function computeTeamStrengthPrior(
     where: {
       ...excludeSimData,
       status: 'COMPLETED',
+      resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
       id: { not: currentMatchId },
-      OR: [
-        { homeTeamId: { in: [homeTeamId, awayTeamId] } },
-        { awayTeamId: { in: [homeTeamId, awayTeamId] } },
+      AND: [
+        {
+          OR: [
+            { homeTeamId: { in: [homeTeamId, awayTeamId] } },
+            { awayTeamId: { in: [homeTeamId, awayTeamId] } },
+          ],
+        },
+        {
+          OR: [
+            { stageId: null },
+            { stage: { is: { isPublished: true } } },
+          ],
+        },
       ],
     },
     select: {

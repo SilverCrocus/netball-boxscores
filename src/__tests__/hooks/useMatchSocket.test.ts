@@ -132,6 +132,36 @@ describe('useMatchSocket', () => {
     });
   });
 
+  it('deduplicates replayed stat events by canonical id without collapsing same-second events', () => {
+    const { result } = renderHook(() => useMatchSocket('match-123', true));
+    const statEventHandler = mockSocket.on.mock.calls.find(
+      (call: unknown[]) => call[0] === 'stat:event',
+    )?.[1] as (payload: Record<string, unknown>) => void;
+    const base = {
+      matchId: 'match-123',
+      type: 'intercept',
+      playerId: 'player-1',
+      playerName: 'Player One',
+      teamId: 'home',
+      teamName: 'Home',
+      teamAbbreviation: 'HOM',
+      isHomeTeam: true,
+      quarter: 2,
+      time: '301',
+    };
+
+    act(() => {
+      statEventHandler({ ...base, eventId: 'event-1' });
+      statEventHandler({ ...base, eventId: 'event-1' });
+      statEventHandler({ ...base, eventId: 'event-2' });
+    });
+
+    expect(result.current.statEvents.map((event) => event.eventId)).toEqual([
+      'event-1',
+      'event-2',
+    ]);
+  });
+
   it('should clean up all event listeners on unmount', () => {
     const { unmount } = renderHook(() => useMatchSocket('match-123', true));
     unmount();

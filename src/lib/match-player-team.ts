@@ -40,30 +40,28 @@ export function playerTeamIdForMatch(
   scheduledAt: Date,
 ): string | null {
   const matchTeams = new Set(matchTeamIds);
-  const memberships = player.rosterMemberships.filter(
-    (membership) => membership.editionEntry.competitionId === competitionId
-      && matchTeams.has(membership.editionEntry.teamId),
+  const editionMemberships = player.rosterMemberships.filter(
+    (membership) => membership.editionEntry.competitionId === competitionId,
+  );
+  const matchMemberships = editionMemberships.filter(
+    (membership) => matchTeams.has(membership.editionEntry.teamId),
   );
 
   const effectiveTeamIds = [...new Set(
-    memberships
+    matchMemberships
       .filter((membership) => isEffectiveAt(membership, scheduledAt))
       .map((membership) => membership.editionEntry.teamId),
   )];
   if (effectiveTeamIds.length === 1) return effectiveTeamIds[0];
   if (effectiveTeamIds.length > 1) return null;
 
-  // Older rows can predate a one-off roster backfill timestamp. Only accept a
-  // unique future membership when every candidate begins after the match; a
-  // genuinely expired/replaced membership must not be revived.
-  if (memberships.length > 0 && memberships.every((membership) => membership.validFrom > scheduledAt)) {
-    const futureTeamIds = [...new Set(memberships.map((membership) => membership.editionEntry.teamId))];
-    if (futureTeamIds.length !== 1) return null;
-    if (player.teamId && matchTeams.has(player.teamId) && player.teamId !== futureTeamIds[0]) return null;
-    return futureTeamIds[0];
-  }
+  // Once an edition roster record exists it is authoritative. A future,
+  // expired, withdrawn, or different-side record must never be treated as a
+  // historical backfill and must never fall through to the player's current
+  // club identity.
+  if (editionMemberships.length > 0) return null;
 
-  // Legacy league rows without a roster backfill remain attributable only
+  // Legacy league rows with no edition roster data remain attributable only
   // when the permanent team is one of this match's two actual sides.
   return player.teamId && matchTeams.has(player.teamId) ? player.teamId : null;
 }
@@ -97,12 +95,6 @@ export function rosterForMatch<
       continue;
     }
 
-    if (!live && group.every((membership) => membership.validFrom > scheduledAt)) {
-      const backfilled = group.toSorted(
-        (left, right) => left.validFrom.getTime() - right.validFrom.getTime(),
-      )[0];
-      if (backfilled) selected.push(backfilled);
-    }
   }
 
   return selected;

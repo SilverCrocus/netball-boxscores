@@ -8,7 +8,7 @@ vi.mock('@/lib/db', () => ({
   prisma: {
     player: { findMany: vi.fn() },
     scoreFlow: { findMany: vi.fn() },
-    matchEvent: { createMany: vi.fn() },
+    matchEvent: { createManyAndReturn: vi.fn() },
   },
   excludeSimData: {},
 }));
@@ -32,8 +32,9 @@ import {
   broadcastCompletion,
   broadcastMatchChanges,
   broadcastPlayerStats,
+  broadcastPersistedStatEvents,
   broadcastScoreFlowDelta,
-  persistAndBroadcastStatEvents,
+  persistStatEvents,
   resetScoreFlowTracking,
 } from '@/lib/broadcasting';
 import {
@@ -46,7 +47,7 @@ import {
 
 const mockScoreFlowFindMany = vi.mocked(prisma.scoreFlow.findMany);
 const mockPlayerFindMany = vi.mocked(prisma.player.findMany);
-const mockEventCreateMany = vi.mocked(prisma.matchEvent.createMany);
+const mockEventCreateManyAndReturn = vi.mocked(prisma.matchEvent.createManyAndReturn);
 
 function publicAccess(
   capabilities: Array<
@@ -118,7 +119,7 @@ beforeEach(() => {
   resolvePublicMatchMock.mockResolvedValue(publicAccess());
   mockScoreFlowFindMany.mockResolvedValue([]);
   mockPlayerFindMany.mockResolvedValue([]);
-  mockEventCreateMany.mockResolvedValue({ count: 0 });
+  mockEventCreateManyAndReturn.mockResolvedValue([]);
 });
 
 describe('broadcastScoreFlowDelta', () => {
@@ -184,6 +185,7 @@ describe('player and match broadcasts', () => {
       { id: 'player-1', championDataPlayerId: 10 },
     ] as never);
 
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(['PLAYER_BOX_SCORE']));
     await broadcastPlayerStats(
       'match-1',
       matchDetail(),
@@ -198,6 +200,7 @@ describe('player and match broadcasts', () => {
     );
 
     vi.mocked(broadcastStatsUpdate).mockClear();
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(['PLAYER_BOX_SCORE', 'LINEUPS']));
     await broadcastPlayerStats(
       'match-1',
       matchDetail(),
@@ -213,6 +216,7 @@ describe('player and match broadcasts', () => {
   });
 
   it('does not query player rows without player box-score coverage', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess([]));
     await broadcastPlayerStats('match-1', matchDetail(), publicAccess([]));
 
     expect(mockPlayerFindMany).not.toHaveBeenCalled();
@@ -259,14 +263,15 @@ describe('stat event persistence', () => {
       [playerStat({ playerId: 10, intercepts: 1 })],
       [playerStat({ playerId: 20, turnovers: 1 })],
     );
-    mockEventCreateMany.mockResolvedValue({ count: 2 });
+    mockEventCreateManyAndReturn.mockResolvedValue([
+      { id: 'event-home', playerId: 'player-home', type: 'intercept', period: 2, periodSeconds: 300 },
+      { id: 'event-away', playerId: 'player-away', type: 'turnover', period: 2, periodSeconds: 300 },
+    ] as never);
 
-    await persistAndBroadcastStatEvents(
-      'match-1', detail, dbMatch(), new Map(), 2, 300,
-      publicAccess(['MATCH_EVENTS']),
-    );
+    const events = await persistStatEvents('match-1', detail, dbMatch(), new Map(), 2, 300);
+    await broadcastPersistedStatEvents('match-1', events);
 
-    expect(mockEventCreateMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockEventCreateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.arrayContaining([
         expect.objectContaining({ playerId: 'player-home', teamId: 'country-a', type: 'intercept' }),
         expect.objectContaining({ playerId: 'player-away', teamId: 'country-b', type: 'turnover' }),
@@ -274,10 +279,12 @@ describe('stat event persistence', () => {
     }));
     expect(broadcastStatEvent).toHaveBeenCalledWith(
       'match-1',
-      expect.objectContaining({ playerId: 'player-home', teamId: 'country-a', isHomeTeam: true }),
+      expect.objectContaining({
+        eventId: 'event-home', playerId: 'player-home', teamId: 'country-a', isHomeTeam: true,
+      }),
       expect.anything(),
     );
-    expect(mockEventCreateMany.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(mockEventCreateManyAndReturn.mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(broadcastStatEvent).mock.invocationCallOrder[0],
     );
   });
@@ -287,36 +294,94 @@ describe('stat event persistence', () => {
       { id: 'player-home', name: 'Home International', championDataPlayerId: 10 },
     ] as never);
 
-    await persistAndBroadcastStatEvents(
+    mockEventCreateManyAndReturn.mockResolvedValue([
+      { id: 'event-home', playerId: 'player-home', type: 'intercept', period: 1, periodSeconds: 100 },
+    ] as never);
+    const events = await persistStatEvents(
       'match-1',
       matchDetail([playerStat({ intercepts: 1 })]),
       dbMatch(),
       new Map(),
       1,
       100,
-      publicAccess([]),
     );
+    resolvePublicMatchMock.mockResolvedValue(publicAccess([]));
+    await broadcastPersistedStatEvents('match-1', events);
 
-    expect(mockEventCreateMany).toHaveBeenCalledOnce();
+    expect(mockEventCreateManyAndReturn).toHaveBeenCalledOnce();
     expect(broadcastStatEvent).not.toHaveBeenCalled();
   });
 
   it('still persists canonical events when the public-access lookup fails', async () => {
-    resolvePublicMatchMock.mockRejectedValue(new Error('publication lookup failed'));
     mockPlayerFindMany.mockResolvedValue([
       { id: 'player-home', name: 'Home International', championDataPlayerId: 10 },
     ] as never);
+    mockEventCreateManyAndReturn.mockResolvedValue([
+      { id: 'event-home', playerId: 'player-home', type: 'intercept', period: 1, periodSeconds: 100 },
+    ] as never);
 
-    await expect(persistAndBroadcastStatEvents(
+    const events = await persistStatEvents(
       'match-1',
       matchDetail([playerStat({ intercepts: 1 })]),
       dbMatch(),
       new Map(),
       1,
       100,
-    )).resolves.toBeUndefined();
+    );
+    resolvePublicMatchMock.mockRejectedValue(new Error('publication lookup failed'));
+    await expect(broadcastPersistedStatEvents('match-1', events)).resolves.toBeUndefined();
 
-    expect(mockEventCreateMany).toHaveBeenCalledOnce();
+    expect(mockEventCreateManyAndReturn).toHaveBeenCalledOnce();
     expect(broadcastStatEvent).not.toHaveBeenCalled();
+  });
+
+  it('does not emit a candidate when another worker won the insert race', async () => {
+    mockPlayerFindMany.mockResolvedValue([
+      { id: 'player-home', name: 'Home International', championDataPlayerId: 10 },
+    ] as never);
+    mockEventCreateManyAndReturn.mockResolvedValue([]);
+
+    const events = await persistStatEvents(
+      'match-1',
+      matchDetail([playerStat({ intercepts: 1 })]),
+      dbMatch(),
+      new Map(),
+      1,
+      100,
+    );
+    await broadcastPersistedStatEvents('match-1', events);
+
+    expect(events).toEqual([]);
+    expect(broadcastStatEvent).not.toHaveBeenCalled();
+  });
+
+  it('emits only the rows this worker inserted when a concurrent insert wins part of the batch', async () => {
+    mockPlayerFindMany.mockResolvedValue([
+      { id: 'player-home', name: 'Home International', championDataPlayerId: 10 },
+      { id: 'player-away', name: 'Away International', championDataPlayerId: 20 },
+    ] as never);
+    mockEventCreateManyAndReturn.mockResolvedValue([
+      { id: 'event-away', playerId: 'player-away', type: 'turnover', period: 2, periodSeconds: 300 },
+    ] as never);
+
+    const events = await persistStatEvents(
+      'match-1',
+      matchDetail(
+        [playerStat({ playerId: 10, intercepts: 1 })],
+        [playerStat({ playerId: 20, turnovers: 1 })],
+      ),
+      dbMatch(),
+      new Map(),
+      2,
+      300,
+    );
+    await broadcastPersistedStatEvents('match-1', events);
+
+    expect(broadcastStatEvent).toHaveBeenCalledOnce();
+    expect(broadcastStatEvent).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({ eventId: 'event-away', playerId: 'player-away' }),
+      expect.anything(),
+    );
   });
 });

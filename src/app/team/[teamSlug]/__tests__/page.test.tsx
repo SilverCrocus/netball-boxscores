@@ -21,6 +21,11 @@ vi.mock('@/lib/competitions', () => ({
   getPublicCompetitions: vi.fn(),
 }));
 
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: vi.fn().mockResolvedValue({ scoreAvailable: true }),
+  canExposePublicMatchScore: vi.fn().mockReturnValue(true),
+}));
+
 const ssnEdition = {
   id: 'competition-2026',
   season: 2026,
@@ -231,7 +236,7 @@ describe('TeamPage', () => {
         status: 'COMPLETED',
       }),
       orderBy: { scheduledAt: 'desc' },
-      take: 5,
+      take: 15,
     }));
     expect(prisma.match.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
@@ -240,7 +245,7 @@ describe('TeamPage', () => {
         scheduledAt: { gte: expect.any(Date) },
       }),
       orderBy: { scheduledAt: 'asc' },
-      take: 3,
+      take: 10,
     }));
     expect(prisma.standing.findUnique).toHaveBeenCalledWith({
       where: {

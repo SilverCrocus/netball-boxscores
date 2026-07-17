@@ -2,9 +2,12 @@ import { ImageResponse } from 'next/og';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { prisma } from '@/lib/db';
-import { getPublicCompetitions } from '@/lib/competitions';
 import { formatMatchStage } from '@/lib/match-label';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchAccess,
+} from '@/lib/public-match';
 
 export const runtime = 'nodejs';
 export const alt = 'Match Score';
@@ -17,9 +20,8 @@ export default async function MatchOgImage({
   params: Promise<{ matchId: string }>;
 }) {
   const { matchId } = await params;
-  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
-  const match = await prisma.match.findFirst({
-    where: { id: matchId, competitionId: { in: publicEditionIds } },
+  const [match, publicAccess] = await Promise.all([prisma.match.findUnique({
+    where: { id: matchId },
     select: {
       homeTeamId: true,
       awayTeamId: true,
@@ -34,8 +36,8 @@ export default async function MatchOgImage({
       homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
       awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
     },
-  });
-  const resolvedMatch = match && hasResolvedMatchTeams(match) ? match : null;
+  }), resolvePublicMatchAccess(matchId)]);
+  const resolvedMatch = match && publicAccess && hasResolvedMatchTeams(match) ? match : null;
 
   const lexendBold = await readFile(
     join(process.cwd(), 'src/assets/fonts/Lexend-Bold.ttf'),
@@ -44,7 +46,7 @@ export default async function MatchOgImage({
     join(process.cwd(), 'src/assets/fonts/Manrope-Regular.ttf'),
   );
 
-  const isCompleted = resolvedMatch?.status === 'COMPLETED';
+  const showScore = publicAccess ? canExposePublicMatchScore(publicAccess) : false;
   const homeName = resolvedMatch?.homeTeam.abbreviation ?? 'HOME';
   const awayName = resolvedMatch?.awayTeam.abbreviation ?? 'AWAY';
 
@@ -99,7 +101,7 @@ export default async function MatchOgImage({
 
           {/* Score or VS */}
           <div style={{ display: 'flex', fontSize: 64, color: '#FFFFFF', fontFamily: 'Lexend', fontWeight: 700 }}>
-            {isCompleted ? `${resolvedMatch?.homeScore} - ${resolvedMatch?.awayScore}` : 'vs'}
+            {showScore ? `${resolvedMatch?.homeScore} - ${resolvedMatch?.awayScore}` : 'vs'}
           </div>
 
           {/* Away team */}

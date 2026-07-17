@@ -94,12 +94,14 @@ describe('socket-server public safety', () => {
   ] as const)('maps %s to its required capability', async (event, broadcaster, capability) => {
     const payload = { matchId: 'match-1' } as never;
 
+    resolvePublicMatchMock.mockResolvedValue(publicAccess([capability]));
     await expect(broadcaster('match-1', payload, publicAccess([capability]))).resolves.toBe(true);
     expect(mockTo).toHaveBeenCalledWith('match:match-1');
     expect(mockEmit).toHaveBeenCalledWith(event, payload);
 
     mockTo.mockClear();
     mockEmit.mockClear();
+    resolvePublicMatchMock.mockResolvedValue(publicAccess([]));
     await expect(broadcaster('match-1', payload, publicAccess([]))).resolves.toBe(false);
     expect(mockTo).not.toHaveBeenCalled();
     expect(mockEmit).not.toHaveBeenCalled();
@@ -108,9 +110,26 @@ describe('socket-server public safety', () => {
   it('rechecks publication at emit time and fails closed after revocation', async () => {
     resolvePublicMatchMock.mockResolvedValue(null);
 
-    await expect(broadcastScoreUpdate('match-1', { matchId: 'match-1' } as never)).resolves.toBe(false);
+    await expect(broadcastScoreUpdate(
+      'match-1',
+      { matchId: 'match-1' } as never,
+      publicAccess(['FINAL_SCORE']),
+    )).resolves.toBe(false);
 
     expect(mockTo).not.toHaveBeenCalled();
+  });
+
+  it('does not trust a stale supplied capability snapshot at the final emit boundary', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess([]));
+
+    await expect(broadcastStatsUpdate(
+      'match-1',
+      { matchId: 'match-1' } as never,
+      publicAccess(['PLAYER_BOX_SCORE']),
+    )).resolves.toBe(false);
+
+    expect(resolvePublicMatchMock).toHaveBeenCalledWith('match-1');
+    expect(mockEmit).not.toHaveBeenCalled();
   });
 
   it('joins a bounded room only for a public live match with score and detail coverage', async () => {

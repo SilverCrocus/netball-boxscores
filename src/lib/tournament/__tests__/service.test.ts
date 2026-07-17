@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
   findMany: vi.fn(),
+  resolvePublicMatchAccess: vi.fn(),
+  canExposePublicMatchScore: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -12,6 +14,11 @@ vi.mock('@/lib/db', () => ({
       findMany: mocks.findMany,
     },
   },
+}));
+
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: mocks.resolvePublicMatchAccess,
+  canExposePublicMatchScore: mocks.canExposePublicMatchScore,
 }));
 
 import {
@@ -50,6 +57,10 @@ function group(pool: 'a' | 'b') {
 describe('tournament data service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.resolvePublicMatchAccess.mockResolvedValue({ scoreAvailable: true });
+    mocks.canExposePublicMatchScore.mockImplementation(
+      (access: { scoreAvailable: boolean }) => access.scoreAvailable,
+    );
   });
 
   it('loads six canonical entries for each published Glasgow pool', async () => {
@@ -135,6 +146,7 @@ describe('tournament data service', () => {
       scheduledAt: new Date('2026-08-02T12:00:00.000Z'),
       venue: 'The Hydro',
       status: 'SCHEDULED',
+      scoreAvailable: false,
       homeScore: 0,
       awayScore: 0,
       homeTeam: null,
@@ -171,6 +183,7 @@ describe('tournament data service', () => {
       scheduledAt: new Date('2026-08-01T08:00:00.000Z'),
       venue: 'The Hydro',
       status: 'SCHEDULED',
+      scoreAvailable: false,
       homeScore: 0,
       awayScore: 0,
       homeTeam: null,
@@ -195,6 +208,7 @@ describe('tournament data service', () => {
       scheduledAt: new Date('2026-08-01T08:00:00.000Z'),
       venue: 'The Hydro',
       status: 'LIVE',
+      scoreAvailable: true,
       homeScore: 31,
       awayScore: 29,
       homeTeam: { id: 'aus', name: 'Australia', abbreviation: 'AUS', logoUrl: null },
@@ -204,6 +218,66 @@ describe('tournament data service', () => {
 
     expect(projected.sideA.score).toBe(31);
     expect(projected.sideB.score).toBe(29);
+  });
+
+  it('hides bracket scores when the shared public policy denies score access', async () => {
+    mocks.canExposePublicMatchScore.mockReturnValue(false);
+    mocks.findMany.mockResolvedValue([{
+      id: 'semi-finals',
+      slug: 'semi-finals',
+      name: 'Semi-finals',
+      type: 'SEMI_FINALS',
+      sequence: 3,
+      matches: [{
+        id: 'semi-final-unverified',
+        round: null,
+        roundLabel: 'Semi-final 1',
+        finalCode: null,
+        scheduledAt: new Date('2026-08-01T08:00:00.000Z'),
+        venue: 'The Hydro',
+        status: 'COMPLETED',
+        homeScore: 61,
+        awayScore: 60,
+        homeTeam: { id: 'aus', name: 'Australia', abbreviation: 'AUS', logoUrl: null },
+        awayTeam: { id: 'jam', name: 'Jamaica', abbreviation: 'JAM', logoUrl: null },
+        slots: [],
+      }],
+    }]);
+
+    const stages = await getTournamentBracket('glasgow-2026');
+
+    expect(mocks.resolvePublicMatchAccess).toHaveBeenCalledWith('semi-final-unverified');
+    expect(stages[0].matches[0].sideA.score).toBeNull();
+    expect(stages[0].matches[0].sideB.score).toBeNull();
+  });
+
+  it('omits bracket matches denied by the shared public policy', async () => {
+    mocks.resolvePublicMatchAccess.mockResolvedValue(null);
+    mocks.findMany.mockResolvedValue([{
+      id: 'medals',
+      slug: 'medals',
+      name: 'Medal Matches',
+      type: 'MEDAL_MATCHES',
+      sequence: 4,
+      matches: [{
+        id: 'unpublished-match',
+        round: null,
+        roundLabel: 'Gold medal match',
+        finalCode: null,
+        scheduledAt: new Date('2026-08-02T12:00:00.000Z'),
+        venue: 'The Hydro',
+        status: 'SCHEDULED',
+        homeScore: 0,
+        awayScore: 0,
+        homeTeam: null,
+        awayTeam: null,
+        slots: [],
+      }],
+    }]);
+
+    const stages = await getTournamentBracket('glasgow-2026');
+
+    expect(stages[0].matches).toEqual([]);
   });
 
   it('loads only the published classification, semi-final and medal stages', async () => {

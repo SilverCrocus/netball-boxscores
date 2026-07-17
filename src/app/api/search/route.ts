@@ -5,6 +5,10 @@ import type { SearchResponse } from '@/types/search';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { getPublicCompetitions } from '@/lib/competitions';
 import { matchHref } from '@/lib/edition-links';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchAccess,
+} from '@/lib/public-match';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +86,14 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    const publicMatches = (await Promise.all(matches.map(async (match) => ({
+      match,
+      access: await resolvePublicMatchAccess(match.id).catch(() => null),
+    })))).flatMap(({ match, access }) => {
+      if (!access || !hasResolvedMatchTeams(match)) return [];
+      return [{ match, access }];
+    });
+
     return NextResponse.json({
       players: players.map((player) => ({
         id: player.id,
@@ -97,14 +109,14 @@ export async function GET(request: Request) {
         meta: team.abbreviation,
         href: `/team/${team.slug}`,
       })),
-      matches: matches.filter(hasResolvedMatchTeams).map((match) => ({
+      matches: publicMatches.map(({ match, access }) => ({
         id: match.id,
         kind: 'match' as const,
         label: `${match.homeTeam.name} v ${match.awayTeam.name}`,
-        meta: match.status === 'COMPLETED'
+        meta: canExposePublicMatchScore(access)
           ? `${match.homeScore}-${match.awayScore} · ${formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name)}`
           : formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name),
-        href: matchHref(match.id, match.competitionId, match.status === 'LIVE' ? 'live' : ''),
+        href: matchHref(match.id, match.competitionId, access.status === 'LIVE' ? 'live' : ''),
       })),
     } satisfies SearchResponse);
   } catch {

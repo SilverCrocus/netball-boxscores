@@ -78,6 +78,8 @@ async function loadPublicMatchAccess(matchId: string): Promise<PublicMatchAccess
       scheduledAt: true,
       homeTeamId: true,
       awayTeamId: true,
+      stageId: true,
+      stage: { select: { isPublished: true } },
       competition: { select: publicReadinessSelect },
       dataCoverage: { select: { capability: true, state: true } },
     },
@@ -86,6 +88,7 @@ async function loadPublicMatchAccess(matchId: string): Promise<PublicMatchAccess
   if (
     !match
     || !isEditionPubliclyReady(match.competition as unknown as CompetitionOption)
+    || (match.stageId !== null && match.stage?.isPublished !== true)
   ) return null;
 
   return {

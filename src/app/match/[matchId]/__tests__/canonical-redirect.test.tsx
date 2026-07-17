@@ -27,9 +27,10 @@ vi.mock('@/lib/db', () => ({
     },
   },
 }));
-vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchForRequest: resolvePublicMatchMock,
-}));
+vi.mock('@/lib/public-match', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/public-match')>();
+  return { ...actual, resolvePublicMatchForRequest: resolvePublicMatchMock };
+});
 
 import MatchPage from '../page';
 

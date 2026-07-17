@@ -39,9 +39,10 @@ const publicAccess = {
 
 vi.mock('@/components/match/MatchActions', () => ({ MatchActions: () => null }));
 
-vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchForRequest: resolvePublicMatchMock,
-}));
+vi.mock('@/lib/public-match', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/public-match')>();
+  return { ...actual, resolvePublicMatchForRequest: resolvePublicMatchMock };
+});
 
 vi.mock('next/navigation', () => ({
   notFound: notFoundMock,

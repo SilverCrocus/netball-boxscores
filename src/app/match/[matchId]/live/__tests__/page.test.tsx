@@ -119,6 +119,9 @@ vi.mock('../LiveGameClient', () => ({
     match: {
       homeTeam: { players: Array<{ name: string }> };
       awayTeam: { players: Array<{ name: string }> };
+      quarters: unknown[];
+      initialScoreFlow: unknown[];
+      initialMatchEvents: Array<{ eventId: string }>;
     };
     realtimeEnabled: boolean;
   }) => {
@@ -195,5 +198,71 @@ describe('live match route safety', () => {
       realtimeEnabled: false,
     }));
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it('does not serialize roster stats, periods, or events without their capabilities', async () => {
+    const match = detailedMatch('LIVE');
+    match.quarters = [{ quarter: 1, homeScore: 10, awayScore: 8 }] as never;
+    match.scoreFlow = [{
+      period: 1, periodSeconds: 300, scoringTeamId: 'australia',
+      homeScore: 10, awayScore: 8, scorePoints: 1, scorerPlayer: null,
+    }] as never;
+    match.matchEvents = [{
+      id: 'private-event', type: 'intercept', period: 1, periodSeconds: 300,
+      playerId: 'player-1', player: { name: 'Shared Player' }, teamId: 'australia',
+      team: { name: 'Australia', abbreviation: 'AUS', logoUrl: null },
+    }] as never;
+    findUniqueMock.mockResolvedValue(match);
+    resolvePublicMatchMock.mockResolvedValue(publicAccess('LIVE', [
+      'FINAL_SCORE',
+      'SCORE_FLOW',
+    ]));
+
+    render(await LiveGamePage({
+      params: Promise.resolve({ matchId: 'glasgow-match-1' }),
+      searchParams: Promise.resolve({ edition: 'glasgow-2026' }),
+    }));
+
+    expect(liveClientPropsMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      match: expect.objectContaining({
+        homeTeam: expect.objectContaining({ players: [] }),
+        awayTeam: expect.objectContaining({ players: [] }),
+        quarters: [],
+        initialScoreFlow: [expect.objectContaining({ matchId: 'glasgow-match-1' })],
+        initialMatchEvents: [],
+      }),
+      capabilities: expect.objectContaining({
+        lineups: false,
+        playerBoxScore: false,
+        periodScores: false,
+        matchEvents: false,
+        scoreFlow: true,
+      }),
+    }));
+  });
+
+  it('includes canonical event ids only when MATCH_EVENTS coverage is public', async () => {
+    const match = detailedMatch('LIVE');
+    match.matchEvents = [{
+      id: 'event-1', type: 'intercept', period: 1, periodSeconds: 300,
+      playerId: 'player-1', player: { name: 'Shared Player' }, teamId: 'australia',
+      team: { name: 'Australia', abbreviation: 'AUS', logoUrl: null },
+    }] as never;
+    findUniqueMock.mockResolvedValue(match);
+    resolvePublicMatchMock.mockResolvedValue(publicAccess('LIVE', [
+      'FINAL_SCORE',
+      'MATCH_EVENTS',
+    ]));
+
+    render(await LiveGamePage({
+      params: Promise.resolve({ matchId: 'glasgow-match-1' }),
+      searchParams: Promise.resolve({ edition: 'glasgow-2026' }),
+    }));
+
+    expect(liveClientPropsMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      match: expect.objectContaining({
+        initialMatchEvents: [expect.objectContaining({ eventId: 'event-1' })],
+      }),
+    }));
   });
 });

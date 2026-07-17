@@ -25,7 +25,11 @@ import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 import { editionScopedHref, isCanonicalMatchEdition, matchHref } from '@/lib/edition-links';
 import { isFinalFixture } from '@/lib/edition-capabilities';
 import { playerTeamIdForMatch } from '@/lib/match-player-team';
-import { resolvePublicMatchForRequest } from '@/lib/public-match';
+import {
+  canExposePublicMatchScore,
+  isPublicMatchLiveOrFinal,
+  resolvePublicMatchForRequest,
+} from '@/lib/public-match';
 
 const getMatch = cache((matchId: string) =>
   timedQuery('match_base', () => prisma.match.findUnique({
@@ -158,6 +162,7 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
   }
 
   const features = publicAccess.features;
+  const resultLifecycleReady = isPublicMatchLiveOrFinal(publicAccess);
 
   const superShotsByPlayer = new Map<string, number>();
   let homeSuperShots = 0, awaySuperShots = 0;
@@ -174,7 +179,8 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
       else awayNormalGoals++;
     }
   }
-  const hasSuperShots = features.superShots.available
+  const hasSuperShots = resultLifecycleReady
+    && features.superShots.available
     && (homeSuperShots > 0 || awaySuperShots > 0);
 
   function toPlayerStatRow(ps: NonNullable<typeof match>['playerStats'][number]) {
@@ -207,7 +213,7 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
     ) === match.awayTeamId)
     .map(toPlayerStatRow);
 
-  const mvp = features.netPoints.available
+  const mvp = resultLifecycleReady && features.netPoints.available
     ? match.playerStats.reduce<(typeof match.playerStats)[number] | null>(
         (best, candidate) => !best || candidate.netPoints > best.netPoints ? candidate : best,
         null,
@@ -240,12 +246,19 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
 
   const isLive = match.status === 'LIVE';
   const isFinal = isFinalFixture(match.status, match.resultQuality);
-  const showScore = features.finalScore.available && (isLive || isFinal);
-  const showPlayerBoxScore = features.playerBoxScore.available
+  const showScore = canExposePublicMatchScore(publicAccess);
+  const showPlayerBoxScore = resultLifecycleReady
+    && features.playerBoxScore.available
     && (homePlayerStats.length > 0 || awayPlayerStats.length > 0);
-  const showScoreFlow = features.scoreFlow.available && match.scoreFlow.length > 0;
-  const showMatchEvents = features.matchEvents.available && match._count.matchEvents > 0;
-  const showPeriodScores = features.periodScores.available && match.quarters.length > 0;
+  const showScoreFlow = resultLifecycleReady
+    && features.scoreFlow.available
+    && match.scoreFlow.length > 0;
+  const showMatchEvents = resultLifecycleReady
+    && features.matchEvents.available
+    && match._count.matchEvents > 0;
+  const showPeriodScores = resultLifecycleReady
+    && features.periodScores.available
+    && match.quarters.length > 0;
   const hasBoxScoreContent = showPlayerBoxScore || showScoreFlow || showPeriodScores || mvp !== null;
   const stage = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
   const lifecycleLabel = isLive

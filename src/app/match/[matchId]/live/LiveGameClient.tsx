@@ -29,6 +29,7 @@ interface TeamData extends TeamInfoWithId {
 }
 
 interface MatchEventData {
+  eventId: string;
   type: string;
   period: number;
   periodSeconds: number;
@@ -276,6 +277,7 @@ export function LiveGameClient({
       ? [
           ...(match.initialMatchEvents ?? []),
           ...statEvents.map((e) => ({
+            eventId: e.eventId,
             type: e.type,
             period: e.quarter ?? 1,
             periodSeconds: parseInt(e.time, 10) || 0,
@@ -293,7 +295,7 @@ export function LiveGameClient({
     const seen = new Set<string>();
     const statEventEntries: FeedEntry[] = [];
     for (const e of allEvents) {
-      const key = `${e.type}-${e.playerId}-${e.period}-${e.periodSeconds}`;
+      const key = e.eventId;
       if (seen.has(key)) continue;
       seen.add(key);
 

@@ -50,7 +50,14 @@ describe('recalculateStandings', () => {
     await recalculateStandings();
 
     expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ finalCode: null }),
+      where: expect.objectContaining({
+        finalCode: null,
+        resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
+        OR: [
+          { stageId: null },
+          { stage: { is: { isPublished: true } } },
+        ],
+      }),
     }));
 
     // Team A: 2W 1L = 8pts, Team B: 1W 2L = 4pts

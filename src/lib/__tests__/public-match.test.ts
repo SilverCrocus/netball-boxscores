@@ -20,6 +20,8 @@ function match(overrides: Record<string, unknown> = {}) {
     scheduledAt: new Date('2026-07-04T09:30:00Z'),
     homeTeamId: 'home',
     awayTeamId: 'away',
+    stageId: 'stage-1',
+    stage: { isPublished: true },
     competition: {
       id: 'ssn-2026',
       slug: '2026',
@@ -65,6 +67,20 @@ describe('public match access', () => {
     }));
 
     await expect(resolvePublicMatchAccess('match-1')).resolves.toBeNull();
+  });
+
+  it('fails closed when a match belongs to an unpublished stage', async () => {
+    findMatchMock.mockResolvedValue(match({
+      stage: { isPublished: false },
+    }));
+
+    await expect(resolvePublicMatchAccess('match-1')).resolves.toBeNull();
+  });
+
+  it('allows a legacy public match without a stage', async () => {
+    findMatchMock.mockResolvedValue(match({ stageId: null, stage: null }));
+
+    await expect(resolvePublicMatchAccess('match-1')).resolves.not.toBeNull();
   });
 
   it('does not expose an unknown-quality completed score', async () => {

@@ -89,9 +89,11 @@ async function canEmit(
   capability: DataCapability,
   providedAccess?: PublicMatchAccess,
 ): Promise<PublicMatchAccess | null> {
-  const access = providedAccess?.id === matchId
-    ? providedAccess
-    : await resolvePublicMatchAccess(matchId).catch(() => null);
+  // A caller-supplied snapshot can become stale while persistence or other
+  // awaited work is in flight. Resolve again at the final emit boundary so an
+  // unpublish or capability revocation takes effect before Socket.IO sees data.
+  void providedAccess;
+  const access = await resolvePublicMatchAccess(matchId).catch(() => null);
   if (
     !access
     || !isPublicMatchLiveOrFinal(access)

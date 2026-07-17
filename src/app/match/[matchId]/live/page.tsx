@@ -129,6 +129,7 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
       matchEvents: {
         orderBy: [{ period: 'asc' }, { periodSeconds: 'asc' }],
         select: {
+          id: true,
           type: true,
           period: true,
           periodSeconds: true,
@@ -161,16 +162,16 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
   const competitionId = match.competitionId;
   const scheduledAt = match.scheduledAt;
   const isLiveMatch = match.status === 'LIVE';
+  const canExposePlayerStats = features.playerBoxScore.available;
+  const canExposeLineups = canExposePlayerStats && features.lineups.available;
 
   function serializeTeam(team: NonNullable<NonNullable<typeof match>['homeTeam']>) {
     const entry = team.editionEntries.find(
       (candidate) => candidate.competitionId === competitionId,
     );
-    const roster = rosterForMatch(
-      entry?.roster ?? [],
-      scheduledAt,
-      isLiveMatch,
-    );
+    const roster = canExposePlayerStats
+      ? rosterForMatch(entry?.roster ?? [], scheduledAt, isLiveMatch)
+      : [];
     return {
       id: team.id,
       name: team.name,
@@ -183,7 +184,9 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
         return {
           id: player.id,
           name: player.name,
-          position: membership.designatedPosition ?? player.position,
+          position: canExposeLineups
+            ? membership.designatedPosition ?? player.position
+            : player.position,
           ...(stats ? pickStatFields(stats) : emptyStats()),
         };
       }),
@@ -191,11 +194,9 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
   }
 
   // Compute pre-match team strength prior from season results
-  const preMatchPrior = await computeTeamStrengthPrior(
-    match.homeTeamId,
-    match.awayTeamId,
-    match.id,
-  );
+  const preMatchPrior = features.scoreFlow.available
+    ? await computeTeamStrengthPrior(match.homeTeamId, match.awayTeamId, match.id)
+    : null;
 
   const serialized = {
     id: match.id,
@@ -212,11 +213,11 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
     currentTime: match.currentTime,
     homeTeam: serializeTeam(match.homeTeam),
     awayTeam: serializeTeam(match.awayTeam),
-    quarters: match.quarters.map((q) => ({
+    quarters: features.periodScores.available ? match.quarters.map((q) => ({
       quarter: q.quarter,
       homeScore: q.homeScore,
       awayScore: q.awayScore,
-    })),
+    })) : [],
     initialScoreFlow: features.scoreFlow.available ? match.scoreFlow.map((sf) => ({
       matchId: match.id,
       period: sf.period,
@@ -229,6 +230,7 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
       scorerName: sf.scorerPlayer?.name,
     })) : [],
     initialMatchEvents: features.matchEvents.available ? match.matchEvents.map((e) => ({
+      eventId: e.id,
       type: e.type,
       period: e.period,
       periodSeconds: e.periodSeconds,
@@ -245,7 +247,7 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
   return <LiveGameClient
     match={serialized}
     capabilities={{
-      lineups: features.lineups.available && features.playerBoxScore.available,
+      lineups: canExposeLineups,
       matchEvents: features.matchEvents.available,
       periodScores: features.periodScores.available,
       playerBoxScore: features.playerBoxScore.available,

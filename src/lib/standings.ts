@@ -11,7 +11,7 @@ interface TeamRecord {
 }
 
 /**
- * Recalculate standings from all COMPLETED matches.
+ * Recalculate standings from completed matches with a final result quality.
  *
  * SSN points: 4 win, 2 draw, 0 loss. No bonus points (the per-quarter bonus
  * was scrapped after 2019; there is no margin-based bonus in SSN).
@@ -34,7 +34,12 @@ export async function recalculateStandings(): Promise<void> {
     where: {
       competitionId: competition.id,
       status: 'COMPLETED',
+      resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
       finalCode: null,
+      OR: [
+        { stageId: null },
+        { stage: { is: { isPublished: true } } },
+      ],
       ...excludeSimData,
     },
     select: {

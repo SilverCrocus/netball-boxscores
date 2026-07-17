@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { resolvePublicMatchMock, notFoundMock } = vi.hoisted(() => ({
+const { findUniqueMock, resolvePublicMatchMock, notFoundMock } = vi.hoisted(() => ({
+  findUniqueMock: vi.fn(),
   resolvePublicMatchMock: vi.fn(),
   notFoundMock: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
@@ -13,6 +14,13 @@ const unavailableFeature = (capability: string) => ({
   state: 'UNAVAILABLE',
   scope: 'edition',
   available: false,
+});
+
+const availableFeature = (capability: string) => ({
+  capability,
+  state: 'AVAILABLE',
+  scope: 'edition',
+  available: true,
 });
 
 const scheduledPublicAccess = {
@@ -36,10 +44,54 @@ const scheduledPublicAccess = {
   },
 };
 
+function seededMatch(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'glasgow-match-1',
+    competitionId: 'glasgow-2026',
+    status: 'SCHEDULED',
+    resultQuality: 'UNKNOWN',
+    homeScore: 0,
+    awayScore: 0,
+    currentQuarter: null,
+    currentTime: null,
+    round: null,
+    roundLabel: 'Pool A · Day 1',
+    finalCode: null,
+    stage: { name: 'Pool Stage' },
+    venue: 'SEC Centre',
+    scheduledAt: new Date('2026-07-25T08:00:00Z'),
+    homeTeamId: 'australia',
+    awayTeamId: 'england',
+    homeTeam: { name: 'Australia', abbreviation: 'AUS', logoUrl: null, slug: 'australia' },
+    awayTeam: { name: 'England', abbreviation: 'ENG', logoUrl: null, slug: 'england' },
+    dataCoverage: [],
+    quarters: [],
+    playerStats: [],
+    scoreFlow: [],
+    _count: { matchEvents: 0 },
+    ...overrides,
+  };
+}
+
+function allCapabilitiesAccess(
+  status: 'SCHEDULED' | 'COMPLETED',
+  resultQuality: 'UNKNOWN' | 'OFFICIAL_FINAL' = 'UNKNOWN',
+) {
+  return {
+    ...scheduledPublicAccess,
+    status,
+    resultQuality,
+    features: Object.fromEntries(Object.entries(scheduledPublicAccess.features).map(
+      ([key, feature]) => [key, availableFeature(feature.capability)],
+    )),
+  };
+}
+
 vi.mock('@/components/match/MatchActions', () => ({ MatchActions: () => null }));
-vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchForRequest: resolvePublicMatchMock,
-}));
+vi.mock('@/lib/public-match', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/public-match')>();
+  return { ...actual, resolvePublicMatchForRequest: resolvePublicMatchMock };
+});
 vi.mock('next/navigation', () => ({
   notFound: notFoundMock,
   redirect: vi.fn((href: string) => {
@@ -47,53 +99,14 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/db', () => ({
-  prisma: {
-    match: {
-      findUnique: vi.fn().mockResolvedValue({
-        id: 'glasgow-match-1',
-        competitionId: 'glasgow-2026',
-        status: 'SCHEDULED',
-        resultQuality: 'UNKNOWN',
-        homeScore: 0,
-        awayScore: 0,
-        currentQuarter: null,
-        currentTime: null,
-        round: null,
-        roundLabel: 'Pool A · Day 1',
-        finalCode: null,
-        stage: { name: 'Pool Stage' },
-        venue: 'SEC Centre',
-        scheduledAt: new Date('2026-07-25T08:00:00Z'),
-        homeTeamId: 'australia',
-        awayTeamId: 'england',
-        homeTeam: { name: 'Australia', abbreviation: 'AUS', logoUrl: null, slug: 'australia' },
-        awayTeam: { name: 'England', abbreviation: 'ENG', logoUrl: null, slug: 'england' },
-        competition: {
-          dataCoverage: [
-            { capability: 'FINAL_SCORE', state: 'UNAVAILABLE' },
-            { capability: 'PERIOD_SCORES', state: 'UNAVAILABLE' },
-            { capability: 'PLAYER_BOX_SCORE', state: 'UNAVAILABLE' },
-            { capability: 'SCORE_FLOW', state: 'UNAVAILABLE' },
-            { capability: 'MATCH_EVENTS', state: 'UNAVAILABLE' },
-            { capability: 'NET_POINTS', state: 'UNAVAILABLE' },
-            { capability: 'SUPER_SHOTS', state: 'UNAVAILABLE' },
-            { capability: 'LINEUPS', state: 'UNAVAILABLE' },
-          ],
-        },
-        dataCoverage: [],
-        quarters: [],
-        playerStats: [],
-        scoreFlow: [],
-        _count: { matchEvents: 0 },
-      }),
-    },
-  },
+  prisma: { match: { findUnique: findUniqueMock } },
 }));
 
 import MatchPage from '../page';
 
 describe('scheduled match page', () => {
   beforeEach(() => {
+    findUniqueMock.mockReset().mockResolvedValue(seededMatch());
     resolvePublicMatchMock.mockReset().mockResolvedValue(scheduledPublicAccess);
     notFoundMock.mockClear();
   });
@@ -121,5 +134,46 @@ describe('scheduled match page', () => {
     })).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(notFoundMock).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['scheduled', 'SCHEDULED', 'UNKNOWN'],
+    ['unverified completed', 'COMPLETED', 'UNKNOWN'],
+  ] as const)('hides seeded result modules for a %s match', async (_label, status, resultQuality) => {
+    findUniqueMock.mockResolvedValue(seededMatch({
+      status,
+      resultQuality,
+      homeScore: 72,
+      awayScore: 70,
+      quarters: [{ quarter: 1, homeScore: 18, awayScore: 17 }],
+      scoreFlow: [{
+        id: 'score-1', period: 1, periodSeconds: 100, scoringTeamId: 'australia',
+        homeScore: 1, awayScore: 0, scorePoints: 1, scorerPlayerId: 'player-1',
+      }],
+      playerStats: [{
+        id: 'stats-1', goals: 20, attempts: 21, goalAssists: 2, intercepts: 1,
+        deflections: 2, rebounds: 1, penalties: 3, feeds: 5, centrePassReceives: 4,
+        turnovers: 1, minutesPlayed: 60, netPoints: 90, gain: 2,
+        player: {
+          id: 'player-1', name: 'Seeded Player', position: 'GA', teamId: 'australia',
+          photoUrl: null, photoSourceUrl: null, photoCredit: null, photoLicense: null,
+          rosterMemberships: [],
+        },
+      }],
+      _count: { matchEvents: 1 },
+    }));
+    resolvePublicMatchMock.mockResolvedValue(allCapabilitiesAccess(status, resultQuality));
+
+    render(await MatchPage({
+      params: Promise.resolve({ matchId: 'glasgow-match-1' }),
+      searchParams: Promise.resolve({ edition: 'glasgow-2026' }),
+    }));
+
+    expect(screen.queryByText('Box Score')).not.toBeInTheDocument();
+    expect(screen.queryByText('Match Momentum')).not.toBeInTheDocument();
+    expect(screen.queryByText('Quarter Breakdown')).not.toBeInTheDocument();
+    expect(screen.queryByText('Top NetPoints')).not.toBeInTheDocument();
+    expect(screen.queryByText('Seeded Player')).not.toBeInTheDocument();
+    expect(screen.queryByText('72')).not.toBeInTheDocument();
   });
 });

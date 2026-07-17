@@ -2,6 +2,10 @@ import { unstable_cache } from 'next/cache';
 import { excludeSimData, prisma } from '@/lib/db';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { getPublicCompetitions } from '@/lib/competitions';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchAccess,
+} from '@/lib/public-match';
 
 const matchTeamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
 
@@ -79,7 +83,7 @@ const teamEditionRosterQuery = (competitionId: string, teamId: string) =>
   });
 
 const recentTeamMatchesQuery = async (competitionId: string, teamId: string) => {
-  const matches = await prisma.match.findMany({
+  const candidates = await prisma.match.findMany({
     where: {
       ...excludeSimData,
       competitionId,
@@ -91,13 +95,21 @@ const recentTeamMatchesQuery = async (competitionId: string, teamId: string) => 
       awayTeam: { select: matchTeamSelect },
     },
     orderBy: { scheduledAt: 'desc' },
-    take: 5,
+    take: 15,
   });
-  return matches.filter(hasResolvedMatchTeams);
+  const matches = await Promise.all(candidates.map(async (match) => {
+    const access = await resolvePublicMatchAccess(match.id).catch(() => null);
+    return access && canExposePublicMatchScore(access) ? match : null;
+  }));
+
+  return matches
+    .filter((match): match is (typeof candidates)[number] => match !== null)
+    .filter(hasResolvedMatchTeams)
+    .slice(0, 5);
 };
 
 const upcomingTeamMatchesQuery = async (competitionId: string, teamId: string) => {
-  const matches = await prisma.match.findMany({
+  const candidates = await prisma.match.findMany({
     where: {
       ...excludeSimData,
       competitionId,
@@ -110,9 +122,16 @@ const upcomingTeamMatchesQuery = async (competitionId: string, teamId: string) =
       awayTeam: { select: matchTeamSelect },
     },
     orderBy: { scheduledAt: 'asc' },
-    take: 3,
+    take: 10,
   });
-  return matches.filter(hasResolvedMatchTeams);
+  const matches = await Promise.all(candidates.map(async (match) => (
+    await resolvePublicMatchAccess(match.id).catch(() => null) ? match : null
+  )));
+
+  return matches
+    .filter((match): match is (typeof candidates)[number] => match !== null)
+    .filter(hasResolvedMatchTeams)
+    .slice(0, 3);
 };
 
 export const getStandingsForCompetition = process.env.NODE_ENV === 'test'
@@ -162,14 +181,14 @@ export const getTeamEditionRoster = process.env.NODE_ENV === 'test'
 
 export const getRecentTeamMatches = process.env.NODE_ENV === 'test'
   ? recentTeamMatchesQuery
-  : unstable_cache(recentTeamMatchesQuery, ['recent-team-matches-v1'], {
+  : unstable_cache(recentTeamMatchesQuery, ['recent-team-matches-v2'], {
       revalidate: 900,
       tags: ['completed-match-history'],
     });
 
 export const getUpcomingTeamMatches = process.env.NODE_ENV === 'test'
   ? upcomingTeamMatchesQuery
-  : unstable_cache(upcomingTeamMatchesQuery, ['upcoming-team-matches-v1'], {
+  : unstable_cache(upcomingTeamMatchesQuery, ['upcoming-team-matches-v2'], {
       revalidate: 60,
       tags: ['upcoming-matches'],
     });

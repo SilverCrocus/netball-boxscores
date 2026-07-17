@@ -25,7 +25,10 @@ async function publicAccessForBroadcast(
   matchId: string,
   providedAccess?: PublicMatchAccess | null,
 ): Promise<PublicMatchAccess | null> {
-  if (providedAccess !== undefined) return providedAccess;
+  // Treat supplied access as a hint only. Publication/capability state can be
+  // revoked during any awaited database work, and the socket layer performs a
+  // second final-boundary check immediately before emitting.
+  void providedAccess;
   return resolvePublicMatchAccess(matchId).catch(() => null);
 }
 
@@ -194,17 +197,28 @@ const STAT_TO_EVENT: { field: 'intercepts' | 'deflections' | 'rebounds' | 'turno
   { field: 'turnovers', type: 'turnover' },
 ];
 
-export async function persistAndBroadcastStatEvents(
+function statEventIdentity(event: {
+  playerId: string;
+  type: string;
+  period: number;
+  periodSeconds: number;
+}): string {
+  return `${event.playerId}\u0000${event.type}\u0000${event.period}\u0000${event.periodSeconds}`;
+}
+
+/**
+ * Persist inferred canonical events before aggregate rows are updated. The
+ * returned payloads correspond only to rows inserted by this call, so a
+ * concurrent poll that loses a skipDuplicates race cannot rebroadcast them.
+ */
+export async function persistStatEvents(
   matchId: string,
   matchDetail: CDMatchStatsResponse,
   dbMatch: DbMatchWithTeams,
   oldStatMap: Map<string, Record<EventType, number>>,
   period: number,
   periodSeconds: number,
-  providedAccess?: PublicMatchAccess | null,
-): Promise<void> {
-  const access = await publicAccessForBroadcast(matchId, providedAccess);
-
+): Promise<StatEventPayload[]> {
   const allPlayerStats = [
     ...(matchDetail.playerStats.home ?? []).map((stats) => ({ stats, isHome: true })),
     ...(matchDetail.playerStats.away ?? []).map((stats) => ({ stats, isHome: false })),
@@ -216,8 +230,15 @@ export async function persistAndBroadcastStatEvents(
   });
   const playerMap = new Map(players.map((p) => [p.championDataPlayerId, p]));
 
-  const eventsToCreate: { matchId: string; playerId: string; type: string; period: number; periodSeconds: number; teamId: string }[] = [];
-  const eventsToBroadcast: StatEventPayload[] = [];
+  const eventsToCreate: Array<{
+    matchId: string;
+    playerId: string;
+    type: string;
+    period: number;
+    periodSeconds: number;
+    teamId: string;
+  }> = [];
+  const candidatePayloads = new Map<string, Omit<StatEventPayload, 'eventId'>>();
 
   for (const { stats: ps, isHome } of allPlayerStats) {
     const player = playerMap.get(ps.playerId);
@@ -245,7 +266,7 @@ export async function persistAndBroadcastStatEvents(
           teamId: team.id,
         });
 
-        eventsToBroadcast.push({
+        const payload = {
           matchId,
           type,
           playerId: player.id,
@@ -257,22 +278,48 @@ export async function persistAndBroadcastStatEvents(
           isHomeTeam: isHome,
           quarter: period,
           time: String(offsetSeconds),
-        });
+        } satisfies Omit<StatEventPayload, 'eventId'>;
+        candidatePayloads.set(statEventIdentity({
+          playerId: player.id,
+          type,
+          period,
+          periodSeconds: offsetSeconds,
+        }), payload);
       }
     }
   }
 
-  if (eventsToCreate.length > 0) {
-    await prisma.matchEvent.createMany({
-      data: eventsToCreate,
-      skipDuplicates: true,
-    });
-  }
+  if (eventsToCreate.length === 0) return [];
 
-  if (access && isPublicMatchLiveOrFinal(access) && access.features.matchEvents.available) {
-    for (const event of eventsToBroadcast) {
-      await broadcastStatEvent(matchId, event, access);
-    }
+  const inserted = await prisma.matchEvent.createManyAndReturn({
+    data: eventsToCreate,
+    skipDuplicates: true,
+    select: {
+      id: true,
+      playerId: true,
+      type: true,
+      period: true,
+      periodSeconds: true,
+    },
+  });
+
+  return inserted.flatMap((event) => {
+    const payload = candidatePayloads.get(statEventIdentity(event));
+    return payload ? [{ eventId: event.id, ...payload }] : [];
+  });
+}
+
+/** Emit only events proven newly committed by persistStatEvents. */
+export async function broadcastPersistedStatEvents(
+  matchId: string,
+  events: readonly StatEventPayload[],
+): Promise<void> {
+  if (events.length === 0) return;
+  const access = await publicAccessForBroadcast(matchId);
+  if (!access || !isPublicMatchLiveOrFinal(access) || !access.features.matchEvents.available) return;
+
+  for (const event of events) {
+    await broadcastStatEvent(matchId, event, access);
   }
 }
 

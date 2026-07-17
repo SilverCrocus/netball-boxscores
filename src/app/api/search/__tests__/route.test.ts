@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findMatchesMock, findPlayersMock, findTeamsMock } = vi.hoisted(() => ({
+const { findMatchesMock, findPlayersMock, findTeamsMock, resolvePublicMatchMock } = vi.hoisted(() => ({
   findMatchesMock: vi.fn(),
   findPlayersMock: vi.fn(),
   findTeamsMock: vi.fn(),
+  resolvePublicMatchMock: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -18,6 +19,10 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/competitions', () => ({
   getPublicCompetitions: vi.fn().mockResolvedValue([{ id: 'competition-2026' }]),
 }));
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: resolvePublicMatchMock,
+  canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
+}));
 
 import { GET } from '../route';
 
@@ -26,6 +31,9 @@ describe('GET /api/search', () => {
     findPlayersMock.mockReset().mockResolvedValue([]);
     findTeamsMock.mockReset().mockResolvedValue([]);
     findMatchesMock.mockReset().mockResolvedValue([]);
+    resolvePublicMatchMock.mockReset().mockResolvedValue({
+      id: 'match-1', status: 'COMPLETED', scoreAvailable: true,
+    });
   });
 
   it('does not query the database below two characters', async () => {
@@ -73,5 +81,35 @@ describe('GET /api/search', () => {
     await expect(response.json()).resolves.toMatchObject({
       error: { code: 'SEARCH_UNAVAILABLE', retryable: true },
     });
+  });
+
+  it('filters denied matches and does not expose a score that fails public score policy', async () => {
+    findMatchesMock.mockResolvedValue([
+      {
+        id: 'unpublished-stage', competitionId: 'competition-2026', round: null,
+        roundLabel: 'Pool A', finalCode: null, stage: { name: 'Pool Stage' }, status: 'COMPLETED',
+        homeScore: 70, awayScore: 60,
+        homeTeamId: 'a', awayTeamId: 'b',
+        homeTeam: { name: 'Australia' }, awayTeam: { name: 'England' },
+      },
+      {
+        id: 'unverified-score', competitionId: 'competition-2026', round: null,
+        roundLabel: 'Pool A', finalCode: null, stage: { name: 'Pool Stage' }, status: 'COMPLETED',
+        homeScore: 99, awayScore: 98,
+        homeTeamId: 'c', awayTeamId: 'd',
+        homeTeam: { name: 'Jamaica' }, awayTeam: { name: 'New Zealand' },
+      },
+    ]);
+    resolvePublicMatchMock.mockImplementation(async (id: string) => id === 'unpublished-stage'
+      ? null
+      : { id, status: 'COMPLETED', scoreAvailable: false });
+
+    const response = await GET(new Request('https://centrepass.test/api/search?q=pool'));
+    const payload = await response.json();
+
+    expect(payload.matches).toEqual([
+      expect.objectContaining({ id: 'unverified-score', meta: 'Pool A' }),
+    ]);
+    expect(JSON.stringify(payload.matches)).not.toContain('99-98');
   });
 });
