@@ -1,6 +1,5 @@
 import { spawnSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 export const HISTORICAL_BASELINE_MIGRATION = '00000000000000_historical_baseline';
@@ -23,7 +22,7 @@ function verifyLocalTarget() {
 
 async function main() {
   verifyLocalTarget();
-  const rehearsalRoot = await mkdtemp(path.join(tmpdir(), 'centrepass-prisma-rehearsal-'));
+  const rehearsalRoot = await mkdtemp(path.resolve('.prisma-rehearsal-'));
   try {
     const migrationRoot = path.join(rehearsalRoot, 'migrations');
     const baselineRoot = path.join(migrationRoot, HISTORICAL_BASELINE_MIGRATION);
