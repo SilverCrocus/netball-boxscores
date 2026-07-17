@@ -32,9 +32,18 @@ export interface ScopedRoleRow {
   createDatabase: boolean;
   replication: boolean;
   bypassRls: boolean;
-  memberships: bigint;
+  memberOfCount: bigint;
   databaseConnect: boolean;
   roleSettings: string[];
+}
+
+export interface RoleMembershipRow {
+  grantedRole: string;
+  memberRole: string;
+  adminOption: boolean;
+  inheritOption: boolean;
+  setOption: boolean;
+  grantorRole: string;
 }
 
 export interface RoleSettingRow {
@@ -74,6 +83,7 @@ export interface FunctionPrivilegeRow extends FunctionObjectRow {
 
 export interface PreviewScopedRoleCatalogState {
   roles: ScopedRoleRow[];
+  memberships: RoleMembershipRow[];
   settings: RoleSettingRow[];
   schemaPrivileges: SchemaPrivilegeRow[];
   relationObjects: RelationObjectRow[];
@@ -102,6 +112,17 @@ function roleKey(row: { roleName: string }) {
   return row.roleName;
 }
 
+function membershipKey(row: RoleMembershipRow) {
+  return [
+    row.grantedRole,
+    row.memberRole,
+    row.adminOption,
+    row.inheritOption,
+    row.setOption,
+    row.grantorRole,
+  ].join('|');
+}
+
 function settingKey(row: RoleSettingRow) {
   return `${row.roleName}|${row.setting}`;
 }
@@ -123,7 +144,10 @@ function functionPrivilegeKey(row: FunctionPrivilegeRow) {
  * This catches grants inherited through PUBLIC or role memberships as well as
  * missing required grants and drift in the reviewed object allowlists.
  */
-export function verifyPreviewScopedRoleContract(state: PreviewScopedRoleCatalogState) {
+export function verifyPreviewScopedRoleContract(
+  state: PreviewScopedRoleCatalogState,
+  options: { supabasePreview?: boolean } = {},
+) {
   exactSet(state.roles.map(roleKey), [ANALYTICS_ROLE, OPERATIONS_ROLE], 'roles');
   for (const role of state.roles) {
     invariant(role.canLogin, `${role.roleName} cannot login`);
@@ -133,11 +157,16 @@ export function verifyPreviewScopedRoleContract(state: PreviewScopedRoleCatalogS
     invariant(!role.createDatabase, `${role.roleName} can create databases`);
     invariant(!role.replication, `${role.roleName} has replication privileges`);
     invariant(!role.bypassRls, `${role.roleName} bypasses RLS`);
-    invariant(role.memberships === BigInt(0), `${role.roleName} has a role membership`);
+    invariant(role.memberOfCount === BigInt(0), `${role.roleName} is a member of another role`);
     invariant(role.databaseConnect, `${role.roleName} cannot connect to the preview database`);
     invariant(role.roleSettings.length === 0,
       `${role.roleName} has unexpected cluster-wide role settings`);
   }
+
+  exactSet(state.memberships.map(membershipKey), options.supabasePreview ? [
+    `${ANALYTICS_ROLE}|postgres|true|false|false|supabase_admin`,
+    `${OPERATIONS_ROLE}|postgres|true|false|false|supabase_admin`,
+  ] : [], 'provider-managed administrative memberships');
 
   exactSet(state.settings.map(settingKey), [
     `${ANALYTICS_ROLE}|default_transaction_read_only=on`,

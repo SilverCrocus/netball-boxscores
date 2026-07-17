@@ -21,10 +21,11 @@ function fixture(): PreviewScopedRoleCatalogState {
       createDatabase: false,
       replication: false,
       bypassRls: false,
-      memberships: BigInt(0),
+      memberOfCount: BigInt(0),
       databaseConnect: true,
       roleSettings: [],
     })),
+    memberships: [],
     settings: [
       { roleName: ANALYTICS_ROLE, setting: 'default_transaction_read_only=on' },
       { roleName: ANALYTICS_ROLE, setting: 'search_path=analytics' },
@@ -142,9 +143,24 @@ describe('preview scoped-role contract', () => {
     elevated.roles[0].bypassRls = true;
     expect(() => verifyPreviewScopedRoleContract(elevated)).toThrow('bypasses RLS');
 
-    const membership = fixture();
-    membership.roles[1].memberships = BigInt(1);
-    expect(() => verifyPreviewScopedRoleContract(membership)).toThrow('role membership');
+    const memberOfAnotherRole = fixture();
+    memberOfAnotherRole.roles[1].memberOfCount = BigInt(1);
+    expect(() => verifyPreviewScopedRoleContract(memberOfAnotherRole)).toThrow(
+      'member of another role',
+    );
+
+    const unsafeMember = fixture();
+    unsafeMember.memberships.push({
+      grantedRole: ANALYTICS_ROLE,
+      memberRole: 'application_user',
+      adminOption: false,
+      inheritOption: true,
+      setOption: true,
+      grantorRole: 'postgres',
+    });
+    expect(() => verifyPreviewScopedRoleContract(unsafeMember, {
+      supabasePreview: true,
+    })).toThrow('provider-managed administrative memberships');
 
     const wrongTimeout = fixture();
     wrongTimeout.settings = wrongTimeout.settings.map((row) =>
@@ -164,6 +180,27 @@ describe('preview scoped-role contract', () => {
       privilege: 'USAGE',
     });
     expect(() => verifyPreviewScopedRoleContract(publicUsage)).toThrow('application schema privileges');
+  });
+
+  it('accepts only the exact non-assumable Supabase administrative memberships', () => {
+    const preview = fixture();
+    preview.memberships = [ANALYTICS_ROLE, OPERATIONS_ROLE].map((grantedRole) => ({
+      grantedRole,
+      memberRole: 'postgres',
+      adminOption: true,
+      inheritOption: false,
+      setOption: false,
+      grantorRole: 'supabase_admin',
+    }));
+    expect(verifyPreviewScopedRoleContract(preview, { supabasePreview: true })).toEqual({
+      analyticsViews: 14,
+      operationsFunctions: 2,
+    });
+
+    preview.memberships[0].setOption = true;
+    expect(() => verifyPreviewScopedRoleContract(preview, {
+      supabasePreview: true,
+    })).toThrow('provider-managed administrative memberships');
   });
 
   it('keeps the executable verifier contract in lockstep with both reviewed SQL files', () => {

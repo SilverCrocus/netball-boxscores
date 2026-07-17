@@ -7,6 +7,7 @@ import {
   type FunctionPrivilegeRow,
   type RelationObjectRow,
   type RelationPrivilegeRow,
+  type RoleMembershipRow,
   type RoleSettingRow,
   type SchemaPrivilegeRow,
   type ScopedRoleRow,
@@ -29,6 +30,7 @@ async function main() {
   if (freshLocalRehearsal) verifyFreshLocalTarget();
   const [
     roles,
+    memberships,
     settings,
     schemaPrivileges,
     relationObjects,
@@ -47,12 +49,24 @@ async function main() {
         role.rolcreatedb AS "createDatabase", role.rolreplication AS replication,
         role.rolbypassrls AS "bypassRls",
         (SELECT COUNT(*) FROM pg_auth_members membership
-          WHERE membership.member = role.oid OR membership.roleid = role.oid)::bigint AS memberships,
+          WHERE membership.member = role.oid)::bigint AS "memberOfCount",
         has_database_privilege(role.rolname, current_database(), 'CONNECT') AS "databaseConnect",
         COALESCE(role.rolconfig, ARRAY[]::text[]) AS "roleSettings"
       FROM reviewed
       JOIN pg_roles role ON role.rolname = reviewed."roleName"
       ORDER BY role.rolname`),
+    prisma.$queryRaw<RoleMembershipRow[]>(Prisma.sql`
+      SELECT granted.rolname AS "grantedRole", member.rolname AS "memberRole",
+        membership.admin_option AS "adminOption",
+        membership.inherit_option AS "inheritOption",
+        membership.set_option AS "setOption", grantor.rolname AS "grantorRole"
+      FROM pg_auth_members membership
+      JOIN pg_roles granted ON granted.oid = membership.roleid
+      JOIN pg_roles member ON member.oid = membership.member
+      JOIN pg_roles grantor ON grantor.oid = membership.grantor
+      WHERE granted.rolname IN ('centrepass_analytics', 'centrepass_stats_operations')
+        OR member.rolname IN ('centrepass_analytics', 'centrepass_stats_operations')
+      ORDER BY granted.rolname, member.rolname`),
     prisma.$queryRaw<RoleSettingRow[]>(Prisma.sql`
       SELECT role.rolname AS "roleName", setting
       FROM pg_roles role
@@ -171,6 +185,7 @@ async function main() {
 
   const verified = verifyPreviewScopedRoleContract({
     roles,
+    memberships,
     settings,
     schemaPrivileges,
     relationObjects,
@@ -178,7 +193,7 @@ async function main() {
     sequencePrivileges,
     functionObjects,
     functionPrivileges,
-  });
+  }, { supabasePreview: target !== null });
   console.log(JSON.stringify({
     status: 'verified-exact-preview-scoped-role-contracts',
     ...(target ? {
