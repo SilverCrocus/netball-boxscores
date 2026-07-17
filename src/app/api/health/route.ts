@@ -9,6 +9,10 @@ export async function GET(): Promise<NextResponse> {
     timestamp: new Date().toISOString(),
     uptimeMs: Date.now() - startedAt,
     version: process.env.npm_package_version || '1.0.0',
+    release: {
+      commit: process.env.RENDER_GIT_COMMIT || null,
+      branch: process.env.RENDER_GIT_BRANCH || null,
+    },
   }, {
     headers: { 'Cache-Control': 'no-store' },
   });
