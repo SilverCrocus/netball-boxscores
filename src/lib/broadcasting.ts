@@ -10,6 +10,7 @@ import {
 import type { CDMatchStatsResponse } from '@/types/champion-data';
 import type { StatEventPayload } from '@/types/socket';
 import type { ChangeResult } from '@/lib/processing';
+import type { Prisma } from '@prisma/client';
 import { getScoreFlowIdentity } from '@/lib/score-flow';
 import {
   isPublicMatchLiveOrFinal,
@@ -206,6 +207,8 @@ function statEventIdentity(event: {
   return `${event.playerId}\u0000${event.type}\u0000${event.period}\u0000${event.periodSeconds}`;
 }
 
+type StatEventClient = Pick<Prisma.TransactionClient, 'player' | 'matchEvent'>;
+
 /**
  * Persist inferred canonical events before aggregate rows are updated. The
  * returned payloads correspond only to rows inserted by this call, so a
@@ -218,13 +221,14 @@ export async function persistStatEvents(
   oldStatMap: Map<string, Record<EventType, number>>,
   period: number,
   periodSeconds: number,
+  db: StatEventClient = prisma,
 ): Promise<StatEventPayload[]> {
   const allPlayerStats = [
     ...(matchDetail.playerStats.home ?? []).map((stats) => ({ stats, isHome: true })),
     ...(matchDetail.playerStats.away ?? []).map((stats) => ({ stats, isHome: false })),
   ];
 
-  const players = await prisma.player.findMany({
+  const players = await db.player.findMany({
     where: { championDataPlayerId: { in: allPlayerStats.map(({ stats }) => stats.playerId) } },
     select: { id: true, name: true, championDataPlayerId: true },
   });
@@ -291,7 +295,7 @@ export async function persistStatEvents(
 
   if (eventsToCreate.length === 0) return [];
 
-  const inserted = await prisma.matchEvent.createManyAndReturn({
+  const inserted = await db.matchEvent.createManyAndReturn({
     data: eventsToCreate,
     skipDuplicates: true,
     select: {

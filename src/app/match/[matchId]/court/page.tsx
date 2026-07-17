@@ -5,7 +5,10 @@ import { CourtClient } from './CourtClient';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { isCanonicalMatchEdition, matchHref } from '@/lib/edition-links';
 import { isFinalFixture } from '@/lib/edition-capabilities';
-import { resolvePublicMatchForRequest } from '@/lib/public-match';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchForRequest,
+} from '@/lib/public-match';
 import { rosterForMatch } from '@/lib/match-player-team';
 
 interface Props {
@@ -42,9 +45,22 @@ export default async function CourtPage({ params, searchParams }: Props) {
 
   const [match, publicAccess] = await Promise.all([prisma.match.findUnique({
     where: { id: matchId },
-    include: {
+    select: {
+      id: true,
+      competitionId: true,
+      status: true,
+      resultQuality: true,
+      scheduledAt: true,
+      homeTeamId: true,
+      awayTeamId: true,
+      homeScore: true,
+      awayScore: true,
+      currentQuarter: true,
+      currentTime: true,
       homeTeam: {
-        include: {
+        select: {
+          id: true,
+          name: true,
           editionEntries: {
             select: {
               competitionId: true,
@@ -55,7 +71,16 @@ export default async function CourtPage({ params, searchParams }: Props) {
                   validTo: true,
                   designatedPosition: true,
                   player: {
-                    include: { matchStats: { where: { matchId } } },
+                    select: {
+                      id: true,
+                      name: true,
+                      position: true,
+                      teamId: true,
+                      matchStats: {
+                        where: { matchId },
+                        select: { turnovers: true },
+                      },
+                    },
                   },
                 },
               },
@@ -64,7 +89,9 @@ export default async function CourtPage({ params, searchParams }: Props) {
         },
       },
       awayTeam: {
-        include: {
+        select: {
+          id: true,
+          name: true,
           editionEntries: {
             select: {
               competitionId: true,
@@ -75,7 +102,16 @@ export default async function CourtPage({ params, searchParams }: Props) {
                   validTo: true,
                   designatedPosition: true,
                   player: {
-                    include: { matchStats: { where: { matchId } } },
+                    select: {
+                      id: true,
+                      name: true,
+                      position: true,
+                      teamId: true,
+                      matchStats: {
+                        where: { matchId },
+                        select: { turnovers: true },
+                      },
+                    },
                   },
                 },
               },
@@ -92,7 +128,8 @@ export default async function CourtPage({ params, searchParams }: Props) {
   const canRenderCourt = (match.status === 'LIVE'
       || isFinalFixture(match.status, match.resultQuality))
     && features.lineups.available
-    && features.playerBoxScore.available;
+    && features.playerBoxScore.available
+    && canExposePublicMatchScore(publicAccess);
   if (!canRenderCourt) {
     redirect(matchHref(match.id, match.competitionId));
   }
@@ -114,16 +151,32 @@ export default async function CourtPage({ params, searchParams }: Props) {
       isLiveMatch,
     )
       .map((membership) => ({
-        ...membership.player,
+        id: membership.player.id,
+        name: membership.player.name,
+        teamId: membership.player.teamId,
         position: membership.designatedPosition ?? membership.player.position,
+        matchStats: membership.player.matchStats.map((stats) => ({
+          turnovers: stats.turnovers,
+        })),
       }));
   }
 
   return <CourtClient
     match={{
-      ...match,
-      homeTeam: { ...match.homeTeam, players: playersForTeam(match.homeTeam) },
-      awayTeam: { ...match.awayTeam, players: playersForTeam(match.awayTeam) },
+      id: match.id,
+      status: match.status,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      currentQuarter: match.currentQuarter,
+      currentTime: match.currentTime,
+      homeTeam: {
+        name: match.homeTeam.name,
+        players: playersForTeam(match.homeTeam),
+      },
+      awayTeam: {
+        name: match.awayTeam.name,
+        players: playersForTeam(match.awayTeam),
+      },
     }}
     realtimeEnabled={match.status === 'LIVE'}
   />;

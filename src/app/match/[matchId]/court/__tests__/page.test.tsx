@@ -83,7 +83,20 @@ const completedMatch = {
           id: 'player-1',
           name: 'Historical Defender',
           position: 'GK',
+          teamId: 'australia',
           matchStats: [{ turnovers: 2 }],
+        },
+      }, {
+        status: 'ACTIVE',
+        validFrom: new Date('2026-07-26T00:00:00Z'),
+        validTo: null,
+        designatedPosition: 'C',
+        player: {
+          id: 'player-future',
+          name: 'Future Reserve',
+          position: 'C',
+          teamId: 'australia',
+          matchStats: [],
         },
       }],
     }],
@@ -106,6 +119,10 @@ vi.mock('@/lib/db', () => ({
 }));
 vi.mock('@/lib/public-match', () => ({
   resolvePublicMatchForRequest: resolvePublicMatchMock,
+  canExposePublicMatchScore: (access: ReturnType<typeof publicAccess>) => (
+    access.features.finalScore.available
+    && access.status === 'COMPLETED'
+  ),
 }));
 vi.mock('../CourtClient', () => ({
   CourtClient: (props: {
@@ -161,6 +178,7 @@ describe('court route safety', () => {
     resolvePublicMatchMock.mockResolvedValue(publicAccess('COMPLETED', [
       'PLAYER_BOX_SCORE',
       'LINEUPS',
+      'FINAL_SCORE',
     ]));
 
     render(await CourtPage({
@@ -169,9 +187,38 @@ describe('court route safety', () => {
     }));
 
     expect(screen.getByText('Historical Defender')).toBeInTheDocument();
+    expect(screen.queryByText('Future Reserve')).not.toBeInTheDocument();
     expect(courtClientPropsMock).toHaveBeenLastCalledWith(expect.objectContaining({
       realtimeEnabled: false,
     }));
+    const props = courtClientPropsMock.mock.lastCall?.[0];
+    expect(JSON.stringify(props)).not.toContain('editionEntries');
+    expect(JSON.stringify(props)).not.toContain('Future Reserve');
+    expect(Object.keys(props.match).sort()).toEqual([
+      'awayScore',
+      'awayTeam',
+      'currentQuarter',
+      'currentTime',
+      'homeScore',
+      'homeTeam',
+      'id',
+      'status',
+    ]);
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it('redirects when lineups exist but the public final score is unavailable', async () => {
+    findUniqueMock.mockResolvedValue(completedMatch);
+    resolvePublicMatchMock.mockResolvedValue(publicAccess('COMPLETED', [
+      'PLAYER_BOX_SCORE',
+      'LINEUPS',
+    ]));
+
+    await expect(CourtPage({
+      params: Promise.resolve({ matchId: 'glasgow-match-1' }),
+      searchParams: Promise.resolve({ edition: 'glasgow-2026' }),
+    })).rejects.toThrow('REDIRECT:/match/glasgow-match-1?edition=glasgow-2026');
+
+    expect(courtClientPropsMock).not.toHaveBeenCalled();
   });
 });

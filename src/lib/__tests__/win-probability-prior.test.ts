@@ -9,7 +9,12 @@ vi.mock('@/lib/db', () => ({
   excludeSimData: { isSimulation: false },
 }));
 
+vi.mock('@/lib/competitions', () => ({
+  getPublicCompetitions: vi.fn().mockResolvedValue([{ id: 'public-edition' }]),
+}));
+
 import { computeTeamStrengthPrior } from '@/lib/win-probability';
+import { getPublicCompetitions } from '@/lib/competitions';
 
 describe('computeTeamStrengthPrior public history policy', () => {
   beforeEach(() => {
@@ -23,6 +28,7 @@ describe('computeTeamStrengthPrior public history policy', () => {
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         status: 'COMPLETED',
+        competitionId: { in: ['public-edition'] },
         resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
         AND: [
           {
@@ -40,5 +46,13 @@ describe('computeTeamStrengthPrior public history policy', () => {
         ],
       }),
     }));
+  });
+
+  it('does not read historical scores when no edition is publicly ready', async () => {
+    vi.mocked(getPublicCompetitions).mockResolvedValueOnce([]);
+
+    await expect(computeTeamStrengthPrior('home', 'away', 'current')).resolves.toBeNull();
+
+    expect(mocks.findMany).not.toHaveBeenCalled();
   });
 });

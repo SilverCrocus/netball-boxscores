@@ -5,7 +5,7 @@ import type {
   Prisma,
   ResultQualityStatus,
 } from '@prisma/client';
-import { prisma } from '@/lib/db';
+import { excludeSimData, prisma } from '@/lib/db';
 import {
   isEditionPubliclyReady,
   type CompetitionOption,
@@ -78,6 +78,7 @@ async function loadPublicMatchAccess(matchId: string): Promise<PublicMatchAccess
       scheduledAt: true,
       homeTeamId: true,
       awayTeamId: true,
+      isSimulation: true,
       stageId: true,
       stage: { select: { isPublished: true } },
       competition: { select: publicReadinessSelect },
@@ -87,6 +88,7 @@ async function loadPublicMatchAccess(matchId: string): Promise<PublicMatchAccess
 
   if (
     !match
+    || (excludeSimData.isSimulation === false && match.isSimulation)
     || !isEditionPubliclyReady(match.competition as unknown as CompetitionOption)
     || (match.stageId !== null && match.stage?.isPublished !== true)
   ) return null;

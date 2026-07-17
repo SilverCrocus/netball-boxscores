@@ -82,8 +82,8 @@ const teamEditionRosterQuery = (competitionId: string, teamId: string) =>
     orderBy: { player: { name: 'asc' } },
   });
 
-const recentTeamMatchesQuery = async (competitionId: string, teamId: string) => {
-  const candidates = await prisma.match.findMany({
+const recentTeamMatchCandidatesQuery = (competitionId: string, teamId: string) =>
+  prisma.match.findMany({
     where: {
       ...excludeSimData,
       competitionId,
@@ -97,19 +97,9 @@ const recentTeamMatchesQuery = async (competitionId: string, teamId: string) => 
     orderBy: { scheduledAt: 'desc' },
     take: 15,
   });
-  const matches = await Promise.all(candidates.map(async (match) => {
-    const access = await resolvePublicMatchAccess(match.id).catch(() => null);
-    return access && canExposePublicMatchScore(access) ? match : null;
-  }));
 
-  return matches
-    .filter((match): match is (typeof candidates)[number] => match !== null)
-    .filter(hasResolvedMatchTeams)
-    .slice(0, 5);
-};
-
-const upcomingTeamMatchesQuery = async (competitionId: string, teamId: string) => {
-  const candidates = await prisma.match.findMany({
+const upcomingTeamMatchCandidatesQuery = (competitionId: string, teamId: string) =>
+  prisma.match.findMany({
     where: {
       ...excludeSimData,
       competitionId,
@@ -124,6 +114,36 @@ const upcomingTeamMatchesQuery = async (competitionId: string, teamId: string) =
     orderBy: { scheduledAt: 'asc' },
     take: 10,
   });
+
+const getRecentTeamMatchCandidates = process.env.NODE_ENV === 'test'
+  ? recentTeamMatchCandidatesQuery
+  : unstable_cache(recentTeamMatchCandidatesQuery, ['recent-team-match-candidates-v1'], {
+      revalidate: 900,
+      tags: ['completed-match-history'],
+    });
+
+const getUpcomingTeamMatchCandidates = process.env.NODE_ENV === 'test'
+  ? upcomingTeamMatchCandidatesQuery
+  : unstable_cache(upcomingTeamMatchCandidatesQuery, ['upcoming-team-match-candidates-v1'], {
+      revalidate: 60,
+      tags: ['upcoming-matches'],
+    });
+
+export async function getRecentTeamMatches(competitionId: string, teamId: string) {
+  const candidates = await getRecentTeamMatchCandidates(competitionId, teamId);
+  const matches = await Promise.all(candidates.map(async (match) => {
+    const access = await resolvePublicMatchAccess(match.id).catch(() => null);
+    return access && canExposePublicMatchScore(access) ? match : null;
+  }));
+
+  return matches
+    .filter((match): match is (typeof candidates)[number] => match !== null)
+    .filter(hasResolvedMatchTeams)
+    .slice(0, 5);
+}
+
+export async function getUpcomingTeamMatches(competitionId: string, teamId: string) {
+  const candidates = await getUpcomingTeamMatchCandidates(competitionId, teamId);
   const matches = await Promise.all(candidates.map(async (match) => (
     await resolvePublicMatchAccess(match.id).catch(() => null) ? match : null
   )));
@@ -132,7 +152,7 @@ const upcomingTeamMatchesQuery = async (competitionId: string, teamId: string) =
     .filter((match): match is (typeof candidates)[number] => match !== null)
     .filter(hasResolvedMatchTeams)
     .slice(0, 3);
-};
+}
 
 export const getStandingsForCompetition = process.env.NODE_ENV === 'test'
   ? standingsQuery
@@ -177,18 +197,4 @@ export const getTeamEditionRoster = process.env.NODE_ENV === 'test'
   : unstable_cache(teamEditionRosterQuery, ['team-edition-roster-v3'], {
       revalidate: 3600,
       tags: ['teams', 'rosters'],
-    });
-
-export const getRecentTeamMatches = process.env.NODE_ENV === 'test'
-  ? recentTeamMatchesQuery
-  : unstable_cache(recentTeamMatchesQuery, ['recent-team-matches-v2'], {
-      revalidate: 900,
-      tags: ['completed-match-history'],
-    });
-
-export const getUpcomingTeamMatches = process.env.NODE_ENV === 'test'
-  ? upcomingTeamMatchesQuery
-  : unstable_cache(upcomingTeamMatchesQuery, ['upcoming-team-matches-v2'], {
-      revalidate: 60,
-      tags: ['upcoming-matches'],
     });

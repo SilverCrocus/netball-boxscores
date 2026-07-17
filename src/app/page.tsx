@@ -57,12 +57,26 @@ export default async function HomePage() {
         const baseWhere = { ...excludeSimData, competitionId: competition.id };
         const [live, upcoming, history] = await Promise.all([
           timedQuery('home_live_matches', () => prisma.match.findMany({
-            where: { ...baseWhere, status: 'LIVE' },
+            where: {
+              ...baseWhere,
+              status: 'LIVE',
+              OR: [
+                { stageId: null },
+                { stage: { is: { isPublished: true } } },
+              ],
+            },
             select: homepageMatchSelect,
             orderBy: { scheduledAt: 'asc' },
           })),
           timedQuery('home_upcoming_matches', () => prisma.match.findMany({
-            where: { ...baseWhere, status: 'SCHEDULED' },
+            where: {
+              ...baseWhere,
+              status: 'SCHEDULED',
+              OR: [
+                { stageId: null },
+                { stage: { is: { isPublished: true } } },
+              ],
+            },
             select: homepageMatchSelect,
             orderBy: { scheduledAt: 'asc' },
             take: 4,

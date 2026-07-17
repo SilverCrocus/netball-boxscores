@@ -19,6 +19,14 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: vi.fn().mockResolvedValue({
+    scoreAvailable: true,
+    features: { superShots: { available: true } },
+  }),
+  canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
+}));
+
 const PUBLIC_COVERAGE = [
   { capability: 'FINAL_SCORE', state: 'AVAILABLE' },
   { capability: 'SUPER_SHOTS', state: 'AVAILABLE' },
@@ -251,13 +259,30 @@ describe('HomePage', () => {
     const scheduledQuery = findMatchesMock.mock.calls.find(
       ([query]) => query.where.status === 'SCHEDULED',
     )?.[0];
+    const liveQuery = findMatchesMock.mock.calls.find(
+      ([query]) => query.where.status === 'LIVE',
+    )?.[0];
     const completedQuery = findMatchesMock.mock.calls.find(
       ([query]) => query.where.status === 'COMPLETED',
     )?.[0];
 
     expect(scheduledQuery.take).toBe(4);
+    expect(liveQuery.where.OR).toEqual([
+      { stageId: null },
+      { stage: { is: { isPublished: true } } },
+    ]);
+    expect(scheduledQuery.where.OR).toEqual([
+      { stageId: null },
+      { stage: { is: { isPublished: true } } },
+    ]);
     expect(completedQuery.take).toBe(9);
     expect(completedQuery.where.competitionId).toBe('competition-2026');
+    expect(completedQuery.where.AND).toEqual(expect.arrayContaining([{
+      OR: [
+        { stageId: null },
+        { stage: { is: { isPublished: true } } },
+      ],
+    }]));
     expect(completedQuery.select.scoreFlow).toBeUndefined();
     expect(completedQuery.select.teamStats).toBeDefined();
   });

@@ -7,6 +7,7 @@ vi.mock('@/lib/db', () => ({
     playerMatchStats: { findMany: vi.fn() },
     match: { findUnique: vi.fn() },
     pollLog: { update: vi.fn() },
+    $transaction: vi.fn((callback: (tx: object) => unknown) => callback({ transaction: true })),
   },
   excludeSimData: {},
 }));
@@ -364,6 +365,21 @@ describe('Worker', () => {
     expect(persistOrder).toBeLessThan(vi.mocked(processing.applyChanges).mock.invocationCallOrder[0]);
     expect(persistOrder).toBeLessThan(vi.mocked(broadcasting.broadcastMatchChanges).mock.invocationCallOrder[0]);
     expect(persistOrder).toBeLessThan(vi.mocked(broadcasting.broadcastPersistedStatEvents).mock.invocationCallOrder[0]);
+    const transactionClient = { transaction: true };
+    expect(broadcasting.persistStatEvents).toHaveBeenCalledWith(
+      'db-match',
+      expect.anything(),
+      expect.anything(),
+      expect.any(Map),
+      1,
+      300,
+      transactionClient,
+    );
+    expect(processing.applyChanges).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      transactionClient,
+    );
   });
 
   it('does not advance aggregate counters or emit when canonical event persistence fails', async () => {
@@ -405,6 +421,56 @@ describe('Worker', () => {
     await pollChampionData();
 
     expect(processing.applyChanges).not.toHaveBeenCalled();
+    expect(broadcasting.broadcastMatchChanges).not.toHaveBeenCalled();
+    expect(broadcasting.broadcastPersistedStatEvents).not.toHaveBeenCalled();
+  });
+
+  it('rolls back inferred events and emits nothing when aggregate persistence fails', async () => {
+    const { prisma } = await import('@/lib/db');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const processing = await import('@/lib/processing');
+    const broadcasting = await import('@/lib/broadcasting');
+    const { pollChampionData } = await import('@/lib/worker');
+
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixture: [{ matchId: 101 } as never],
+      matchDetails: new Map([[101, {
+        playerStats: { home: [{ playerId: 10, intercepts: 1 }], away: [] },
+      } as never]]),
+      pollLogIds: [],
+      matchPollLogIds: new Map(),
+      detailFetchErrors: 0,
+    });
+    vi.mocked(prisma.team.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.player.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.playerMatchStats.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.match.findUnique).mockResolvedValue({
+      id: 'db-match', round: 1, homeTeamId: 'home', awayTeamId: 'away',
+      homeTeam: { id: 'home' }, awayTeam: { id: 'away' },
+    } as never);
+    vi.mocked(processing.validateMatchData).mockReturnValue({
+      valid: true,
+      validatedData: {
+        cdMatchId: 101, homeScore: 1, awayScore: 0, status: 'LIVE',
+        currentQuarter: 1, currentTime: '100', quarterScores: [],
+      },
+    } as never);
+    vi.mocked(processing.detectChanges).mockResolvedValue({
+      matchId: 'db-match', scoreChanged: true, statusChanged: false, timeChanged: false,
+      newHomeScore: 1, newAwayScore: 0, newStatus: 'LIVE', currentQuarter: 1, currentTime: '100',
+    });
+    vi.mocked(broadcasting.persistStatEvents).mockResolvedValue([{
+      eventId: 'rolled-back-event', matchId: 'db-match', type: 'intercept',
+      playerId: 'player-1', playerName: 'Player One', teamId: 'home',
+      teamName: 'Home', teamAbbreviation: 'HOM', isHomeTeam: true,
+      quarter: 1, time: '100',
+    }]);
+    vi.mocked(processing.applyChanges).mockRejectedValueOnce(new Error('aggregate write failed'));
+
+    await pollChampionData();
+
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+    expect(broadcasting.persistStatEvents).toHaveBeenCalledOnce();
     expect(broadcasting.broadcastMatchChanges).not.toHaveBeenCalled();
     expect(broadcasting.broadcastPersistedStatEvents).not.toHaveBeenCalled();
   });

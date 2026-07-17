@@ -15,6 +15,7 @@
  */
 
 import { prisma, excludeSimData } from '@/lib/db';
+import { getPublicCompetitions } from '@/lib/competitions';
 
 const QUARTER_SECONDS = 900;
 const GAME_DURATION_SECONDS = 4 * QUARTER_SECONDS; // 3600s = 60 min
@@ -182,10 +183,14 @@ export async function computeTeamStrengthPrior(
   awayTeamId: string,
   currentMatchId: string,
 ): Promise<PreMatchPrior | null> {
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  if (publicEditionIds.length === 0) return null;
+
   const completedMatches = await prisma.match.findMany({
     where: {
       ...excludeSimData,
       status: 'COMPLETED',
+      competitionId: { in: publicEditionIds },
       resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
       id: { not: currentMatchId },
       AND: [

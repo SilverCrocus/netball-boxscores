@@ -4,6 +4,7 @@ const { findMatchMock } = vi.hoisted(() => ({ findMatchMock: vi.fn() }));
 
 vi.mock('@/lib/db', () => ({
   prisma: { match: { findUnique: findMatchMock } },
+  excludeSimData: { isSimulation: false },
 }));
 
 import {
@@ -20,6 +21,7 @@ function match(overrides: Record<string, unknown> = {}) {
     scheduledAt: new Date('2026-07-04T09:30:00Z'),
     homeTeamId: 'home',
     awayTeamId: 'away',
+    isSimulation: false,
     stageId: 'stage-1',
     stage: { isPublished: true },
     competition: {
@@ -73,6 +75,12 @@ describe('public match access', () => {
     findMatchMock.mockResolvedValue(match({
       stage: { isPublished: false },
     }));
+
+    await expect(resolvePublicMatchAccess('match-1')).resolves.toBeNull();
+  });
+
+  it('fails closed for simulation data under the production exclusion policy', async () => {
+    findMatchMock.mockResolvedValue(match({ isSimulation: true }));
 
     await expect(resolvePublicMatchAccess('match-1')).resolves.toBeNull();
   });

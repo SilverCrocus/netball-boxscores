@@ -96,46 +96,53 @@ export async function recalculateStandings(): Promise<void> {
     return pctB - pctA;
   });
 
-  for (let i = 0; i < sorted.length; i++) {
-    const [teamId, rec] = sorted[i];
-    const goalPercentage =
-      rec.goalsAgainst > 0
-        ? parseFloat(((rec.goalsFor / rec.goalsAgainst) * 100).toFixed(1))
-        : 0;
+  await prisma.$transaction(async (tx) => {
+    // Rebuild rather than upserting in place: teams whose only contributing
+    // result became provisional, unpublished, or otherwise excluded must not
+    // retain a stale public standing row.
+    await tx.standing.deleteMany({ where: { competitionId: competition.id } });
 
-    await prisma.standing.upsert({
-      where: {
-        competitionId_teamId: {
+    for (let i = 0; i < sorted.length; i++) {
+      const [teamId, rec] = sorted[i];
+      const goalPercentage =
+        rec.goalsAgainst > 0
+          ? parseFloat(((rec.goalsFor / rec.goalsAgainst) * 100).toFixed(1))
+          : 0;
+
+      await tx.standing.upsert({
+        where: {
+          competitionId_teamId: {
+            competitionId: competition.id,
+            teamId,
+          },
+        },
+        update: {
+          rank: i + 1,
+          played: rec.played,
+          wins: rec.wins,
+          losses: rec.losses,
+          draws: rec.draws,
+          goalsFor: rec.goalsFor,
+          goalsAgainst: rec.goalsAgainst,
+          goalPercentage,
+          points: rec.points,
+        },
+        create: {
           competitionId: competition.id,
           teamId,
+          rank: i + 1,
+          played: rec.played,
+          wins: rec.wins,
+          losses: rec.losses,
+          draws: rec.draws,
+          goalsFor: rec.goalsFor,
+          goalsAgainst: rec.goalsAgainst,
+          goalPercentage,
+          points: rec.points,
         },
-      },
-      update: {
-        rank: i + 1,
-        played: rec.played,
-        wins: rec.wins,
-        losses: rec.losses,
-        draws: rec.draws,
-        goalsFor: rec.goalsFor,
-        goalsAgainst: rec.goalsAgainst,
-        goalPercentage,
-        points: rec.points,
-      },
-      create: {
-        competitionId: competition.id,
-        teamId,
-        rank: i + 1,
-        played: rec.played,
-        wins: rec.wins,
-        losses: rec.losses,
-        draws: rec.draws,
-        goalsFor: rec.goalsFor,
-        goalsAgainst: rec.goalsAgainst,
-        goalPercentage,
-        points: rec.points,
-      },
-    });
-  }
+      });
+    }
+  });
 
   console.log(`[Standings] Recalculated standings for ${sorted.length} teams`);
 }

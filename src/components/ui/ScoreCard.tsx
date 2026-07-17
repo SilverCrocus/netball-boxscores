@@ -18,8 +18,8 @@ interface ScoreCardMatch {
   href?: string;
   homeTeam: TeamInfo;
   awayTeam: TeamInfo;
-  homeScore: number;
-  awayScore: number;
+  homeScore: number | null;
+  awayScore: number | null;
   status: MatchStatus;
   scoreAvailable: boolean;
   currentQuarter?: number | null;
@@ -52,8 +52,10 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
   const isCompletedStatus = match.status === 'COMPLETED';
   const isCompleted = isCompletedStatus && match.scoreAvailable;
   const matchHref = scoreCardHref(match, isLive);
-  const homeWon = isCompleted && match.homeScore > match.awayScore;
-  const awayWon = isCompleted && match.awayScore > match.homeScore;
+  const homeScore = match.homeScore ?? 0;
+  const awayScore = match.awayScore ?? 0;
+  const homeWon = isCompleted && homeScore > awayScore;
+  const awayWon = isCompleted && awayScore > homeScore;
   const hasStageContext = match.round != null
     || Boolean(match.finalCode || match.roundLabel || match.stageName);
   const stageLabel = hasStageContext
@@ -111,7 +113,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
           {isLive || isCompleted ? (
           <div className="flex items-center gap-1 text-3xl font-black font-headline tracking-tighter sm:gap-3 sm:text-4xl">
             <div className="flex flex-col items-center">
-              <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{match.homeScore}</span>
+              <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{homeScore}</span>
               {match.homeBreakdown && match.homeBreakdown.superShots > 0 && (
                 <span className="font-label text-[10px] text-on-surface-variant/60 font-medium mt-[-2px]">
                   ({match.homeBreakdown.goals}.{match.homeBreakdown.superShots})
@@ -120,7 +122,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             </div>
             <span className="text-outline-variant text-2xl">-</span>
             <div className="flex flex-col items-center">
-              <span className={awayWon ? 'text-secondary' : homeWon ? 'text-slate-400' : 'text-primary'}>{match.awayScore}</span>
+              <span className={awayWon ? 'text-secondary' : homeWon ? 'text-slate-400' : 'text-primary'}>{awayScore}</span>
               {match.awayBreakdown && match.awayBreakdown.superShots > 0 && (
                 <span className="font-label text-[10px] text-on-surface-variant/60 font-medium mt-[-2px]">
                   ({match.awayBreakdown.goals}.{match.awayBreakdown.superShots})

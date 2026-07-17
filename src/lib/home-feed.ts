@@ -4,6 +4,11 @@ import { prisma, excludeSimData } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
 import { hasResolvedMatchTeams, type ResolvedMatchTeams } from '@/lib/edition-match';
 import { isFinalFixture, resolveEditionFeatures } from '@/lib/edition-capabilities';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchAccess,
+  type PublicMatchAccess,
+} from '@/lib/public-match';
 
 export const HOME_RESULTS_PAGE_SIZE = 8;
 
@@ -107,7 +112,39 @@ export function isHomepageScoreAvailable(match: HomepageMatch): boolean {
     && (match.status === 'LIVE' || isFinalFixture(match.status, match.resultQuality));
 }
 
-function toResultCard(match: ResolvedHomepageMatch): HomeResultCard {
+/**
+ * Build the score-bearing portion of a public card from current access rather
+ * than trusting potentially cached match coverage or lifecycle fields.
+ */
+export function publicHomepageMatchState(
+  match: HomepageMatch,
+  access: PublicMatchAccess,
+) {
+  const scoreAvailable = canExposePublicMatchScore(access);
+  const clockAvailable = scoreAvailable && access.status === 'LIVE';
+  const breakdown = scoreAvailable && access.features.superShots.available
+    ? computeBreakdown(match)
+    : { homeBreakdown: null, awayBreakdown: null };
+
+  return {
+    status: access.status,
+    scoreAvailable,
+    homeScore: scoreAvailable ? match.homeScore : null,
+    awayScore: scoreAvailable ? match.awayScore : null,
+    currentQuarter: clockAvailable ? match.currentQuarter : null,
+    currentTime: clockAvailable ? match.currentTime : null,
+    ...breakdown,
+  };
+}
+
+function toResultCard(
+  match: ResolvedHomepageMatch,
+  access?: PublicMatchAccess,
+): HomeResultCard {
+  const breakdown = access && !access.features.superShots.available
+    ? { homeBreakdown: null, awayBreakdown: null }
+    : computeBreakdown(match);
+
   return {
     id: match.id,
     competitionId: match.competitionId,
@@ -123,18 +160,25 @@ function toResultCard(match: ResolvedHomepageMatch): HomeResultCard {
     finalCode: match.finalCode,
     homeTeam: match.homeTeam,
     awayTeam: match.awayTeam,
-    ...computeBreakdown(match),
+    ...breakdown,
   };
 }
 
-export function groupCompletedMatches(matches: HomepageMatch[]): HomeResultGroup[] {
+export function groupCompletedMatches(
+  matches: HomepageMatch[],
+  currentAccess?: ReadonlyMap<string, PublicMatchAccess>,
+): HomeResultGroup[] {
   const grouped = new Map<string, HomeResultCard[]>();
 
   for (const match of matches) {
-    if (!hasResolvedMatchTeams(match) || !isHomepageScoreAvailable(match)) continue;
+    const access = currentAccess?.get(match.id);
+    const scoreAvailable = currentAccess
+      ? Boolean(access && canExposePublicMatchScore(access))
+      : isHomepageScoreAvailable(match);
+    if (!hasResolvedMatchTeams(match) || !scoreAvailable) continue;
     const label = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
     const group = grouped.get(label) ?? [];
-    group.push(toResultCard(match));
+    group.push(toResultCard(match, access));
     grouped.set(label, group);
   }
 
@@ -164,10 +208,10 @@ export function decodeCompletedCursor(cursor: string): CompletedCursor | null {
   }
 }
 
-export async function loadCompletedMatchesPage(
+async function loadCompletedMatchCandidates(
   competitionId: string,
   cursor?: string,
-): Promise<CompletedMatchesPage> {
+): Promise<HomepageMatch[]> {
   const decodedCursor = cursor ? decodeCompletedCursor(cursor) : null;
   if (cursor && !decodedCursor) {
     throw new Error('INVALID_CURSOR');
@@ -182,36 +226,64 @@ export async function loadCompletedMatchesPage(
       resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
       homeTeamId: { not: null },
       awayTeamId: { not: null },
-      ...(cursorDate && decodedCursor
-        ? {
+      AND: [
+        {
+          OR: [
+            { stageId: null },
+            { stage: { is: { isPublished: true } } },
+          ],
+        },
+        ...(cursorDate && decodedCursor
+          ? [{
             OR: [
               { scheduledAt: { lt: cursorDate } },
               { scheduledAt: cursorDate, id: { lt: decodedCursor.id } },
             ],
-          }
-        : {}),
+          }]
+          : []),
+      ],
     },
     select: homepageMatchSelect,
     orderBy: [{ scheduledAt: 'desc' }, { id: 'desc' }],
     take: HOME_RESULTS_PAGE_SIZE + 1,
   });
 
-  const pageMatches = matches.filter(hasResolvedMatchTeams).slice(0, HOME_RESULTS_PAGE_SIZE);
+  return matches;
+}
+
+const getCompletedMatchCandidates = process.env.NODE_ENV === 'test'
+  ? loadCompletedMatchCandidates
+  : unstable_cache(loadCompletedMatchCandidates, ['completed-home-result-candidates-v1'], {
+      revalidate: 900,
+      tags: ['completed-match-history'],
+    });
+
+export async function loadCompletedMatchesPage(
+  competitionId: string,
+  cursor?: string,
+): Promise<CompletedMatchesPage> {
+  const matches = await getCompletedMatchCandidates(competitionId, cursor);
+  const accessPairs = await Promise.all(matches.map(async (match) => ({
+    match,
+    access: await resolvePublicMatchAccess(match.id).catch(() => null),
+  })));
+  const currentAccess = new Map(accessPairs.flatMap(({ match, access }) => (
+    access && canExposePublicMatchScore(access) ? [[match.id, access] as const] : []
+  )));
+  const pageMatches = matches
+    .filter((match) => currentAccess.has(match.id) && hasResolvedMatchTeams(match))
+    .slice(0, HOME_RESULTS_PAGE_SIZE);
   const hasMore = matches.length > HOME_RESULTS_PAGE_SIZE;
   const lastMatch = pageMatches.at(-1);
 
   return {
-    groups: groupCompletedMatches(pageMatches),
+    groups: groupCompletedMatches(pageMatches, currentAccess),
     nextCursor: hasMore && lastMatch ? encodeCompletedCursor(lastMatch) : null,
   };
 }
 
-export const getCompletedMatchesPage = process.env.NODE_ENV === 'test'
-  ? loadCompletedMatchesPage
-  : unstable_cache(loadCompletedMatchesPage, ['completed-home-results-v1'], {
-      revalidate: 900,
-      tags: ['completed-match-history'],
-    });
+/** Candidate rows may be cached; access, score, and capability decisions never are. */
+export const getCompletedMatchesPage = loadCompletedMatchesPage;
 
 export interface HomeHeaderState {
   eyebrow: string;

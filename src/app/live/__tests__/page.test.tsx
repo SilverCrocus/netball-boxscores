@@ -1,13 +1,22 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findFirstMock, findManyMock, getLiveStateMock, redirectMock } = vi.hoisted(() => ({
+const {
+  findFirstMock,
+  findManyMock,
+  getLiveStateMock,
+  redirectMock,
+  resolvePublicMatchMock,
+  scoreCardPropsMock,
+} = vi.hoisted(() => ({
   findFirstMock: vi.fn(),
   findManyMock: vi.fn(),
   getLiveStateMock: vi.fn(),
   redirectMock: vi.fn((href: string) => {
     throw new Error(`NEXT_REDIRECT:${href}`);
   }),
+  resolvePublicMatchMock: vi.fn(),
+  scoreCardPropsMock: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({ redirect: redirectMock }));
@@ -21,8 +30,15 @@ vi.mock('@/lib/db', () => ({
     match: { findFirst: findFirstMock, findMany: findManyMock },
   },
 }));
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: resolvePublicMatchMock,
+  canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
+}));
 vi.mock('@/components/ui/ScoreCard', () => ({
-  ScoreCard: ({ match }: { match: { id: string } }) => <div>Card {match.id}</div>,
+  ScoreCard: ({ match }: { match: { id: string } }) => {
+    scoreCardPropsMock(match);
+    return <div>Card {match.id}</div>;
+  },
 }));
 
 import LivePage from '../page';
@@ -62,6 +78,12 @@ describe('LivePage', () => {
     redirectMock.mockClear();
     findFirstMock.mockReset();
     findManyMock.mockReset();
+    scoreCardPropsMock.mockClear();
+    resolvePublicMatchMock.mockReset().mockImplementation(async (id: string) => ({
+      status: id === 'latest-result' ? 'COMPLETED' : id.startsWith('live-') ? 'LIVE' : 'SCHEDULED',
+      scoreAvailable: id === 'latest-result' || id.startsWith('live-'),
+      features: { superShots: { available: true } },
+    }));
   });
 
   it('renders a useful hub when no match is live', async () => {
@@ -78,6 +100,66 @@ describe('LivePage', () => {
     expect(screen.getByText('Card next-match')).toBeInTheDocument();
     expect(screen.getByText('Card latest-result')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View all fixtures' })).toHaveAttribute('href', '/');
+    expect(findFirstMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: 'SCHEDULED',
+        OR: [
+          { stageId: null },
+          { stage: { is: { isPublished: true } } },
+        ],
+      }),
+    }));
+    expect(findFirstMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: 'COMPLETED',
+        OR: [
+          { stageId: null },
+          { stage: { is: { isPublished: true } } },
+        ],
+      }),
+    }));
+  });
+
+  it('fails closed for the fallback score, clock, and super-shot detail', async () => {
+    getLiveStateMock.mockResolvedValue({ liveMatches: [], liveMatchIds: [] });
+    findFirstMock.mockImplementation(({ where }: { where: { status: string } }) =>
+      Promise.resolve(where.status === 'SCHEDULED'
+        ? fixture
+        : {
+            ...fixture,
+            id: 'latest-result',
+            status: 'COMPLETED',
+            resultQuality: 'OFFICIAL_FINAL',
+            homeScore: 62,
+            awayScore: 58,
+            currentQuarter: 4,
+            currentTime: '0',
+            teamStats: [
+              { teamId: 'home', goals: 60, goal2: 2 },
+              { teamId: 'away', goals: 58, goal2: 0 },
+            ],
+          }),
+    );
+    resolvePublicMatchMock.mockImplementation(async (id: string) => ({
+      status: id === 'latest-result' ? 'COMPLETED' : 'SCHEDULED',
+      scoreAvailable: false,
+      features: { superShots: { available: false } },
+    }));
+
+    render(await LivePage());
+
+    const latest = scoreCardPropsMock.mock.calls
+      .map(([props]) => props)
+      .find((props) => props.id === 'latest-result');
+    expect(latest).toMatchObject({
+      scoreAvailable: false,
+      homeScore: null,
+      awayScore: null,
+      currentQuarter: null,
+      currentTime: null,
+      homeBreakdown: null,
+      awayBreakdown: null,
+    });
   });
 
   it('offers a chooser when several matches are live', async () => {

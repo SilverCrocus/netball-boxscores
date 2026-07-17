@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { mapMatchStatus, fetchMatchStats } from '@/lib/champion-data';
 import { pickStatFields, type StatValues } from '@/lib/stat-utils';
-import type { MatchStatus, ResultQualityStatus } from '@prisma/client';
+import type { MatchStatus, Prisma, ResultQualityStatus } from '@prisma/client';
 import type { CDFixtureMatch, CDMatchStatsResponse, CDTeamStats } from '@/types/champion-data';
 
 // ── Types ──
@@ -407,14 +407,25 @@ export async function detectChanges(
 
 // ── Apply Changes (write to live tables) ──
 
+type ApplyChangesClient = Pick<
+  Prisma.TransactionClient,
+  | 'match'
+  | 'matchQuarter'
+  | 'player'
+  | 'playerMatchStats'
+  | 'scoreFlow'
+  | 'teamMatchStats'
+>;
+
 export async function applyChanges(
   changes: ChangeResult,
   incoming: ProcessedMatchState,
+  db: ApplyChangesClient = prisma,
 ): Promise<Map<string, Array<{ playerId: string; name: string }>>> {
   if (!changes.matchId) return new Map();
 
   if (changes.scoreChanged || changes.statusChanged || changes.timeChanged) {
-    await prisma.match.update({
+    await db.match.update({
       where: { id: changes.matchId },
       data: {
         homeScore: changes.newHomeScore,
@@ -438,7 +449,7 @@ export async function applyChanges(
 
   if (incoming.quarterScores) {
     for (const qs of incoming.quarterScores) {
-      await prisma.matchQuarter.upsert({
+      await db.matchQuarter.upsert({
         where: { matchId_quarter: { matchId: changes.matchId, quarter: qs.quarter } },
         update: { homeScore: qs.homeScore, awayScore: qs.awayScore },
         create: { matchId: changes.matchId, quarter: qs.quarter, homeScore: qs.homeScore, awayScore: qs.awayScore },
@@ -450,13 +461,13 @@ export async function applyChanges(
   const scorersByTeam = new Map<string, Array<{ playerId: string; name: string }>>();
 
   if (incoming.playerStats && incoming.playerStats.length > 0) {
-    const players = await prisma.player.findMany({
+    const players = await db.player.findMany({
       where: { championDataPlayerId: { in: incoming.playerStats.map((ps) => ps.championDataPlayerId) } },
       select: { id: true, name: true, championDataPlayerId: true, teamId: true },
     });
     const playerMap = new Map(players.map((p) => [p.championDataPlayerId, p]));
 
-    const oldStats = await prisma.playerMatchStats.findMany({
+    const oldStats = await db.playerMatchStats.findMany({
       where: { matchId: changes.matchId },
       select: { playerId: true, goals: true },
     });
@@ -487,14 +498,14 @@ export async function applyChanges(
           unforcedTurnovers: ps.unforcedTurnovers,
           interceptPassThrown: ps.interceptPassThrown,
         };
-        return prisma.playerMatchStats.upsert({
+        return db.playerMatchStats.upsert({
           where: { playerId_matchId: { playerId: player.id, matchId: changes.matchId } },
           update: statsData,
           create: { playerId: player.id, matchId: changes.matchId, ...statsData },
         });
       });
 
-    await prisma.$transaction(upserts);
+    await Promise.all(upserts);
 
     for (const ps of incoming.playerStats) {
       const player = playerMap.get(ps.championDataPlayerId);
@@ -518,7 +529,7 @@ export async function applyChanges(
     ];
     for (const { teamId, stats, isHome } of teamStats) {
       const data = toTeamStatsData(stats, isHome);
-      await prisma.teamMatchStats.upsert({
+      await db.teamMatchStats.upsert({
         where: { matchId_teamId: { matchId: changes.matchId, teamId } },
         update: data,
         create: { matchId: changes.matchId, teamId, ...data },
@@ -527,7 +538,7 @@ export async function applyChanges(
   }
 
   if (incoming.scoreFlow && incoming.scoreFlow.length > 0) {
-    const existing = await prisma.scoreFlow.findMany({
+    const existing = await db.scoreFlow.findMany({
       where: { matchId: changes.matchId },
       select: { period: true, periodSeconds: true, scoringTeamId: true },
     });
@@ -548,7 +559,7 @@ export async function applyChanges(
         }
       }
 
-      await prisma.scoreFlow.upsert({
+      await db.scoreFlow.upsert({
         where: { matchId_period_periodSeconds_scoringTeamId: { matchId: changes.matchId, period: sf.period, periodSeconds: sf.periodSeconds, scoringTeamId: sf.scoringTeamPrismaId } },
         update: {
           homeScore: sf.homeScore,

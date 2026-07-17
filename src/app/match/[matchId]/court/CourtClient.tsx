@@ -3,28 +3,42 @@
 import { useMatchSocket } from '@/hooks/useMatchSocket';
 import { NetballCourt } from '@/components/match/NetballCourt';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
-import type { Match, Team, Player, PlayerMatchStats } from '@prisma/client';
+import type { MatchStatus, Position } from '@prisma/client';
 import type { StatsUpdatePayload } from '@/types/socket';
 
-type FullMatch = Match & {
-  homeTeam: Team & { players: (Player & { matchStats: PlayerMatchStats[] })[] };
-  awayTeam: Team & { players: (Player & { matchStats: PlayerMatchStats[] })[] };
-};
+export interface CourtPlayerDto {
+  id: string;
+  name: string;
+  position: Position;
+  teamId: string;
+  matchStats: Array<{ turnovers: number }>;
+}
+
+export interface CourtMatchDto {
+  id: string;
+  status: MatchStatus;
+  homeScore: number;
+  awayScore: number;
+  currentQuarter: number | null;
+  currentTime: string | null;
+  homeTeam: { name: string; players: CourtPlayerDto[] };
+  awayTeam: { name: string; players: CourtPlayerDto[] };
+}
 
 interface CourtClientProps {
-  match: FullMatch;
+  match: CourtMatchDto;
   realtimeEnabled?: boolean;
 }
 
 const VALID_POSITIONS = new Set(['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']);
 
 function livePosition(
-  player: Player,
+  player: CourtPlayerDto,
   stats: StatsUpdatePayload | null,
-): Player {
+): CourtPlayerDto {
   const position = stats?.playerStats.find((item) => item.playerId === player.id)?.currentPosition;
   return position && VALID_POSITIONS.has(position)
-    ? { ...player, position: position as Player['position'] }
+    ? { ...player, position: position as Position }
     : player;
 }
 

@@ -129,10 +129,11 @@ export async function pollChampionData(): Promise<void> {
         continue;
       }
 
-      if (!validation.validatedData) continue;
+      const validatedData = validation.validatedData;
+      if (!validatedData) continue;
 
       const startMs = Date.now();
-      const changes = await detectChanges(validation.validatedData);
+      const changes = await detectChanges(validatedData);
       const hasChanges = changes.scoreChanged || changes.statusChanged || changes.timeChanged;
 
       // Snapshot stat event counts before applying
@@ -158,23 +159,31 @@ export async function pollChampionData(): Promise<void> {
         : null;
 
       let persistedStatEvents: Awaited<ReturnType<typeof persistStatEvents>> = [];
-      if (
-        changes.matchId
-        && oldStatMap
-        && matchDetail.playerStats
-        && dbMatch
-        && hasResolvedLegacyMatch(dbMatch)
-      ) {
-        const periodSecs = parseInt(changes.currentTime, 10) || 0;
-        persistedStatEvents = await persistStatEvents(
-          changes.matchId, matchDetail, dbMatch, oldStatMap,
-          changes.currentQuarter, periodSecs,
-        );
-      }
-
       let publicAccess = null;
       if (changes.matchId) {
-        await applyChanges(changes, validation.validatedData);
+        persistedStatEvents = await prisma.$transaction(async (tx) => {
+          let events: Awaited<ReturnType<typeof persistStatEvents>> = [];
+          if (
+            oldStatMap
+            && matchDetail.playerStats
+            && dbMatch
+            && hasResolvedLegacyMatch(dbMatch)
+          ) {
+            const periodSecs = parseInt(changes.currentTime, 10) || 0;
+            events = await persistStatEvents(
+              changes.matchId,
+              matchDetail,
+              dbMatch,
+              oldStatMap,
+              changes.currentQuarter,
+              periodSecs,
+              tx,
+            );
+          }
+
+          await applyChanges(changes, validatedData, tx);
+          return events;
+        });
         publicAccess = await resolvePublicMatchAccess(changes.matchId).catch(() => null);
         if (hasChanges) {
           await broadcastMatchChanges(changes, matchDetail, dbMatch, publicAccess);

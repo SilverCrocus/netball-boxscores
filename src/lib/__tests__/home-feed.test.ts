@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HomepageMatch } from '@/lib/home-feed';
 
-const { findMatchesMock } = vi.hoisted(() => ({
+const { findMatchesMock, resolvePublicMatchMock } = vi.hoisted(() => ({
   findMatchesMock: vi.fn(),
+  resolvePublicMatchMock: vi.fn(),
+}));
+
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: resolvePublicMatchMock,
+  canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -51,7 +57,13 @@ function match(overrides: Partial<HomepageMatch> = {}): HomepageMatch {
 }
 
 describe('home results feed', () => {
-  beforeEach(() => findMatchesMock.mockReset());
+  beforeEach(() => {
+    findMatchesMock.mockReset();
+    resolvePublicMatchMock.mockReset().mockResolvedValue({
+      scoreAvailable: true,
+      features: { superShots: { available: true } },
+    });
+  });
 
   it('round-trips a stable completed-match cursor', () => {
     const source = match();
@@ -78,9 +90,51 @@ describe('home results feed', () => {
         competitionId: 'competition-2026',
         isSimulated: false,
         status: 'COMPLETED',
+        AND: expect.arrayContaining([{
+          OR: [
+            { stageId: null },
+            { stage: { is: { isPublished: true } } },
+          ],
+        }]),
       }),
       take: 9,
     }));
+  });
+
+  it('revalidates cached candidates before every result response', async () => {
+    findMatchesMock.mockResolvedValue([match()]);
+    resolvePublicMatchMock
+      .mockResolvedValueOnce({
+        scoreAvailable: true,
+        features: { superShots: { available: true } },
+      })
+      .mockResolvedValueOnce(null);
+
+    const first = await loadCompletedMatchesPage('competition-2026');
+    const second = await loadCompletedMatchesPage('competition-2026');
+
+    expect(first.groups.flatMap((group) => group.matches)).toHaveLength(1);
+    expect(second.groups).toEqual([]);
+    expect(resolvePublicMatchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('removes cached super-shot detail after capability revocation', async () => {
+    findMatchesMock.mockResolvedValue([match({
+      teamStats: [
+        { teamId: 'home', goals: 62, goal2: 2 },
+        { teamId: 'away', goals: 58, goal2: 0 },
+      ],
+    })]);
+    resolvePublicMatchMock.mockResolvedValue({
+      scoreAvailable: true,
+      features: { superShots: { available: false } },
+    });
+
+    const page = await loadCompletedMatchesPage('competition-2026');
+    const result = page.groups[0].matches[0];
+
+    expect(result.homeBreakdown).toBeNull();
+    expect(result.awayBreakdown).toBeNull();
   });
 
   it('groups finals before older regular rounds in query order', () => {

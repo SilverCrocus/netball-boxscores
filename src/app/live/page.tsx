@@ -3,14 +3,14 @@ import { getLiveState } from '@/lib/live-state';
 import { prisma, excludeSimData } from '@/lib/db';
 import { resolveCompetition } from '@/lib/competitions';
 import {
-  computeBreakdown,
   homepageMatchSelect,
-  isHomepageScoreAvailable,
+  publicHomepageMatchState,
 } from '@/lib/home-feed';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import Link from 'next/link';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { matchHref } from '@/lib/edition-links';
+import { resolvePublicMatchAccess } from '@/lib/public-match';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +33,13 @@ export default async function LivePage() {
       select: homepageMatchSelect,
       orderBy: { scheduledAt: 'asc' },
     });
-    const liveMatches = matches.filter(hasResolvedMatchTeams);
+    const publicMatches = await Promise.all(matches.map(async (match) => ({
+      match,
+      access: await resolvePublicMatchAccess(match.id).catch(() => null),
+    })));
+    const liveMatches = publicMatches.flatMap(({ match, access }) => (
+      access?.status === 'LIVE' && hasResolvedMatchTeams(match) ? [{ match, access }] : []
+    ));
 
     return (
       <div className="mx-auto max-w-7xl">
@@ -45,11 +51,10 @@ export default async function LivePage() {
           More than one match is in progress. Pick the game you want to follow.
         </p>
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-          {liveMatches.map((match) => (
+          {liveMatches.map(({ match, access }) => (
             <ScoreCard key={match.id} match={{
               ...match,
-              scoreAvailable: isHomepageScoreAvailable(match),
-              ...computeBreakdown(match),
+              ...publicHomepageMatchState(match, access),
             }} />
           ))}
         </div>
@@ -58,9 +63,17 @@ export default async function LivePage() {
   }
 
   const now = new Date();
-  const [nextMatch, latestResult] = await Promise.all([
+  const [nextCandidate, latestCandidate] = await Promise.all([
     prisma.match.findFirst({
-      where: { ...baseWhere, status: 'SCHEDULED', scheduledAt: { gte: now } },
+      where: {
+        ...baseWhere,
+        status: 'SCHEDULED',
+        scheduledAt: { gte: now },
+        OR: [
+          { stageId: null },
+          { stage: { is: { isPublished: true } } },
+        ],
+      },
       select: homepageMatchSelect,
       orderBy: { scheduledAt: 'asc' },
     }),
@@ -69,11 +82,25 @@ export default async function LivePage() {
         ...baseWhere,
         status: 'COMPLETED',
         resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
+        OR: [
+          { stageId: null },
+          { stage: { is: { isPublished: true } } },
+        ],
       },
       select: homepageMatchSelect,
       orderBy: { scheduledAt: 'desc' },
     }),
   ]);
+  const [nextAccess, latestAccess] = await Promise.all([
+    nextCandidate
+      ? resolvePublicMatchAccess(nextCandidate.id).catch(() => null)
+      : Promise.resolve(null),
+    latestCandidate
+      ? resolvePublicMatchAccess(latestCandidate.id).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+  const nextMatch = nextCandidate && nextAccess ? nextCandidate : null;
+  const latestResult = latestCandidate && latestAccess ? latestCandidate : null;
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -97,7 +124,10 @@ export default async function LivePage() {
         <section aria-labelledby="next-live-heading">
           <h2 id="next-live-heading" className="mb-4 font-headline text-2xl font-bold text-primary">Next fixture</h2>
           {nextMatch && hasResolvedMatchTeams(nextMatch) ? (
-            <ScoreCard match={{ ...nextMatch, scoreAvailable: false }} />
+            <ScoreCard match={{
+              ...nextMatch,
+              ...publicHomepageMatchState(nextMatch, nextAccess!),
+            }} />
           ) : (
             <p className="rounded-xl bg-surface-container-lowest p-6 text-on-surface-variant shadow-sm">
               The next fixture has not been published yet.
@@ -109,8 +139,7 @@ export default async function LivePage() {
           {latestResult && hasResolvedMatchTeams(latestResult) ? (
             <ScoreCard match={{
               ...latestResult,
-              scoreAvailable: isHomepageScoreAvailable(latestResult),
-              ...computeBreakdown(latestResult),
+              ...publicHomepageMatchState(latestResult, latestAccess!),
             }} />
           ) : (
             <p className="rounded-xl bg-surface-container-lowest p-6 text-on-surface-variant shadow-sm">

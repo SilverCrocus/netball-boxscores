@@ -1,8 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockFindUnique, mockFindMany, mockUpsert } = vi.hoisted(() => ({
+const {
+  mockDeleteMany,
+  mockFindUnique,
+  mockFindMany,
+  mockTransaction,
+  mockUpsert,
+} = vi.hoisted(() => ({
+  mockDeleteMany: vi.fn(),
   mockFindUnique: vi.fn(),
   mockFindMany: vi.fn(),
+  mockTransaction: vi.fn(),
   mockUpsert: vi.fn(),
 }));
 
@@ -10,7 +18,8 @@ vi.mock('@/lib/db', () => ({
   prisma: {
     competition: { findUnique: mockFindUnique },
     match: { findMany: mockFindMany },
-    standing: { upsert: mockUpsert },
+    standing: { deleteMany: mockDeleteMany, upsert: mockUpsert },
+    $transaction: mockTransaction,
   },
   excludeSimData: { isSimulation: false },
 }));
@@ -20,6 +29,10 @@ import { recalculateStandings } from '@/lib/standings';
 beforeEach(() => {
   vi.clearAllMocks();
   mockUpsert.mockResolvedValue({});
+  mockDeleteMany.mockResolvedValue({ count: 0 });
+  mockTransaction.mockImplementation(async (callback) => callback({
+    standing: { deleteMany: mockDeleteMany, upsert: mockUpsert },
+  }));
 });
 
 const COMP = { id: 'comp-1', championDataId: 12949 };
@@ -63,6 +76,9 @@ describe('recalculateStandings', () => {
     // Team A: 2W 1L = 8pts, Team B: 1W 2L = 4pts
     // Team A should be rank 1, Team B rank 2
     expect(mockUpsert).toHaveBeenCalledTimes(2);
+    expect(mockDeleteMany).toHaveBeenCalledWith({
+      where: { competitionId: 'comp-1' },
+    });
 
     const calls = mockUpsert.mock.calls.map((c) => c[0]);
     const teamACall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-a');
@@ -181,5 +197,18 @@ describe('recalculateStandings', () => {
         }),
       })
     );
+  });
+
+  it('removes every stale standing when no eligible result remains', async () => {
+    mockFindUnique.mockResolvedValue(COMP);
+    mockFindMany.mockResolvedValue([]);
+
+    await recalculateStandings();
+
+    expect(mockDeleteMany).toHaveBeenCalledWith({
+      where: { competitionId: 'comp-1' },
+    });
+    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledOnce();
   });
 });

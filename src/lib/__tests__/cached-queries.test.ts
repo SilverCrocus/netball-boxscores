@@ -85,4 +85,18 @@ describe('public team match queries', () => {
     expect(results.map((result) => result.id)).toEqual(['published']);
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 10 }));
   });
+
+  it('rechecks current score access on every recent-results request', async () => {
+    mocks.findMany.mockResolvedValue([match('candidate', 'COMPLETED')]);
+    mocks.resolvePublicMatchAccess
+      .mockResolvedValueOnce({ scoreAvailable: true })
+      .mockResolvedValueOnce({ scoreAvailable: false });
+
+    const first = await getRecentTeamMatches('edition', 'team-a');
+    const second = await getRecentTeamMatches('edition', 'team-a');
+
+    expect(first.map((result) => result.id)).toEqual(['candidate']);
+    expect(second).toEqual([]);
+    expect(mocks.resolvePublicMatchAccess).toHaveBeenCalledTimes(2);
+  });
 });
