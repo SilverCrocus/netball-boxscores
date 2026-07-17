@@ -5,7 +5,7 @@ import type { ErrorInfo } from 'next/error';
 
 export default function TeamPageError({ unstable_retry }: ErrorInfo) {
   return (
-    <main className="mx-auto flex min-h-[50vh] max-w-2xl items-center px-4 py-16">
+    <div className="mx-auto flex min-h-[50vh] max-w-2xl items-center px-4 py-16">
       <section
         aria-labelledby="team-page-error-title"
         className="w-full rounded-2xl bg-surface-container-low p-6 text-center shadow-sm sm:p-10"
@@ -36,6 +36,6 @@ export default function TeamPageError({ unstable_retry }: ErrorInfo) {
           </Link>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import TeamPageError from '../error';
 
 describe('TeamPageError', () => {
-  it('re-fetches the failed Server Component tree on retry', () => {
+  it('avoids a nested main landmark and re-fetches the failed route on retry', () => {
     const reset = vi.fn();
     const unstableRetry = vi.fn();
 
@@ -18,6 +18,7 @@ describe('TeamPageError', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Team details are temporarily unavailable',
     );
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to teams' })).toHaveAttribute(
       'href',
       '/teams',
