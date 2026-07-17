@@ -27,6 +27,8 @@ prints no credential:
 ```bash
 npm run guard:production-target \
   > "$RELEASE_EVIDENCE_DIR/glasgow/correction-target-before-query.json"
+npm run guard:production-psql \
+  > "$RELEASE_EVIDENCE_DIR/glasgow/correction-psql-target-before-query.json"
 PGSERVICE=centrepass-production-direct psql \
   --no-psqlrc --csv --set=ON_ERROR_STOP=1 <<'SQL'
 SELECT run.id,
@@ -92,9 +94,10 @@ npm run guard:production-target \
 npm run db:import:glasgow:results -- /absolute/path/correction.json --apply --confirm <TOKEN>
 ```
 
-Each guard requires `DATABASE_URL` and `DIRECT_URL`, rejects the known preview
-project and non-Supabase endpoints, requires both URLs to resolve uniquely to
-production ref `iqnhnlttvnvkwrqvnrna`, and prints refs only. A
+Each target guard requires `DATABASE_URL` and `DIRECT_URL`, rejects the known
+preview project, forged/non-Supabase endpoints, wrong roles, database, TLS,
+mode or port, requires both URLs to resolve uniquely to production ref
+`iqnhnlttvnvkwrqvnrna`, and prints refs only. A
 missing/mismatched target stops the correction before that step.
 
 After apply, verify the match, quarter bar, pool table, bracket dependency,

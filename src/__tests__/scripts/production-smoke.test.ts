@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   executeProductionSmoke,
+  MAX_RESPONSE_BODY_BYTES,
   parseProductionSmokeArguments,
   renderProductionSmokeMarkdown,
   writeProductionSmokeEvidence,
@@ -51,6 +52,10 @@ function healthyFetch(phase: 'baseline' | 'published' = 'published'): typeof fet
             required: true,
             state: 'healthy',
             satisfiesReadiness: true,
+            isHealthy: true,
+            lastPollAt: '2026-07-16T23:59:55.000Z',
+            lastPollStatus: 'success',
+            currentIntervalMs: 10_000,
           },
           analytics: phase === 'published'
             ? { enabled: true, state: 'healthy', satisfiesReadiness: true }
@@ -195,6 +200,10 @@ describe('production smoke', () => {
           required: true,
           state: 'healthy',
           satisfiesReadiness: true,
+          isHealthy: true,
+          lastPollAt: '2026-07-16T23:59:55.000Z',
+          lastPollStatus: 'success',
+          currentIntervalMs: 10_000,
         },
         analytics: { enabled: false, state: 'disabled', satisfiesReadiness: true },
         statsOperations: { enabled: false, state: 'disabled', satisfiesReadiness: true },
@@ -236,6 +245,10 @@ describe('production smoke', () => {
           required: false,
           state: 'healthy',
           satisfiesReadiness: true,
+          isHealthy: true,
+          lastPollAt: '2026-07-16T23:59:55.000Z',
+          lastPollStatus: 'success',
+          currentIntervalMs: 10_000,
         },
         analytics: { enabled: true, state: 'healthy', satisfiesReadiness: true },
         statsOperations: { enabled: true, state: 'healthy', satisfiesReadiness: true },
@@ -254,6 +267,125 @@ describe('production smoke', () => {
       passed: false,
       error: 'worker is not enabled, required, healthy, and readiness-satisfying',
     });
+  });
+
+  it.each([
+    ['missing isHealthy', { isHealthy: undefined }, 'worker is not enabled'],
+    ['wrong poll status', { lastPollStatus: 'failed' }, 'lastPollStatus'],
+    ['missing interval', { currentIntervalMs: undefined }, 'currentIntervalMs'],
+    ['missing poll time', { lastPollAt: undefined }, 'lastPollAt is not a valid'],
+    ['stale poll', { lastPollAt: '2026-07-16T23:59:30.000Z' }, 'lastPollAt is stale'],
+    ['future poll', { lastPollAt: '2026-07-17T00:00:01.000Z' }, 'lastPollAt is stale'],
+  ])('rejects worker readiness when %s', async (_label, override, expectedError) => {
+    const fallback = healthyFetch();
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname !== '/api/readiness') return fallback(input, init);
+      return jsonResponse({
+        status: 'ready',
+        type: 'readiness',
+        timestamp: '2026-07-17T00:00:00.000Z',
+        checks: {
+          database: { ok: true },
+          worker: {
+            ok: true,
+            enabled: true,
+            required: true,
+            state: 'healthy',
+            satisfiesReadiness: true,
+            isHealthy: true,
+            lastPollAt: '2026-07-16T23:59:55.000Z',
+            lastPollStatus: 'empty',
+            currentIntervalMs: 10_000,
+            ...override,
+          },
+          analytics: { enabled: true, state: 'healthy', satisfiesReadiness: true },
+          statsOperations: { enabled: true, state: 'healthy', satisfiesReadiness: true },
+        },
+      });
+    }) as typeof fetch;
+    const evidence = await executeProductionSmoke({
+      baseUrl: 'https://www.centrepass.io',
+      expectedCommit: COMMIT,
+      phase: 'published',
+      timeoutMs: 100,
+      retries: 0,
+    }, fetchImpl);
+    expect(evidence.checks.find((check) => check.name === 'Readiness and scoped database boundaries')).toMatchObject({
+      passed: false,
+      error: expect.stringContaining(expectedError),
+    });
+  });
+
+  it('fails closed on oversized bodies without retaining body samples', async () => {
+    const fallback = healthyFetch();
+    let first = true;
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (first) {
+        first = false;
+        return new Response('x'.repeat(MAX_RESPONSE_BODY_BYTES + 1), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return fallback(input, init);
+    }) as typeof fetch;
+    const evidence = await executeProductionSmoke({
+      baseUrl: 'https://www.centrepass.io',
+      expectedCommit: COMMIT,
+      phase: 'published',
+      timeoutMs: 100,
+      retries: 2,
+    }, fetchImpl);
+    const health = evidence.checks[0]!;
+    expect(health).toMatchObject({
+      passed: false,
+      request: { attempts: 1, status: 200, finalUrl: 'https://www.centrepass.io/api/health' },
+      error: expect.stringContaining('response body exceeds'),
+    });
+    expect(health.request).not.toHaveProperty('bodySample');
+  });
+
+  it('rejects followed and manual cross-origin redirects and stores no unsafe URL', async () => {
+    const fallback = healthyFetch();
+    const followed = jsonResponse({
+      status: 'ok',
+      type: 'liveness',
+      timestamp: '2026-07-17T00:00:00.000Z',
+      release: { commit: COMMIT },
+    });
+    Object.defineProperty(followed, 'url', { value: 'https://attacker.example/collect?token=secret' });
+    let first = true;
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (first) {
+        first = false;
+        return followed;
+      }
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname === `/match/${SSN_MATCH_ID}`) {
+        return new Response(null, { status: 307, headers: { location: 'https://attacker.example/secret?token=secret' } });
+      }
+      return fallback(input, init);
+    }) as typeof fetch;
+    const evidence = await executeProductionSmoke({
+      baseUrl: 'https://www.centrepass.io',
+      expectedCommit: COMMIT,
+      phase: 'published',
+      timeoutMs: 100,
+      retries: 0,
+    }, fetchImpl);
+    expect(evidence.checks[0]).toMatchObject({
+      passed: false,
+      request: { attempts: 1, finalUrl: 'https://www.centrepass.io/api/health', location: null },
+      error: 'response followed a cross-origin redirect',
+    });
+    expect(evidence.checks.find((check) => check.name === 'Canonical match-edition redirect')).toMatchObject({
+      passed: false,
+      request: { finalUrl: 'https://www.centrepass.io/match/ssn-match-1', location: null },
+      error: 'response contains a cross-origin redirect',
+    });
+    expect(JSON.stringify(evidence)).not.toContain('attacker.example');
+    expect(JSON.stringify(evidence)).not.toContain('token=secret');
   });
 
   it('retains attempts and elapsed time after network retry exhaustion', async () => {

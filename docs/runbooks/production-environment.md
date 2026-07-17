@@ -40,8 +40,9 @@ not be used against production.
   resolve uniquely to project ref `iqnhnlttvnvkwrqvnrna`, and reject preview
   ref `xpfdjkqrbvdasjpllxnc`; use the non-printing guard in
   [`production-release.md`](production-release.md).
-- `DIRECT_URL` uses direct/session mode. The scoped analytics/operations URLs
-  use the Supavisor transaction pooler (normally port 6543); application code
+- `DIRECT_URL` uses direct/session mode on port `5432`; `DATABASE_URL` uses
+  transaction mode on port `6543`. The scoped analytics/operations URLs use
+  the Supavisor transaction pooler on port `6543`; application code
   enforces their pool limits and timeout parameters.
 - The four database roles/URLs are not interchangeable.
 - Both feature flags fail closed. Ask cannot be enabled while analytics is off.
@@ -74,8 +75,27 @@ session:
 
 - a libpq service file containing a reviewed
   `[centrepass-production-direct]` service with the production direct/session
-  host, port, database, user and TLS mode; and
-- a matching `pgpass` file containing the password.
+  host, port `5432`, database `postgres`, exact owner user and
+  `sslmode=verify-full`; and
+- a matching `pgpass` file containing exactly one non-wildcard credential row.
+
+The service must be either the production direct endpoint with user `postgres`,
+or the reviewed Supavisor session endpoint with user
+`postgres.iqnhnlttvnvkwrqvnrna`. For the direct endpoint the non-secret service
+shape is:
+
+```ini
+[centrepass-production-direct]
+host=db.iqnhnlttvnvkwrqvnrna.supabase.co
+port=5432
+dbname=postgres
+user=postgres
+sslmode=verify-full
+```
+
+Do not add another section, duplicate a key, use `include`/`include_dir`, store
+`password` in the service file, or add unreviewed libpq options. The sole
+`pgpass` entry must match the selected host, port, database and user exactly.
 
 The secret manager, not a shell heredoc or command history, must write the file
 contents. Then set only these selectors:
@@ -88,14 +108,16 @@ export PGSERVICEFILE='<ABSOLUTE_PRIVATE_PATH_FROM_SECRET_MANAGER>/pg_service.con
 export PGPASSFILE='<ABSOLUTE_PRIVATE_PATH_FROM_SECRET_MANAGER>/pgpass'
 chmod 600 "$PGSERVICEFILE" "$PGPASSFILE"
 unset PGHOST PGHOSTADDR PGPORT PGDATABASE PGUSER PGPASSWORD
+npm run guard:production-psql
 ```
 
 The production verification scripts reject relative/permissive files and any
 other `PG*` environment variable that could override the reviewed service,
 including TLS/session options such as `PGSSLMODE`. Start from a clean release
-shell and unset any additional `PG*` variable before verification. Invoke owner
-queries only as `PGSERVICE=centrepass-production-direct psql ...` (or use the
-checked-in verification scripts, which do this without a shell).
+shell and unset any additional `PG*` variable before verification. The guard
+parses the exact selected service and matching password target without printing
+credentials. Run it immediately before any approved direct `psql` invocation,
+or use the checked-in verification scripts, which invoke the same guard.
 
 `DATABASE_URL` and `DIRECT_URL` are still injected into the environment for
 Prisma/importer use and the non-printing project-ref guard. They must both pass

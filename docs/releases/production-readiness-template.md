@@ -83,8 +83,11 @@ URLs, tokens, cookies, raw client identifiers or OAuth data.
 - DRAFT/unpublished verification:
 - Open data/capability caveats:
 
-If no real guarded unpublished application path exists, decision is `NO-GO`
-for Glasgow publication.
+If the deployed commit contains `/admin/preview/glasgow-2026`, record the
+bounded `DRAFT_PREVIEW_ENABLED` window, stable allowlisted operator IDs,
+authenticated success, unauthenticated/unauthorized denial, route audit
+evidence, DRAFT-state proof and post-QA disablement/denial. If the route is
+absent or any evidence is missing, decision is `NO-GO` for Glasgow publication.
 
 ## Render deployment
 

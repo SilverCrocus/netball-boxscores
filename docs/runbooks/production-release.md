@@ -97,6 +97,8 @@ checked-in ledger verifier.
 npx prisma migrate status
 umask 077
 mkdir -p "$RELEASE_EVIDENCE_DIR/migrations"
+npm run guard:production-psql \
+  > "$RELEASE_EVIDENCE_DIR/migrations/predeploy-psql-target.json"
 touch "$RELEASE_EVIDENCE_DIR/migrations/expected-pending.txt"
 # Put exactly one reviewed local-only migration directory name per line in this
 # file. Leave it empty only when the reviewed release has no pending migration.
@@ -117,8 +119,10 @@ The release candidate also carries the checked-in
 [`production-catalog.json`](../../scripts/manifests/production-catalog.json),
 generated from the migration-rehearsed preview database. It is the exact
 SHA-256 allowlist for every custom view/materialized view/function/trigger in
-`public` and `analytics`. The live catalog is verified after the pending
-migrations are applied and before any feature or Glasgow data is enabled.
+`public` and `analytics`, including canonical owners, ACLs, view reloptions,
+trigger enabled state, and function security/configuration attributes. The live
+catalog is verified after the pending migrations are applied and before any
+feature or Glasgow data is enabled.
 
 In the Supabase Dashboard for project `iqnhnlttvnvkwrqvnrna`:
 
@@ -156,12 +160,17 @@ data rules here.
 
 ### Unpublished Glasgow blocker
 
-There is currently no checked-in authenticated/admin route that can render the
-DRAFT Glasgow edition. Public resolvers intentionally return 404 for DRAFT
-editions. Direct SQL can reconcile data, but it is not an application smoke
-test. Therefore **production publication is blocked** until a guarded,
-auditable unpublished application-view path is implemented and tested. Do not
-invent a URL or temporarily mark the edition PUBLISHED to inspect it.
+Inspect the exact deployed commit. If it implements
+`/admin/preview/glasgow-2026`, a publication decision requires a bounded QA
+window with `DRAFT_PREVIEW_ENABLED=true`, stable reviewed operator IDs, an
+authenticated authorized success, unauthenticated and unauthorized denials,
+route audit evidence, and proof the rendered edition remains DRAFT. Immediately
+after QA set `DRAFT_PREVIEW_ENABLED=false` and prove access is denied again.
+
+If the deployed commit does not contain that route, or any part of the guarded
+contract cannot be proven, **production publication is blocked**. Direct SQL is
+not application smoke evidence. Do not infer the route from this runbook,
+invent a URL, or temporarily mark the edition PUBLISHED to inspect it.
 
 ## 5. Human go/no-go gate
 
@@ -213,6 +222,8 @@ do not write Glasgow DRAFT data yet. Immediately after the web process starts:
 ```bash
 npm run guard:production-target -- --include-scoped \
   > "$RELEASE_EVIDENCE_DIR/postdeploy-targets.json"
+npm run guard:production-psql \
+  > "$RELEASE_EVIDENCE_DIR/migrations/postdeploy-psql-target.json"
 npm run verify:production-migrations -- --mode postdeploy \
   > "$RELEASE_EVIDENCE_DIR/migrations/postdeploy-verification.json"
 npm run verify:production-catalog \
@@ -229,7 +240,10 @@ npm run smoke:production -- \
 
 The post-deploy migration set must be exactly equal to the local release set.
 The catalog verifier hashes live `pg_get_viewdef`, `pg_get_functiondef`, and
-`pg_get_triggerdef` output and rejects missing, extra or changed definitions.
+`pg_get_triggerdef` output together with owners, ACLs, view reloptions
+(`security_invoker`/`security_barrier` included), trigger enabled state, and
+function owner/ACL/security/configuration attributes. It rejects incomplete,
+duplicate, out-of-order, missing, extra or changed catalog state.
 The commit-bound baseline smoke must pass before feature enablement or the
 first Glasgow DRAFT write; it also proves Glasgow and feature routes fail
 closed while their switches are off.

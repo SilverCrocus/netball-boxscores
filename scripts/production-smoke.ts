@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 const SMOKE_VERSION = 'centrepass-production-smoke.v1';
 const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_RETRIES = 2;
-const MAX_EVIDENCE_BODY_SAMPLE = 500;
+export const MAX_RESPONSE_BODY_BYTES = 1_048_576;
 
 export interface ProductionSmokeOptions {
   baseUrl: string;
@@ -24,9 +24,9 @@ interface RequestEvidence {
   attempts: number;
   durationMs: number;
   contentType: string | null;
+  finalUrl: string | null;
   location: string | null;
   bodySha256: string | null;
-  bodySample: string | null;
 }
 
 export interface SmokeCheckEvidence {
@@ -62,6 +62,8 @@ interface HttpResult {
   body: string;
   attempts: number;
   durationMs: number;
+  finalUrl: string;
+  location: string | null;
 }
 
 interface CheckContext {
@@ -86,14 +88,29 @@ interface MatchesPayload {
 class HttpRequestFailure extends Error {
   readonly attempts: number;
   readonly durationMs: number;
+  readonly status: number | null;
+  readonly contentType: string | null;
+  readonly finalUrl: string | null;
+  readonly location: string | null;
 
-  constructor(message: string, attempts: number, durationMs: number) {
+  constructor(
+    message: string,
+    attempts: number,
+    durationMs: number,
+    metadata: Partial<Pick<HttpRequestFailure, 'status' | 'contentType' | 'finalUrl' | 'location'>> = {},
+  ) {
     super(message);
     this.name = 'HttpRequestFailure';
     this.attempts = attempts;
     this.durationMs = durationMs;
+    this.status = metadata.status ?? null;
+    this.contentType = metadata.contentType ?? null;
+    this.finalUrl = metadata.finalUrl ?? null;
+    this.location = metadata.location ?? null;
   }
 }
+
+class UnsafeHttpResponse extends Error {}
 
 function usage(): never {
   throw new Error(
@@ -174,24 +191,99 @@ export function parseProductionSmokeArguments(argv: string[]): ProductionSmokeOp
   };
 }
 
-function sampleBody(body: string): string | null {
-  if (!body) return null;
-  return body
+function safeUrl(value: URL): string {
+  const safe = `${value.origin}${value.pathname}`;
+  if (safe.length > 1_024 || /[\u0000-\u001f\u007f]/.test(safe)) {
+    throw new UnsafeHttpResponse('response URL is not safe to retain');
+  }
+  return safe;
+}
+
+function safeContentType(value: string | null): string | null {
+  if (!value) return null;
+  const mime = value.split(';', 1)[0]!.trim().toLowerCase();
+  return /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(mime) ? mime : null;
+}
+
+function safeErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  return raw
+    .replace(/\b(?:https?|postgres(?:ql)?):\/\/\S+/gi, '[redacted-url]')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, MAX_EVIDENCE_BODY_SAMPLE) || null;
+    .slice(0, 300) || 'request failed';
+}
+
+function responseMetadata(response: Response, requestedUrl: URL, baseUrl: URL): {
+  finalUrl: string;
+  location: string | null;
+} {
+  let final: URL;
+  try {
+    final = response.url ? new URL(response.url) : requestedUrl;
+  } catch {
+    throw new UnsafeHttpResponse('response final URL is invalid');
+  }
+  if (final.origin !== baseUrl.origin) throw new UnsafeHttpResponse('response followed a cross-origin redirect');
+  const rawLocation = response.headers.get('location');
+  let location: string | null = null;
+  if (rawLocation) {
+    let resolved: URL;
+    try {
+      resolved = new URL(rawLocation, final);
+    } catch {
+      throw new UnsafeHttpResponse('response redirect URL is invalid');
+    }
+    if (resolved.origin !== baseUrl.origin) throw new UnsafeHttpResponse('response contains a cross-origin redirect');
+    location = safeUrl(resolved);
+  }
+  return { finalUrl: safeUrl(final), location };
+}
+
+async function boundedResponseBody(response: Response): Promise<string> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength !== null) {
+    const declaredLength = Number(contentLength);
+    if (!Number.isSafeInteger(declaredLength) || declaredLength < 0) {
+      throw new UnsafeHttpResponse('response has an invalid Content-Length');
+    }
+    if (declaredLength > MAX_RESPONSE_BODY_BYTES) {
+      throw new UnsafeHttpResponse(`response body exceeds ${MAX_RESPONSE_BODY_BYTES} bytes`);
+    }
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let body = '';
+  let bytes = 0;
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) break;
+      bytes += next.value.byteLength;
+      if (bytes > MAX_RESPONSE_BODY_BYTES) {
+        await reader.cancel();
+        throw new UnsafeHttpResponse(`response body exceeds ${MAX_RESPONSE_BODY_BYTES} bytes`);
+      }
+      body += decoder.decode(next.value, { stream: true });
+    }
+    return body + decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function requestEvidence(result?: HttpResult, failure?: unknown): RequestEvidence {
   if (!result) {
     return {
-      status: null,
+      status: failure instanceof HttpRequestFailure ? failure.status : null,
       attempts: failure instanceof HttpRequestFailure ? failure.attempts : 0,
       durationMs: failure instanceof HttpRequestFailure ? failure.durationMs : 0,
-      contentType: null,
-      location: null,
+      contentType: failure instanceof HttpRequestFailure ? safeContentType(failure.contentType) : null,
+      finalUrl: failure instanceof HttpRequestFailure ? failure.finalUrl : null,
+      location: failure instanceof HttpRequestFailure ? failure.location : null,
       bodySha256: null,
-      bodySample: null,
     };
   }
 
@@ -199,10 +291,10 @@ function requestEvidence(result?: HttpResult, failure?: unknown): RequestEvidenc
     status: result.response.status,
     attempts: result.attempts,
     durationMs: result.durationMs,
-    contentType: result.response.headers.get('content-type'),
-    location: result.response.headers.get('location'),
+    contentType: safeContentType(result.response.headers.get('content-type')),
+    finalUrl: result.finalUrl,
+    location: result.location,
     bodySha256: createHash('sha256').update(result.body).digest('hex'),
-    bodySample: sampleBody(result.body),
   };
 }
 
@@ -216,8 +308,10 @@ async function getWithRetry(
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= context.retries + 1; attempt += 1) {
+    let response: Response | undefined;
+    let metadata: { finalUrl: string; location: string | null } | undefined;
     try {
-      const response = await context.fetchImpl(url, {
+      response = await context.fetchImpl(url, {
         method: 'GET',
         redirect,
         headers: {
@@ -226,26 +320,34 @@ async function getWithRetry(
         },
         signal: AbortSignal.timeout(context.timeoutMs),
       });
-      const body = await response.text();
+      metadata = { finalUrl: safeUrl(url), location: null };
+      metadata = responseMetadata(response, url, context.baseUrl);
+      const body = await boundedResponseBody(response);
       if (response.status < 500 || attempt > context.retries) {
         return {
           response,
           body,
           attempts: attempt,
           durationMs: Date.now() - startedAt,
+          ...metadata,
         };
       }
       lastError = new Error(`HTTP ${response.status}`);
     } catch (error) {
       lastError = error;
-      if (attempt > context.retries) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new HttpRequestFailure(message, attempt, Date.now() - startedAt);
+      if (error instanceof UnsafeHttpResponse || attempt > context.retries) {
+        const message = safeErrorMessage(error);
+        throw new HttpRequestFailure(message, attempt, Date.now() - startedAt, {
+          status: response?.status,
+          contentType: response?.headers.get('content-type'),
+          finalUrl: metadata?.finalUrl,
+          location: metadata?.location,
+        });
       }
     }
   }
 
-  const message = lastError instanceof Error ? lastError.message : 'Request failed';
+  const message = safeErrorMessage(lastError);
   throw new HttpRequestFailure(message, context.retries + 1, Date.now() - startedAt);
 }
 
@@ -265,7 +367,9 @@ function objectValue(value: unknown): Record<string, unknown> {
 }
 
 function isoTimestamp(value: unknown): boolean {
-  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
+  return typeof value === 'string'
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)
+    && !Number.isNaN(Date.parse(value));
 }
 
 async function check(
@@ -301,7 +405,7 @@ async function check(
       passed: false,
       observed: result ? `HTTP ${result.response.status}` : 'request failed',
       request: requestEvidence(result, error),
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error),
     };
   }
 }
@@ -330,7 +434,9 @@ function firstSsnMatch(payload: MatchesPayload): { id: string; competitionId: st
     && typeof candidate.competitionId === 'string'
     && candidate.scoreAvailable === true
   ));
-  if (!match?.id || !match.competitionId) {
+  if (!match?.id || !match.competitionId
+    || !/^[A-Za-z0-9_-]{1,100}$/.test(match.id)
+    || !/^[A-Za-z0-9_-]{1,100}$/.test(match.competitionId)) {
     throw new Error('no public score-bearing SSN match was returned');
   }
   return { id: match.id, competitionId: match.competitionId };
@@ -363,8 +469,10 @@ export async function executeProductionSmoke(
       if (body.status !== 'ok' || body.type !== 'liveness' || !isoTimestamp(body.timestamp)) {
         throw new Error('health contract is invalid');
       }
-      if (String(release.commit).toLowerCase() !== context.expectedCommit) {
-        throw new Error(`deployed commit ${String(release.commit)} does not match expected commit`);
+      const deployedCommit = String(release.commit).toLowerCase();
+      if (!/^[a-f0-9]{40}$/.test(deployedCommit)) throw new Error('deployed commit is invalid');
+      if (deployedCommit !== context.expectedCommit) {
+        throw new Error(`deployed commit ${deployedCommit} does not match expected commit`);
       }
       return `HTTP 200; commit ${String(release.commit)}; timestamp ${String(body.timestamp)}`;
     },
@@ -394,8 +502,26 @@ export async function executeProductionSmoke(
         || worker.enabled !== true
         || worker.required !== true
         || worker.state !== 'healthy'
-        || worker.satisfiesReadiness !== true) {
+        || worker.satisfiesReadiness !== true
+        || worker.isHealthy !== true) {
         throw new Error('worker is not enabled, required, healthy, and readiness-satisfying');
+      }
+      if (!['success', 'empty'].includes(String(worker.lastPollStatus))) {
+        throw new Error('worker lastPollStatus is not success or empty');
+      }
+      if (!Number.isSafeInteger(worker.currentIntervalMs)
+        || Number(worker.currentIntervalMs) <= 0
+        || Number(worker.currentIntervalMs) > Number.MAX_SAFE_INTEGER / 2) {
+        throw new Error('worker currentIntervalMs is not a positive integer');
+      }
+      if (!isoTimestamp(worker.lastPollAt)) {
+        throw new Error('worker lastPollAt is not a valid timestamp');
+      }
+      const readinessAt = Date.parse(String(body.timestamp));
+      const lastPollAt = Date.parse(String(worker.lastPollAt));
+      const freshnessMs = Number(worker.currentIntervalMs) * 2;
+      if (lastPollAt > readinessAt || readinessAt - lastPollAt >= freshnessMs) {
+        throw new Error('worker lastPollAt is stale or later than readiness time');
       }
       if (context.phase === 'published') {
         if (analytics.enabled !== true || analytics.state !== 'healthy' || analytics.satisfiesReadiness !== true) {
@@ -498,13 +624,14 @@ export async function executeProductionSmoke(
         const rawLocation = result.response.headers.get('location');
         if (!rawLocation) throw new Error('redirect has no Location header');
         const location = new URL(rawLocation, context.baseUrl);
-        if (location.pathname !== `/match/${encodeURIComponent(discoveredSsnMatch.id)}`) {
-          throw new Error(`redirected to unexpected path ${location.pathname}`);
+        if (location.origin !== context.baseUrl.origin
+          || location.pathname !== `/match/${encodeURIComponent(discoveredSsnMatch.id)}`) {
+          throw new Error('redirected to an unexpected origin or path');
         }
         if (location.searchParams.get('edition') !== discoveredSsnMatch.competitionId) {
-          throw new Error(`redirected to unexpected edition ${location.searchParams.get('edition')}`);
+          throw new Error('redirected to an unexpected edition');
         }
-        return `HTTP ${result.response.status}; ${location.pathname}${location.search}`;
+        return `HTTP ${result.response.status}; owning edition redirect verified`;
       },
     }));
   } else {

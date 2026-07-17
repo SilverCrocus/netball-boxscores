@@ -39,19 +39,30 @@ JSON and Markdown evidence. It checks:
 - a deliberately stale match-edition query redirects `307/308` to the owning
   canonical SSN edition.
 
-Each check records expected/observed state, HTTP status, attempts, latency,
-content type, redirect location, body SHA-256 and a bounded public body sample.
-Network failures retain the exhausted attempt count and total elapsed time even
-when no HTTP response was received.
+Each check records only allowlisted evidence: expected/observed state, HTTP
+status, attempts, latency, content type, same-origin final path/redirect path,
+and body SHA-256. Response bodies are streamed under a strict byte ceiling and
+are never retained in evidence. Oversized bodies and cross-origin redirects
+fail closed. Network failures retain the exhausted attempt count and total
+elapsed time even when no HTTP response was received.
 Review the evidence; a generated file alone is not a pass.
 
 ## DRAFT Glasgow application verification
 
-No real guarded unpublished-view route exists in the current code. Public
-edition and match resolvers intentionally hide DRAFT data. Therefore the
-required pre-publication application check is a release blocker until an
-authenticated, auditable route or an approved equivalent application path is
-implemented. Do not invent an admin URL and do not temporarily publish the
+Inspect the exact deployed commit. If it implements
+`/admin/preview/glasgow-2026`, pre-publication QA requires all of the following:
+
+- enable `DRAFT_PREVIEW_ENABLED` only for the bounded QA window;
+- use stable, reviewed operator IDs from the allowlist, never an ad hoc account;
+- record authenticated authorized success plus unauthenticated and unauthorized
+  denial, with the route's audit evidence;
+- verify the rendered data remains DRAFT; and
+- disable `DRAFT_PREVIEW_ENABLED` immediately after QA and prove access is
+  denied again.
+
+If that route is absent from the deployed commit, or any part of this contract
+cannot be proven, Glasgow publication remains **NO-GO**. Do not infer that the
+route exists from this runbook, invent an admin URL, or temporarily publish the
 edition for testing.
 
 The database-only reconciliation/dry-run steps remain available through
