@@ -7,7 +7,9 @@ import type {
   MatchStatusPayload,
   StatsUpdatePayload,
   ScoreFlowAddPayload,
+  ScoreFlowSnapshotPayload,
   StatEventPayload,
+  StatEventsSnapshotPayload,
 } from '@/types/socket';
 import type { DataCapability } from '@prisma/client';
 import {
@@ -51,13 +53,27 @@ export function initSocketServer(httpServer: HttpServer) {
       if (
         !requestedMatches.has(matchId)
         || !access
-        || access.status !== 'LIVE'
+        || !isPublicMatchLiveOrFinal(access)
         || !access.features.finalScore.available
         || !hasRealtimeDetail
       ) return;
 
       socket.join(`match:${matchId}`);
       console.log(`[Socket.io] ${socket.id} joined match:${matchId}`);
+
+      if (access.status === 'COMPLETED') {
+        // A reconnect can happen after a correction broadcast was missed.
+        // Re-emit the complete canonical replacement set after the room join;
+        // each emit rechecks publication, capabilities, and the revision.
+        const { broadcastCompletion } = await import('@/lib/broadcasting');
+        await broadcastCompletion(
+          matchId,
+          0,
+          0,
+          4,
+          access.sourceUpdatedAt,
+        );
+      }
     });
 
     socket.on('match:unsubscribe', (data) => {
@@ -88,6 +104,7 @@ async function canEmit(
   matchId: string,
   capability: DataCapability,
   providedAccess?: PublicMatchAccess,
+  expectedRevision?: Date | string | null,
 ): Promise<PublicMatchAccess | null> {
   // A caller-supplied snapshot can become stale while persistence or other
   // awaited work is in flight. Resolve again at the final emit boundary so an
@@ -99,16 +116,34 @@ async function canEmit(
     || !isPublicMatchLiveOrFinal(access)
     || !hasPublicMatchCapability(access, capability)
   ) return null;
+  const expected = expectedRevision instanceof Date
+    ? expectedRevision.toISOString()
+    : expectedRevision;
+  if (
+    expected
+    && access.sourceUpdatedAt?.toISOString() !== expected
+  ) return null;
   return access;
+}
+
+function withCanonicalRevision<T extends { revision?: string }>(
+  payload: T,
+  access: PublicMatchAccess,
+): T {
+  return access.sourceUpdatedAt
+    ? { ...payload, revision: access.sourceUpdatedAt.toISOString() }
+    : payload;
 }
 
 export async function broadcastScoreUpdate(
   matchId: string,
   payload: ScoreUpdatePayload,
   access?: PublicMatchAccess,
+  expectedRevision?: Date | string | null,
 ): Promise<boolean> {
-  if (!await canEmit(matchId, 'FINAL_SCORE', access)) return false;
-  getIO().to(`match:${matchId}`).emit('score:update', payload);
+  const current = await canEmit(matchId, 'FINAL_SCORE', access, expectedRevision);
+  if (!current) return false;
+  getIO().to(`match:${matchId}`).emit('score:update', withCanonicalRevision(payload, current));
   return true;
 }
 
@@ -116,9 +151,11 @@ export async function broadcastMatchStatus(
   matchId: string,
   payload: MatchStatusPayload,
   access?: PublicMatchAccess,
+  expectedRevision?: Date | string | null,
 ): Promise<boolean> {
-  if (!await canEmit(matchId, 'FINAL_SCORE', access)) return false;
-  getIO().to(`match:${matchId}`).emit('match:status', payload);
+  const current = await canEmit(matchId, 'FINAL_SCORE', access, expectedRevision);
+  if (!current) return false;
+  getIO().to(`match:${matchId}`).emit('match:status', withCanonicalRevision(payload, current));
   return true;
 }
 
@@ -126,9 +163,24 @@ export async function broadcastStatsUpdate(
   matchId: string,
   payload: StatsUpdatePayload,
   access?: PublicMatchAccess,
+  expectedRevision?: Date | string | null,
 ): Promise<boolean> {
-  if (!await canEmit(matchId, 'PLAYER_BOX_SCORE', access)) return false;
-  getIO().to(`match:${matchId}`).emit('stats:update', payload);
+  const current = await canEmit(matchId, 'PLAYER_BOX_SCORE', access, expectedRevision);
+  if (!current) return false;
+  const safePayload = current.features.lineups.available
+    ? payload
+    : {
+        ...payload,
+        playerStats: payload.playerStats.map((stats) => {
+          const sanitized = { ...stats };
+          delete sanitized.currentPosition;
+          return sanitized;
+        }),
+      };
+  getIO().to(`match:${matchId}`).emit(
+    'stats:update',
+    withCanonicalRevision(safePayload, current),
+  );
   return true;
 }
 
@@ -136,9 +188,26 @@ export async function broadcastScoreFlowAdd(
   matchId: string,
   payload: ScoreFlowAddPayload,
   access?: PublicMatchAccess,
+  expectedRevision?: Date | string | null,
 ): Promise<boolean> {
-  if (!await canEmit(matchId, 'SCORE_FLOW', access)) return false;
-  getIO().to(`match:${matchId}`).emit('scoreflow:add', payload);
+  const current = await canEmit(matchId, 'SCORE_FLOW', access, expectedRevision);
+  if (!current) return false;
+  getIO().to(`match:${matchId}`).emit('scoreflow:add', withCanonicalRevision(payload, current));
+  return true;
+}
+
+export async function broadcastScoreFlowSnapshot(
+  matchId: string,
+  payload: ScoreFlowSnapshotPayload,
+  access?: PublicMatchAccess,
+  expectedRevision?: Date | string | null,
+): Promise<boolean> {
+  const current = await canEmit(matchId, 'SCORE_FLOW', access, expectedRevision);
+  if (!current) return false;
+  getIO().to(`match:${matchId}`).emit(
+    'scoreflow:snapshot',
+    withCanonicalRevision(payload, current),
+  );
   return true;
 }
 
@@ -146,8 +215,25 @@ export async function broadcastStatEvent(
   matchId: string,
   payload: StatEventPayload,
   access?: PublicMatchAccess,
+  expectedRevision?: Date | string | null,
 ): Promise<boolean> {
-  if (!await canEmit(matchId, 'MATCH_EVENTS', access)) return false;
-  getIO().to(`match:${matchId}`).emit('stat:event', payload);
+  const current = await canEmit(matchId, 'MATCH_EVENTS', access, expectedRevision);
+  if (!current) return false;
+  getIO().to(`match:${matchId}`).emit('stat:event', withCanonicalRevision(payload, current));
+  return true;
+}
+
+export async function broadcastStatEventsSnapshot(
+  matchId: string,
+  payload: StatEventsSnapshotPayload,
+  access?: PublicMatchAccess,
+  expectedRevision?: Date | string | null,
+): Promise<boolean> {
+  const current = await canEmit(matchId, 'MATCH_EVENTS', access, expectedRevision);
+  if (!current) return false;
+  getIO().to(`match:${matchId}`).emit(
+    'stat:snapshot',
+    withCanonicalRevision(payload, current),
+  );
   return true;
 }

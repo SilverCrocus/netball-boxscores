@@ -74,4 +74,31 @@ describe('HomeResults', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Network unavailable');
     expect(screen.getByRole('button', { name: 'Try earlier results again' })).toBeEnabled();
   });
+
+  it('keeps a continuation reachable when a bounded scan returns no visible groups', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        groups: [{ label: 'Round 1', matches: [result('older-public-match', 1)] }],
+        nextCursor: null,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <HomeResults
+        initialGroups={[]}
+        initialNextCursor="denied-scan-cursor"
+        season={2026}
+        editionId="ssn-2026"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'View previous rounds' }));
+
+    expect(await screen.findByText('older-public-match')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/matches?edition=ssn-2026&season=2026&cursor=denied-scan-cursor',
+    );
+  });
 });

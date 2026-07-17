@@ -6,6 +6,7 @@ const {
   mockOn,
   mockTo,
   resolvePublicMatchMock,
+  broadcastCompletionMock,
 } = vi.hoisted(() => {
   const emit = vi.fn();
   return {
@@ -13,6 +14,7 @@ const {
     mockOn: vi.fn(),
     mockTo: vi.fn(() => ({ emit })),
     resolvePublicMatchMock: vi.fn(),
+    broadcastCompletionMock: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -28,13 +30,19 @@ vi.mock('@/lib/public-match', async (importOriginal) => {
   return { ...actual, resolvePublicMatchAccess: resolvePublicMatchMock };
 });
 
+vi.mock('@/lib/broadcasting', () => ({
+  broadcastCompletion: broadcastCompletionMock,
+}));
+
 import { resolveEditionFeatures } from '@/lib/edition-capabilities';
 import type { PublicMatchAccess } from '@/lib/public-match';
 import {
   broadcastMatchStatus,
   broadcastScoreFlowAdd,
+  broadcastScoreFlowSnapshot,
   broadcastScoreUpdate,
   broadcastStatEvent,
+  broadcastStatEventsSnapshot,
   broadcastStatsUpdate,
   initSocketServer,
 } from '@/lib/socket-server';
@@ -45,6 +53,7 @@ function publicAccess(
     | 'PLAYER_BOX_SCORE'
     | 'SCORE_FLOW'
     | 'MATCH_EVENTS'
+    | 'LINEUPS'
   > = ['FINAL_SCORE', 'PLAYER_BOX_SCORE', 'SCORE_FLOW', 'MATCH_EVENTS'],
   status: 'SCHEDULED' | 'LIVE' | 'COMPLETED' = 'LIVE',
 ): PublicMatchAccess {
@@ -56,6 +65,7 @@ function publicAccess(
     scheduledAt: new Date('2026-07-25T09:00:00Z'),
     homeTeamId: 'home',
     awayTeamId: 'away',
+    sourceUpdatedAt: new Date('2026-07-25T09:00:01Z'),
     features: resolveEditionFeatures(
       capabilities.map((capability) => ({ capability, state: 'AVAILABLE' as const })),
     ),
@@ -90,19 +100,30 @@ describe('socket-server public safety', () => {
     ['match:status', broadcastMatchStatus, 'FINAL_SCORE'],
     ['stats:update', broadcastStatsUpdate, 'PLAYER_BOX_SCORE'],
     ['scoreflow:add', broadcastScoreFlowAdd, 'SCORE_FLOW'],
+    ['scoreflow:snapshot', broadcastScoreFlowSnapshot, 'SCORE_FLOW'],
     ['stat:event', broadcastStatEvent, 'MATCH_EVENTS'],
+    ['stat:snapshot', broadcastStatEventsSnapshot, 'MATCH_EVENTS'],
   ] as const)('maps %s to its required capability', async (event, broadcaster, capability) => {
-    const payload = { matchId: 'match-1' } as never;
+    const payload = event === 'stats:update'
+      ? { matchId: 'match-1', playerStats: [] }
+      : event === 'scoreflow:snapshot'
+        ? { matchId: 'match-1', entries: [] }
+        : event === 'stat:snapshot'
+          ? { matchId: 'match-1', events: [] }
+          : { matchId: 'match-1' };
 
     resolvePublicMatchMock.mockResolvedValue(publicAccess([capability]));
-    await expect(broadcaster('match-1', payload, publicAccess([capability]))).resolves.toBe(true);
+    await expect(broadcaster('match-1', payload as never, publicAccess([capability]))).resolves.toBe(true);
     expect(mockTo).toHaveBeenCalledWith('match:match-1');
-    expect(mockEmit).toHaveBeenCalledWith(event, payload);
+    expect(mockEmit).toHaveBeenCalledWith(event, {
+      ...payload,
+      revision: '2026-07-25T09:00:01.000Z',
+    });
 
     mockTo.mockClear();
     mockEmit.mockClear();
     resolvePublicMatchMock.mockResolvedValue(publicAccess([]));
-    await expect(broadcaster('match-1', payload, publicAccess([]))).resolves.toBe(false);
+    await expect(broadcaster('match-1', payload as never, publicAccess([]))).resolves.toBe(false);
     expect(mockTo).not.toHaveBeenCalled();
     expect(mockEmit).not.toHaveBeenCalled();
   });
@@ -132,6 +153,39 @@ describe('socket-server public safety', () => {
     expect(mockEmit).not.toHaveBeenCalled();
   });
 
+  it('strips lineup positions when LINEUPS is revoked before the final emit check', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(['PLAYER_BOX_SCORE']));
+
+    await expect(broadcastStatsUpdate(
+      'match-1',
+      {
+        matchId: 'match-1',
+        playerStats: [{ playerId: 'player-1', currentPosition: 'GS' }],
+      } as never,
+      publicAccess(['PLAYER_BOX_SCORE', 'LINEUPS']),
+    )).resolves.toBe(true);
+
+    expect(mockEmit).toHaveBeenCalledWith(
+      'stats:update',
+      expect.objectContaining({
+        playerStats: [expect.not.objectContaining({ currentPosition: 'GS' })],
+      }),
+    );
+  });
+
+  it('suppresses a payload from an older canonical revision', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(['FINAL_SCORE']));
+
+    await expect(broadcastScoreUpdate(
+      'match-1',
+      { matchId: 'match-1' } as never,
+      publicAccess(['FINAL_SCORE']),
+      '2026-07-25T09:00:00.000Z',
+    )).resolves.toBe(false);
+
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
   it('joins a bounded room only for a public live match with score and detail coverage', async () => {
     const { handlers, socket } = connectFakeSocket();
 
@@ -141,6 +195,23 @@ describe('socket-server public safety', () => {
     expect(socket.join).toHaveBeenNthCalledWith(1, 'match:match-1');
     expect(socket.leave).toHaveBeenCalledWith('match:match-1');
     expect(socket.join).toHaveBeenNthCalledWith(2, 'match:match-2');
+  });
+
+  it('resubscribes a public completed match and emits its canonical replacement snapshots', async () => {
+    const access = publicAccess(undefined, 'COMPLETED');
+    resolvePublicMatchMock.mockResolvedValue(access);
+    const { handlers, socket } = connectFakeSocket();
+
+    await handlers.get('match:subscribe')?.({ matchId: 'match-1' });
+
+    expect(socket.join).toHaveBeenCalledWith('match:match-1');
+    expect(broadcastCompletionMock).toHaveBeenCalledWith(
+      'match-1',
+      0,
+      0,
+      4,
+      access.sourceUpdatedAt,
+    );
   });
 
   it.each([

@@ -24,10 +24,16 @@ export interface PublicMatchAccess {
   scheduledAt: Date;
   homeTeamId: string | null;
   awayTeamId: string | null;
+  /**
+   * Durable provider-observation token for realtime ordering. A null value is
+   * retained for legacy/manual rows that have never been observed by a feed.
+   */
+  sourceUpdatedAt: Date | null;
   features: EditionFeatureFlags;
 }
 
 const pendingLookups = new Map<string, Promise<PublicMatchAccess | null>>();
+export const MAX_PUBLIC_MATCH_ACCESS_BATCH = 256;
 
 const publicReadinessSelect = {
   id: true,
@@ -78,6 +84,7 @@ async function loadPublicMatchAccess(matchId: string): Promise<PublicMatchAccess
       scheduledAt: true,
       homeTeamId: true,
       awayTeamId: true,
+      sourceUpdatedAt: true,
       isSimulation: true,
       stageId: true,
       stage: { select: { isPublished: true } },
@@ -101,8 +108,88 @@ async function loadPublicMatchAccess(matchId: string): Promise<PublicMatchAccess
     scheduledAt: match.scheduledAt,
     homeTeamId: match.homeTeamId,
     awayTeamId: match.awayTeamId,
+    sourceUpdatedAt: match.sourceUpdatedAt,
     features: resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage),
   };
+}
+
+const publicMatchBatchSelect = {
+  id: true,
+  competitionId: true,
+  status: true,
+  resultQuality: true,
+  scheduledAt: true,
+  homeTeamId: true,
+  awayTeamId: true,
+  sourceUpdatedAt: true,
+  isSimulation: true,
+  stageId: true,
+  stage: { select: { isPublished: true } },
+  dataCoverage: { select: { capability: true, state: true } },
+} satisfies Prisma.MatchSelect;
+
+/**
+ * Resolve many matches with one fresh match/capability query and at most one
+ * edition-readiness query. Supplying already-loaded editions (for example the
+ * result of getPublicCompetitions) removes the latter query without weakening
+ * the readiness check.
+ *
+ * Database errors intentionally propagate. A missing map entry means policy
+ * denial; a rejected promise means access infrastructure was unavailable.
+ */
+export async function resolvePublicMatchAccessBatch(
+  matchIds: readonly string[],
+  loadedEditions?: readonly CompetitionOption[],
+): Promise<ReadonlyMap<string, PublicMatchAccess>> {
+  const uniqueIds = [...new Set(matchIds)];
+  if (uniqueIds.length === 0) return new Map();
+  if (uniqueIds.length > MAX_PUBLIC_MATCH_ACCESS_BATCH) {
+    throw new RangeError(
+      `Public match access batch exceeds ${MAX_PUBLIC_MATCH_ACCESS_BATCH} matches`,
+    );
+  }
+
+  const matches = await prisma.match.findMany({
+    where: { id: { in: uniqueIds } },
+    select: publicMatchBatchSelect,
+  });
+  const competitionIds = [...new Set(matches.map((match) => match.competitionId))];
+  const editions = loadedEditions ?? await prisma.competition.findMany({
+    where: { id: { in: competitionIds } },
+    select: publicReadinessSelect,
+  }) as unknown as CompetitionOption[];
+  const readyEditions = new Map(
+    editions
+      .filter((edition) => (
+        competitionIds.includes(edition.id)
+        && isEditionPubliclyReady(edition)
+      ))
+      .map((edition) => [edition.id, edition]),
+  );
+  const resolved = new Map<string, PublicMatchAccess>();
+
+  for (const match of matches) {
+    const edition = readyEditions.get(match.competitionId);
+    if (
+      !edition
+      || (excludeSimData.isSimulation === false && match.isSimulation)
+      || (match.stageId !== null && match.stage?.isPublished !== true)
+    ) continue;
+
+    resolved.set(match.id, {
+      id: match.id,
+      competitionId: match.competitionId,
+      status: match.status,
+      resultQuality: match.resultQuality,
+      scheduledAt: match.scheduledAt,
+      homeTeamId: match.homeTeamId,
+      awayTeamId: match.awayTeamId,
+      sourceUpdatedAt: match.sourceUpdatedAt,
+      features: resolveEditionFeatures(edition.dataCoverage, match.dataCoverage),
+    });
+  }
+
+  return resolved;
 }
 
 /**

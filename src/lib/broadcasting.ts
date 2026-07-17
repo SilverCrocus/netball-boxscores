@@ -4,46 +4,48 @@ import {
   broadcastScoreUpdate,
   broadcastMatchStatus,
   broadcastStatsUpdate,
-  broadcastScoreFlowAdd,
-  broadcastStatEvent,
+  broadcastScoreFlowSnapshot,
+  broadcastStatEventsSnapshot,
 } from '@/lib/socket-server';
 import type { CDMatchStatsResponse } from '@/types/champion-data';
 import type { StatEventPayload } from '@/types/socket';
 import type { ChangeResult } from '@/lib/processing';
 import type { Prisma } from '@prisma/client';
-import { getScoreFlowIdentity } from '@/lib/score-flow';
 import {
   isPublicMatchLiveOrFinal,
   resolvePublicMatchAccess,
   type PublicMatchAccess,
 } from '@/lib/public-match';
 
-// ── Score flow delta tracking ──
-
-const matchScoreFlowSnapshots = new Map<string, Map<string, string>>();
-
 async function publicAccessForBroadcast(
   matchId: string,
   providedAccess?: PublicMatchAccess | null,
+  expectedRevision?: Date | string | null,
 ): Promise<PublicMatchAccess | null> {
   // Treat supplied access as a hint only. Publication/capability state can be
   // revoked during any awaited database work, and the socket layer performs a
   // second final-boundary check immediately before emitting.
   void providedAccess;
-  return resolvePublicMatchAccess(matchId).catch(() => null);
+  const access = await resolvePublicMatchAccess(matchId).catch(() => null);
+  const expected = expectedRevision instanceof Date
+    ? expectedRevision.toISOString()
+    : expectedRevision;
+  if (expected && access?.sourceUpdatedAt?.toISOString() !== expected) return null;
+  return access;
 }
 
 export function resetScoreFlowTracking(): void {
-  matchScoreFlowSnapshots.clear();
+  // Kept for compatibility with existing worker/test setup. Score-flow now
+  // emits a complete canonical snapshot and holds no process-local cursor.
 }
 
 export async function broadcastScoreFlowDelta(
   matchId: string,
   providedAccess?: PublicMatchAccess | null,
+  expectedRevision?: Date | string | null,
 ): Promise<void> {
-  const access = await publicAccessForBroadcast(matchId, providedAccess);
+  const access = await publicAccessForBroadcast(matchId, providedAccess, expectedRevision);
   if (!access || !isPublicMatchLiveOrFinal(access) || !access.features.scoreFlow.available) {
-    matchScoreFlowSnapshots.delete(matchId);
     return;
   }
 
@@ -59,21 +61,9 @@ export async function broadcastScoreFlowDelta(
     ],
   });
 
-  const previous = matchScoreFlowSnapshots.get(matchId) ?? new Map<string, string>();
-  const next = new Map<string, string>();
-
-  for (const sf of allEntries) {
-    const identity = getScoreFlowIdentity(sf);
-    const signature = JSON.stringify([
-      sf.homeScore,
-      sf.awayScore,
-      sf.scorePoints,
-      sf.scorerPlayer?.id ?? null,
-    ]);
-    next.set(identity, signature);
-    if (previous.get(identity) === signature) continue;
-
-    await broadcastScoreFlowAdd(matchId, {
+  await broadcastScoreFlowSnapshot(matchId, {
+    matchId,
+    entries: allEntries.map((sf) => ({
       matchId,
       period: sf.period,
       periodSeconds: sf.periodSeconds,
@@ -83,10 +73,8 @@ export async function broadcastScoreFlowDelta(
       scorePoints: sf.scorePoints,
       scorerPlayerId: sf.scorerPlayer?.id,
       scorerName: sf.scorerPlayer?.name,
-    }, access);
-  }
-
-  matchScoreFlowSnapshots.set(matchId, next);
+    })),
+  }, access, expectedRevision);
 }
 
 // ── Match changes broadcast ──
@@ -104,50 +92,75 @@ export async function broadcastMatchChanges(
   matchDetail: CDMatchStatsResponse,
   _dbMatch: unknown,
   providedAccess?: PublicMatchAccess | null,
+  expectedRevision?: Date | string | null,
 ): Promise<void> {
   // Retained for caller compatibility while match-change broadcasts use the validated delta.
   void _dbMatch;
   if (!changes.matchId) return;
-  const access = await publicAccessForBroadcast(changes.matchId, providedAccess);
+  const access = await publicAccessForBroadcast(
+    changes.matchId,
+    providedAccess,
+    expectedRevision,
+  );
   if (!access || !isPublicMatchLiveOrFinal(access)) return;
+
+  const canonical = await prisma.match.findUnique({
+    where: { id: changes.matchId },
+    select: {
+      status: true,
+      homeScore: true,
+      awayScore: true,
+      currentQuarter: true,
+      currentTime: true,
+      sourceUpdatedAt: true,
+    },
+  });
+  const expected = expectedRevision instanceof Date
+    ? expectedRevision.toISOString()
+    : expectedRevision;
+  if (
+    !canonical
+    || (expected && canonical.sourceUpdatedAt?.toISOString() !== expected)
+  ) return;
+  const currentQuarter = canonical.currentQuarter ?? changes.currentQuarter;
+  const currentTime = canonical.currentTime ?? changes.currentTime;
 
   if (changes.scoreChanged) {
     await broadcastScoreUpdate(changes.matchId, {
       matchId: changes.matchId,
-      homeScore: changes.newHomeScore,
-      awayScore: changes.newAwayScore,
-      currentQuarter: changes.currentQuarter,
-      currentTime: changes.currentTime,
-    }, access);
+      homeScore: canonical.homeScore,
+      awayScore: canonical.awayScore,
+      currentQuarter,
+      currentTime,
+    }, access, expectedRevision);
   }
 
   if (
     changes.statusChanged
-    && (changes.newStatus === 'LIVE' || changes.newStatus === 'COMPLETED')
+    && (canonical.status === 'LIVE' || canonical.status === 'COMPLETED')
   ) {
-    const isCompletion = changes.newStatus === 'COMPLETED';
+    const isCompletion = canonical.status === 'COMPLETED';
     await broadcastMatchStatus(changes.matchId, {
       matchId: changes.matchId,
-      status: changes.newStatus,
-      quarter: changes.currentQuarter,
-      time: isCompletion ? '0' : changes.currentTime,
-    }, access);
+      status: canonical.status,
+      quarter: currentQuarter,
+      time: isCompletion ? '0' : currentTime,
+    }, access, expectedRevision);
     if (isCompletion) {
       await broadcastScoreUpdate(changes.matchId, {
         matchId: changes.matchId,
-        homeScore: changes.newHomeScore,
-        awayScore: changes.newAwayScore,
-        currentQuarter: changes.currentQuarter,
+        homeScore: canonical.homeScore,
+        awayScore: canonical.awayScore,
+        currentQuarter,
         currentTime: '0',
-      }, access);
+      }, access, expectedRevision);
     }
   }
 
   if (matchDetail.playerStats) {
-    await broadcastPlayerStats(changes.matchId, matchDetail, access);
+    await broadcastPlayerStats(changes.matchId, matchDetail, access, expectedRevision);
   }
 
-  await broadcastScoreFlowDelta(changes.matchId, access);
 }
 
 // ── Player stats broadcast ──
@@ -156,9 +169,10 @@ export async function broadcastPlayerStats(
   matchId: string,
   matchDetail: CDMatchStatsResponse,
   providedAccess?: PublicMatchAccess | null,
+  expectedRevision?: Date | string | null,
 ): Promise<void> {
   if (!matchDetail.playerStats) return;
-  const access = await publicAccessForBroadcast(matchId, providedAccess);
+  const access = await publicAccessForBroadcast(matchId, providedAccess, expectedRevision);
   if (!access || !isPublicMatchLiveOrFinal(access) || !access.features.playerBoxScore.available) return;
 
   const allPlayerStats = [
@@ -182,9 +196,44 @@ export async function broadcastPlayerStats(
       ...pickStatFields(ps),
     }));
 
-  if (statsPayload.length > 0) {
-    await broadcastStatsUpdate(matchId, { matchId, playerStats: statsPayload }, access);
-  }
+  // An empty array is a canonical replacement tombstone, not "no update".
+  await broadcastStatsUpdate(
+    matchId,
+    { matchId, playerStats: statsPayload },
+    access,
+    expectedRevision,
+  );
+}
+
+/** Emit the persisted player-stat table as a canonical replacement snapshot. */
+export async function broadcastCanonicalPlayerStats(
+  matchId: string,
+  providedAccess?: PublicMatchAccess | null,
+  expectedRevision?: Date | string | null,
+): Promise<void> {
+  const access = await publicAccessForBroadcast(matchId, providedAccess, expectedRevision);
+  if (
+    !access
+    || !isPublicMatchLiveOrFinal(access)
+    || !access.features.playerBoxScore.available
+  ) return;
+
+  const stats = await prisma.playerMatchStats.findMany({
+    where: { matchId },
+    orderBy: { playerId: 'asc' },
+  });
+  await broadcastStatsUpdate(
+    matchId,
+    {
+      matchId,
+      playerStats: stats.map((row) => ({
+        playerId: row.playerId,
+        ...pickStatFields(row),
+      })),
+    },
+    access,
+    expectedRevision,
+  );
 }
 
 // ── Stat events (intercepts, deflections, rebounds, turnovers) ──
@@ -233,6 +282,15 @@ export async function persistStatEvents(
     select: { id: true, name: true, championDataPlayerId: true },
   });
   const playerMap = new Map(players.map((p) => [p.championDataPlayerId, p]));
+  const canonicalPlayerIds = new Set(players.map((player) => player.id));
+  const removedPlayerIds = [...oldStatMap.keys()].filter(
+    (playerId) => !canonicalPlayerIds.has(playerId),
+  );
+  if (removedPlayerIds.length > 0) {
+    await db.matchEvent.deleteMany({
+      where: { matchId, playerId: { in: removedPlayerIds } },
+    });
+  }
 
   const eventsToCreate: Array<{
     matchId: string;
@@ -242,6 +300,7 @@ export async function persistStatEvents(
     periodSeconds: number;
     teamId: string;
   }> = [];
+  const eventIdsToDelete: string[] = [];
   const candidatePayloads = new Map<string, Omit<StatEventPayload, 'eventId'>>();
 
   for (const { stats: ps, isHome } of allPlayerStats) {
@@ -254,7 +313,25 @@ export async function persistStatEvents(
       const current = (ps[field] ?? 0) as number;
       const previous = oldStats[type];
       const newCount = current - previous;
-      if (newCount <= 0) continue;
+      if (newCount < 0) {
+        const excessEvents = await db.matchEvent.findMany({
+          where: {
+            matchId,
+            playerId: player.id,
+            type,
+          },
+          select: { id: true },
+          orderBy: [
+            { period: 'desc' },
+            { periodSeconds: 'desc' },
+            { id: 'desc' },
+          ],
+          take: Math.abs(newCount),
+        });
+        eventIdsToDelete.push(...excessEvents.map((event) => event.id));
+        continue;
+      }
+      if (newCount === 0) continue;
 
       const team = isHome ? dbMatch.homeTeam : dbMatch.awayTeam;
 
@@ -293,6 +370,11 @@ export async function persistStatEvents(
     }
   }
 
+  if (eventIdsToDelete.length > 0) {
+    await db.matchEvent.deleteMany({
+      where: { id: { in: eventIdsToDelete } },
+    });
+  }
   if (eventsToCreate.length === 0) return [];
 
   const inserted = await db.matchEvent.createManyAndReturn({
@@ -317,14 +399,49 @@ export async function persistStatEvents(
 export async function broadcastPersistedStatEvents(
   matchId: string,
   events: readonly StatEventPayload[],
+  expectedRevision?: Date | string | null,
 ): Promise<void> {
-  if (events.length === 0) return;
-  const access = await publicAccessForBroadcast(matchId);
+  // The inserted payloads prove the transaction completed, but the socket
+  // surface is a replaceable canonical collection so deletions/corrections are
+  // reflected too. Do not gate this on `events.length`.
+  void events;
+  const access = await publicAccessForBroadcast(matchId, undefined, expectedRevision);
   if (!access || !isPublicMatchLiveOrFinal(access) || !access.features.matchEvents.available) return;
 
-  for (const event of events) {
-    await broadcastStatEvent(matchId, event, access);
-  }
+  const canonicalEvents = await prisma.matchEvent.findMany({
+    where: { matchId },
+    include: {
+      player: { select: { id: true, name: true } },
+      team: { select: { id: true, name: true, abbreviation: true, logoUrl: true } },
+      match: { select: { homeTeamId: true } },
+    },
+    orderBy: [
+      { period: 'asc' },
+      { periodSeconds: 'asc' },
+      { id: 'asc' },
+    ],
+  });
+  const snapshot = canonicalEvents.map((event) => ({
+    eventId: event.id,
+    matchId,
+    type: event.type as StatEventPayload['type'],
+    playerId: event.player.id,
+    playerName: event.player.name,
+    teamId: event.team.id,
+    teamName: event.team.name,
+    teamAbbreviation: event.team.abbreviation,
+    teamLogoUrl: event.team.logoUrl,
+    isHomeTeam: event.team.id === event.match.homeTeamId,
+    quarter: event.period,
+    time: String(event.periodSeconds),
+  } satisfies StatEventPayload));
+
+  await broadcastStatEventsSnapshot(
+    matchId,
+    { matchId, events: snapshot },
+    access,
+    expectedRevision,
+  );
 }
 
 // ── Completion broadcast helper ──
@@ -334,21 +451,49 @@ export async function broadcastCompletion(
   homeScore: number,
   awayScore: number,
   finalQuarter: number,
+  expectedRevision?: Date | string | null,
 ): Promise<void> {
-  const access = await publicAccessForBroadcast(matchId);
+  // Parameters remain for compatibility with existing call sites, but the
+  // payload is rebuilt from the canonical committed revision immediately
+  // before emit.
+  void homeScore;
+  void awayScore;
+  const access = await publicAccessForBroadcast(matchId, undefined, expectedRevision);
   if (!access || !isPublicMatchLiveOrFinal(access)) return;
+  const canonical = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: {
+      status: true,
+      homeScore: true,
+      awayScore: true,
+      currentQuarter: true,
+      sourceUpdatedAt: true,
+    },
+  });
+  const expected = expectedRevision instanceof Date
+    ? expectedRevision.toISOString()
+    : expectedRevision;
+  if (
+    !canonical
+    || canonical.status !== 'COMPLETED'
+    || (expected && canonical.sourceUpdatedAt?.toISOString() !== expected)
+  ) return;
+  const canonicalQuarter = canonical.currentQuarter ?? finalQuarter;
 
   await broadcastMatchStatus(matchId, {
     matchId,
     status: 'COMPLETED',
-    quarter: finalQuarter,
+    quarter: canonicalQuarter,
     time: '0',
-  }, access);
+  }, access, expectedRevision);
   await broadcastScoreUpdate(matchId, {
     matchId,
-    homeScore,
-    awayScore,
-    currentQuarter: finalQuarter,
+    homeScore: canonical.homeScore,
+    awayScore: canonical.awayScore,
+    currentQuarter: canonicalQuarter,
     currentTime: '0',
-  }, access);
+  }, access, expectedRevision);
+  await broadcastScoreFlowDelta(matchId, access, expectedRevision);
+  await broadcastCanonicalPlayerStats(matchId, access, expectedRevision);
+  await broadcastPersistedStatEvents(matchId, [], expectedRevision);
 }

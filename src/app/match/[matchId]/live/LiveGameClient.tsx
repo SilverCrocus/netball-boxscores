@@ -18,7 +18,7 @@ import {
   type FeedEntry,
 } from '@/components/match/LivePlayByPlay';
 import type { StatsUpdatePayload, ScoreFlowAddPayload } from '@/types/socket';
-import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
+import { emptyStats, pickStatFields, computeShootingPct } from '@/lib/stat-utils';
 import { calculateWinProbability, type PreMatchPrior } from '@/lib/win-probability';
 import type { PlayerStatRow } from '@/types/stats';
 import type { QuarterData } from '@/types/match';
@@ -99,15 +99,17 @@ const VALID_POSITIONS = new Set(['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']);
 function mergePlayerStats(
   players: PlayerStatRow[],
   socketStats: StatsUpdatePayload | null,
+  hasCanonicalSnapshot: boolean,
 ): PlayerStatRow[] {
-  if (!socketStats) return players;
+  if (!socketStats && !hasCanonicalSnapshot) return players;
   return players.map((player) => {
-    const update = socketStats.playerStats.find(
+    const update = socketStats?.playerStats.find(
       (s) => s.playerId === player.id,
     );
-    if (!update) return player;
+    if (!update) return { ...player, ...emptyStats() };
     return {
       ...player,
+      ...emptyStats(),
       ...pickStatFields(update),
       // Only apply live position if it's a valid standard netball position.
       // CD can send empty/non-standard codes for benched players — keeping
@@ -172,10 +174,16 @@ export function LiveGameClient({
   capabilities = DEFAULT_CAPABILITIES,
   realtimeEnabled = false,
 }: LiveGameClientProps) {
-  const { score, playerStats, matchStatus, scoreFlow, statEvents } = useMatchSocket(
-    match.id,
-    realtimeEnabled,
-  );
+  const {
+    score,
+    playerStats,
+    matchStatus,
+    scoreFlow,
+    statEvents,
+    hasPlayerStatsSnapshot,
+    hasScoreFlowSnapshot,
+    hasStatEventsSnapshot,
+  } = useMatchSocket(match.id, realtimeEnabled);
 
   // ── Live scores ──
   const homeScore = score?.homeScore ?? match.homeScore;
@@ -185,14 +193,23 @@ export function LiveGameClient({
   const isLive = matchStatus?.status === 'COMPLETED' ? false : (matchStatus?.status === 'LIVE' || match.status === 'LIVE');
 
   // ── Merge socket stats into player data ──
-  const homePlayers = mergePlayerStats(match.homeTeam.players, playerStats);
-  const awayPlayers = mergePlayerStats(match.awayTeam.players, playerStats);
+  const homePlayers = mergePlayerStats(
+    match.homeTeam.players,
+    playerStats,
+    hasPlayerStatsSnapshot,
+  );
+  const awayPlayers = mergePlayerStats(
+    match.awayTeam.players,
+    playerStats,
+    hasPlayerStatsSnapshot,
+  );
 
   // ── Merge initial + socket score flow, deduplicating ──
   const allScoreFlow = useMemo(() => {
+    if (hasScoreFlowSnapshot) return scoreFlow;
     const initial = match.initialScoreFlow ?? [];
     return mergeScoreFlows(initial, scoreFlow);
-  }, [match.initialScoreFlow, scoreFlow]);
+  }, [hasScoreFlowSnapshot, match.initialScoreFlow, scoreFlow]);
 
   // ── Derive quarter scores from score flow (updates live as new goals arrive) ──
   const quarters = capabilities.periodScores
@@ -226,7 +243,9 @@ export function LiveGameClient({
       }
     }
 
-    const initialCount = (match.initialScoreFlow ?? []).length;
+    const initialCount = hasScoreFlowSnapshot
+      ? 0
+      : (match.initialScoreFlow ?? []).length;
     let homeIdx = 0;
     let awayIdx = 0;
 
@@ -273,10 +292,7 @@ export function LiveGameClient({
     });
 
     // Build stat event entries from persisted DB events + new socket events
-    const allEvents = capabilities.matchEvents
-      ? [
-          ...(match.initialMatchEvents ?? []),
-          ...statEvents.map((e) => ({
+    const socketEvents = statEvents.map((e) => ({
             eventId: e.eventId,
             type: e.type,
             period: e.quarter ?? 1,
@@ -287,8 +303,11 @@ export function LiveGameClient({
             teamName: e.teamName ?? '',
             teamAbbreviation: e.teamAbbreviation ?? '',
             teamLogoUrl: e.teamLogoUrl ?? null,
-          })),
-        ]
+          }));
+    const allEvents = capabilities.matchEvents
+      ? (hasStatEventsSnapshot
+          ? socketEvents
+          : [...(match.initialMatchEvents ?? []), ...socketEvents])
       : [];
 
     // Deduplicate by unique key
@@ -324,7 +343,7 @@ export function LiveGameClient({
       return aSeconds - bSeconds;
     });
     return combined;
-  }, [allScoreFlow, capabilities.matchEvents, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, match.initialMatchEvents, statEvents]);
+  }, [allScoreFlow, capabilities.matchEvents, hasScoreFlowSnapshot, hasStatEventsSnapshot, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, match.initialMatchEvents, statEvents]);
 
   // ── Score breakdown (goals vs super shots) ──
   const { homeBreakdown, awayBreakdown } = useMemo(() => {

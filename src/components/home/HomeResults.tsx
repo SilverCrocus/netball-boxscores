@@ -72,7 +72,9 @@ export function HomeResults({ initialGroups, initialNextCursor, season, editionI
     }
   }
 
-  if (groups.length === 0) return null;
+  // A bounded server scan can legitimately find no public rows yet still
+  // return a cursor to older candidates. Keep that continuation reachable.
+  if (groups.length === 0 && !nextCursor) return null;
 
   return (
     <section className="mb-16" aria-labelledby="results-heading">

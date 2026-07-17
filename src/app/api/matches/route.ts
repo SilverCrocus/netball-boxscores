@@ -37,7 +37,11 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(await getCompletedMatchesPage(competition.id, cursor));
+    return NextResponse.json(await getCompletedMatchesPage(
+      competition.id,
+      cursor,
+      [competition],
+    ));
   } catch (error) {
     if (error instanceof Error && error.message === 'INVALID_CURSOR') {
       return NextResponse.json(

@@ -21,6 +21,9 @@ interface MatchSocketState {
   matchStatus: MatchStatusPayload | null;
   scoreFlow: ScoreFlowAddPayload[];
   statEvents: StatEventPayload[];
+  hasPlayerStatsSnapshot: boolean;
+  hasScoreFlowSnapshot: boolean;
+  hasStatEventsSnapshot: boolean;
   isConnected: boolean;
 }
 
@@ -34,12 +37,18 @@ const EMPTY_SOCKET_STATE: MatchSocketState = {
   matchStatus: null,
   scoreFlow: [],
   statEvents: [],
+  hasPlayerStatsSnapshot: false,
+  hasScoreFlowSnapshot: false,
+  hasStatEventsSnapshot: false,
   isConnected: false,
 };
 
 export function useMatchSocket(matchId: string, enabled = false): MatchSocketState {
   const socketRef = useRef<TypedSocket | null>(null);
-  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestRevisionRef = useRef<{ matchId: string; revision: number | null }>({
+    matchId,
+    revision: null,
+  });
   const [state, setState] = useState<InternalMatchSocketState>({
     matchId,
     ...EMPTY_SOCKET_STATE,
@@ -47,6 +56,29 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
 
   useEffect(() => {
     if (!enabled) return;
+    latestRevisionRef.current = { matchId, revision: null };
+
+    const acceptsRevision = (revision?: string): boolean => {
+      const latest = latestRevisionRef.current.matchId === matchId
+        ? latestRevisionRef.current.revision
+        : null;
+      if (!revision) {
+        // Backward compatible while connected to an older server. Once this
+        // client has observed an ordered payload, an unversioned payload can no
+        // longer safely overwrite it during a rolling deploy.
+        return latest === null;
+      }
+      const candidate = Date.parse(revision);
+      if (!Number.isFinite(candidate) || (latest !== null && candidate < latest)) {
+        return false;
+      }
+      if (latest === null || candidate > latest) {
+        latestRevisionRef.current = { matchId, revision: candidate };
+      }
+      // Equal revisions are intentionally accepted: score, status, stats and
+      // event payloads from one canonical snapshot share the same token.
+      return true;
+    };
 
     const socket: TypedSocket = io({
       path: '/api/socketio',
@@ -73,7 +105,7 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
     });
 
     socket.on('score:update', (payload) => {
-      if (payload.matchId === matchId) {
+      if (payload.matchId === matchId && acceptsRevision(payload.revision)) {
         setState((prev) => ({
           ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
           score: payload,
@@ -82,32 +114,30 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
     });
 
     socket.on('stats:update', (payload) => {
-      if (payload.matchId === matchId) {
+      if (payload.matchId === matchId && acceptsRevision(payload.revision)) {
         setState((prev) => ({
           ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
           playerStats: payload,
+          hasPlayerStatsSnapshot: true,
         }));
       }
     });
 
     socket.on('match:status', (payload) => {
-      if (payload.matchId === matchId) {
+      if (payload.matchId === matchId && acceptsRevision(payload.revision)) {
         setState((prev) => ({
           ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
           matchStatus: payload,
         }));
 
-        if (payload.status === 'COMPLETED') {
-          completionTimeoutRef.current = setTimeout(() => {
-            socket.io.opts.reconnection = false;
-            socket.disconnect();
-          }, 2000);
-        }
+        // Keep the public subscription alive after completion. Official score
+        // corrections and heuristic reopenings can arrive well after the old
+        // two-second cutoff, and reconnect re-subscribes to a canonical final.
       }
     });
 
     socket.on('scoreflow:add', (payload) => {
-      if (payload.matchId === matchId) {
+      if (payload.matchId === matchId && acceptsRevision(payload.revision)) {
         setState((prev) => {
           const current = prev.matchId === matchId
             ? prev
@@ -117,8 +147,18 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
       }
     });
 
+    socket.on('scoreflow:snapshot', (payload) => {
+      if (payload.matchId === matchId && acceptsRevision(payload.revision)) {
+        setState((prev) => ({
+          ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
+          scoreFlow: payload.entries,
+          hasScoreFlowSnapshot: true,
+        }));
+      }
+    });
+
     socket.on('stat:event', (payload) => {
-      if (payload.matchId === matchId) {
+      if (payload.matchId === matchId && acceptsRevision(payload.revision)) {
         setState((prev) => {
           const current = prev.matchId === matchId
             ? prev
@@ -131,11 +171,17 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
       }
     });
 
-    return () => {
-      if (completionTimeoutRef.current) {
-        clearTimeout(completionTimeoutRef.current);
-        completionTimeoutRef.current = null;
+    socket.on('stat:snapshot', (payload) => {
+      if (payload.matchId === matchId && acceptsRevision(payload.revision)) {
+        setState((prev) => ({
+          ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
+          statEvents: payload.events,
+          hasStatEventsSnapshot: true,
+        }));
       }
+    });
+
+    return () => {
       socket.emit('match:unsubscribe', { matchId });
       socket.off('connect');
       socket.off('disconnect');
@@ -143,7 +189,9 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
       socket.off('stats:update');
       socket.off('match:status');
       socket.off('scoreflow:add');
+      socket.off('scoreflow:snapshot');
       socket.off('stat:event');
+      socket.off('stat:snapshot');
       socket.disconnect();
       socketRef.current = null;
     };

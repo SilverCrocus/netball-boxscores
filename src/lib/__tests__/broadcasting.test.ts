@@ -6,9 +6,15 @@ const { resolvePublicMatchMock } = vi.hoisted(() => ({
 
 vi.mock('@/lib/db', () => ({
   prisma: {
+    match: { findUnique: vi.fn() },
     player: { findMany: vi.fn() },
+    playerMatchStats: { findMany: vi.fn() },
     scoreFlow: { findMany: vi.fn() },
-    matchEvent: { createManyAndReturn: vi.fn() },
+    matchEvent: {
+      createManyAndReturn: vi.fn(),
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
   },
   excludeSimData: {},
 }));
@@ -18,7 +24,9 @@ vi.mock('@/lib/socket-server', () => ({
   broadcastMatchStatus: vi.fn().mockResolvedValue(true),
   broadcastStatsUpdate: vi.fn().mockResolvedValue(true),
   broadcastScoreFlowAdd: vi.fn().mockResolvedValue(true),
+  broadcastScoreFlowSnapshot: vi.fn().mockResolvedValue(true),
   broadcastStatEvent: vi.fn().mockResolvedValue(true),
+  broadcastStatEventsSnapshot: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('@/lib/public-match', async (importOriginal) => {
@@ -40,14 +48,19 @@ import {
 import {
   broadcastMatchStatus,
   broadcastScoreFlowAdd,
+  broadcastScoreFlowSnapshot,
   broadcastScoreUpdate,
-  broadcastStatEvent,
+  broadcastStatEventsSnapshot,
   broadcastStatsUpdate,
 } from '@/lib/socket-server';
 
 const mockScoreFlowFindMany = vi.mocked(prisma.scoreFlow.findMany);
+const mockMatchFindUnique = vi.mocked(prisma.match.findUnique);
 const mockPlayerFindMany = vi.mocked(prisma.player.findMany);
+const mockPlayerStatsFindMany = vi.mocked(prisma.playerMatchStats.findMany);
 const mockEventCreateManyAndReturn = vi.mocked(prisma.matchEvent.createManyAndReturn);
+const mockEventFindMany = vi.mocked(prisma.matchEvent.findMany);
+const mockEventDeleteMany = vi.mocked(prisma.matchEvent.deleteMany);
 
 function publicAccess(
   capabilities: Array<
@@ -68,6 +81,7 @@ function publicAccess(
     scheduledAt: new Date('2026-07-25T09:00:00Z'),
     homeTeamId: 'country-a',
     awayTeamId: 'country-b',
+    sourceUpdatedAt: new Date('2026-07-25T09:00:01Z'),
     features: resolveEditionFeatures(
       capabilities.map((capability) => ({ capability, state: 'AVAILABLE' as const })),
     ),
@@ -118,20 +132,39 @@ beforeEach(() => {
   resetScoreFlowTracking();
   resolvePublicMatchMock.mockResolvedValue(publicAccess());
   mockScoreFlowFindMany.mockResolvedValue([]);
+  mockMatchFindUnique.mockResolvedValue({
+    status: 'LIVE',
+    homeScore: 10,
+    awayScore: 9,
+    currentQuarter: 2,
+    currentTime: '300',
+    sourceUpdatedAt: new Date('2026-07-25T09:00:01Z'),
+  } as never);
   mockPlayerFindMany.mockResolvedValue([]);
+  mockPlayerStatsFindMany.mockResolvedValue([]);
   mockEventCreateManyAndReturn.mockResolvedValue([]);
+  mockEventFindMany.mockResolvedValue([]);
+  mockEventDeleteMany.mockResolvedValue({ count: 0 });
 });
 
 describe('broadcastScoreFlowDelta', () => {
-  it('broadcasts all entries on first call and only changed identities later', async () => {
+  it('broadcasts a complete canonical snapshot on every accepted revision', async () => {
     mockScoreFlowFindMany.mockResolvedValue([
       { id: '1', period: 1, periodSeconds: 100, scoringTeamId: 't1', homeScore: 1, awayScore: 0, scorePoints: 1, scorerPlayer: null },
       { id: '2', period: 1, periodSeconds: 200, scoringTeamId: 't1', homeScore: 2, awayScore: 0, scorePoints: 1, scorerPlayer: null },
     ] as never);
     await broadcastScoreFlowDelta('match-1');
-    expect(broadcastScoreFlowAdd).toHaveBeenCalledTimes(2);
+    expect(broadcastScoreFlowSnapshot).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({ entries: expect.arrayContaining([
+        expect.objectContaining({ homeScore: 1, awayScore: 0 }),
+        expect.objectContaining({ homeScore: 2, awayScore: 0 }),
+      ]) }),
+      expect.anything(),
+      undefined,
+    );
 
-    vi.mocked(broadcastScoreFlowAdd).mockClear();
+    vi.mocked(broadcastScoreFlowSnapshot).mockClear();
     mockScoreFlowFindMany.mockResolvedValue([
       { id: '1', period: 1, periodSeconds: 100, scoringTeamId: 't1', homeScore: 1, awayScore: 0, scorePoints: 1, scorerPlayer: null },
       { id: '2', period: 1, periodSeconds: 200, scoringTeamId: 't1', homeScore: 2, awayScore: 0, scorePoints: 1, scorerPlayer: null },
@@ -139,25 +172,45 @@ describe('broadcastScoreFlowDelta', () => {
     ] as never);
     await broadcastScoreFlowDelta('match-1');
 
-    expect(broadcastScoreFlowAdd).toHaveBeenCalledOnce();
+    expect(broadcastScoreFlowSnapshot).toHaveBeenCalledOnce();
+    expect(vi.mocked(broadcastScoreFlowSnapshot).mock.calls[0][1].entries).toHaveLength(3);
   });
 
-  it('rebroadcasts a correction to an existing score-flow identity', async () => {
+  it('replaces the snapshot when an existing score-flow identity is corrected', async () => {
     mockScoreFlowFindMany.mockResolvedValue([
       { id: '1', period: 1, periodSeconds: 100, scoringTeamId: 't1', homeScore: 1, awayScore: 0, scorePoints: 1, scorerPlayer: null },
     ] as never);
     await broadcastScoreFlowDelta('match-1');
-    vi.mocked(broadcastScoreFlowAdd).mockClear();
+    vi.mocked(broadcastScoreFlowSnapshot).mockClear();
 
     mockScoreFlowFindMany.mockResolvedValue([
       { id: '1', period: 1, periodSeconds: 100, scoringTeamId: 't1', homeScore: 2, awayScore: 0, scorePoints: 2, scorerPlayer: null },
     ] as never);
     await broadcastScoreFlowDelta('match-1');
 
-    expect(broadcastScoreFlowAdd).toHaveBeenCalledWith(
+    expect(broadcastScoreFlowSnapshot).toHaveBeenCalledWith(
       'match-1',
-      expect.objectContaining({ scorePoints: 2, homeScore: 2 }),
+      expect.objectContaining({
+        entries: [expect.objectContaining({ scorePoints: 2, homeScore: 2 })],
+      }),
       expect.objectContaining({ id: 'match-1' }),
+      undefined,
+    );
+  });
+
+  it('emits an empty replacement snapshot when a correction removes score flow', async () => {
+    mockScoreFlowFindMany.mockResolvedValueOnce([
+      { id: '1', period: 1, periodSeconds: 100, scoringTeamId: 't1', homeScore: 1, awayScore: 0, scorePoints: 1, scorerPlayer: null },
+    ] as never).mockResolvedValueOnce([]);
+
+    await broadcastScoreFlowDelta('match-1');
+    await broadcastScoreFlowDelta('match-1');
+
+    expect(broadcastScoreFlowSnapshot).toHaveBeenLastCalledWith(
+      'match-1',
+      { matchId: 'match-1', entries: [] },
+      expect.anything(),
+      undefined,
     );
   });
 
@@ -197,6 +250,7 @@ describe('player and match broadcasts', () => {
         playerStats: [expect.not.objectContaining({ currentPosition: expect.anything() })],
       }),
       expect.anything(),
+      undefined,
     );
 
     vi.mocked(broadcastStatsUpdate).mockClear();
@@ -212,6 +266,7 @@ describe('player and match broadcasts', () => {
         playerStats: [expect.objectContaining({ currentPosition: 'GS' })],
       }),
       expect.anything(),
+      undefined,
     );
   });
 
@@ -223,7 +278,26 @@ describe('player and match broadcasts', () => {
     expect(broadcastStatsUpdate).not.toHaveBeenCalled();
   });
 
-  it('emits only supported lifecycle status values', async () => {
+  it('emits an explicit empty player snapshot as a canonical tombstone', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(['PLAYER_BOX_SCORE']));
+    mockPlayerFindMany.mockResolvedValue([]);
+
+    await broadcastPlayerStats(
+      'match-1',
+      matchDetail([], []),
+      publicAccess(['PLAYER_BOX_SCORE']),
+      '2026-07-25T09:00:01.000Z',
+    );
+
+    expect(broadcastStatsUpdate).toHaveBeenCalledWith(
+      'match-1',
+      { matchId: 'match-1', playerStats: [] },
+      expect.anything(),
+      '2026-07-25T09:00:01.000Z',
+    );
+  });
+
+  it('emits the canonical lifecycle instead of a stale raw status delta', async () => {
     await broadcastMatchChanges({
       matchId: 'match-1',
       scoreChanged: false,
@@ -236,7 +310,89 @@ describe('player and match broadcasts', () => {
       currentTime: '0',
     }, {} as never, null, publicAccess());
 
-    expect(broadcastMatchStatus).not.toHaveBeenCalled();
+    expect(broadcastMatchStatus).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({ status: 'LIVE' }),
+      expect.anything(),
+      undefined,
+    );
+    expect(broadcastMatchStatus).not.toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({ status: 'SCHEDULED' }),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('uses the canonical score and suppresses a superseded expected revision', async () => {
+    await broadcastMatchChanges({
+      matchId: 'match-1',
+      scoreChanged: true,
+      statusChanged: false,
+      timeChanged: false,
+      newHomeScore: 99,
+      newAwayScore: 0,
+      newStatus: 'LIVE',
+      currentQuarter: 2,
+      currentTime: '300',
+    }, {} as never, null, publicAccess(), '2026-07-25T09:00:01.000Z');
+
+    expect(broadcastScoreUpdate).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({ homeScore: 10, awayScore: 9 }),
+      expect.anything(),
+      '2026-07-25T09:00:01.000Z',
+    );
+
+    vi.mocked(broadcastScoreUpdate).mockClear();
+    await broadcastMatchChanges({
+      matchId: 'match-1',
+      scoreChanged: true,
+      statusChanged: false,
+      timeChanged: false,
+      newHomeScore: 8,
+      newAwayScore: 7,
+      newStatus: 'LIVE',
+      currentQuarter: 2,
+      currentTime: '250',
+    }, {} as never, null, publicAccess(), '2026-07-25T09:00:00.000Z');
+
+    expect(broadcastScoreUpdate).not.toHaveBeenCalled();
+  });
+
+  it('broadcasts completion only from the canonical committed final revision', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(
+      ['FINAL_SCORE', 'PLAYER_BOX_SCORE', 'SCORE_FLOW', 'MATCH_EVENTS'],
+      'COMPLETED',
+    ));
+    mockMatchFindUnique.mockResolvedValue({
+      status: 'COMPLETED',
+      homeScore: 60,
+      awayScore: 39,
+      currentQuarter: 4,
+      sourceUpdatedAt: new Date('2026-07-25T09:00:01Z'),
+    } as never);
+
+    await broadcastCompletion('match-1', 61, 40, 3, '2026-07-25T09:00:01.000Z');
+
+    expect(broadcastScoreUpdate).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({ homeScore: 60, awayScore: 39, currentQuarter: 4 }),
+      expect.anything(),
+      '2026-07-25T09:00:01.000Z',
+    );
+    expect(broadcastStatsUpdate).toHaveBeenCalledWith(
+      'match-1',
+      { matchId: 'match-1', playerStats: [] },
+      expect.anything(),
+      '2026-07-25T09:00:01.000Z',
+    );
+    expect(broadcastStatEventsSnapshot).toHaveBeenCalledWith(
+      'match-1',
+      { matchId: 'match-1', events: [] },
+      expect.anything(),
+      '2026-07-25T09:00:01.000Z',
+    );
   });
 
   it('does not broadcast an unverified completed result', async () => {
@@ -254,6 +410,33 @@ describe('player and match broadcasts', () => {
 });
 
 describe('stat event persistence', () => {
+  it('deletes excess inferred events when a player aggregate is corrected downward', async () => {
+    mockPlayerFindMany.mockResolvedValue([
+      { id: 'player-home', name: 'Home International', championDataPlayerId: 10 },
+    ] as never);
+    mockEventFindMany.mockResolvedValue([{ id: 'excess-event' }] as never);
+
+    const events = await persistStatEvents(
+      'match-1',
+      matchDetail([playerStat({ intercepts: 1 })]),
+      dbMatch(),
+      new Map([['player-home', {
+        intercept: 2,
+        deflection: 0,
+        rebound: 0,
+        turnover: 0,
+      }]]),
+      2,
+      300,
+    );
+
+    expect(events).toEqual([]);
+    expect(mockEventDeleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['excess-event'] } },
+    });
+    expect(mockEventCreateManyAndReturn).not.toHaveBeenCalled();
+  });
+
   it('persists before emit and uses the source side rather than a permanent player team', async () => {
     mockPlayerFindMany.mockResolvedValue([
       { id: 'player-home', name: 'Home International', championDataPlayerId: 10 },
@@ -267,6 +450,20 @@ describe('stat event persistence', () => {
       { id: 'event-home', playerId: 'player-home', type: 'intercept', period: 2, periodSeconds: 300 },
       { id: 'event-away', playerId: 'player-away', type: 'turnover', period: 2, periodSeconds: 300 },
     ] as never);
+    mockEventFindMany.mockResolvedValue([
+      {
+        id: 'event-home', type: 'intercept', period: 2, periodSeconds: 300,
+        player: { id: 'player-home', name: 'Home International' },
+        team: { id: 'country-a', name: 'Country A', abbreviation: 'CTA', logoUrl: null },
+        match: { homeTeamId: 'country-a' },
+      },
+      {
+        id: 'event-away', type: 'turnover', period: 2, periodSeconds: 300,
+        player: { id: 'player-away', name: 'Away International' },
+        team: { id: 'country-b', name: 'Country B', abbreviation: 'CTB', logoUrl: null },
+        match: { homeTeamId: 'country-a' },
+      },
+    ] as never);
 
     const events = await persistStatEvents('match-1', detail, dbMatch(), new Map(), 2, 300);
     await broadcastPersistedStatEvents('match-1', events);
@@ -277,15 +474,20 @@ describe('stat event persistence', () => {
         expect.objectContaining({ playerId: 'player-away', teamId: 'country-b', type: 'turnover' }),
       ]),
     }));
-    expect(broadcastStatEvent).toHaveBeenCalledWith(
+    expect(broadcastStatEventsSnapshot).toHaveBeenCalledWith(
       'match-1',
       expect.objectContaining({
-        eventId: 'event-home', playerId: 'player-home', teamId: 'country-a', isHomeTeam: true,
+        events: expect.arrayContaining([
+          expect.objectContaining({
+            eventId: 'event-home', playerId: 'player-home', teamId: 'country-a', isHomeTeam: true,
+          }),
+        ]),
       }),
       expect.anything(),
+      undefined,
     );
     expect(mockEventCreateManyAndReturn.mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(broadcastStatEvent).mock.invocationCallOrder[0],
+      vi.mocked(broadcastStatEventsSnapshot).mock.invocationCallOrder[0],
     );
   });
 
@@ -309,7 +511,7 @@ describe('stat event persistence', () => {
     await broadcastPersistedStatEvents('match-1', events);
 
     expect(mockEventCreateManyAndReturn).toHaveBeenCalledOnce();
-    expect(broadcastStatEvent).not.toHaveBeenCalled();
+    expect(broadcastStatEventsSnapshot).not.toHaveBeenCalled();
   });
 
   it('still persists canonical events when the public-access lookup fails', async () => {
@@ -332,14 +534,20 @@ describe('stat event persistence', () => {
     await expect(broadcastPersistedStatEvents('match-1', events)).resolves.toBeUndefined();
 
     expect(mockEventCreateManyAndReturn).toHaveBeenCalledOnce();
-    expect(broadcastStatEvent).not.toHaveBeenCalled();
+    expect(broadcastStatEventsSnapshot).not.toHaveBeenCalled();
   });
 
-  it('does not emit a candidate when another worker won the insert race', async () => {
+  it('replays the canonical snapshot when another worker won the insert race', async () => {
     mockPlayerFindMany.mockResolvedValue([
       { id: 'player-home', name: 'Home International', championDataPlayerId: 10 },
     ] as never);
     mockEventCreateManyAndReturn.mockResolvedValue([]);
+    mockEventFindMany.mockResolvedValue([{
+      id: 'existing-event', type: 'intercept', period: 1, periodSeconds: 100,
+      player: { id: 'player-home', name: 'Home International' },
+      team: { id: 'country-a', name: 'Country A', abbreviation: 'CTA', logoUrl: null },
+      match: { homeTeamId: 'country-a' },
+    }] as never);
 
     const events = await persistStatEvents(
       'match-1',
@@ -352,10 +560,17 @@ describe('stat event persistence', () => {
     await broadcastPersistedStatEvents('match-1', events);
 
     expect(events).toEqual([]);
-    expect(broadcastStatEvent).not.toHaveBeenCalled();
+    expect(broadcastStatEventsSnapshot).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({
+        events: [expect.objectContaining({ eventId: 'existing-event' })],
+      }),
+      expect.anything(),
+      undefined,
+    );
   });
 
-  it('emits only the rows this worker inserted when a concurrent insert wins part of the batch', async () => {
+  it('emits one canonical batch when a concurrent insert wins part of the batch', async () => {
     mockPlayerFindMany.mockResolvedValue([
       { id: 'player-home', name: 'Home International', championDataPlayerId: 10 },
       { id: 'player-away', name: 'Away International', championDataPlayerId: 20 },
@@ -363,6 +578,12 @@ describe('stat event persistence', () => {
     mockEventCreateManyAndReturn.mockResolvedValue([
       { id: 'event-away', playerId: 'player-away', type: 'turnover', period: 2, periodSeconds: 300 },
     ] as never);
+    mockEventFindMany.mockResolvedValue([{
+      id: 'event-away', type: 'turnover', period: 2, periodSeconds: 300,
+      player: { id: 'player-away', name: 'Away International' },
+      team: { id: 'country-b', name: 'Country B', abbreviation: 'CTB', logoUrl: null },
+      match: { homeTeamId: 'country-a' },
+    }] as never);
 
     const events = await persistStatEvents(
       'match-1',
@@ -377,11 +598,14 @@ describe('stat event persistence', () => {
     );
     await broadcastPersistedStatEvents('match-1', events);
 
-    expect(broadcastStatEvent).toHaveBeenCalledOnce();
-    expect(broadcastStatEvent).toHaveBeenCalledWith(
+    expect(broadcastStatEventsSnapshot).toHaveBeenCalledOnce();
+    expect(broadcastStatEventsSnapshot).toHaveBeenCalledWith(
       'match-1',
-      expect.objectContaining({ eventId: 'event-away', playerId: 'player-away' }),
+      expect.objectContaining({
+        events: [expect.objectContaining({ eventId: 'event-away', playerId: 'player-away' })],
+      }),
       expect.anything(),
+      undefined,
     );
   });
 });

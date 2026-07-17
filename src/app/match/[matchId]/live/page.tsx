@@ -8,7 +8,10 @@ import { formatMatchStage } from '@/lib/match-label';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { isCanonicalMatchEdition, matchHref } from '@/lib/edition-links';
 import { isFinalFixture } from '@/lib/edition-capabilities';
-import { resolvePublicMatchForRequest } from '@/lib/public-match';
+import {
+  isPublicMatchLiveOrFinal,
+  resolvePublicMatchForRequest,
+} from '@/lib/public-match';
 import { rosterForMatch } from '@/lib/match-player-team';
 
 interface Props {
@@ -148,7 +151,8 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
   const hasLiveDetail = features.playerBoxScore.available
     || features.scoreFlow.available
     || features.matchEvents.available;
-  const canRenderLiveSurface = (match.status === 'LIVE'
+  const canRenderLiveSurface = isPublicMatchLiveOrFinal(publicAccess)
+    && (match.status === 'LIVE'
       || isFinalFixture(match.status, match.resultQuality))
     && features.finalScore.available
     && hasLiveDetail;
@@ -254,6 +258,9 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
       scoreFlow: features.scoreFlow.available,
       superShots: features.superShots.available,
     }}
-    realtimeEnabled={match.status === 'LIVE'}
+    // Completed public pages remain subscribed so a later official correction
+    // or inferred reopen can replace the SSR snapshot. The socket server still
+    // rechecks publication and every required capability before joining/emitting.
+    realtimeEnabled={canRenderLiveSurface}
   />;
 }
