@@ -5,6 +5,7 @@ import { formatMatchDate, formatMatchTime, formatGameClock, formatMatchDateTime 
 import type { TeamInfo } from '@/types/team';
 import { formatMatchStage } from '@/lib/match-label';
 import type { MatchStatus } from '@prisma/client';
+import { matchHref as canonicalMatchHref } from '@/lib/edition-links';
 
 interface ScoreBreakdown {
   goals: number;
@@ -13,6 +14,7 @@ interface ScoreBreakdown {
 
 interface ScoreCardMatch {
   id: string;
+  competitionId?: string;
   href?: string;
   homeTeam: TeamInfo;
   awayTeam: TeamInfo;
@@ -36,10 +38,18 @@ interface ScoreCardProps {
   showFinalBadge?: boolean;
 }
 
+function scoreCardHref(match: ScoreCardMatch, isLive: boolean): string {
+  if (match.href) return match.href;
+  if (!match.competitionId) {
+    throw new Error(`ScoreCard match ${match.id} is missing its canonical edition`);
+  }
+  return canonicalMatchHref(match.id, match.competitionId, isLive ? 'live' : '');
+}
+
 export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
   const isLive = match.status === 'LIVE';
   const isCompleted = match.status === 'COMPLETED';
-  const matchHref = match.href ?? (isLive ? `/match/${match.id}/live` : `/match/${match.id}`);
+  const matchHref = scoreCardHref(match, isLive);
   const homeWon = isCompleted && match.homeScore > match.awayScore;
   const awayWon = isCompleted && match.awayScore > match.homeScore;
   const hasStageContext = match.round != null
@@ -91,6 +101,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             </span>
           </div>
 
+          {isLive || isCompleted ? (
           <div className="flex items-center gap-1 text-3xl font-black font-headline tracking-tighter sm:gap-3 sm:text-4xl">
             <div className="flex flex-col items-center">
               <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{match.homeScore}</span>
@@ -110,6 +121,11 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
               )}
             </div>
           </div>
+          ) : (
+            <span className="font-headline text-2xl font-black italic tracking-tight text-outline-variant sm:text-3xl">
+              VS
+            </span>
+          )}
 
           <div className="flex min-w-0 flex-col items-center text-center">
             <TeamBadge team={match.awayTeam} size={48} variant="away" className="mb-2" />
@@ -129,7 +145,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             {match.venue && ` \u2022 ${match.venue}`}
           </span>
           <span className="text-secondary font-bold text-xs flex items-center gap-1 group-hover:gap-2 transition-all">
-            {isLive ? 'See Live Stats' : 'View Stats'}
+            {isLive ? 'See Live Stats' : isCompleted ? 'View Stats' : 'Match details'}
             <span aria-hidden="true" className="material-symbols-outlined text-sm">chevron_right</span>
           </span>
         </div>

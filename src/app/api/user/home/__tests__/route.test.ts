@@ -22,7 +22,7 @@ import { GET } from '../route';
 
 const team = { id: 'team-1', name: 'Vipers', abbreviation: 'VIP', logoUrl: null, primaryColor: null };
 const match = {
-  id: 'match-1', status: 'COMPLETED', scheduledAt: new Date('2026-06-01T04:00:00Z'),
+  id: 'match-1', competitionId: 'competition-2026', status: 'COMPLETED', scheduledAt: new Date('2026-06-01T04:00:00Z'),
   homeScore: 62, awayScore: 58, venue: 'Arena', round: 10, finalCode: null,
   currentQuarter: null, currentTime: null, homeTeamId: 'team-1', awayTeamId: 'team-2',
   homeTeam: { name: 'Vipers', abbreviation: 'VIP', logoUrl: null },

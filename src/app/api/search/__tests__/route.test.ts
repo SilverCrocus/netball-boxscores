@@ -45,7 +45,7 @@ describe('GET /api/search', () => {
     ]);
     findMatchesMock.mockResolvedValue([
       {
-        id: 'match-1', round: 14, finalCode: null, status: 'COMPLETED',
+        id: 'match-1', competitionId: 'competition-2026', round: 14, finalCode: null, status: 'COMPLETED',
         homeScore: 60, awayScore: 55,
         homeTeam: { name: 'Melbourne Vixens' }, awayTeam: { name: 'West Coast Fever' },
       },
@@ -57,7 +57,7 @@ describe('GET /api/search', () => {
     expect(payload).toMatchObject({
       players: [{ href: '/player/player-1', kind: 'player' }],
       teams: [{ href: '/team/melbourne-vixens', kind: 'team' }],
-      matches: [{ href: '/match/match-1', kind: 'match' }],
+      matches: [{ href: '/match/match-1?edition=competition-2026', kind: 'match' }],
     });
     expect(findPlayersMock).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
     expect(findTeamsMock).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));

@@ -23,6 +23,7 @@ import {
   isUpstreamPreviewMode,
   loadUpstreamCompletedMatches,
 } from '@/lib/upstream-preview';
+import { matchHref } from '@/lib/edition-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -161,7 +162,7 @@ export default async function HomePage() {
           {/* Featured Match */}
           {featured && (
             <Link
-              href={`/match/${featured.id}`}
+              href={matchHref(featured.id, featured.competitionId)}
               prefetch={false}
               className="md:col-span-3 relative overflow-hidden bg-gradient-to-br from-primary via-primary-container to-primary rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center gap-6 shadow-2xl transition-all duration-300 hover:shadow-[0_0_40px_rgba(163,230,53,0.15)] hover:scale-[1.01]"
             >
@@ -234,7 +235,7 @@ export default async function HomePage() {
             {upcomingMatches.slice(featured ? 1 : 0, 4).map((match) => (
               <Link
                 key={match.id}
-                href={`/match/${match.id}`}
+                href={matchHref(match.id, match.competitionId)}
                 prefetch={false}
                 className="bg-surface-container rounded-xl p-4 group hover:bg-surface-container-high transition-all flex-1 flex flex-col justify-center"
               >

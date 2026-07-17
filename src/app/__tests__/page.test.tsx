@@ -22,6 +22,7 @@ vi.mock('@/lib/db', () => ({
 const MATCHES = [
   {
           id: '1',
+          competitionId: 'competition-2026',
           status: 'LIVE',
           homeScore: 42,
           awayScore: 38,
@@ -38,6 +39,7 @@ const MATCHES = [
         },
         {
           id: '2',
+          competitionId: 'competition-2026',
           status: 'SCHEDULED',
           homeScore: 0,
           awayScore: 0,
@@ -54,6 +56,7 @@ const MATCHES = [
         },
         {
           id: '5',
+          competitionId: 'competition-2026',
           status: 'SCHEDULED',
           homeScore: 0,
           awayScore: 0,
@@ -70,6 +73,7 @@ const MATCHES = [
         },
         {
           id: '3',
+          competitionId: 'competition-2026',
           status: 'COMPLETED',
           homeScore: 64,
           awayScore: 58,
@@ -89,6 +93,7 @@ const MATCHES = [
         },
         {
           id: '4',
+          competitionId: 'competition-2026',
           status: 'COMPLETED',
           homeScore: 71,
           awayScore: 65,

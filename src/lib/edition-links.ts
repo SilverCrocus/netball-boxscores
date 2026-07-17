@@ -1,6 +1,7 @@
 import type { EditionContextValue } from '@/lib/edition-context';
 
 export type EditionDestination = '' | 'standings' | 'teams' | 'pools' | 'bracket';
+export type MatchDestination = '' | 'live' | 'court';
 
 const EDITION_ROUTE_PATTERN =
   /^\/competitions\/([^/]+)\/([^/]+)(?:\/(standings|teams|pools|bracket))?\/?$/;
@@ -34,6 +35,25 @@ export function editionScopedHref(
   if (!editionId) return href;
   const separator = href.includes('?') ? '&' : '?';
   return `${href}${separator}edition=${encodeURIComponent(editionId)}`;
+}
+
+/** Build the canonical public URL for a match inside its real edition. */
+export function matchHref(
+  matchId: string,
+  editionId: string,
+  destination: MatchDestination = '',
+): string {
+  const base = `/match/${encodeURIComponent(matchId)}`;
+  const path = destination ? `${base}/${destination}` : base;
+  return editionScopedHref(path, editionId);
+}
+
+/** A match URL is canonical only when its query identifies the owning edition. */
+export function isCanonicalMatchEdition(
+  requestedEditionId: string | null | undefined,
+  actualEditionId: string,
+): boolean {
+  return requestedEditionId === actualEditionId;
 }
 
 /** All navigation surfaces share this helper so route context cannot drift. */

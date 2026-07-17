@@ -69,4 +69,3 @@ export async function getComparisonPlayers(competitionId: string) {
     orderBy: [{ name: 'asc' }],
   });
 }
-

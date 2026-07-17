@@ -1,4 +1,5 @@
 import type { CompletedMatchesPage, HomeResultCard } from '@/lib/home-feed';
+import { matchHref } from '@/lib/edition-links';
 
 const DEFAULT_UPSTREAM_ORIGIN = 'https://www.centrepass.io';
 const UPSTREAM_TIMEOUT_MS = 5_000;
@@ -77,6 +78,7 @@ function completedMatch(value: unknown, origin: string): HomeResultCard | null {
   const homeTeam = team(item?.homeTeam);
   const awayTeam = team(item?.awayTeam);
   const scheduledAt = optionalString(item?.scheduledAt);
+  const competitionId = optionalString(item?.competitionId);
 
   if (
     !item
@@ -95,7 +97,10 @@ function completedMatch(value: unknown, origin: string): HomeResultCard | null {
 
   return {
     id: item.id,
-    href: `${origin}/match/${encodeURIComponent(item.id)}`,
+    ...(competitionId ? { competitionId } : {}),
+    href: competitionId
+      ? `${origin}${matchHref(item.id, competitionId)}`
+      : `${origin}/match/${encodeURIComponent(item.id)}`,
     status: 'COMPLETED',
     scheduledAt,
     homeScore: item.homeScore,

@@ -11,6 +11,7 @@ vi.mock('@/lib/db', () => ({
         id: '1',
         competitionId: 'ssn-2026',
         status: 'COMPLETED',
+        resultQuality: 'OFFICIAL_FINAL',
         homeScore: 64,
         awayScore: 58,
         currentQuarter: null,
@@ -22,6 +23,18 @@ vi.mock('@/lib/db', () => ({
         awayTeamId: 'away-team',
         homeTeam: { name: 'Thunder', abbreviation: 'THU', logoUrl: null, slug: 'thunder' },
         awayTeam: { name: 'Lightning', abbreviation: 'LIG', logoUrl: null, slug: 'lightning' },
+        competition: {
+          dataCoverage: [
+            { capability: 'FINAL_SCORE', state: 'AVAILABLE' },
+            { capability: 'PERIOD_SCORES', state: 'AVAILABLE' },
+            { capability: 'PLAYER_BOX_SCORE', state: 'AVAILABLE' },
+            { capability: 'SCORE_FLOW', state: 'AVAILABLE' },
+            { capability: 'MATCH_EVENTS', state: 'AVAILABLE' },
+            { capability: 'NET_POINTS', state: 'AVAILABLE' },
+            { capability: 'SUPER_SHOTS', state: 'AVAILABLE' },
+          ],
+        },
+        dataCoverage: [],
         quarters: [
           { quarter: 1, homeScore: 16, awayScore: 14 },
           { quarter: 2, homeScore: 12, awayScore: 18 },
@@ -31,14 +44,20 @@ vi.mock('@/lib/db', () => ({
         playerStats: [
           {
             id: 'ps1',
-            player: { id: 'p1', name: 'Elena Rodriguez', position: 'GS', photoUrl: null, teamId: 'home-team' },
+            player: {
+              id: 'p1', name: 'Elena Rodriguez', position: 'GS', photoUrl: null,
+              rosterMemberships: [{ editionEntry: { competitionId: 'ssn-2026', teamId: 'home-team' } }],
+            },
             goals: 42, attempts: 45, goalAssists: 0, intercepts: 0,
             deflections: 1, rebounds: 4, penalties: 0, feeds: 2,
             centrePassReceives: 0, turnovers: 1, minutesPlayed: 60, netPoints: 55, gain: 1,
           },
           {
             id: 'ps2',
-            player: { id: 'p2', name: 'Jade Clarke', position: 'C', photoUrl: null, teamId: 'away-team' },
+            player: {
+              id: 'p2', name: 'Jade Clarke', position: 'C', photoUrl: null,
+              rosterMemberships: [{ editionEntry: { competitionId: 'ssn-2026', teamId: 'away-team' } }],
+            },
             goals: 2, attempts: 2, goalAssists: 20, intercepts: 4,
             deflections: 6, rebounds: 1, penalties: 3, feeds: 35,
             centrePassReceives: 18, turnovers: 2, minutesPlayed: 60, netPoints: 96, gain: 4,
@@ -56,27 +75,27 @@ vi.mock('@/lib/db', () => ({
 
 describe('MatchPage', () => {
   it('renders team names in hero', async () => {
-    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }), searchParams: Promise.resolve({ edition: 'ssn-2026' }) });
     render(page);
     expect(screen.getAllByText(/Thunder/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Lightning/).length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders final score', async () => {
-    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }), searchParams: Promise.resolve({ edition: 'ssn-2026' }) });
     render(page);
     expect(screen.getByText('64')).toBeInTheDocument();
     expect(screen.getByText('58')).toBeInTheDocument();
   });
 
   it('renders player stats table', async () => {
-    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }), searchParams: Promise.resolve({ edition: 'ssn-2026' }) });
     render(page);
     expect(screen.getAllByText('Elena Rodriguez').length).toBeGreaterThanOrEqual(1);
   });
 
   it('uses the match canonical edition for every rendered player profile link', async () => {
-    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }), searchParams: Promise.resolve({ edition: 'ssn-2026' }) });
     render(page);
 
     expect(screen.getByRole('link', { name: 'Elena Rodriguez' })).toHaveAttribute(
@@ -89,7 +108,7 @@ describe('MatchPage', () => {
   });
 
   it('labels the top player as a NetPoints leader rather than an official MVP', async () => {
-    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+    const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }), searchParams: Promise.resolve({ edition: 'ssn-2026' }) });
     render(page);
     const mvpCard = screen.getByText('Top NetPoints').parentElement?.parentElement;
 
@@ -103,7 +122,7 @@ describe('MatchPage', () => {
 
   it('uses an explicit initial payload and excludes match events', async () => {
     const { prisma } = await import('@/lib/db');
-    await MatchPage({ params: Promise.resolve({ matchId: '1' }) });
+    await MatchPage({ params: Promise.resolve({ matchId: '1' }), searchParams: Promise.resolve({ edition: 'ssn-2026' }) });
 
     const query = vi.mocked(prisma.match.findUnique).mock.calls.at(-1)?.[0];
     expect(query?.select).not.toHaveProperty('matchEvents');

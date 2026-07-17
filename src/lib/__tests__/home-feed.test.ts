@@ -21,6 +21,7 @@ import {
 function match(overrides: Partial<HomepageMatch> = {}): HomepageMatch {
   return {
     id: 'match-1',
+    competitionId: 'competition-2026',
     status: 'COMPLETED',
     scheduledAt: new Date('2026-06-01T04:00:00Z'),
     homeScore: 62,

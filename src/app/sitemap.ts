@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { prisma, excludeSimData } from '@/lib/db';
 import { getPublicCompetitions } from '@/lib/competitions';
+import { matchHref } from '@/lib/edition-links';
 
 // Render applies Prisma migrations after the build step. Defer this database
 // read until runtime so an additive schema deploy can build against the previous
@@ -25,7 +26,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
     prisma.match.findMany({
       where: { ...excludeSimData, competitionId: { in: publicEditionIds } },
-      select: { id: true, scheduledAt: true },
+      select: { id: true, competitionId: true, scheduledAt: true },
     }),
     prisma.player.findMany({
       where: {
@@ -70,7 +71,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Match pages (box score only — /live and /court are noindexed)
   const matchPages: MetadataRoute.Sitemap = matches.map((match) => ({
-    url: `${baseUrl}/match/${match.id}`,
+    url: `${baseUrl}${matchHref(match.id, match.competitionId)}`,
     lastModified: match.scheduledAt,
     changeFrequency: 'weekly' as const,
     priority: 0.8,

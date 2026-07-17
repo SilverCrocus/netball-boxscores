@@ -1,14 +1,17 @@
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { LiveGameClient } from './LiveGameClient';
 import { pickStatFields, emptyStats } from '@/lib/stat-utils';
 import { computeTeamStrengthPrior } from '@/lib/win-probability';
 import { formatMatchStage } from '@/lib/match-label';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
+import { isCanonicalMatchEdition, matchHref } from '@/lib/edition-links';
+import { resolveEditionFeatures } from '@/lib/edition-capabilities';
 
 interface Props {
   params: Promise<{ matchId: string }>;
+  searchParams?: Promise<{ edition?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -30,7 +33,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!match || !hasResolvedMatchTeams(match)) return { title: 'Match Not Found' };
 
-  const statusPrefix = match.status === 'COMPLETED' ? 'Full Time:' : 'LIVE:';
+  const statusPrefix = match.status === 'COMPLETED'
+    ? 'Full Time:'
+    : match.status === 'LIVE'
+      ? 'LIVE:'
+      : 'Scheduled:';
 
   return {
     title: `${statusPrefix} ${match.homeTeam.name} vs ${match.awayTeam.name} | ${formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name)}`,
@@ -38,19 +45,42 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function LiveGamePage({ params }: Props) {
-  const { matchId } = await params;
+export default async function LiveGamePage({ params, searchParams }: Props) {
+  const [{ matchId }, query] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve<{ edition?: string }>({}),
+  ]);
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
       stage: { select: { name: true } },
+      competition: {
+        select: {
+          dataCoverage: {
+            where: { matchId: null },
+            select: { capability: true, state: true },
+          },
+        },
+      },
+      dataCoverage: { select: { capability: true, state: true } },
       homeTeam: {
         include: {
-          players: {
-            include: {
-              matchStats: {
-                where: { matchId },
+          editionEntries: {
+            select: {
+              competitionId: true,
+              roster: {
+                where: { status: 'ACTIVE' },
+                select: {
+                  validFrom: true,
+                  validTo: true,
+                  designatedPosition: true,
+                  player: {
+                    include: {
+                      matchStats: { where: { matchId } },
+                    },
+                  },
+                },
               },
             },
           },
@@ -58,10 +88,21 @@ export default async function LiveGamePage({ params }: Props) {
       },
       awayTeam: {
         include: {
-          players: {
-            include: {
-              matchStats: {
-                where: { matchId },
+          editionEntries: {
+            select: {
+              competitionId: true,
+              roster: {
+                where: { status: 'ACTIVE' },
+                select: {
+                  validFrom: true,
+                  validTo: true,
+                  designatedPosition: true,
+                  player: {
+                    include: {
+                      matchStats: { where: { matchId } },
+                    },
+                  },
+                },
               },
             },
           },
@@ -103,19 +144,44 @@ export default async function LiveGamePage({ params }: Props) {
 
   if (!match || !hasResolvedMatchTeams(match)) return notFound();
 
+  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
+  const hasLiveDetail = features.playerBoxScore.available
+    || features.scoreFlow.available
+    || features.matchEvents.available;
+  const canRenderLiveSurface = (match.status === 'LIVE' || match.status === 'COMPLETED')
+    && features.finalScore.available
+    && hasLiveDetail;
+  if (!canRenderLiveSurface) {
+    redirect(matchHref(match.id, match.competitionId));
+  }
+  if (!isCanonicalMatchEdition(query.edition, match.competitionId)) {
+    redirect(matchHref(match.id, match.competitionId, 'live'));
+  }
+
+  const competitionId = match.competitionId;
+  const scheduledAt = match.scheduledAt;
+
   function serializeTeam(team: NonNullable<NonNullable<typeof match>['homeTeam']>) {
+    const entry = team.editionEntries.find(
+      (candidate) => candidate.competitionId === competitionId,
+    );
+    const roster = entry?.roster.filter((membership) =>
+      membership.validFrom <= scheduledAt
+        && (membership.validTo === null || membership.validTo >= scheduledAt)
+    ) ?? [];
     return {
       id: team.id,
       name: team.name,
       abbreviation: team.abbreviation,
       logoUrl: team.logoUrl,
       primaryColor: team.primaryColor,
-      players: team.players.map((p) => {
-        const stats = p.matchStats[0];
+      players: roster.map((membership) => {
+        const player = membership.player;
+        const stats = player.matchStats[0];
         return {
-          id: p.id,
-          name: p.name,
-          position: p.position,
+          id: player.id,
+          name: player.name,
+          position: membership.designatedPosition ?? player.position,
           ...(stats ? pickStatFields(stats) : emptyStats()),
         };
       }),
@@ -149,7 +215,7 @@ export default async function LiveGamePage({ params }: Props) {
       homeScore: q.homeScore,
       awayScore: q.awayScore,
     })),
-    initialScoreFlow: match.scoreFlow.map((sf) => ({
+    initialScoreFlow: features.scoreFlow.available ? match.scoreFlow.map((sf) => ({
       matchId: match.id,
       period: sf.period,
       periodSeconds: sf.periodSeconds,
@@ -159,8 +225,8 @@ export default async function LiveGamePage({ params }: Props) {
       scorePoints: sf.scorePoints,
       scorerPlayerId: sf.scorerPlayer?.id,
       scorerName: sf.scorerPlayer?.name,
-    })),
-    initialMatchEvents: match.matchEvents.map((e) => ({
+    })) : [],
+    initialMatchEvents: features.matchEvents.available ? match.matchEvents.map((e) => ({
       type: e.type,
       period: e.period,
       periodSeconds: e.periodSeconds,
@@ -170,9 +236,20 @@ export default async function LiveGamePage({ params }: Props) {
       teamName: e.team.name,
       teamAbbreviation: e.team.abbreviation,
       teamLogoUrl: e.team.logoUrl,
-    })),
+    })) : [],
     preMatchPrior,
   };
 
-  return <LiveGameClient match={serialized} />;
+  return <LiveGameClient
+    match={serialized}
+    capabilities={{
+      lineups: features.lineups.available && features.playerBoxScore.available,
+      matchEvents: features.matchEvents.available,
+      periodScores: features.periodScores.available,
+      playerBoxScore: features.playerBoxScore.available,
+      scoreFlow: features.scoreFlow.available,
+      superShots: features.superShots.available,
+    }}
+    realtimeEnabled={match.status === 'LIVE'}
+  />;
 }

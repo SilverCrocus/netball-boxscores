@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { PlayerStatsTable } from '@/components/ui/PlayerStatsTable';
 import { QuarterScoreBar } from '@/components/ui/QuarterScoreBar';
@@ -12,6 +12,7 @@ import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { MatchStatsComparison } from '@/components/match/MatchStatsComparison';
 import { MatchTimeline } from '@/components/match/MatchTimeline';
 import { MatchActions } from '@/components/match/MatchActions';
+import { MatchCoverageNotice } from '@/components/match/MatchCoverageNotice';
 import { MatchTabs } from './MatchTabs';
 import { JsonLd, sportsEventJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
@@ -21,7 +22,9 @@ import { timedQuery } from '@/lib/server-timing';
 import { getMvpSupportingStats } from '@/lib/mvp-stats';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
-import { editionScopedHref } from '@/lib/edition-links';
+import { editionScopedHref, isCanonicalMatchEdition, matchHref } from '@/lib/edition-links';
+import { isFinalFixture, resolveEditionFeatures } from '@/lib/edition-capabilities';
+import { playerTeamIdForMatch } from '@/lib/match-player-team';
 
 const getMatch = cache((matchId: string) =>
   timedQuery('match_base', () => prisma.match.findUnique({
@@ -29,6 +32,7 @@ const getMatch = cache((matchId: string) =>
     select: {
       id: true,
       competitionId: true,
+      resultQuality: true,
       status: true,
       homeScore: true,
       awayScore: true,
@@ -44,6 +48,17 @@ const getMatch = cache((matchId: string) =>
       awayTeamId: true,
       homeTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
       awayTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
+      competition: {
+        select: {
+          dataCoverage: {
+            where: { matchId: null },
+            select: { capability: true, state: true },
+          },
+        },
+      },
+      dataCoverage: {
+        select: { capability: true, state: true },
+      },
       quarters: {
         select: { quarter: true, homeScore: true, awayScore: true },
         orderBy: { quarter: 'asc' },
@@ -73,7 +88,14 @@ const getMatch = cache((matchId: string) =>
               photoSourceUrl: true,
               photoCredit: true,
               photoLicense: true,
-              teamId: true,
+              rosterMemberships: {
+                where: { status: 'ACTIVE' },
+                select: {
+                  editionEntry: {
+                    select: { competitionId: true, teamId: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -99,6 +121,7 @@ const getMatch = cache((matchId: string) =>
 
 interface MatchPageProps {
   params: Promise<{ matchId: string }>;
+  searchParams?: Promise<{ edition?: string }>;
 }
 
 export async function generateMetadata({ params }: MatchPageProps): Promise<Metadata> {
@@ -107,7 +130,9 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
 
   if (!match || !hasResolvedMatchTeams(match)) return { title: 'Match Not Found' };
 
-  const isCompleted = match.status === 'COMPLETED';
+  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
+  const isCompleted = isFinalFixture(match.status, match.resultQuality)
+    && features.finalScore.available;
   const stage = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
   const title = isCompleted
     ? `${match.homeTeam.name} ${match.homeScore} - ${match.awayTeam.name} ${match.awayScore} | ${stage}`
@@ -120,11 +145,20 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
   return { title, description };
 }
 
-export default async function MatchPage({ params }: MatchPageProps) {
-  const { matchId } = await params;
+export default async function MatchPage({ params, searchParams }: MatchPageProps) {
+  const [{ matchId }, query] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve<{ edition?: string }>({}),
+  ]);
   const match = await getMatch(matchId);
 
   if (!match || !hasResolvedMatchTeams(match)) notFound();
+
+  if (!isCanonicalMatchEdition(query.edition, match.competitionId)) {
+    redirect(matchHref(match.id, match.competitionId));
+  }
+
+  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
 
   const superShotsByPlayer = new Map<string, number>();
   let homeSuperShots = 0, awaySuperShots = 0;
@@ -141,7 +175,8 @@ export default async function MatchPage({ params }: MatchPageProps) {
       else awayNormalGoals++;
     }
   }
-  const hasSuperShots = homeSuperShots > 0 || awaySuperShots > 0;
+  const hasSuperShots = features.superShots.available
+    && (homeSuperShots > 0 || awaySuperShots > 0);
 
   function toPlayerStatRow(ps: NonNullable<typeof match>['playerStats'][number]) {
     return {
@@ -155,17 +190,20 @@ export default async function MatchPage({ params }: MatchPageProps) {
     };
   }
 
+  const matchTeamIds = [match.homeTeamId, match.awayTeamId];
   const homePlayerStats = match.playerStats
-    .filter((ps) => ps.player.teamId === match.homeTeamId)
+    .filter((ps) => playerTeamIdForMatch(ps.player, match.competitionId, matchTeamIds) === match.homeTeamId)
     .map(toPlayerStatRow);
   const awayPlayerStats = match.playerStats
-    .filter((ps) => ps.player.teamId === match.awayTeamId)
+    .filter((ps) => playerTeamIdForMatch(ps.player, match.competitionId, matchTeamIds) === match.awayTeamId)
     .map(toPlayerStatRow);
 
-  const mvp = match.playerStats.reduce<(typeof match.playerStats)[number] | null>(
-    (best, candidate) => !best || candidate.netPoints > best.netPoints ? candidate : best,
-    null,
-  );
+  const mvp = features.netPoints.available
+    ? match.playerStats.reduce<(typeof match.playerStats)[number] | null>(
+        (best, candidate) => !best || candidate.netPoints > best.netPoints ? candidate : best,
+        null,
+      )
+    : null;
   const mvpSupportingStats = mvp
     ? getMvpSupportingStats({ ...mvp, position: mvp.player.position })
     : [];
@@ -192,7 +230,20 @@ export default async function MatchPage({ params }: MatchPageProps) {
   ];
 
   const isLive = match.status === 'LIVE';
+  const isFinal = isFinalFixture(match.status, match.resultQuality);
+  const showScore = features.finalScore.available && (isLive || isFinal);
+  const showPlayerBoxScore = features.playerBoxScore.available
+    && (homePlayerStats.length > 0 || awayPlayerStats.length > 0);
+  const showScoreFlow = features.scoreFlow.available && match.scoreFlow.length > 0;
+  const showMatchEvents = features.matchEvents.available && match._count.matchEvents > 0;
+  const showPeriodScores = features.periodScores.available && match.quarters.length > 0;
+  const hasBoxScoreContent = showPlayerBoxScore || showScoreFlow || showPeriodScores || mvp !== null;
   const stage = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
+  const lifecycleLabel = isLive
+    ? (match.currentQuarter ? `Q${match.currentQuarter}` : 'Live')
+    : isFinal
+      ? 'Final'
+      : match.status.toLocaleLowerCase().replaceAll('_', ' ');
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -208,7 +259,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
       <JsonLd data={breadcrumbJsonLd([
         { name: 'Home', url: '/' },
         { name: 'Scores', url: '/' },
-        { name: `${match.homeTeam.abbreviation} vs ${match.awayTeam.abbreviation}`, url: editionScopedHref(`/match/${match.id}`, match.competitionId) },
+        { name: `${match.homeTeam.abbreviation} vs ${match.awayTeam.abbreviation}`, url: matchHref(match.id, match.competitionId) },
       ])} />
 
       {/* Hero Header */}
@@ -234,31 +285,39 @@ export default async function MatchPage({ params }: MatchPageProps) {
           {/* Score */}
           <div className="flex flex-col items-center">
             <p className="text-[10px] font-bold font-label text-on-surface-variant uppercase tracking-widest mb-1">
-              {isLive ? `Q${match.currentQuarter}` : 'Final'}
+              {lifecycleLabel}
             </p>
-            <div className="flex items-center gap-3 md:gap-5">
-              <div className="flex flex-col items-center">
-                <span className="text-5xl md:text-7xl font-black font-headline text-primary-container">
-                  {match.homeScore}
-                </span>
-                {hasSuperShots && (
-                  <span className="font-label text-[11px] text-on-surface-variant/60 font-medium mt-[-2px]">
-                    ({homeNormalGoals}.{homeSuperShots})
+            {showScore ? (
+              <div className="flex items-center gap-3 md:gap-5">
+                <div className="flex flex-col items-center">
+                  <span className="text-5xl md:text-7xl font-black font-headline text-primary-container">
+                    {match.homeScore}
                   </span>
-                )}
-              </div>
-              <span className="text-3xl font-bold text-outline-variant">-</span>
-              <div className="flex flex-col items-center">
-                <span className="text-5xl md:text-7xl font-black font-headline text-secondary">
-                  {match.awayScore}
-                </span>
-                {hasSuperShots && (
-                  <span className="font-label text-[11px] text-on-surface-variant/60 font-medium mt-[-2px]">
-                    ({awayNormalGoals}.{awaySuperShots})
+                  {hasSuperShots && (
+                    <span className="font-label text-[11px] text-on-surface-variant/60 font-medium mt-[-2px]">
+                      ({homeNormalGoals}.{homeSuperShots})
+                    </span>
+                  )}
+                </div>
+                <span className="text-3xl font-bold text-outline-variant">-</span>
+                <div className="flex flex-col items-center">
+                  <span className="text-5xl md:text-7xl font-black font-headline text-secondary">
+                    {match.awayScore}
                   </span>
-                )}
+                  {hasSuperShots && (
+                    <span className="font-label text-[11px] text-on-surface-variant/60 font-medium mt-[-2px]">
+                      ({awayNormalGoals}.{awaySuperShots})
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex min-h-20 items-center">
+                <span className="font-headline text-4xl font-black italic tracking-tight text-outline-variant">
+                  {match.status === 'COMPLETED' ? 'Score unavailable' : 'VS'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Away Team */}
@@ -275,12 +334,14 @@ export default async function MatchPage({ params }: MatchPageProps) {
 
       <MatchActions matchId={match.id} status={match.status} competitionId={match.competitionId} />
 
-      <MatchTabs
-        hasPlayByPlay={match.scoreFlow.length > 0 || match._count.matchEvents > 0}
+      <MatchCoverageNotice status={match.status} features={features} />
+
+      {hasBoxScoreContent && <MatchTabs
+        hasPlayByPlay={showScoreFlow || showMatchEvents}
         boxScore={
           <>
             {/* Match Momentum */}
-            {match.scoreFlow.length > 0 && (
+            {showScoreFlow && (
               <div className="bg-surface-container-low rounded-xl p-6 mb-8">
                 <h4 className="text-primary-container font-headline font-bold text-sm uppercase tracking-tight mb-4">
                   Match Momentum
@@ -294,19 +355,19 @@ export default async function MatchPage({ params }: MatchPageProps) {
             )}
 
             {/* Team Stats Comparison */}
-            {homePlayerStats.length > 0 && awayPlayerStats.length > 0 && (
+            {showPlayerBoxScore && homePlayerStats.length > 0 && awayPlayerStats.length > 0 && (
               <div className="mb-8">
                 <MatchStatsComparison stats={comparisonStats} />
               </div>
             )}
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+            {(showPlayerBoxScore || mvp || showPeriodScores) && <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
               {/* Left Column: Tables */}
-              <div className="xl:col-span-3 space-y-8">
+              {showPlayerBoxScore && <div className="xl:col-span-3 space-y-8">
                 <PlayerStatsTable team={match.homeTeam} players={homePlayerStats} competitionId={match.competitionId} />
                 <PlayerStatsTable team={match.awayTeam} players={awayPlayerStats} competitionId={match.competitionId} />
-              </div>
+              </div>}
 
               {/* Right Column: Sidebar */}
               <div className="space-y-6">
@@ -369,7 +430,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
                 )}
 
                 {/* Quarter Score Bars */}
-                {match.quarters.length > 0 && (
+                {showPeriodScores && (
                   <div className="bg-surface-container-low rounded-xl p-6">
                     <h4 className="text-primary-container font-headline font-bold text-sm uppercase tracking-tight mb-6">
                       Quarter Breakdown
@@ -378,7 +439,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
                   </div>
                 )}
               </div>
-            </div>
+            </div>}
           </>
         }
         playByPlay={
@@ -389,7 +450,16 @@ export default async function MatchPage({ params }: MatchPageProps) {
             awayTeam={{ id: match.awayTeamId, ...match.awayTeam }}
           />
         }
-      />
+      />}
+
+      {!hasBoxScoreContent && (showScoreFlow || showMatchEvents) && (
+        <MatchTimeline
+          matchId={match.id}
+          competitionId={match.competitionId}
+          homeTeam={{ id: match.homeTeamId, ...match.homeTeam }}
+          awayTeam={{ id: match.awayTeamId, ...match.awayTeam }}
+        />
+      )}
     </div>
   );
 }

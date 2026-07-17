@@ -6,6 +6,7 @@ import { computeBreakdown, homepageMatchSelect } from '@/lib/home-feed';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import Link from 'next/link';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
+import { matchHref } from '@/lib/edition-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,8 @@ export default async function LivePage() {
   const state = await getLiveState();
 
   if (state.liveMatchIds.length === 1) {
-    redirect(`/match/${state.liveMatchIds[0]}/live`);
+    const liveMatch = state.liveMatches[0];
+    redirect(matchHref(liveMatch.id, liveMatch.competitionId, 'live'));
   }
 
   const { competition } = await resolveCompetition();

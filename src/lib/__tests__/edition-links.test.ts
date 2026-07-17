@@ -7,6 +7,8 @@ import {
   editionNavigationHref,
   editionScopedHref,
   editionSwitchHref,
+  isCanonicalMatchEdition,
+  matchHref,
   navigationEditionFromPathname,
   navigationEditionFromLocation,
 } from '@/lib/edition-links';
@@ -44,6 +46,18 @@ describe('edition links', () => {
       '/player/player-1?view=form&edition=glasgow-2026'
     );
     expect(editionScopedHref('/match/legacy-match')).toBe('/match/legacy-match');
+  });
+
+  it('builds canonical match, live, and court URLs from the owning edition', () => {
+    expect(matchHref('match 1', 'ssn-2026')).toBe('/match/match%201?edition=ssn-2026');
+    expect(matchHref('match-1', 'glasgow-2026', 'live')).toBe(
+      '/match/match-1/live?edition=glasgow-2026',
+    );
+    expect(matchHref('match-1', 'glasgow-2026', 'court')).toBe(
+      '/match/match-1/court?edition=glasgow-2026',
+    );
+    expect(isCanonicalMatchEdition('ssn-2026', 'ssn-2026')).toBe(true);
+    expect(isCanonicalMatchEdition('glasgow-2026', 'ssn-2026')).toBe(false);
   });
 
   it.each(['desktop', 'mobile'] as const)(

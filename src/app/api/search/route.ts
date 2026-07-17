@@ -4,6 +4,7 @@ import { formatMatchStage } from '@/lib/match-label';
 import type { SearchResponse } from '@/types/search';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { getPublicCompetitions } from '@/lib/competitions';
+import { matchHref } from '@/lib/edition-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
         },
         select: {
           id: true,
+          competitionId: true,
           homeTeamId: true,
           awayTeamId: true,
           round: true,
@@ -102,7 +104,7 @@ export async function GET(request: Request) {
         meta: match.status === 'COMPLETED'
           ? `${match.homeScore}-${match.awayScore} · ${formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name)}`
           : formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name),
-        href: match.status === 'LIVE' ? `/match/${match.id}/live` : `/match/${match.id}`,
+        href: matchHref(match.id, match.competitionId, match.status === 'LIVE' ? 'live' : ''),
       })),
     } satisfies SearchResponse);
   } catch {

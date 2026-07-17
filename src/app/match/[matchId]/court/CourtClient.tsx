@@ -12,10 +12,11 @@ type FullMatch = Match & {
 
 interface CourtClientProps {
   match: FullMatch;
+  realtimeEnabled?: boolean;
 }
 
-export function CourtClient({ match }: CourtClientProps) {
-  const { score, matchStatus } = useMatchSocket(match.id);
+export function CourtClient({ match, realtimeEnabled = true }: CourtClientProps) {
+  const { score, matchStatus } = useMatchSocket(match.id, realtimeEnabled);
 
   const homeScore = score?.homeScore ?? match.homeScore;
   const awayScore = score?.awayScore ?? match.awayScore;

@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import type { MatchStatus } from '@prisma/client';
-import { editionScopedHref } from '@/lib/edition-links';
+import { matchHref } from '@/lib/edition-links';
 
 interface MatchActionsProps {
   matchId: string;
   status: MatchStatus;
-  competitionId?: string | null;
+  competitionId: string;
 }
 
 interface UserMatchResource {
@@ -61,7 +61,7 @@ export function MatchActions({ matchId, status, competitionId }: MatchActionsPro
     update: (value: boolean) => void,
   ) {
     if (sessionStatus !== 'authenticated') {
-      const callbackUrl = editionScopedHref(`/match/${matchId}`, competitionId);
+      const callbackUrl = matchHref(matchId, competitionId);
       router.push(`/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
       return;
     }

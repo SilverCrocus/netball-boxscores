@@ -7,7 +7,7 @@ import type {
 } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { CompetitionOption } from '@/lib/competitions';
-import { editionScopedHref } from '@/lib/edition-links';
+import { matchHref } from '@/lib/edition-links';
 import { formatMatchStage } from '@/lib/match-label';
 
 const scheduleTeamSelect = {
@@ -296,7 +296,7 @@ function projectFixture(
       ? { sideA: match.homeScore, sideB: match.awayScore }
       : null,
     href: sideA.resolved && sideB.resolved
-      ? editionScopedHref(`/match/${match.id}`, competitionId)
+      ? matchHref(match.id, competitionId)
       : null,
   };
 }

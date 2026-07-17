@@ -9,7 +9,7 @@ import { formatMatchDate, formatMatchTime, formatShortDate } from '@/lib/format'
 import { JsonLd, sportsTeamJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { getPublicCompetitions, type CompetitionOption } from '@/lib/competitions';
 import { toEditionContext } from '@/lib/edition-context';
-import { editionHref, editionScopedHref } from '@/lib/edition-links';
+import { editionHref, editionScopedHref, matchHref } from '@/lib/edition-links';
 import { countryFlagForTeam } from '@/lib/country-flags';
 import {
   getRecentTeamMatches,
@@ -273,7 +273,7 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
               return (
                 <Link
                   key={m.id}
-                  href={editionScopedHref(`/match/${m.id}`, competition.id)}
+                  href={matchHref(m.id, competition.id)}
                   prefetch={false}
                   className={`flex-shrink-0 snap-start flex items-center gap-3 px-6 py-4 bg-surface-container-lowest rounded-xl shadow-sm border-b-2 ${
                     borderColor
@@ -358,7 +358,7 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
             {upcoming.map((m) => (
               <Link
                 key={m.id}
-                href={editionScopedHref(`/match/${m.id}`, competition.id)}
+                href={matchHref(m.id, competition.id)}
                 prefetch={false}
                 className="block bg-surface-container-lowest p-5 rounded-xl border-l-4 border-secondary shadow-sm"
               >

@@ -7,9 +7,11 @@ import type { TeamInfoWithId } from '@/types/team';
 import type { StatValues } from '@/lib/stat-utils';
 import type { PositionConfig } from './position-config';
 import { hasResolvedMatchTeams, type ResolvedMatchTeams } from '@/lib/edition-match';
+import { matchHref } from '@/lib/edition-links';
 
 interface MatchWithTeams {
   id: string;
+  competitionId: string;
   scheduledAt: Date;
   homeScore: number;
   awayScore: number;
@@ -103,18 +105,18 @@ export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLo
                   }`}
                 >
                   <td className="px-8 py-5 text-on-surface font-semibold">
-                    <Link href={`/match/${match.id}`} className="hover:text-secondary transition-colors">
+                    <Link href={matchHref(match.id, match.competitionId)} className="hover:text-secondary transition-colors">
                       {formatShortDate(match.scheduledAt)}
                     </Link>
                   </td>
                   <td className="px-8 py-5">
-                    <Link href={`/match/${match.id}`} className="flex items-center gap-2 hover:text-secondary transition-colors">
+                    <Link href={matchHref(match.id, match.competitionId)} className="flex items-center gap-2 hover:text-secondary transition-colors">
                       <TeamBadge team={opponent} size={24} />
                       <span className="font-bold">{opponent.name}</span>
                     </Link>
                   </td>
                   <td className="px-8 py-5">
-                    <Link href={`/match/${match.id}`}>
+                    <Link href={matchHref(match.id, match.competitionId)}>
                       <span className={`px-2 py-0.5 rounded font-black ${resultBg}`}>
                         {resultLabel} {playerScore}-{opponentScore}
                       </span>

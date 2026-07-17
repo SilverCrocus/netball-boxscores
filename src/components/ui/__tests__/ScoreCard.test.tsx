@@ -4,6 +4,7 @@ import { ScoreCard } from '../ScoreCard';
 
 const liveMatch = {
   id: '1',
+  competitionId: 'ssn-2026',
   homeTeam: { name: 'Vixens', abbreviation: 'VIX', logoUrl: null },
   awayTeam: { name: 'Firebirds', abbreviation: 'FIR', logoUrl: null },
   homeScore: 42,
@@ -44,6 +45,14 @@ describe('ScoreCard', () => {
     expect(screen.getByText('Firebirds')).toBeInTheDocument();
   });
 
+  it('uses the owning edition in its default match URL', () => {
+    render(<ScoreCard match={liveMatch} />);
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      '/match/1/live?edition=ssn-2026',
+    );
+  });
+
   it('renders scores', () => {
     render(<ScoreCard match={liveMatch} />);
     expect(screen.getByText('42')).toBeInTheDocument();
@@ -63,6 +72,8 @@ describe('ScoreCard', () => {
   it('does not show LIVE indicator for scheduled matches', () => {
     render(<ScoreCard match={scheduledMatch} />);
     expect(screen.queryByText('LIVE')).not.toBeInTheDocument();
+    expect(screen.getByText('VS')).toBeInTheDocument();
+    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument();
   });
 
   it('renders with flex column layout for consistent card heights', () => {

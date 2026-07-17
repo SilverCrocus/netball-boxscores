@@ -25,8 +25,8 @@ beforeEach(() => {
 describe('getLiveState', () => {
   it('returns live match IDs when matches have status LIVE', async () => {
     mockFindMany.mockResolvedValueOnce([
-      { id: 'match-1' },
-      { id: 'match-2' },
+      { id: 'match-1', competitionId: 'ssn-2026' },
+      { id: 'match-2', competitionId: 'ssn-2026' },
     ] as any);
     mockFindMany.mockResolvedValueOnce([]); // imminent
     mockFindFirst.mockResolvedValueOnce(null);
@@ -35,6 +35,16 @@ describe('getLiveState', () => {
     const state = await getLiveState();
 
     expect(state.liveMatchIds).toEqual(['match-1', 'match-2']);
+    expect(state.liveMatches).toEqual([
+      { id: 'match-1', competitionId: 'ssn-2026' },
+      { id: 'match-2', competitionId: 'ssn-2026' },
+    ]);
+    expect(mockFindMany).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      where: expect.objectContaining({
+        status: 'LIVE',
+        competition: { publicationStatus: 'PUBLISHED' },
+      }),
+    }));
   });
 
   it('returns imminent match IDs for SCHEDULED matches within ±60min', async () => {
@@ -82,6 +92,7 @@ describe('getLiveState', () => {
     const state = await getLiveState();
 
     expect(state.liveMatchIds).toEqual([]);
+    expect(state.liveMatches).toEqual([]);
     expect(state.imminentMatchIds).toEqual([]);
     expect(state.nextMatchAt).toBeNull();
     expect(state.isMatchDay).toBe(false);

@@ -2,6 +2,7 @@ import { prisma, excludeSimData } from '@/lib/db';
 import { getSydneyDayBounds } from '@/lib/time-zone';
 
 export interface LiveState {
+  liveMatches: Array<{ id: string; competitionId: string }>;
   liveMatchIds: string[];
   imminentMatchIds: string[];
   nextMatchAt: Date | null;
@@ -15,16 +16,20 @@ export async function getLiveState(): Promise<LiveState> {
   const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
   const { start: startOfSydneyDay, end: endOfSydneyDay } = getSydneyDayBounds(now);
+  const publicMatchWhere = {
+    ...excludeSimData,
+    competition: { publicationStatus: 'PUBLISHED' as const },
+  };
 
   const [liveMatches, imminentMatches, nextMatch, matchDayCount] =
     await Promise.all([
       prisma.match.findMany({
-        where: { ...excludeSimData, status: 'LIVE' },
-        select: { id: true },
+        where: { ...publicMatchWhere, status: 'LIVE' },
+        select: { id: true, competitionId: true },
       }),
       prisma.match.findMany({
         where: {
-          ...excludeSimData,
+          ...publicMatchWhere,
           status: 'SCHEDULED',
           scheduledAt: { gte: sixtyMinsAgo, lte: sixtyMinsFromNow },
         },
@@ -32,7 +37,7 @@ export async function getLiveState(): Promise<LiveState> {
       }),
       prisma.match.findFirst({
         where: {
-          ...excludeSimData,
+          ...publicMatchWhere,
           status: 'SCHEDULED',
           scheduledAt: { gte: now, lte: oneHourFromNow },
         },
@@ -41,13 +46,14 @@ export async function getLiveState(): Promise<LiveState> {
       }),
       prisma.match.count({
         where: {
-          ...excludeSimData,
+          ...publicMatchWhere,
           scheduledAt: { gte: startOfSydneyDay, lt: endOfSydneyDay },
         },
       }),
     ]);
 
   return {
+    liveMatches,
     liveMatchIds: liveMatches.map((m) => m.id),
     imminentMatchIds: imminentMatches.map((m) => m.id),
     nextMatchAt: nextMatch?.scheduledAt ?? null,

@@ -62,7 +62,7 @@ describe('ExploreClient', () => {
     }));
     expect(screen.getByRole('img', { name: /Goals comparison for 2 results/ })).toBeInTheDocument();
     expect(screen.getByRole('table')).toHaveTextContent('Sophie Garbin');
-    expect(screen.getByRole('link', { name: 'Match 1' })).toHaveAttribute('href', '/match/m1');
+    expect(screen.getByRole('link', { name: 'Match 1' })).toHaveAttribute('href', '/match/m1?edition=edition-1');
     expect(window.location.search).toBe(`?q=${encodeURIComponent(question)}`);
   });
 

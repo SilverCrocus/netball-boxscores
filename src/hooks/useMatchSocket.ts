@@ -24,7 +24,7 @@ interface MatchSocketState {
   isConnected: boolean;
 }
 
-export function useMatchSocket(matchId: string): MatchSocketState {
+export function useMatchSocket(matchId: string, enabled = true): MatchSocketState {
   const socketRef = useRef<TypedSocket | null>(null);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [state, setState] = useState<MatchSocketState>({
@@ -37,6 +37,8 @@ export function useMatchSocket(matchId: string): MatchSocketState {
   });
 
   useEffect(() => {
+    if (!enabled) return;
+
     const socket: TypedSocket = io({
       path: '/api/socketio',
       reconnection: true,
@@ -111,7 +113,7 @@ export function useMatchSocket(matchId: string): MatchSocketState {
       socket.off('stat:event');
       socket.disconnect();
     };
-  }, [matchId]);
+  }, [enabled, matchId]);
 
   return state;
 }

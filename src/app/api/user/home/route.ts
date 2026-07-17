@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic';
 function toCard(match: ResolvedHomepageMatch): PersonalizedMatchCard {
   return {
     id: match.id,
+    competitionId: match.competitionId,
     status: match.status,
     scheduledAt: match.scheduledAt.toISOString(),
     homeScore: match.homeScore,

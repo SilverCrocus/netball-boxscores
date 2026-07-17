@@ -8,6 +8,7 @@ export const HOME_RESULTS_PAGE_SIZE = 8;
 
 export const homepageMatchSelect = {
   id: true,
+  competitionId: true,
   status: true,
   scheduledAt: true,
   homeScore: true,
@@ -36,6 +37,7 @@ interface ScoreBreakdown {
 
 export interface HomeResultCard {
   id: string;
+  competitionId?: string;
   href?: string;
   status: 'COMPLETED';
   scheduledAt: string;
@@ -85,6 +87,7 @@ export function computeBreakdown(match: HomepageMatch) {
 function toResultCard(match: ResolvedHomepageMatch): HomeResultCard {
   return {
     id: match.id,
+    competitionId: match.competitionId,
     status: 'COMPLETED',
     scheduledAt: match.scheduledAt.toISOString(),
     homeScore: match.homeScore,
