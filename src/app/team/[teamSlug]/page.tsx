@@ -142,10 +142,14 @@ export default async function TeamPage({ params, searchParams = Promise.resolve(
   const [standing, recentMatches, upcomingMatches, editionRoster] = await Promise.all([
     standingPromise,
     competition
-      ? timedQuery('team_recent_matches', () => getRecentTeamMatches(competition.id, team.id))
+      ? timedQuery('team_recent_matches', () => (
+          getRecentTeamMatches(competition.id, team.id, competition)
+        ))
       : Promise.resolve([]),
     competition
-      ? timedQuery('team_upcoming_matches', () => getUpcomingTeamMatches(competition.id, team.id))
+      ? timedQuery('team_upcoming_matches', () => (
+          getUpcomingTeamMatches(competition.id, team.id, competition)
+        ))
       : Promise.resolve([]),
     rosterPromise,
   ]);
