@@ -8,18 +8,41 @@ import {
   broadcastStatEvent,
 } from '@/lib/socket-server';
 import type { CDMatchStatsResponse } from '@/types/champion-data';
+import type { StatEventPayload } from '@/types/socket';
 import type { ChangeResult } from '@/lib/processing';
 import { getScoreFlowIdentity } from '@/lib/score-flow';
+import {
+  isPublicMatchLiveOrFinal,
+  resolvePublicMatchAccess,
+  type PublicMatchAccess,
+} from '@/lib/public-match';
 
 // ── Score flow delta tracking ──
 
 const matchScoreFlowSnapshots = new Map<string, Map<string, string>>();
 
+async function publicAccessForBroadcast(
+  matchId: string,
+  providedAccess?: PublicMatchAccess | null,
+): Promise<PublicMatchAccess | null> {
+  if (providedAccess !== undefined) return providedAccess;
+  return resolvePublicMatchAccess(matchId).catch(() => null);
+}
+
 export function resetScoreFlowTracking(): void {
   matchScoreFlowSnapshots.clear();
 }
 
-export async function broadcastScoreFlowDelta(matchId: string): Promise<void> {
+export async function broadcastScoreFlowDelta(
+  matchId: string,
+  providedAccess?: PublicMatchAccess | null,
+): Promise<void> {
+  const access = await publicAccessForBroadcast(matchId, providedAccess);
+  if (!access || !isPublicMatchLiveOrFinal(access) || !access.features.scoreFlow.available) {
+    matchScoreFlowSnapshots.delete(matchId);
+    return;
+  }
+
   const allEntries = await prisma.scoreFlow.findMany({
     where: { matchId },
     include: { scorerPlayer: { select: { id: true, name: true } } },
@@ -46,7 +69,7 @@ export async function broadcastScoreFlowDelta(matchId: string): Promise<void> {
     next.set(identity, signature);
     if (previous.get(identity) === signature) continue;
 
-    broadcastScoreFlowAdd(matchId, {
+    await broadcastScoreFlowAdd(matchId, {
       matchId,
       period: sf.period,
       periodSeconds: sf.periodSeconds,
@@ -56,7 +79,7 @@ export async function broadcastScoreFlowDelta(matchId: string): Promise<void> {
       scorePoints: sf.scorePoints,
       scorerPlayerId: sf.scorerPlayer?.id,
       scorerName: sf.scorerPlayer?.name,
-    });
+    }, access);
   }
 
   matchScoreFlowSnapshots.set(matchId, next);
@@ -76,45 +99,51 @@ export async function broadcastMatchChanges(
   changes: ChangeResult,
   matchDetail: CDMatchStatsResponse,
   _dbMatch: unknown,
+  providedAccess?: PublicMatchAccess | null,
 ): Promise<void> {
   // Retained for caller compatibility while match-change broadcasts use the validated delta.
   void _dbMatch;
   if (!changes.matchId) return;
+  const access = await publicAccessForBroadcast(changes.matchId, providedAccess);
+  if (!access || !isPublicMatchLiveOrFinal(access)) return;
 
   if (changes.scoreChanged) {
-    broadcastScoreUpdate(changes.matchId, {
+    await broadcastScoreUpdate(changes.matchId, {
       matchId: changes.matchId,
       homeScore: changes.newHomeScore,
       awayScore: changes.newAwayScore,
       currentQuarter: changes.currentQuarter,
       currentTime: changes.currentTime,
-    });
+    }, access);
   }
 
-  if (changes.statusChanged) {
+  if (
+    changes.statusChanged
+    && (changes.newStatus === 'LIVE' || changes.newStatus === 'COMPLETED')
+  ) {
     const isCompletion = changes.newStatus === 'COMPLETED';
-    broadcastMatchStatus(changes.matchId, {
+    await broadcastMatchStatus(changes.matchId, {
       matchId: changes.matchId,
-      status: changes.newStatus as 'LIVE' | 'COMPLETED',
+      status: changes.newStatus,
       quarter: changes.currentQuarter,
       time: isCompletion ? '0' : changes.currentTime,
-    });
+    }, access);
     if (isCompletion) {
-      broadcastScoreUpdate(changes.matchId, {
+      await broadcastScoreUpdate(changes.matchId, {
         matchId: changes.matchId,
         homeScore: changes.newHomeScore,
         awayScore: changes.newAwayScore,
         currentQuarter: changes.currentQuarter,
         currentTime: '0',
-      });
+      }, access);
     }
   }
 
   if (matchDetail.playerStats) {
-    await broadcastPlayerStats(changes.matchId, matchDetail);
+    await broadcastPlayerStats(changes.matchId, matchDetail, access);
   }
 
-  await broadcastScoreFlowDelta(changes.matchId);
+  await broadcastScoreFlowDelta(changes.matchId, access);
 }
 
 // ── Player stats broadcast ──
@@ -122,8 +151,11 @@ export async function broadcastMatchChanges(
 export async function broadcastPlayerStats(
   matchId: string,
   matchDetail: CDMatchStatsResponse,
+  providedAccess?: PublicMatchAccess | null,
 ): Promise<void> {
   if (!matchDetail.playerStats) return;
+  const access = await publicAccessForBroadcast(matchId, providedAccess);
+  if (!access || !isPublicMatchLiveOrFinal(access) || !access.features.playerBoxScore.available) return;
 
   const allPlayerStats = [
     ...(matchDetail.playerStats.home ?? []),
@@ -140,12 +172,14 @@ export async function broadcastPlayerStats(
     .filter((ps) => playerIdMap.has(ps.playerId))
     .map((ps) => ({
       playerId: playerIdMap.get(ps.playerId)!,
-      currentPosition: ps.position ?? '',
+      ...(access.features.lineups.available && ps.position
+        ? { currentPosition: ps.position }
+        : {}),
       ...pickStatFields(ps),
     }));
 
   if (statsPayload.length > 0) {
-    broadcastStatsUpdate(matchId, { matchId, playerStats: statsPayload });
+    await broadcastStatsUpdate(matchId, { matchId, playerStats: statsPayload }, access);
   }
 }
 
@@ -167,21 +201,25 @@ export async function persistAndBroadcastStatEvents(
   oldStatMap: Map<string, Record<EventType, number>>,
   period: number,
   periodSeconds: number,
+  providedAccess?: PublicMatchAccess | null,
 ): Promise<void> {
+  const access = await publicAccessForBroadcast(matchId, providedAccess);
+
   const allPlayerStats = [
-    ...(matchDetail.playerStats.home ?? []),
-    ...(matchDetail.playerStats.away ?? []),
+    ...(matchDetail.playerStats.home ?? []).map((stats) => ({ stats, isHome: true })),
+    ...(matchDetail.playerStats.away ?? []).map((stats) => ({ stats, isHome: false })),
   ];
 
   const players = await prisma.player.findMany({
-    where: { championDataPlayerId: { in: allPlayerStats.map((ps) => ps.playerId) } },
-    select: { id: true, name: true, championDataPlayerId: true, teamId: true },
+    where: { championDataPlayerId: { in: allPlayerStats.map(({ stats }) => stats.playerId) } },
+    select: { id: true, name: true, championDataPlayerId: true },
   });
   const playerMap = new Map(players.map((p) => [p.championDataPlayerId, p]));
 
   const eventsToCreate: { matchId: string; playerId: string; type: string; period: number; periodSeconds: number; teamId: string }[] = [];
+  const eventsToBroadcast: StatEventPayload[] = [];
 
-  for (const ps of allPlayerStats) {
+  for (const { stats: ps, isHome } of allPlayerStats) {
     const player = playerMap.get(ps.playerId);
     if (!player) continue;
 
@@ -193,7 +231,6 @@ export async function persistAndBroadcastStatEvents(
       const newCount = current - previous;
       if (newCount <= 0) continue;
 
-      const isHome = player.teamId === dbMatch.homeTeamId;
       const team = isHome ? dbMatch.homeTeam : dbMatch.awayTeam;
 
       for (let i = 0; i < newCount; i++) {
@@ -208,7 +245,7 @@ export async function persistAndBroadcastStatEvents(
           teamId: team.id,
         });
 
-        broadcastStatEvent(matchId, {
+        eventsToBroadcast.push({
           matchId,
           type,
           playerId: player.id,
@@ -231,27 +268,36 @@ export async function persistAndBroadcastStatEvents(
       skipDuplicates: true,
     });
   }
+
+  if (access && isPublicMatchLiveOrFinal(access) && access.features.matchEvents.available) {
+    for (const event of eventsToBroadcast) {
+      await broadcastStatEvent(matchId, event, access);
+    }
+  }
 }
 
 // ── Completion broadcast helper ──
 
-export function broadcastCompletion(
+export async function broadcastCompletion(
   matchId: string,
   homeScore: number,
   awayScore: number,
   finalQuarter: number,
-): void {
-  broadcastMatchStatus(matchId, {
+): Promise<void> {
+  const access = await publicAccessForBroadcast(matchId);
+  if (!access || !isPublicMatchLiveOrFinal(access)) return;
+
+  await broadcastMatchStatus(matchId, {
     matchId,
     status: 'COMPLETED',
     quarter: finalQuarter,
     time: '0',
-  });
-  broadcastScoreUpdate(matchId, {
+  }, access);
+  await broadcastScoreUpdate(matchId, {
     matchId,
     homeScore,
     awayScore,
     currentQuarter: finalQuarter,
     currentTime: '0',
-  });
+  }, access);
 }

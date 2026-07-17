@@ -33,6 +33,7 @@ describe('upstream preview data', () => {
           matches: [{
             id: 'match-1',
             status: 'COMPLETED',
+            scoreAvailable: true,
             scheduledAt: '2026-07-04T09:30:00.000Z',
             homeScore: 61,
             awayScore: 40,

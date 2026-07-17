@@ -19,6 +19,11 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
+const PUBLIC_COVERAGE = [
+  { capability: 'FINAL_SCORE', state: 'AVAILABLE' },
+  { capability: 'SUPER_SHOTS', state: 'AVAILABLE' },
+] as const;
+
 const MATCHES = [
   {
           id: '1',
@@ -108,7 +113,15 @@ const MATCHES = [
           awayTeam: { name: 'Lightning', abbreviation: 'LIG', logoUrl: null },
           teamStats: [],
         },
-] as const;
+].map((match) => ({
+  resultQuality: match.status === 'COMPLETED' ? 'OFFICIAL_FINAL' : 'UNKNOWN',
+  roundLabel: null,
+  finalCode: null,
+  stage: null,
+  competition: { dataCoverage: PUBLIC_COVERAGE },
+  dataCoverage: [],
+  ...match,
+}));
 
 describe('HomePage', () => {
   beforeEach(() => {
@@ -121,7 +134,12 @@ describe('HomePage', () => {
       slug: '2026',
       publicationStatus: 'PUBLISHED',
       series: { id: 'ssn', slug: 'ssn', name: 'Suncorp Super Netball', kind: 'LEAGUE' },
+      ruleset: null,
+      dataCoverage: PUBLIC_COVERAGE,
       _count: { entries: 8, matches: MATCHES.length },
+      stages: [],
+      matches: [],
+      importRuns: [],
       seasonStart: new Date('2026-03-01T00:00:00Z'),
       seasonEnd: new Date('2026-07-31T00:00:00Z'),
     }]);
@@ -273,6 +291,7 @@ describe('HomePage', () => {
           matches: [{
             id: 'hosted-grand-final',
             status: 'COMPLETED',
+            scoreAvailable: true,
             scheduledAt: '2026-07-04T09:30:00.000Z',
             homeScore: 61,
             awayScore: 40,

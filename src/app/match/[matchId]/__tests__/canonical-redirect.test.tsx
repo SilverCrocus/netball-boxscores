@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const { redirectMock } = vi.hoisted(() => ({
+const { redirectMock, resolvePublicMatchMock } = vi.hoisted(() => ({
   redirectMock: vi.fn((href: string) => {
     throw new Error(`REDIRECT:${href}`);
   }),
+  resolvePublicMatchMock: vi.fn().mockResolvedValue({ id: 'ssn-match-1' }),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -25,6 +26,9 @@ vi.mock('@/lib/db', () => ({
       }),
     },
   },
+}));
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchForRequest: resolvePublicMatchMock,
 }));
 
 import MatchPage from '../page';

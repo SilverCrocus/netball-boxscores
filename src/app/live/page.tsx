@@ -2,7 +2,11 @@ import { redirect } from 'next/navigation';
 import { getLiveState } from '@/lib/live-state';
 import { prisma, excludeSimData } from '@/lib/db';
 import { resolveCompetition } from '@/lib/competitions';
-import { computeBreakdown, homepageMatchSelect } from '@/lib/home-feed';
+import {
+  computeBreakdown,
+  homepageMatchSelect,
+  isHomepageScoreAvailable,
+} from '@/lib/home-feed';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import Link from 'next/link';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
@@ -42,7 +46,11 @@ export default async function LivePage() {
         </p>
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
           {liveMatches.map((match) => (
-            <ScoreCard key={match.id} match={{ ...match, ...computeBreakdown(match) }} />
+            <ScoreCard key={match.id} match={{
+              ...match,
+              scoreAvailable: isHomepageScoreAvailable(match),
+              ...computeBreakdown(match),
+            }} />
           ))}
         </div>
       </div>
@@ -57,7 +65,11 @@ export default async function LivePage() {
       orderBy: { scheduledAt: 'asc' },
     }),
     prisma.match.findFirst({
-      where: { ...baseWhere, status: 'COMPLETED' },
+      where: {
+        ...baseWhere,
+        status: 'COMPLETED',
+        resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
+      },
       select: homepageMatchSelect,
       orderBy: { scheduledAt: 'desc' },
     }),
@@ -85,7 +97,7 @@ export default async function LivePage() {
         <section aria-labelledby="next-live-heading">
           <h2 id="next-live-heading" className="mb-4 font-headline text-2xl font-bold text-primary">Next fixture</h2>
           {nextMatch && hasResolvedMatchTeams(nextMatch) ? (
-            <ScoreCard match={nextMatch} />
+            <ScoreCard match={{ ...nextMatch, scoreAvailable: false }} />
           ) : (
             <p className="rounded-xl bg-surface-container-lowest p-6 text-on-surface-variant shadow-sm">
               The next fixture has not been published yet.
@@ -95,7 +107,11 @@ export default async function LivePage() {
         <section aria-labelledby="latest-live-heading">
           <h2 id="latest-live-heading" className="mb-4 font-headline text-2xl font-bold text-primary">Latest result</h2>
           {latestResult && hasResolvedMatchTeams(latestResult) ? (
-            <ScoreCard match={{ ...latestResult, ...computeBreakdown(latestResult) }} />
+            <ScoreCard match={{
+              ...latestResult,
+              scoreAvailable: isHomepageScoreAvailable(latestResult),
+              ...computeBreakdown(latestResult),
+            }} />
           ) : (
             <p className="rounded-xl bg-surface-container-lowest p-6 text-on-surface-variant shadow-sm">
               No completed result is available yet.

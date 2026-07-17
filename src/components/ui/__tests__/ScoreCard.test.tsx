@@ -10,6 +10,7 @@ const liveMatch = {
   homeScore: 42,
   awayScore: 38,
   status: 'LIVE' as const,
+  scoreAvailable: true,
   currentQuarter: 3,
   currentTime: '04:12',
   round: 12,
@@ -22,6 +23,7 @@ const scheduledMatch = {
   homeScore: 0,
   awayScore: 0,
   status: 'SCHEDULED' as const,
+  scoreAvailable: false,
   currentQuarter: null,
   currentTime: null,
   scheduledAt: '2026-03-25T09:30:00Z',
@@ -31,6 +33,7 @@ const completedMatch = {
   ...liveMatch,
   id: '3',
   status: 'COMPLETED' as const,
+  scoreAvailable: true,
   homeScore: 64,
   awayScore: 58,
   currentQuarter: null,
@@ -108,6 +111,20 @@ describe('ScoreCard', () => {
   it('shows Final badge for completed matches by default', () => {
     render(<ScoreCard match={completedMatch} />);
     expect(screen.getByText('Final')).toBeInTheDocument();
+  });
+
+  it('does not present an unverified completed zero as a final score', () => {
+    render(<ScoreCard match={{
+      ...completedMatch,
+      homeScore: 0,
+      awayScore: 0,
+      scoreAvailable: false,
+    }} />);
+
+    expect(screen.getByText('Result pending')).toBeInTheDocument();
+    expect(screen.getByText('VS')).toBeInTheDocument();
+    expect(screen.queryByText('Final')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument();
   });
 
   it('hides Final badge when showFinalBadge is false', () => {

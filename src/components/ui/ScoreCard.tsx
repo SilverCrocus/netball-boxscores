@@ -21,6 +21,7 @@ interface ScoreCardMatch {
   homeScore: number;
   awayScore: number;
   status: MatchStatus;
+  scoreAvailable: boolean;
   currentQuarter?: number | null;
   currentTime?: string | null;
   round?: number | null;
@@ -47,8 +48,9 @@ function scoreCardHref(match: ScoreCardMatch, isLive: boolean): string {
 }
 
 export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
-  const isLive = match.status === 'LIVE';
-  const isCompleted = match.status === 'COMPLETED';
+  const isLive = match.status === 'LIVE' && match.scoreAvailable;
+  const isCompletedStatus = match.status === 'COMPLETED';
+  const isCompleted = isCompletedStatus && match.scoreAvailable;
   const matchHref = scoreCardHref(match, isLive);
   const homeWon = isCompleted && match.homeScore > match.awayScore;
   const awayWon = isCompleted && match.awayScore > match.homeScore;
@@ -78,7 +80,12 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             Final
           </span>
         )}
-        {isCompleted && !showFinalBadge && match.scheduledAt && (
+        {isCompletedStatus && !isCompleted && showFinalBadge && (
+          <span className="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full text-[10px] font-bold font-label tracking-widest uppercase">
+            Result pending
+          </span>
+        )}
+        {isCompletedStatus && !showFinalBadge && match.scheduledAt && (
           <span className="text-[10px] font-bold text-on-surface-variant uppercase font-label">
             {formatMatchDateTime(match.scheduledAt)}
           </span>

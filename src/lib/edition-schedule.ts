@@ -9,6 +9,11 @@ import { prisma } from '@/lib/db';
 import type { CompetitionOption } from '@/lib/competitions';
 import { matchHref } from '@/lib/edition-links';
 import { formatMatchStage } from '@/lib/match-label';
+import {
+  isFinalFixture,
+  resolveCapability,
+  type CoverageRecord,
+} from '@/lib/edition-capabilities';
 
 const scheduleTeamSelect = {
   id: true,
@@ -62,6 +67,7 @@ export const editionScheduleMatchSelect = {
     },
     orderBy: { side: 'asc' },
   },
+  dataCoverage: { select: { capability: true, state: true } },
 } satisfies Prisma.MatchSelect;
 
 export type EditionScheduleMatchRecord = Prisma.MatchGetPayload<{
@@ -151,6 +157,7 @@ interface EditionScheduleIdentity {
   competitionKind: 'LEAGUE' | 'TOURNAMENT';
   sourceTimezone: string;
   teamCount: number;
+  editionCoverage: readonly CoverageRecord[];
 }
 
 const STATUS_LABELS: Record<MatchStatus, string> = {
@@ -264,20 +271,27 @@ function projectSide(
   };
 }
 
-function canShowScore(status: MatchStatus): boolean {
-  return status === 'LIVE' || status === 'COMPLETED';
+function canShowScore(
+  match: EditionScheduleMatchRecord,
+  editionCoverage: readonly CoverageRecord[],
+): boolean {
+  const finalScore = resolveCapability('FINAL_SCORE', editionCoverage, match.dataCoverage);
+  return finalScore.available
+    && (match.status === 'LIVE' || isFinalFixture(match.status, match.resultQuality));
 }
 
 function projectFixture(
   match: EditionScheduleMatchRecord,
   timeZone: string,
   competitionId: string,
+  editionCoverage: readonly CoverageRecord[],
 ): EditionScheduleFixture {
   const date = dateParts(match.scheduledAt, timeZone);
   const sideA = projectSide(match, 'A');
   const sideB = projectSide(match, 'B');
   const contextLabel = match.stageGroup?.name
     ?? formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
+  const showScore = canShowScore(match, editionCoverage);
 
   return {
     id: match.id,
@@ -285,14 +299,16 @@ function projectFixture(
     localDateLabel: date.label,
     localTimeLabel: localTimeLabel(match.scheduledAt, timeZone),
     status: match.status,
-    statusLabel: STATUS_LABELS[match.status],
+    statusLabel: match.status === 'COMPLETED' && !showScore
+      ? 'Result pending'
+      : STATUS_LABELS[match.status],
     resultQuality: match.resultQuality,
     venue: match.venue,
     neutralVenue: match.neutralVenue,
     contextLabel,
     sideA,
     sideB,
-    score: canShowScore(match.status)
+    score: showScore
       ? { sideA: match.homeScore, sideB: match.awayScore }
       : null,
     href: sideA.resolved && sideB.resolved
@@ -343,7 +359,12 @@ export function buildEditionSchedule(
       sequence: match.stage?.sequence ?? Number.MAX_SAFE_INTEGER,
       fixtures: [],
     };
-    bucket.fixtures.push(projectFixture(match, edition.sourceTimezone, edition.id));
+    bucket.fixtures.push(projectFixture(
+      match,
+      edition.sourceTimezone,
+      edition.id,
+      edition.editionCoverage,
+    ));
     stageBuckets.set(stageId, bucket);
   }
 
@@ -428,5 +449,6 @@ export async function getEditionSchedule(
     competitionKind: edition.series.kind,
     sourceTimezone: edition.sourceTimezone,
     teamCount: edition._count.entries,
+    editionCoverage: edition.dataCoverage,
   }, records);
 }

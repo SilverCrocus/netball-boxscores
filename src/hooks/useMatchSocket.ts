@@ -24,16 +24,25 @@ interface MatchSocketState {
   isConnected: boolean;
 }
 
-export function useMatchSocket(matchId: string, enabled = true): MatchSocketState {
+interface InternalMatchSocketState extends MatchSocketState {
+  matchId: string;
+}
+
+const EMPTY_SOCKET_STATE: MatchSocketState = {
+  score: null,
+  playerStats: null,
+  matchStatus: null,
+  scoreFlow: [],
+  statEvents: [],
+  isConnected: false,
+};
+
+export function useMatchSocket(matchId: string, enabled = false): MatchSocketState {
   const socketRef = useRef<TypedSocket | null>(null);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [state, setState] = useState<MatchSocketState>({
-    score: null,
-    playerStats: null,
-    matchStatus: null,
-    scoreFlow: [],
-    statEvents: [],
-    isConnected: false,
+  const [state, setState] = useState<InternalMatchSocketState>({
+    matchId,
+    ...EMPTY_SOCKET_STATE,
   });
 
   useEffect(() => {
@@ -50,29 +59,43 @@ export function useMatchSocket(matchId: string, enabled = true): MatchSocketStat
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      setState((prev) => ({ ...prev, isConnected: true }));
+      setState((prev) => ({
+        ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
+        isConnected: true,
+      }));
       socket.emit('match:subscribe', { matchId });
     });
 
     socket.on('disconnect', () => {
-      setState((prev) => ({ ...prev, isConnected: false }));
+      setState((prev) => prev.matchId === matchId
+        ? { ...prev, isConnected: false }
+        : prev);
     });
 
     socket.on('score:update', (payload) => {
       if (payload.matchId === matchId) {
-        setState((prev) => ({ ...prev, score: payload }));
+        setState((prev) => ({
+          ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
+          score: payload,
+        }));
       }
     });
 
     socket.on('stats:update', (payload) => {
       if (payload.matchId === matchId) {
-        setState((prev) => ({ ...prev, playerStats: payload }));
+        setState((prev) => ({
+          ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
+          playerStats: payload,
+        }));
       }
     });
 
     socket.on('match:status', (payload) => {
       if (payload.matchId === matchId) {
-        setState((prev) => ({ ...prev, matchStatus: payload }));
+        setState((prev) => ({
+          ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
+          matchStatus: payload,
+        }));
 
         if (payload.status === 'COMPLETED') {
           completionTimeoutRef.current = setTimeout(() => {
@@ -86,7 +109,10 @@ export function useMatchSocket(matchId: string, enabled = true): MatchSocketStat
     socket.on('scoreflow:add', (payload) => {
       if (payload.matchId === matchId) {
         setState((prev) => {
-          return { ...prev, scoreFlow: mergeScoreFlows(prev.scoreFlow, [payload]) };
+          const current = prev.matchId === matchId
+            ? prev
+            : { matchId, ...EMPTY_SOCKET_STATE };
+          return { ...current, scoreFlow: mergeScoreFlows(current.scoreFlow, [payload]) };
         });
       }
     });
@@ -94,8 +120,11 @@ export function useMatchSocket(matchId: string, enabled = true): MatchSocketStat
     socket.on('stat:event', (payload) => {
       if (payload.matchId === matchId) {
         setState((prev) => ({
-          ...prev,
-          statEvents: [...prev.statEvents, payload],
+          ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
+          statEvents: [
+            ...(prev.matchId === matchId ? prev.statEvents : []),
+            payload,
+          ],
         }));
       }
     });
@@ -106,14 +135,18 @@ export function useMatchSocket(matchId: string, enabled = true): MatchSocketStat
         completionTimeoutRef.current = null;
       }
       socket.emit('match:unsubscribe', { matchId });
+      socket.off('connect');
+      socket.off('disconnect');
       socket.off('score:update');
       socket.off('stats:update');
       socket.off('match:status');
       socket.off('scoreflow:add');
       socket.off('stat:event');
       socket.disconnect();
+      socketRef.current = null;
     };
   }, [enabled, matchId]);
 
+  if (!enabled || state.matchId !== matchId) return EMPTY_SOCKET_STATE;
   return state;
 }

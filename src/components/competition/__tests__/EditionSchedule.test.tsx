@@ -19,6 +19,7 @@ const unresolvedMatch = {
   awayTeam: null,
   stage: { id: 'semis', slug: 'semi-finals', name: 'Semi-finals', type: 'SEMI_FINALS', sequence: 1 },
   stageGroup: null,
+  dataCoverage: [],
   slots: [
     { side: 'A', sourceLabel: 'Semi-finalist from Pool A', resolvedEntry: null },
     { side: 'B', sourceLabel: 'Semi-finalist from Pool B', resolvedEntry: null },
@@ -32,6 +33,7 @@ const schedule = buildEditionSchedule({
   competitionKind: 'TOURNAMENT',
   sourceTimezone: 'Europe/London',
   teamCount: 12,
+  editionCoverage: [{ capability: 'FINAL_SCORE', state: 'UNAVAILABLE' }],
 }, [unresolvedMatch]);
 
 describe('EditionSchedule', () => {

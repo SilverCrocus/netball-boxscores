@@ -84,6 +84,7 @@ function completedMatch(value: unknown, origin: string): HomeResultCard | null {
     !item
     || typeof item.id !== 'string'
     || item.status !== 'COMPLETED'
+    || item.scoreAvailable !== true
     || !scheduledAt
     || Number.isNaN(new Date(scheduledAt).getTime())
     || typeof item.homeScore !== 'number'
@@ -102,6 +103,7 @@ function completedMatch(value: unknown, origin: string): HomeResultCard | null {
       ? `${origin}${matchHref(item.id, competitionId)}`
       : `${origin}/match/${encodeURIComponent(item.id)}`,
     status: 'COMPLETED',
+    scoreAvailable: true,
     scheduledAt,
     homeScore: item.homeScore,
     awayScore: item.awayScore,

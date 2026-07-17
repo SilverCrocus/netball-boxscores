@@ -1,8 +1,54 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import MatchPage from '../page';
 
+const { resolvePublicMatchMock, notFoundMock } = vi.hoisted(() => ({
+  resolvePublicMatchMock: vi.fn(),
+  notFoundMock: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+}));
+
+const availableFeature = (capability: string) => ({
+  capability,
+  state: 'AVAILABLE',
+  scope: 'edition',
+  available: true,
+});
+
+const publicAccess = {
+  id: '1',
+  competitionId: 'ssn-2026',
+  status: 'COMPLETED',
+  resultQuality: 'OFFICIAL_FINAL',
+  scheduledAt: new Date('2026-05-01T08:00:00Z'),
+  homeTeamId: 'home-team',
+  awayTeamId: 'away-team',
+  features: {
+    finalScore: availableFeature('FINAL_SCORE'),
+    periodScores: availableFeature('PERIOD_SCORES'),
+    teamBoxScore: availableFeature('TEAM_BOX_SCORE'),
+    playerBoxScore: availableFeature('PLAYER_BOX_SCORE'),
+    netPoints: availableFeature('NET_POINTS'),
+    matchEvents: availableFeature('MATCH_EVENTS'),
+    scoreFlow: availableFeature('SCORE_FLOW'),
+    superShots: availableFeature('SUPER_SHOTS'),
+    lineups: availableFeature('LINEUPS'),
+  },
+};
+
 vi.mock('@/components/match/MatchActions', () => ({ MatchActions: () => null }));
+
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchForRequest: resolvePublicMatchMock,
+}));
+
+vi.mock('next/navigation', () => ({
+  notFound: notFoundMock,
+  redirect: vi.fn((href: string) => {
+    throw new Error(`REDIRECT:${href}`);
+  }),
+}));
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -18,7 +64,7 @@ vi.mock('@/lib/db', () => ({
         currentTime: null,
         round: 12,
         venue: 'Stadium Arena',
-        scheduledAt: new Date(),
+        scheduledAt: new Date('2026-05-01T08:00:00Z'),
         homeTeamId: 'home-team',
         awayTeamId: 'away-team',
         homeTeam: { name: 'Thunder', abbreviation: 'THU', logoUrl: null, slug: 'thunder' },
@@ -45,8 +91,13 @@ vi.mock('@/lib/db', () => ({
           {
             id: 'ps1',
             player: {
-              id: 'p1', name: 'Elena Rodriguez', position: 'GS', photoUrl: null,
-              rosterMemberships: [{ editionEntry: { competitionId: 'ssn-2026', teamId: 'home-team' } }],
+              id: 'p1', name: 'Elena Rodriguez', position: 'GS', photoUrl: null, teamId: 'home-team',
+              rosterMemberships: [{
+                status: 'ACTIVE',
+                validFrom: new Date('2026-01-01T00:00:00Z'),
+                validTo: null,
+                editionEntry: { competitionId: 'ssn-2026', teamId: 'home-team' },
+              }],
             },
             goals: 42, attempts: 45, goalAssists: 0, intercepts: 0,
             deflections: 1, rebounds: 4, penalties: 0, feeds: 2,
@@ -55,8 +106,13 @@ vi.mock('@/lib/db', () => ({
           {
             id: 'ps2',
             player: {
-              id: 'p2', name: 'Jade Clarke', position: 'C', photoUrl: null,
-              rosterMemberships: [{ editionEntry: { competitionId: 'ssn-2026', teamId: 'away-team' } }],
+              id: 'p2', name: 'Jade Clarke', position: 'C', photoUrl: null, teamId: 'away-team',
+              rosterMemberships: [{
+                status: 'ACTIVE',
+                validFrom: new Date('2026-01-01T00:00:00Z'),
+                validTo: null,
+                editionEntry: { competitionId: 'ssn-2026', teamId: 'away-team' },
+              }],
             },
             goals: 2, attempts: 2, goalAssists: 20, intercepts: 4,
             deflections: 6, rebounds: 1, penalties: 3, feeds: 35,
@@ -74,6 +130,11 @@ vi.mock('@/lib/db', () => ({
 }));
 
 describe('MatchPage', () => {
+  beforeEach(() => {
+    resolvePublicMatchMock.mockReset().mockResolvedValue(publicAccess);
+    notFoundMock.mockClear();
+  });
+
   it('renders team names in hero', async () => {
     const page = await MatchPage({ params: Promise.resolve({ matchId: '1' }), searchParams: Promise.resolve({ edition: 'ssn-2026' }) });
     render(page);
@@ -133,5 +194,16 @@ describe('MatchPage', () => {
         select: expect.objectContaining({ player: expect.any(Object) }),
       }),
     }));
+  });
+
+  it('returns not found when the shared public gate denies the match', async () => {
+    resolvePublicMatchMock.mockResolvedValueOnce(null);
+
+    await expect(MatchPage({
+      params: Promise.resolve({ matchId: '1' }),
+      searchParams: Promise.resolve({ edition: 'ssn-2026' }),
+    })).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(notFoundMock).toHaveBeenCalledOnce();
   });
 });

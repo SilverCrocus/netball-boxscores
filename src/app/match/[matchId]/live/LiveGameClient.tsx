@@ -169,7 +169,7 @@ const sumStat = (players: PlayerStatRow[], key: keyof PlayerStatRow) =>
 export function LiveGameClient({
   match,
   capabilities = DEFAULT_CAPABILITIES,
-  realtimeEnabled = true,
+  realtimeEnabled = false,
 }: LiveGameClientProps) {
   const { score, playerStats, matchStatus, scoreFlow, statEvents } = useMatchSocket(
     match.id,

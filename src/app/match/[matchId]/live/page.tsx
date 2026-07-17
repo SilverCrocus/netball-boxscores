@@ -7,7 +7,9 @@ import { computeTeamStrengthPrior } from '@/lib/win-probability';
 import { formatMatchStage } from '@/lib/match-label';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { isCanonicalMatchEdition, matchHref } from '@/lib/edition-links';
-import { resolveEditionFeatures } from '@/lib/edition-capabilities';
+import { isFinalFixture } from '@/lib/edition-capabilities';
+import { resolvePublicMatchForRequest } from '@/lib/public-match';
+import { rosterForMatch } from '@/lib/match-player-team';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -16,24 +18,30 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { matchId } = await params;
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    select: {
-      status: true,
-      homeTeamId: true,
-      awayTeamId: true,
-      round: true,
-      roundLabel: true,
-      finalCode: true,
-      stage: { select: { name: true } },
-      homeTeam: { select: { name: true } },
-      awayTeam: { select: { name: true } },
-    },
-  });
+  const [match, publicAccess] = await Promise.all([
+    prisma.match.findUnique({
+      where: { id: matchId },
+      select: {
+        status: true,
+        resultQuality: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        round: true,
+        roundLabel: true,
+        finalCode: true,
+        stage: { select: { name: true } },
+        homeTeam: { select: { name: true } },
+        awayTeam: { select: { name: true } },
+      },
+    }),
+    resolvePublicMatchForRequest(matchId),
+  ]);
 
-  if (!match || !hasResolvedMatchTeams(match)) return { title: 'Match Not Found' };
+  if (!match || !publicAccess || !hasResolvedMatchTeams(match)) notFound();
 
-  const statusPrefix = match.status === 'COMPLETED'
+  const isFinal = isFinalFixture(match.status, match.resultQuality)
+    && publicAccess.features.finalScore.available;
+  const statusPrefix = isFinal
     ? 'Full Time:'
     : match.status === 'LIVE'
       ? 'LIVE:'
@@ -51,27 +59,18 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
     searchParams ?? Promise.resolve<{ edition?: string }>({}),
   ]);
 
-  const match = await prisma.match.findUnique({
+  const [match, publicAccess] = await Promise.all([prisma.match.findUnique({
     where: { id: matchId },
     include: {
       stage: { select: { name: true } },
-      competition: {
-        select: {
-          dataCoverage: {
-            where: { matchId: null },
-            select: { capability: true, state: true },
-          },
-        },
-      },
-      dataCoverage: { select: { capability: true, state: true } },
       homeTeam: {
         include: {
           editionEntries: {
             select: {
               competitionId: true,
               roster: {
-                where: { status: 'ACTIVE' },
                 select: {
+                  status: true,
                   validFrom: true,
                   validTo: true,
                   designatedPosition: true,
@@ -92,8 +91,8 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
             select: {
               competitionId: true,
               roster: {
-                where: { status: 'ACTIVE' },
                 select: {
+                  status: true,
                   validFrom: true,
                   validTo: true,
                   designatedPosition: true,
@@ -140,15 +139,16 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
         },
       },
     },
-  });
+  }), resolvePublicMatchForRequest(matchId)]);
 
-  if (!match || !hasResolvedMatchTeams(match)) return notFound();
+  if (!match || !publicAccess || !hasResolvedMatchTeams(match)) return notFound();
 
-  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
+  const features = publicAccess.features;
   const hasLiveDetail = features.playerBoxScore.available
     || features.scoreFlow.available
     || features.matchEvents.available;
-  const canRenderLiveSurface = (match.status === 'LIVE' || match.status === 'COMPLETED')
+  const canRenderLiveSurface = (match.status === 'LIVE'
+      || isFinalFixture(match.status, match.resultQuality))
     && features.finalScore.available
     && hasLiveDetail;
   if (!canRenderLiveSurface) {
@@ -160,15 +160,17 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
 
   const competitionId = match.competitionId;
   const scheduledAt = match.scheduledAt;
+  const isLiveMatch = match.status === 'LIVE';
 
   function serializeTeam(team: NonNullable<NonNullable<typeof match>['homeTeam']>) {
     const entry = team.editionEntries.find(
       (candidate) => candidate.competitionId === competitionId,
     );
-    const roster = entry?.roster.filter((membership) =>
-      membership.validFrom <= scheduledAt
-        && (membership.validTo === null || membership.validTo >= scheduledAt)
-    ) ?? [];
+    const roster = rosterForMatch(
+      entry?.roster ?? [],
+      scheduledAt,
+      isLiveMatch,
+    );
     return {
       id: team.id,
       name: team.name,

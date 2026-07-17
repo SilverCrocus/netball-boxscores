@@ -31,18 +31,28 @@ const fixture = {
   id: 'next-match',
   competitionId: 'competition-2026',
   status: 'SCHEDULED',
+  resultQuality: 'UNKNOWN',
   scheduledAt: new Date('2026-07-20T04:00:00Z'),
   homeScore: 0,
   awayScore: 0,
   venue: 'Arena',
   round: 14,
+  roundLabel: null,
   finalCode: null,
+  stage: null,
   currentQuarter: null,
   currentTime: null,
   homeTeamId: 'home',
   awayTeamId: 'away',
   homeTeam: { name: 'Vipers', abbreviation: 'VIP', logoUrl: null },
   awayTeam: { name: 'Stars', abbreviation: 'STA', logoUrl: null },
+  competition: {
+    dataCoverage: [
+      { capability: 'FINAL_SCORE', state: 'AVAILABLE' },
+      { capability: 'SUPER_SHOTS', state: 'AVAILABLE' },
+    ],
+  },
+  dataCoverage: [],
   teamStats: [],
 };
 
@@ -57,7 +67,9 @@ describe('LivePage', () => {
   it('renders a useful hub when no match is live', async () => {
     getLiveStateMock.mockResolvedValue({ liveMatches: [], liveMatchIds: [] });
     findFirstMock.mockImplementation(({ where }: { where: { status: string } }) =>
-      Promise.resolve(where.status === 'SCHEDULED' ? fixture : { ...fixture, id: 'latest-result', status: 'COMPLETED' }),
+      Promise.resolve(where.status === 'SCHEDULED'
+        ? fixture
+        : { ...fixture, id: 'latest-result', status: 'COMPLETED', resultQuality: 'OFFICIAL_FINAL' }),
     );
 
     render(await LivePage());

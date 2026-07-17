@@ -4,7 +4,9 @@ import { notFound, redirect } from 'next/navigation';
 import { CourtClient } from './CourtClient';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { isCanonicalMatchEdition, matchHref } from '@/lib/edition-links';
-import { resolveEditionFeatures } from '@/lib/edition-capabilities';
+import { isFinalFixture } from '@/lib/edition-capabilities';
+import { resolvePublicMatchForRequest } from '@/lib/public-match';
+import { rosterForMatch } from '@/lib/match-player-team';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -13,15 +15,18 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { matchId } = await params;
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    select: {
-      homeTeam: { select: { name: true } },
-      awayTeam: { select: { name: true } },
-    },
-  });
+  const [match, publicAccess] = await Promise.all([
+    prisma.match.findUnique({
+      where: { id: matchId },
+      select: {
+        homeTeam: { select: { name: true } },
+        awayTeam: { select: { name: true } },
+      },
+    }),
+    resolvePublicMatchForRequest(matchId),
+  ]);
 
-  if (!match || !match.homeTeam || !match.awayTeam) return { title: 'Match Not Found' };
+  if (!match || !publicAccess || !match.homeTeam || !match.awayTeam) notFound();
 
   return {
     title: `Court View: ${match.homeTeam.name} vs ${match.awayTeam.name}`,
@@ -35,26 +40,17 @@ export default async function CourtPage({ params, searchParams }: Props) {
     searchParams ?? Promise.resolve<{ edition?: string }>({}),
   ]);
 
-  const match = await prisma.match.findUnique({
+  const [match, publicAccess] = await Promise.all([prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      competition: {
-        select: {
-          dataCoverage: {
-            where: { matchId: null },
-            select: { capability: true, state: true },
-          },
-        },
-      },
-      dataCoverage: { select: { capability: true, state: true } },
       homeTeam: {
         include: {
           editionEntries: {
             select: {
               competitionId: true,
               roster: {
-                where: { status: 'ACTIVE' },
                 select: {
+                  status: true,
                   validFrom: true,
                   validTo: true,
                   designatedPosition: true,
@@ -73,8 +69,8 @@ export default async function CourtPage({ params, searchParams }: Props) {
             select: {
               competitionId: true,
               roster: {
-                where: { status: 'ACTIVE' },
                 select: {
+                  status: true,
                   validFrom: true,
                   validTo: true,
                   designatedPosition: true,
@@ -88,12 +84,13 @@ export default async function CourtPage({ params, searchParams }: Props) {
         },
       },
     },
-  });
+  }), resolvePublicMatchForRequest(matchId)]);
 
-  if (!match || !hasResolvedMatchTeams(match)) return notFound();
+  if (!match || !publicAccess || !hasResolvedMatchTeams(match)) return notFound();
 
-  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
-  const canRenderCourt = (match.status === 'LIVE' || match.status === 'COMPLETED')
+  const features = publicAccess.features;
+  const canRenderCourt = (match.status === 'LIVE'
+      || isFinalFixture(match.status, match.resultQuality))
     && features.lineups.available
     && features.playerBoxScore.available;
   if (!canRenderCourt) {
@@ -105,18 +102,21 @@ export default async function CourtPage({ params, searchParams }: Props) {
 
   const competitionId = match.competitionId;
   const scheduledAt = match.scheduledAt;
+  const isLiveMatch = match.status === 'LIVE';
 
   function playersForTeam(team: NonNullable<NonNullable<typeof match>['homeTeam']>) {
     const entry = team.editionEntries.find(
       (candidate) => candidate.competitionId === competitionId,
     );
-    return entry?.roster
-      .filter((membership) => membership.validFrom <= scheduledAt
-        && (membership.validTo === null || membership.validTo >= scheduledAt))
+    return rosterForMatch(
+      entry?.roster ?? [],
+      scheduledAt,
+      isLiveMatch,
+    )
       .map((membership) => ({
         ...membership.player,
         position: membership.designatedPosition ?? membership.player.position,
-      })) ?? [];
+      }));
   }
 
   return <CourtClient

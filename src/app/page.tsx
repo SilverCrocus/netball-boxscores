@@ -12,6 +12,7 @@ import {
   deriveHomeHeader,
   getCompletedMatchesPage,
   homepageMatchSelect,
+  isHomepageScoreAvailable,
   type ResolvedHomepageMatch,
 } from '@/lib/home-feed';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
@@ -148,7 +149,11 @@ export default async function HomePage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {liveMatches.map((match) => (
-              <ScoreCard key={match.id} match={{ ...match, ...computeBreakdown(match) }} />
+              <ScoreCard key={match.id} match={{
+                ...match,
+                scoreAvailable: isHomepageScoreAvailable(match),
+                ...computeBreakdown(match),
+              }} />
             ))}
           </div>
         </section>

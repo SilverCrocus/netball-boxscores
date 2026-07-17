@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-auth';
 import { excludeSimData, prisma } from '@/lib/db';
 import { resolveCompetition } from '@/lib/competitions';
-import { computeBreakdown, homepageMatchSelect, type ResolvedHomepageMatch } from '@/lib/home-feed';
+import {
+  computeBreakdown,
+  homepageMatchSelect,
+  isHomepageScoreAvailable,
+  type ResolvedHomepageMatch,
+} from '@/lib/home-feed';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import type { MyTeamHubItem, PersonalizedMatchCard } from '@/types/personalization';
 
@@ -13,6 +18,7 @@ function toCard(match: ResolvedHomepageMatch): PersonalizedMatchCard {
     id: match.id,
     competitionId: match.competitionId,
     status: match.status,
+    scoreAvailable: isHomepageScoreAvailable(match),
     scheduledAt: match.scheduledAt.toISOString(),
     homeScore: match.homeScore,
     awayScore: match.awayScore,
@@ -72,6 +78,7 @@ export async function GET() {
           ...excludeSimData,
           competitionId: competition.id,
           status: 'COMPLETED',
+          resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
           ...teamMatchFilter,
         },
         select: homepageMatchSelect,

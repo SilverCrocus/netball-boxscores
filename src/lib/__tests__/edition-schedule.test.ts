@@ -24,6 +24,7 @@ interface MatchFactoryInput {
   id: string;
   scheduledAt?: string;
   status?: EditionScheduleMatchRecord['status'];
+  resultQuality?: EditionScheduleMatchRecord['resultQuality'];
   homeScore?: number;
   awayScore?: number;
   stage?: EditionScheduleMatchRecord['stage'];
@@ -37,6 +38,7 @@ function matchRecord({
   id,
   scheduledAt = '2026-07-25T08:00:00.000Z',
   status = 'SCHEDULED',
+  resultQuality = status === 'COMPLETED' ? 'OFFICIAL_FINAL' : 'UNKNOWN',
   homeScore = 0,
   awayScore = 0,
   stage = {
@@ -60,7 +62,7 @@ function matchRecord({
     id,
     scheduledAt: new Date(scheduledAt),
     status,
-    resultQuality: status === 'COMPLETED' ? 'OFFICIAL_FINAL' : 'UNKNOWN',
+    resultQuality,
     homeScore,
     awayScore,
     venue: 'The Hydro',
@@ -72,6 +74,7 @@ function matchRecord({
     awayTeam: resolved ? ENGLAND : null,
     stage,
     stageGroup,
+    dataCoverage: [],
     slots: resolved
       ? [
           {
@@ -99,6 +102,7 @@ const GLASGOW_EDITION = {
   competitionKind: 'TOURNAMENT' as const,
   sourceTimezone: 'Europe/London',
   teamCount: 12,
+  editionCoverage: [{ capability: 'FINAL_SCORE', state: 'UNAVAILABLE' }] as const,
 };
 
 describe('buildEditionSchedule', () => {
@@ -224,6 +228,7 @@ describe('buildEditionSchedule', () => {
       competitionKind: 'LEAGUE',
       sourceTimezone: 'Australia/Sydney',
       teamCount: 8,
+      editionCoverage: [{ capability: 'FINAL_SCORE', state: 'AVAILABLE' }],
     }, records);
 
     const [scheduled, completed] = schedule.stages.flatMap((stage) =>
@@ -234,5 +239,20 @@ describe('buildEditionSchedule', () => {
     expect(scheduled.score).toBeNull();
     expect(completed.score).toEqual({ sideA: 61, sideB: 40 });
     expect(completed.href).toBe('/match/grand-final?edition=ssn-2026');
+  });
+
+  it('labels an unknown-quality completed row as pending and hides its zero defaults', () => {
+    const schedule = buildEditionSchedule({
+      ...GLASGOW_EDITION,
+      editionCoverage: [{ capability: 'FINAL_SCORE', state: 'AVAILABLE' }],
+    }, [matchRecord({
+      id: 'pending-result',
+      status: 'COMPLETED',
+      resultQuality: 'UNKNOWN',
+    })]);
+
+    const fixture = schedule.stages[0].dates[0].fixtures[0];
+    expect(fixture.statusLabel).toBe('Result pending');
+    expect(fixture.score).toBeNull();
   });
 });

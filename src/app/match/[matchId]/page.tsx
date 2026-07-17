@@ -23,8 +23,9 @@ import { getMvpSupportingStats } from '@/lib/mvp-stats';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 import { editionScopedHref, isCanonicalMatchEdition, matchHref } from '@/lib/edition-links';
-import { isFinalFixture, resolveEditionFeatures } from '@/lib/edition-capabilities';
+import { isFinalFixture } from '@/lib/edition-capabilities';
 import { playerTeamIdForMatch } from '@/lib/match-player-team';
+import { resolvePublicMatchForRequest } from '@/lib/public-match';
 
 const getMatch = cache((matchId: string) =>
   timedQuery('match_base', () => prisma.match.findUnique({
@@ -48,17 +49,6 @@ const getMatch = cache((matchId: string) =>
       awayTeamId: true,
       homeTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
       awayTeam: { select: { name: true, abbreviation: true, logoUrl: true, slug: true, primaryColor: true } },
-      competition: {
-        select: {
-          dataCoverage: {
-            where: { matchId: null },
-            select: { capability: true, state: true },
-          },
-        },
-      },
-      dataCoverage: {
-        select: { capability: true, state: true },
-      },
       quarters: {
         select: { quarter: true, homeScore: true, awayScore: true },
         orderBy: { quarter: 'asc' },
@@ -88,9 +78,12 @@ const getMatch = cache((matchId: string) =>
               photoSourceUrl: true,
               photoCredit: true,
               photoLicense: true,
+              teamId: true,
               rosterMemberships: {
-                where: { status: 'ACTIVE' },
                 select: {
+                  status: true,
+                  validFrom: true,
+                  validTo: true,
                   editionEntry: {
                     select: { competitionId: true, teamId: true },
                   },
@@ -126,11 +119,14 @@ interface MatchPageProps {
 
 export async function generateMetadata({ params }: MatchPageProps): Promise<Metadata> {
   const { matchId } = await params;
-  const match = await getMatch(matchId);
+  const [match, publicAccess] = await Promise.all([
+    getMatch(matchId),
+    resolvePublicMatchForRequest(matchId),
+  ]);
 
-  if (!match || !hasResolvedMatchTeams(match)) return { title: 'Match Not Found' };
+  if (!match || !publicAccess || !hasResolvedMatchTeams(match)) notFound();
 
-  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
+  const features = publicAccess.features;
   const isCompleted = isFinalFixture(match.status, match.resultQuality)
     && features.finalScore.available;
   const stage = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
@@ -150,15 +146,18 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
     params,
     searchParams ?? Promise.resolve<{ edition?: string }>({}),
   ]);
-  const match = await getMatch(matchId);
+  const [match, publicAccess] = await Promise.all([
+    getMatch(matchId),
+    resolvePublicMatchForRequest(matchId),
+  ]);
 
-  if (!match || !hasResolvedMatchTeams(match)) notFound();
+  if (!match || !publicAccess || !hasResolvedMatchTeams(match)) notFound();
 
   if (!isCanonicalMatchEdition(query.edition, match.competitionId)) {
     redirect(matchHref(match.id, match.competitionId));
   }
 
-  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
+  const features = publicAccess.features;
 
   const superShotsByPlayer = new Map<string, number>();
   let homeSuperShots = 0, awaySuperShots = 0;
@@ -192,10 +191,20 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
 
   const matchTeamIds = [match.homeTeamId, match.awayTeamId];
   const homePlayerStats = match.playerStats
-    .filter((ps) => playerTeamIdForMatch(ps.player, match.competitionId, matchTeamIds) === match.homeTeamId)
+    .filter((ps) => playerTeamIdForMatch(
+      ps.player,
+      match.competitionId,
+      matchTeamIds,
+      match.scheduledAt,
+    ) === match.homeTeamId)
     .map(toPlayerStatRow);
   const awayPlayerStats = match.playerStats
-    .filter((ps) => playerTeamIdForMatch(ps.player, match.competitionId, matchTeamIds) === match.awayTeamId)
+    .filter((ps) => playerTeamIdForMatch(
+      ps.player,
+      match.competitionId,
+      matchTeamIds,
+      match.scheduledAt,
+    ) === match.awayTeamId)
     .map(toPlayerStatRow);
 
   const mvp = features.netPoints.available

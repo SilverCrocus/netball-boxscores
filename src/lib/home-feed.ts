@@ -3,6 +3,7 @@ import { unstable_cache } from 'next/cache';
 import { prisma, excludeSimData } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
 import { hasResolvedMatchTeams, type ResolvedMatchTeams } from '@/lib/edition-match';
+import { isFinalFixture, resolveEditionFeatures } from '@/lib/edition-capabilities';
 
 export const HOME_RESULTS_PAGE_SIZE = 8;
 
@@ -10,6 +11,7 @@ export const homepageMatchSelect = {
   id: true,
   competitionId: true,
   status: true,
+  resultQuality: true,
   scheduledAt: true,
   homeScore: true,
   awayScore: true,
@@ -24,6 +26,15 @@ export const homepageMatchSelect = {
   awayTeamId: true,
   homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
   awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
+  competition: {
+    select: {
+      dataCoverage: {
+        where: { matchId: null },
+        select: { capability: true, state: true },
+      },
+    },
+  },
+  dataCoverage: { select: { capability: true, state: true } },
   teamStats: { select: { teamId: true, goals: true, goal2: true } },
 } satisfies Prisma.MatchSelect;
 
@@ -40,6 +51,7 @@ export interface HomeResultCard {
   competitionId?: string;
   href?: string;
   status: 'COMPLETED';
+  scoreAvailable: boolean;
   scheduledAt: string;
   homeScore: number;
   awayScore: number;
@@ -70,6 +82,11 @@ interface CompletedCursor {
 }
 
 export function computeBreakdown(match: HomepageMatch) {
+  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
+  if (!features.superShots.available) {
+    return { homeBreakdown: null, awayBreakdown: null };
+  }
+
   const home = match.teamStats.find((stat) => stat.teamId === match.homeTeamId);
   const away = match.teamStats.find((stat) => stat.teamId === match.awayTeamId);
   const hasSuperShots = (home?.goal2 ?? 0) > 0 || (away?.goal2 ?? 0) > 0;
@@ -84,11 +101,18 @@ export function computeBreakdown(match: HomepageMatch) {
   };
 }
 
+export function isHomepageScoreAvailable(match: HomepageMatch): boolean {
+  const features = resolveEditionFeatures(match.competition.dataCoverage, match.dataCoverage);
+  return features.finalScore.available
+    && (match.status === 'LIVE' || isFinalFixture(match.status, match.resultQuality));
+}
+
 function toResultCard(match: ResolvedHomepageMatch): HomeResultCard {
   return {
     id: match.id,
     competitionId: match.competitionId,
     status: 'COMPLETED',
+    scoreAvailable: true,
     scheduledAt: match.scheduledAt.toISOString(),
     homeScore: match.homeScore,
     awayScore: match.awayScore,
@@ -107,7 +131,7 @@ export function groupCompletedMatches(matches: HomepageMatch[]): HomeResultGroup
   const grouped = new Map<string, HomeResultCard[]>();
 
   for (const match of matches) {
-    if (!hasResolvedMatchTeams(match)) continue;
+    if (!hasResolvedMatchTeams(match) || !isHomepageScoreAvailable(match)) continue;
     const label = formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name);
     const group = grouped.get(label) ?? [];
     group.push(toResultCard(match));
@@ -155,6 +179,7 @@ export async function loadCompletedMatchesPage(
       ...excludeSimData,
       competitionId,
       status: 'COMPLETED',
+      resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
       homeTeamId: { not: null },
       awayTeamId: { not: null },
       ...(cursorDate && decodedCursor

@@ -31,10 +31,14 @@ vi.mock('@/lib/processing', () => ({
 }));
 
 vi.mock('@/lib/broadcasting', () => ({
-  broadcastMatchChanges: vi.fn(),
-  broadcastPlayerStats: vi.fn(),
-  persistAndBroadcastStatEvents: vi.fn(),
-  broadcastCompletion: vi.fn(),
+  broadcastMatchChanges: vi.fn().mockResolvedValue(undefined),
+  broadcastPlayerStats: vi.fn().mockResolvedValue(undefined),
+  persistAndBroadcastStatEvents: vi.fn().mockResolvedValue(undefined),
+  broadcastCompletion: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('@/lib/standings', () => ({
@@ -238,5 +242,43 @@ describe('Worker', () => {
       12949,
       12950,
     );
+  });
+
+  it('awaits completion broadcasts before a poll resolves', async () => {
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const processing = await import('@/lib/processing');
+    const { prisma } = await import('@/lib/db');
+    const { broadcastCompletion } = await import('@/lib/broadcasting');
+    const { pollChampionData } = await import('@/lib/worker');
+    let release!: () => void;
+
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixture: [{ matchId: 101 } as never],
+      matchDetails: new Map(),
+      pollLogIds: [],
+      matchPollLogIds: new Map(),
+      detailFetchErrors: 0,
+    });
+    vi.mocked(prisma.team.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.player.findMany).mockResolvedValue([]);
+    vi.mocked(processing.reconcileCompletedMatches).mockResolvedValue([
+      { matchId: 'completed-1', homeScore: 60, awayScore: 59, finalQuarter: 4 },
+    ] as never);
+    vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
+    vi.mocked(broadcastCompletion).mockReturnValue(new Promise<void>((resolve) => {
+      release = resolve;
+    }));
+
+    let pollSettled = false;
+    const poll = pollChampionData().then(() => { pollSettled = true; });
+    await vi.waitFor(() => expect(broadcastCompletion).toHaveBeenCalledOnce());
+    await Promise.resolve();
+    expect(pollSettled).toBe(false);
+
+    release();
+    await poll;
+    expect(pollSettled).toBe(true);
   });
 });

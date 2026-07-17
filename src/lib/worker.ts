@@ -20,6 +20,7 @@ import {
 import { recalculateStandings } from '@/lib/standings';
 import { recordPoll, setCurrentInterval } from '@/lib/worker-health';
 import { hasResolvedLegacyMatch } from '@/lib/edition-match';
+import { resolvePublicMatchAccess } from '@/lib/public-match';
 
 // ── Polling intervals ──
 
@@ -155,12 +156,14 @@ export async function pollChampionData(): Promise<void> {
           })
         : null;
 
+      let publicAccess = null;
       if (changes.matchId) {
         await applyChanges(changes, validation.validatedData);
+        publicAccess = await resolvePublicMatchAccess(changes.matchId).catch(() => null);
         if (hasChanges) {
-          await broadcastMatchChanges(changes, matchDetail, dbMatch);
+          await broadcastMatchChanges(changes, matchDetail, dbMatch, publicAccess);
         } else if (matchDetail.playerStats) {
-          await broadcastPlayerStats(changes.matchId, matchDetail);
+          await broadcastPlayerStats(changes.matchId, matchDetail, publicAccess);
         }
       }
 
@@ -175,6 +178,7 @@ export async function pollChampionData(): Promise<void> {
         await persistAndBroadcastStatEvents(
           changes.matchId, matchDetail, dbMatch, oldStatMap,
           changes.currentQuarter, periodSecs,
+          publicAccess,
         );
       }
 
@@ -211,10 +215,10 @@ export async function pollChampionData(): Promise<void> {
     const finalizedMap = new Map(finalized.map((f) => [f.matchId, f]));
     for (const completed of [...reconciled, ...staleCompleted]) {
       const final = finalizedMap.get(completed.matchId) ?? completed;
-      broadcastCompletion(final.matchId, final.homeScore, final.awayScore, final.finalQuarter);
+      await broadcastCompletion(final.matchId, final.homeScore, final.awayScore, final.finalQuarter);
     }
     for (const corrected of staleScores) {
-      broadcastCompletion(corrected.matchId, corrected.homeScore, corrected.awayScore, 4);
+      await broadcastCompletion(corrected.matchId, corrected.homeScore, corrected.awayScore, 4);
     }
 
     // Phase: Standings — recalc when any match completed or a stale score was corrected

@@ -11,6 +11,7 @@ function result(id: string, round: number): HomeResultCard {
   return {
     id,
     status: 'COMPLETED',
+    scoreAvailable: true,
     scheduledAt: '2026-06-01T04:00:00.000Z',
     homeScore: 62,
     awayScore: 58,

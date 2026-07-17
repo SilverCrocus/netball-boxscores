@@ -23,6 +23,7 @@ function match(overrides: Partial<HomepageMatch> = {}): HomepageMatch {
     id: 'match-1',
     competitionId: 'competition-2026',
     status: 'COMPLETED',
+    resultQuality: 'OFFICIAL_FINAL',
     scheduledAt: new Date('2026-06-01T04:00:00Z'),
     homeScore: 62,
     awayScore: 58,
@@ -37,6 +38,13 @@ function match(overrides: Partial<HomepageMatch> = {}): HomepageMatch {
     awayTeamId: 'away',
     homeTeam: { name: 'Vipers', abbreviation: 'VIP', logoUrl: null },
     awayTeam: { name: 'Stars', abbreviation: 'STA', logoUrl: null },
+    competition: {
+      dataCoverage: [
+        { capability: 'FINAL_SCORE', state: 'AVAILABLE' },
+        { capability: 'SUPER_SHOTS', state: 'AVAILABLE' },
+      ],
+    },
+    dataCoverage: [],
     teamStats: [],
     ...overrides,
   };
@@ -95,6 +103,16 @@ describe('home results feed', () => {
     ]);
 
     expect(groups.map((group) => group.label)).toEqual(['Pool A — 25 July']);
+  });
+
+  it('excludes completed rows until result quality and final-score coverage are valid', () => {
+    expect(groupCompletedMatches([
+      match({ id: 'unknown', resultQuality: 'UNKNOWN', homeScore: 0, awayScore: 0 }),
+      match({
+        id: 'uncovered',
+        competition: { dataCoverage: [{ capability: 'FINAL_SCORE', state: 'UNAVAILABLE' }] },
+      }),
+    ])).toEqual([]);
   });
 
   it('derives useful headings from the current season state', () => {

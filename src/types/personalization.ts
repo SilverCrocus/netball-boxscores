@@ -5,6 +5,7 @@ export interface PersonalizedMatchCard {
   id: string;
   competitionId: string;
   status: MatchStatus;
+  scoreAvailable: boolean;
   scheduledAt: string;
   homeScore: number;
   awayScore: number;
