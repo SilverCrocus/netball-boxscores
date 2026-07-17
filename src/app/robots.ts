@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/auth/', '/settings'],
+        disallow: ['/admin/', '/api/', '/auth/', '/settings'],
       },
     ],
     sitemap: 'https://centrepass.io/sitemap.xml',

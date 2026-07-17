@@ -3,6 +3,7 @@ import { TournamentMatchCard } from './TournamentMatchCard';
 
 interface EditionScheduleProps {
   schedule: EditionScheduleModel;
+  presentationMode?: 'public' | 'draft-preview';
 }
 
 function stageTypeLabel(type: string | null): string {
@@ -10,14 +11,18 @@ function stageTypeLabel(type: string | null): string {
   return type.replaceAll('_', ' ').toLocaleLowerCase('en-AU');
 }
 
-export function EditionSchedule({ schedule }: EditionScheduleProps) {
+export function EditionSchedule({ schedule, presentationMode = 'public' }: EditionScheduleProps) {
   if (schedule.stages.length === 0) {
     return (
       <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-6 py-14 text-center shadow-sm">
         <span className="material-symbols-outlined text-4xl text-secondary" aria-hidden="true">event_upcoming</span>
-        <h2 className="mt-3 font-headline text-2xl font-black text-primary">Schedule awaiting publication</h2>
+        <h2 className="mt-3 font-headline text-2xl font-black text-primary">
+          {presentationMode === 'draft-preview' ? 'No imported fixtures' : 'Schedule awaiting publication'}
+        </h2>
         <p className="mx-auto mt-2 max-w-xl font-body text-sm leading-6 text-on-surface-variant">
-          This edition is available, but there are no published fixtures to display yet.
+          {presentationMode === 'draft-preview'
+            ? 'The private DRAFT query returned no non-simulation fixtures.'
+            : 'This edition is available, but there are no published fixtures to display yet.'}
         </p>
       </section>
     );
@@ -92,7 +97,11 @@ export function EditionSchedule({ schedule }: EditionScheduleProps) {
                   </h4>
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {date.fixtures.map((fixture) => (
-                      <TournamentMatchCard key={fixture.id} fixture={fixture} />
+                      <TournamentMatchCard
+                        key={fixture.id}
+                        fixture={fixture}
+                        presentationMode={presentationMode}
+                      />
                     ))}
                   </div>
                 </section>

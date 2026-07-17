@@ -29,6 +29,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: '/admin/preview/glasgow-2026',
+        headers: [
+          { key: 'Cache-Control', value: 'private, no-store, no-cache, max-age=0, must-revalidate' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+        ],
+      },
+      {
         source: '/:path*',
         headers: buildSecurityHeaders(),
       },

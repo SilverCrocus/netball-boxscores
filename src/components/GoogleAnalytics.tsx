@@ -1,8 +1,16 @@
+'use client';
+
 import Script from 'next/script';
+import { usePathname } from 'next/navigation';
+
+export function analyticsAllowedOnPath(pathname: string): boolean {
+  return !pathname.startsWith('/admin/') && !pathname.startsWith('/auth/');
+}
 
 export function GoogleAnalytics() {
+  const pathname = usePathname();
   const gaId = process.env.NEXT_PUBLIC_GA4_ID;
-  if (!gaId) return null;
+  if (!gaId || !analyticsAllowedOnPath(pathname)) return null;
 
   return (
     <>

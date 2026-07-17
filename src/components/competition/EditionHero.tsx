@@ -2,9 +2,10 @@ import type { EditionSchedule } from '@/lib/edition-schedule';
 
 interface EditionHeroProps {
   schedule: EditionSchedule;
+  presentationMode?: 'public' | 'draft-preview';
 }
 
-export function EditionHero({ schedule }: EditionHeroProps) {
+export function EditionHero({ schedule, presentationMode = 'public' }: EditionHeroProps) {
   const { summary } = schedule;
   const lifecycleLabel = summary.liveCount > 0
     ? `${summary.liveCount} live now`
@@ -45,9 +46,13 @@ export function EditionHero({ schedule }: EditionHeroProps) {
             {schedule.editionLabel}
           </p>
           <p className="mt-5 max-w-2xl font-body text-sm leading-6 text-primary-fixed sm:text-base">
-            {summary.dateRangeLabel
-              ? `${summary.dateRangeLabel}. Browse every published fixture in official stage order, with times shown in the competition's venue timezone.`
-              : 'The edition is published, but its fixture dates have not been released yet.'}
+            {presentationMode === 'draft-preview'
+              ? (summary.dateRangeLabel
+                  ? `${summary.dateRangeLabel}. Private preview of every imported fixture in official stage order, including unpublished stages.`
+                  : 'Private preview of the imported DRAFT edition. Fixture dates have not been supplied yet.')
+              : (summary.dateRangeLabel
+                  ? `${summary.dateRangeLabel}. Browse every published fixture in official stage order, with times shown in the competition's venue timezone.`
+                  : 'The edition is published, but its fixture dates have not been released yet.')}
           </p>
         </div>
 
