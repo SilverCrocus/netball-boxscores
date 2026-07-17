@@ -1,8 +1,12 @@
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { validateProtectedLibpqEnvironment } from '../../../scripts/lib/production-psql';
+import {
+  executeGuardedGlasgowAction,
+  parseGuardedGlasgowArguments,
+} from '../../../scripts/production-glasgow';
 import {
   projectRefFromDatabaseUrl,
   validateProductionDatabaseUrl,
@@ -24,10 +28,24 @@ import {
 
 const PRODUCTION_REF = 'iqnhnlttvnvkwrqvnrna';
 const PREVIEW_REF = 'xpfdjkqrbvdasjpllxnc';
+const OTHER_REF = 'abcdefghijklmnopqrst';
 const CHECKSUM_A = 'a'.repeat(64);
 const CHECKSUM_B = 'b'.repeat(64);
 const POOLER = 'aws-0-ap-southeast-2.pooler.supabase.com';
-const TLS = '?sslmode=verify-full';
+const DIRECT_PARAMETERS = '?sslmode=verify-full';
+const TRANSACTION_PARAMETERS = '?sslmode=verify-full&pgbouncer=true';
+const ANALYTICS_PARAMETERS = `${TRANSACTION_PARAMETERS}&connection_limit=5&pool_timeout=5`;
+const OPERATIONS_PARAMETERS = `${TRANSACTION_PARAMETERS}&connection_limit=2&pool_timeout=5`;
+
+function validProductionEnvironment(): NodeJS.ProcessEnv {
+  return {
+    NODE_ENV: 'test',
+    EXPECTED_PRODUCTION_PROJECT_REF: PRODUCTION_REF,
+    REJECTED_PREVIEW_PROJECT_REF: PREVIEW_REF,
+    DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TRANSACTION_PARAMETERS}`,
+    DIRECT_URL: `postgresql://postgres:secret@db.${PRODUCTION_REF}.supabase.co:5432/postgres${DIRECT_PARAMETERS}`,
+  };
+}
 
 describe('production operation guards', () => {
   it('requires both owner URLs to resolve to the same production project', () => {
@@ -35,8 +53,8 @@ describe('production operation guards', () => {
       NODE_ENV: 'test',
       EXPECTED_PRODUCTION_PROJECT_REF: PRODUCTION_REF,
       REJECTED_PREVIEW_PROJECT_REF: PREVIEW_REF,
-      DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TLS}`,
-      DIRECT_URL: `postgresql://postgres:secret@db.${PRODUCTION_REF}.supabase.co:5432/postgres${TLS}`,
+      DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TRANSACTION_PARAMETERS}`,
+      DIRECT_URL: `postgresql://postgres:secret@db.${PRODUCTION_REF}.supabase.co:5432/postgres${DIRECT_PARAMETERS}`,
     });
     expect(result.targets).toEqual({
       DATABASE_URL: PRODUCTION_REF,
@@ -45,14 +63,14 @@ describe('production operation guards', () => {
 
     expect(() => projectRefFromDatabaseUrl(
       'DIRECT_URL',
-      `postgresql://postgres:secret@db.${PREVIEW_REF}.supabase.co:5432/postgres${TLS}`,
+      `postgresql://postgres:secret@db.${PREVIEW_REF}.supabase.co:5432/postgres${DIRECT_PARAMETERS}`,
       PRODUCTION_REF,
       PREVIEW_REF,
     )).toThrow('rejected preview project');
 
     expect(() => projectRefFromDatabaseUrl(
       'DATABASE_URL',
-      `postgresql://postgres.${PRODUCTION_REF}:secret@database.example.com:6543/postgres${TLS}`,
+      `postgresql://postgres.${PRODUCTION_REF}:secret@database.example.com:6543/postgres${TRANSACTION_PARAMETERS}`,
       PRODUCTION_REF,
       PREVIEW_REF,
     )).toThrow('not an approved Supabase database or pooler endpoint');
@@ -63,10 +81,10 @@ describe('production operation guards', () => {
       NODE_ENV: 'test',
       EXPECTED_PRODUCTION_PROJECT_REF: PRODUCTION_REF,
       REJECTED_PREVIEW_PROJECT_REF: PREVIEW_REF,
-      DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TLS}`,
-      DIRECT_URL: `postgresql://postgres:secret@db.${PRODUCTION_REF}.supabase.co:5432/postgres${TLS}`,
-      ANALYTICS_DATABASE_URL: `postgresql://centrepass_analytics.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TLS}`,
-      STATS_OPERATIONS_DATABASE_URL: `postgresql://centrepass_stats_operations.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TLS}`,
+      DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TRANSACTION_PARAMETERS}`,
+      DIRECT_URL: `postgresql://postgres:secret@db.${PRODUCTION_REF}.supabase.co:5432/postgres${DIRECT_PARAMETERS}`,
+      ANALYTICS_DATABASE_URL: `postgresql://centrepass_analytics.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${ANALYTICS_PARAMETERS}`,
+      STATS_OPERATIONS_DATABASE_URL: `postgresql://centrepass_stats_operations.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${OPERATIONS_PARAMETERS}`,
     }, true);
 
     expect(Object.values(result.targets)).toEqual([
@@ -83,23 +101,23 @@ describe('production operation guards', () => {
     );
     expect(validate(
       'DIRECT_URL',
-      `postgresql://postgres%2E${PRODUCTION_REF}:secret@${POOLER}:5432/postgres${TLS}`,
+      `postgresql://postgres%2E${PRODUCTION_REF}:secret@${POOLER}:5432/postgres${DIRECT_PARAMETERS}`,
     )).toMatchObject({ mode: 'session', role: 'postgres', port: 5432 });
     expect(() => validate(
       'DIRECT_URL',
-      `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TLS}`,
+      `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TRANSACTION_PARAMETERS}`,
     )).toThrow('direct/session port 5432');
     expect(() => validate(
       'ANALYTICS_DATABASE_URL',
-      `postgresql://centrepass_analytics:secret@db.${PRODUCTION_REF}.supabase.co:5432/postgres${TLS}`,
+      `postgresql://centrepass_analytics:secret@db.${PRODUCTION_REF}.supabase.co:5432/postgres${DIRECT_PARAMETERS}`,
     )).toThrow('shared transaction pooler');
     expect(() => validate(
       'ANALYTICS_DATABASE_URL',
-      `postgresql://centrepass_analytics.${PRODUCTION_REF}:secret@${POOLER}:5432/postgres${TLS}`,
+      `postgresql://centrepass_analytics.${PRODUCTION_REF}:secret@${POOLER}:5432/postgres${DIRECT_PARAMETERS}`,
     )).toThrow('shared transaction pooler');
     expect(() => validate(
       'DATABASE_URL',
-      `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/app${TLS}`,
+      `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/app${TRANSACTION_PARAMETERS}`,
     )).toThrow('postgres database');
     expect(() => validate(
       'DATABASE_URL',
@@ -115,28 +133,78 @@ describe('production operation guards', () => {
     )).toThrow('sslmode=verify-full');
     expect(() => validate(
       'DATABASE_URL',
-      `postgresql://postgres.${PRODUCTION_REF}:secret@aws-0-ap-southeast-2.pooler.supabase.com.evil.test:6543/postgres${TLS}`,
+      `postgresql://postgres.${PRODUCTION_REF}:secret@aws-0-ap-southeast-2.pooler.supabase.com.evil.test:6543/postgres${TRANSACTION_PARAMETERS}`,
     )).toThrow('not an approved Supabase');
     expect(() => validate(
       'DATABASE_URL',
-      `postgresql://postgres.${PRODUCTION_REF}:secret@extra.aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres${TLS}`,
+      `postgresql://postgres.${PRODUCTION_REF}:secret@extra.aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres${TRANSACTION_PARAMETERS}`,
     )).toThrow('not an approved Supabase');
     expect(() => validate(
       'DATABASE_URL',
-      `postgresql://postgres.${PRODUCTION_REF}:secret@aws-ap-southeast-2.pooler.supabase.com:6543/postgres${TLS}`,
+      `postgresql://postgres.${PRODUCTION_REF}:secret@aws-ap-southeast-2.pooler.supabase.com:6543/postgres${TRANSACTION_PARAMETERS}`,
     )).toThrow('not an approved Supabase');
     expect(() => validate(
       'DATABASE_URL',
-      `postgresql://postgres%252E${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TLS}`,
+      `postgresql://postgres%252E${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TRANSACTION_PARAMETERS}`,
     )).toThrow('double-encoded username');
     expect(() => validate(
       'DATABASE_URL',
-      `postgresql://postgres.${PREVIEW_REF}:secret@${POOLER}:6543/postgres${TLS}`,
+      `postgresql://postgres.${PREVIEW_REF}:secret@${POOLER}:6543/postgres${TRANSACTION_PARAMETERS}`,
     )).toThrow('rejected preview');
     expect(() => validate(
       'STATS_OPERATIONS_DATABASE_URL',
-      `postgresql://centrepass_analytics.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TLS}`,
+      `postgresql://centrepass_analytics.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${OPERATIONS_PARAMETERS}`,
     )).toThrow('least-privilege role');
+  });
+
+  it('enforces exact variable-specific connection parameter values', () => {
+    const validate = (variable: Parameters<typeof validateProductionDatabaseUrl>[0], query: string) => (
+      validateProductionDatabaseUrl(
+        variable,
+        variable === 'DIRECT_URL'
+          ? `postgresql://postgres:secret@db.${PRODUCTION_REF}.supabase.co:5432/postgres?${query}`
+          : `postgresql://${variable === 'ANALYTICS_DATABASE_URL' ? 'centrepass_analytics' : variable === 'STATS_OPERATIONS_DATABASE_URL' ? 'centrepass_stats_operations' : 'postgres'}.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres?${query}`,
+        PRODUCTION_REF,
+        PREVIEW_REF,
+      )
+    );
+
+    expect(validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&connect_timeout=30&connection_limit=20&pool_timeout=30'))
+      .toMatchObject({ mode: 'transaction' });
+    expect(() => validate('DIRECT_URL', 'sslmode=verify-full&channel_binding=disable'))
+      .toThrow('unreviewed connection parameter');
+    expect(() => validate('DIRECT_URL', 'sslmode=verify-full&application_name=unreviewed'))
+      .toThrow('unreviewed connection parameter');
+    expect(() => validate('DIRECT_URL', 'sslmode=verify-full&sslrootcert=/tmp/unreviewed.pem'))
+      .toThrow('unreviewed connection parameter');
+    expect(() => validate('DIRECT_URL', 'sslmode=verify-full&pgbouncer=true'))
+      .toThrow('unreviewed connection parameter');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=false'))
+      .toThrow('pgbouncer=true');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=%66alse'))
+      .toThrow('pgbouncer=true');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&%70gbouncer=true'))
+      .toThrow('duplicate connection parameter');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&connect_timeout=0'))
+      .toThrow('positive integer');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&connect_timeout=abc'))
+      .toThrow('positive integer');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&connect_timeout=31'))
+      .toThrow('at most 30');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&connection_limit=21'))
+      .toThrow('at most 20');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&connection_limit=0'))
+      .toThrow('positive integer');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&pool_timeout=abc'))
+      .toThrow('positive integer');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&pool_timeout=999999'))
+      .toThrow('at most 30');
+    expect(() => validate('DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&pool_timeout=5&pool_timeout=5'))
+      .toThrow('duplicate connection parameter');
+    expect(() => validate('ANALYTICS_DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&connection_limit=4&pool_timeout=5'))
+      .toThrow('connection_limit=5');
+    expect(() => validate('STATS_OPERATIONS_DATABASE_URL', 'sslmode=verify-full&pgbouncer=true&connection_limit=2&pool_timeout=6'))
+      .toThrow('connection_limit=2 and pool_timeout=5');
   });
 
   it('parses and binds the protected libpq service and password entry', async () => {
@@ -236,6 +304,106 @@ describe('production operation guards', () => {
       await writeFile(passwordFile, `db.${PRODUCTION_REF}.supabase.co:5432:postgres:postgres:password\n`, { mode: 0o644 });
       await chmod(passwordFile, 0o644);
       expect(() => validateProtectedLibpqEnvironment(environment)).toThrow('group/other');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('maps only reviewed database-aware Glasgow production actions', () => {
+    const evidence = '/private/evidence/target.json';
+    expect(parseGuardedGlasgowArguments([
+      '--evidence-file', evidence, 'prepare',
+    ])).toMatchObject({ action: 'prepare', script: 'prepare-glasgow-2026.ts', arguments: [] });
+    expect(parseGuardedGlasgowArguments([
+      '--evidence-file', evidence, 'foundation', 'data/glasgow-2026/v1/bundle.json', '--record-preview',
+    ])).toMatchObject({ action: 'foundation-record-preview', arguments: ['data/glasgow-2026/v1/bundle.json', '--record-preview'] });
+    expect(parseGuardedGlasgowArguments([
+      '--evidence-file', evidence, 'results', '/private/results.json', '--apply', '--confirm', 'token',
+    ])).toMatchObject({ action: 'results-apply', arguments: ['/private/results.json', '--apply', '--confirm', 'token'] });
+    expect(parseGuardedGlasgowArguments([
+      '--evidence-file', evidence, 'publish', '--dry-run',
+    ])).toMatchObject({
+      action: 'publish-dry-run',
+      arguments: ['commonwealth-games-netball', 'glasgow-2026', '--dry-run'],
+    });
+    expect(() => parseGuardedGlasgowArguments([
+      '--evidence-file', evidence, 'foundation', 'other.json', '--apply',
+    ])).toThrow('Usage:');
+    expect(() => parseGuardedGlasgowArguments([
+      '--evidence-file', evidence, 'results', 'relative.json',
+    ])).toThrow('Usage:');
+  });
+
+  it('writes refs-only private evidence before executing an approved Glasgow action', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'centrepass-glasgow-guard-'));
+    const evidenceFile = path.join(directory, 'foundation-preview.json');
+    const spawn = vi.fn((
+      _command: string,
+      _argumentsList: string[],
+      _options: { env: NodeJS.ProcessEnv; shell: false; stdio: 'inherit' },
+    ) => {
+      void _command;
+      void _argumentsList;
+      void _options;
+      return { status: 0 };
+    });
+    try {
+      const action = parseGuardedGlasgowArguments([
+        '--evidence-file', evidenceFile,
+        'foundation', 'data/glasgow-2026/v1/bundle.json',
+      ]);
+      await executeGuardedGlasgowAction(action, validProductionEnvironment(), { spawn });
+
+      expect(spawn).toHaveBeenCalledOnce();
+      const [command, argumentsList, options] = spawn.mock.calls[0]!;
+      expect(command).toBe(process.execPath);
+      expect(argumentsList.some((value) => value.endsWith(path.join('scripts', 'import-glasgow-2026.ts')))).toBe(true);
+      expect(JSON.stringify(argumentsList)).not.toContain('postgresql://');
+      expect(options).toMatchObject({ shell: false, stdio: 'inherit' });
+      expect((await stat(evidenceFile)).mode & 0o777).toBe(0o600);
+      const evidence = await readFile(evidenceFile, 'utf8');
+      expect(JSON.parse(evidence)).toMatchObject({
+        action: 'foundation-preview',
+        expectedProjectRef: PRODUCTION_REF,
+        targets: { DATABASE_URL: PRODUCTION_REF, DIRECT_URL: PRODUCTION_REF },
+      });
+      expect(evidence).not.toContain('secret');
+      expect(evidence).not.toContain(POOLER);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ['guard rejection', {
+      DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@forged.pooler.supabase.com:6543/postgres${TRANSACTION_PARAMETERS}`,
+    }],
+    ['divergent targets', {
+      DIRECT_URL: `postgresql://postgres:secret@db.${OTHER_REF}.supabase.co:5432/postgres${DIRECT_PARAMETERS}`,
+    }],
+  ])('never executes a Glasgow action after %s', async (_label, override) => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'centrepass-glasgow-reject-'));
+    const evidenceFile = path.join(directory, 'rejected.json');
+    const spawn = vi.fn((
+      _command: string,
+      _argumentsList: string[],
+      _options: { env: NodeJS.ProcessEnv; shell: false; stdio: 'inherit' },
+    ) => {
+      void _command;
+      void _argumentsList;
+      void _options;
+      return { status: 0 };
+    });
+    try {
+      const action = parseGuardedGlasgowArguments([
+        '--evidence-file', evidenceFile, 'publish', '--dry-run',
+      ]);
+      await expect(executeGuardedGlasgowAction(action, {
+        ...validProductionEnvironment(),
+        ...override,
+      }, { spawn })).rejects.toThrow();
+      expect(spawn).not.toHaveBeenCalled();
+      await expect(access(evidenceFile)).rejects.toMatchObject({ code: 'ENOENT' });
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

@@ -80,6 +80,10 @@ URLs, tokens, cookies, raw client identifiers or OAuth data.
 - Reconciled counts (teams / fixtures / slots / active rosters / canonical players / photos):
 - Publication dry-run token/evidence:
 - Guarded unpublished application path and browser evidence:
+- DRAFT preview enabling deployment/window owner/start:
+- Redacted allowlisted / unauthenticated / unallowlisted audit outcomes:
+- Post-QA `DRAFT_PREVIEW_ENABLED=false` deployment and denial proof:
+- `DRAFT_PREVIEW_OPERATOR_IDS` removal proof (no actual IDs):
 - DRAFT/unpublished verification:
 - Open data/capability caveats:
 

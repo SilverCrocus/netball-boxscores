@@ -63,15 +63,34 @@ Status/quality pairs are strict:
 
 ## Preview, record, apply
 
+Create or reuse the release's private mode-`0700` target-evidence directory.
+Use a new evidence filename for every attempt. The production wrapper validates
+the exact variable-specific `DATABASE_URL` and `DIRECT_URL` contracts in the
+same process immediately before it invokes the results importer; its mode-`0600`
+evidence contains project refs only.
+
 ```bash
-npm run db:import:glasgow:results -- /absolute/path/results.json
-npm run db:import:glasgow:results -- /absolute/path/results.json --record-preview
-npm run db:import:glasgow:results -- /absolute/path/results.json --apply --confirm <TOKEN>
+umask 077
+mkdir -p "$RELEASE_EVIDENCE_DIR/glasgow/targets"
+chmod 700 "$RELEASE_EVIDENCE_DIR/glasgow/targets"
+
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/results-preview.json" \
+  results /absolute/path/results.json
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/results-record-preview.json" \
+  results /absolute/path/results.json --record-preview
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/results-apply.json" \
+  results /absolute/path/results.json --apply --confirm <TOKEN>
 ```
 
 The edition must already be `PUBLISHED`. Apply re-runs the same validation in a
 serializable transaction and requires the exact recorded-preview token. It
 resolves only existing mapped matches and mapped participants.
+Do not invoke `db:import:glasgow:results` directly in production; it is a
+development entrypoint and does not itself establish the adjacent target
+evidence boundary.
 
 The transaction atomically updates:
 

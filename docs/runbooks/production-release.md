@@ -156,16 +156,34 @@ Follow the Glasgow
 [`launch`](glasgow-2026-launch.md),
 [`source provenance`](glasgow-2026-source-provenance.md), and
 [`rollback`](glasgow-2026-rollback.md) runbooks rather than duplicating their
-data rules here.
+data rules here. Every production prepare, database preview, recorded preview,
+apply, publication dry-run and publication apply must use the allowlisted
+`npm run production:glasgow` wrapper from the launch/results runbooks with a
+new refs-only evidence path. A post-deploy target check or earlier operator
+check never carries forward to a later action.
 
 ### Unpublished Glasgow blocker
 
 Inspect the exact deployed commit. If it implements
 `/admin/preview/glasgow-2026`, a publication decision requires a bounded QA
-window with `DRAFT_PREVIEW_ENABLED=true`, stable reviewed operator IDs, an
-authenticated authorized success, unauthenticated and unauthorized denials,
-route audit evidence, and proof the rendered edition remains DRAFT. Immediately
-after QA set `DRAFT_PREVIEW_ENABLED=false` and prove access is denied again.
+window using the exact environment contract in
+[`production-environment.md`](production-environment.md):
+
+1. Keep `DRAFT_PREVIEW_ENABLED=false`; add only reviewed, stable NextAuth user
+   IDs to the controlled Render `DRAFT_PREVIEW_OPERATOR_IDS` value and deploy.
+   Do not record actual IDs in release evidence.
+2. Immediately before QA, set the enable flag to exact lowercase `true`, deploy,
+   and record the deployment ID/commit, operator, approver and window start.
+3. Capture an authenticated allowlisted render of the DRAFT edition, an
+   unauthenticated redirect/denial, an authenticated unallowlisted 404/denial,
+   and the corresponding redacted `[DraftPreviewAudit]` outcomes.
+4. Immediately after QA, set the flag to `false`, remove
+   `DRAFT_PREVIEW_OPERATOR_IDS`, deploy, and prove both anonymous and previously
+   authorized access are denied. Record the disabling deployment and window end.
+
+Malformed/missing variables fail closed. Any unbounded window, missing negative
+test, missing audit evidence, retained operator list or missing post-QA denial
+is `NO-GO`.
 
 If the deployed commit does not contain that route, or any part of the guarded
 contract cannot be proven, **production publication is blocked**. Direct SQL is

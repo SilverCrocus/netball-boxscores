@@ -1,4 +1,4 @@
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -438,6 +438,29 @@ describe('production smoke', () => {
       await expect(writeProductionSmokeEvidence(evidence, directory)).rejects.toMatchObject({
         code: 'EEXIST',
       });
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('repairs a pre-existing permissive evidence directory before writing', async () => {
+    const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'centrepass-smoke-permissions-'));
+    const directory = path.join(temporaryRoot, 'evidence');
+    try {
+      await mkdir(directory, { mode: 0o755 });
+      await chmod(directory, 0o755);
+      const evidence = await executeProductionSmoke({
+        baseUrl: 'https://www.centrepass.io',
+        expectedCommit: COMMIT,
+        phase: 'baseline',
+        timeoutMs: 100,
+        retries: 0,
+      }, healthyFetch('baseline'));
+      const paths = await writeProductionSmokeEvidence(evidence, directory);
+
+      expect((await stat(directory)).mode & 0o777).toBe(0o700);
+      expect((await stat(paths.jsonPath)).mode & 0o777).toBe(0o600);
+      expect((await stat(paths.markdownPath)).mode & 0o777).toBe(0o600);
     } finally {
       await rm(temporaryRoot, { recursive: true, force: true });
     }

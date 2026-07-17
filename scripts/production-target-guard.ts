@@ -14,15 +14,12 @@ const DIRECT_HOST_PATTERN = /^db\.([a-z0-9]{20})\.supabase\.co$/;
 // aws-0-ap-southeast-2.pooler.supabase.com. Keep this deliberately narrower
 // than a generic subdomain so lookalike suffixes and injected labels fail shut.
 const SHARED_POOLER_HOST_PATTERN = /^aws-\d+-[a-z]{2}-[a-z]+-\d+\.pooler\.supabase\.com$/;
-const ALLOWED_QUERY_PARAMETERS = new Set([
-  'application_name',
-  'channel_binding',
-  'connect_timeout',
+const COMMON_QUERY_PARAMETERS = new Set(['connect_timeout', 'sslmode']);
+const TRANSACTION_QUERY_PARAMETERS = new Set([
+  ...COMMON_QUERY_PARAMETERS,
   'connection_limit',
   'pgbouncer',
   'pool_timeout',
-  'sslmode',
-  'sslrootcert',
 ]);
 
 export interface ValidatedProductionTarget {
@@ -53,9 +50,31 @@ function decodeUsername(variable: string, encodedUsername: string): string {
   return username;
 }
 
-function validateTlsAndQuery(variable: string, parsed: URL): void {
+function boundedPositiveInteger(
+  variable: string,
+  key: string,
+  value: string | null,
+  maximum: number,
+): number | null {
+  if (value === null) return null;
+  if (!/^[1-9][0-9]*$/.test(value)) {
+    throw new Error(`${variable} ${key} must be a positive integer`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed > maximum) {
+    throw new Error(`${variable} ${key} must be at most ${maximum}`);
+  }
+  return parsed;
+}
+
+function validateConnectionParameters(
+  variable: ProductionDatabaseVariable,
+  parsed: URL,
+  mode: ValidatedProductionTarget['mode'],
+): void {
+  const allowed = mode === 'transaction' ? TRANSACTION_QUERY_PARAMETERS : COMMON_QUERY_PARAMETERS;
   for (const key of parsed.searchParams.keys()) {
-    if (!ALLOWED_QUERY_PARAMETERS.has(key)) {
+    if (!allowed.has(key)) {
       throw new Error(`${variable} contains an unreviewed connection parameter`);
     }
     if (parsed.searchParams.getAll(key).length !== 1) {
@@ -66,6 +85,28 @@ function validateTlsAndQuery(variable: string, parsed: URL): void {
   if (sslmodes.length !== 1 || sslmodes[0]?.toLowerCase() !== 'verify-full') {
     throw new Error(`${variable} must set exactly one sslmode=verify-full`);
   }
+  boundedPositiveInteger(variable, 'connect_timeout', parsed.searchParams.get('connect_timeout'), 30);
+
+  if (mode !== 'transaction') return;
+  if (parsed.searchParams.get('pgbouncer') !== 'true') {
+    throw new Error(`${variable} transaction mode must set pgbouncer=true`);
+  }
+  if (variable === 'ANALYTICS_DATABASE_URL') {
+    if (parsed.searchParams.get('connection_limit') !== '5'
+      || parsed.searchParams.get('pool_timeout') !== '5') {
+      throw new Error('ANALYTICS_DATABASE_URL must set connection_limit=5 and pool_timeout=5');
+    }
+    return;
+  }
+  if (variable === 'STATS_OPERATIONS_DATABASE_URL') {
+    if (parsed.searchParams.get('connection_limit') !== '2'
+      || parsed.searchParams.get('pool_timeout') !== '5') {
+      throw new Error('STATS_OPERATIONS_DATABASE_URL must set connection_limit=2 and pool_timeout=5');
+    }
+    return;
+  }
+  boundedPositiveInteger(variable, 'connection_limit', parsed.searchParams.get('connection_limit'), 20);
+  boundedPositiveInteger(variable, 'pool_timeout', parsed.searchParams.get('pool_timeout'), 30);
 }
 
 export function validateProductionDatabaseUrl(
@@ -96,8 +137,6 @@ export function validateProductionDatabaseUrl(
   if (!parsed.port || !/^[0-9]+$/.test(parsed.port)) {
     throw new Error(`${variable} must use an explicit approved port`);
   }
-  validateTlsAndQuery(variable, parsed);
-
   const username = decodeUsername(variable, parsed.username);
   const hostname = parsed.hostname.toLowerCase();
   const port = Number(parsed.port);
@@ -154,6 +193,8 @@ export function validateProductionDatabaseUrl(
       throw new Error(`${variable} must use its project-scoped least-privilege role`);
     }
   }
+
+  validateConnectionParameters(variable, parsed, mode);
 
   return {
     projectRef: expectedProjectRef,

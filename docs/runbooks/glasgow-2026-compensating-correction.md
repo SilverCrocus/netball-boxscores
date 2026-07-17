@@ -76,29 +76,31 @@ regression, or a winner change after the dependent match has started.
 
 ## Execute
 
-Use the normal three-step results workflow. Run the guard immediately before
-**each** step; a previously passing guard does not carry over. Preserve each
-refs-only guard output with the incident evidence.
+Use the normal three-step results workflow through the guarded production
+wrapper. It performs a fresh target assertion in the same process immediately
+before **each** importer step; a prior pass does not carry over. Preserve each
+refs-only evidence file with the incident evidence and use a new path for a
+retried attempt.
 
 ```bash
-npm run guard:production-target \
-  > "$RELEASE_EVIDENCE_DIR/glasgow/correction-target-preview.json"
-npm run db:import:glasgow:results -- /absolute/path/correction.json
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/correction-target-preview.json" \
+  results /absolute/path/correction.json
 
-npm run guard:production-target \
-  > "$RELEASE_EVIDENCE_DIR/glasgow/correction-target-record-preview.json"
-npm run db:import:glasgow:results -- /absolute/path/correction.json --record-preview
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/correction-target-record-preview.json" \
+  results /absolute/path/correction.json --record-preview
 
-npm run guard:production-target \
-  > "$RELEASE_EVIDENCE_DIR/glasgow/correction-target-apply.json"
-npm run db:import:glasgow:results -- /absolute/path/correction.json --apply --confirm <TOKEN>
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/correction-target-apply.json" \
+  results /absolute/path/correction.json --apply --confirm <TOKEN>
 ```
 
-Each target guard requires `DATABASE_URL` and `DIRECT_URL`, rejects the known
-preview project, forged/non-Supabase endpoints, wrong roles, database, TLS,
-mode or port, requires both URLs to resolve uniquely to production ref
-`iqnhnlttvnvkwrqvnrna`, and prints refs only. A
-missing/mismatched target stops the correction before that step.
+Each guarded execution requires `DATABASE_URL` and `DIRECT_URL`, rejects the
+known preview project, forged/non-Supabase endpoints, wrong roles, database,
+TLS, mode or port, requires both URLs to resolve uniquely to production ref
+`iqnhnlttvnvkwrqvnrna`, and writes refs-only evidence before the importer can
+start. A missing/mismatched target stops the correction before that step.
 
 After apply, verify the match, quarter bar, pool table, bracket dependency,
 coverage state, result quality label, receipt metadata, and mutation counts.

@@ -26,8 +26,19 @@ edition-aware application before creating Glasgow production rows.
 
 ## 2. Prepare the unpublished foundation
 
+Create a private target-evidence directory once for this release. Every
+database-aware command below uses the allowlisted production wrapper, which
+revalidates `DATABASE_URL` and `DIRECT_URL` in the same process immediately
+before invoking the fixed Glasgow script. The evidence file is mode `0600`,
+contains project refs only, and must be a new path for each attempt.
+
 ```bash
-npm run db:prepare:glasgow
+umask 077
+mkdir -p "$RELEASE_EVIDENCE_DIR/glasgow/targets"
+chmod 700 "$RELEASE_EVIDENCE_DIR/glasgow/targets"
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/prepare.json" \
+  prepare
 ```
 
 This is idempotent only while the edition is `DRAFT`. It refuses to modify a
@@ -51,13 +62,17 @@ npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
 Then run the database-aware preview without writing canonical rows:
 
 ```bash
-npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/foundation-preview.json" \
+  foundation data/glasgow-2026/v1/bundle.json
 ```
 
 If both are clean, record the database-aware receipt:
 
 ```bash
-npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --record-preview
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/foundation-record-preview.json" \
+  foundation data/glasgow-2026/v1/bundle.json --record-preview
 ```
 
 Keep the printed checksum and dry-run receipt ID in the release evidence.
@@ -65,7 +80,9 @@ Keep the printed checksum and dry-run receipt ID in the release evidence.
 ## 4. Apply and reconcile while still DRAFT
 
 ```bash
-npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --apply
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/foundation-apply.json" \
+  foundation data/glasgow-2026/v1/bundle.json --apply
 ```
 
 Re-running the exact bundle creates an audited replay receipt and performs no
@@ -76,7 +93,9 @@ active roster membership absent from the new snapshot by setting it to
 Run the publication readiness dry-run:
 
 ```bash
-npm run db:publish:edition -- commonwealth-games-netball glasgow-2026 --dry-run
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/publication-dry-run.json" \
+  publish --dry-run
 ```
 
 The command re-verifies every launch invariant and prints a confirmation token.
@@ -94,12 +113,17 @@ unavailable rather than appearing as zero-valued statistics.
 Immediately after the successful dry-run, use its exact token:
 
 ```bash
-npm run db:publish:edition -- commonwealth-games-netball glasgow-2026 --apply --confirm <TOKEN>
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/publication-apply.json" \
+  publish --apply --confirm <TOKEN>
 ```
 
 The token binds publication to the edition, expected bundle checksum, latest
 applied foundation receipt, latest clean dry-run receipt, and source manifest.
 Any intervening change invalidates it and requires a new dry-run.
+Never substitute the unguarded `db:prepare:glasgow`, `db:import:glasgow`, or
+`db:publish:edition` scripts in a production session. They remain development
+entrypoints; the production wrapper is the executable target boundary.
 
 ## 7. Post-publication smoke
 

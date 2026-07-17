@@ -29,8 +29,10 @@ JSON and Markdown evidence. It checks:
 
 - `/api/health`: `200`, liveness contract and exact `RENDER_GIT_COMMIT`;
 - `/api/readiness`: `200`; database `ok=true`; worker `ok=true`, `enabled=true`,
-  `required=true`, `state=healthy`, `satisfiesReadiness=true`; and the
-  analytics/Ask boundaries in the state required by the selected phase;
+  `required=true`, `state=healthy`, `satisfiesReadiness=true`, `isHealthy=true`,
+  `lastPollStatus=success|empty`, a positive `currentIntervalMs`, and a fresh
+  valid `lastPollAt`; plus the analytics/Ask boundaries in the state required
+  by the selected phase;
 - `/` plus `/api/matches?season=2026`: SSN renders and exposes a covered result;
 - in `baseline`, Glasgow, rankings, records, comparison and Ask all return 404
   while their publication/feature controls are off;
@@ -52,13 +54,20 @@ Review the evidence; a generated file alone is not a pass.
 Inspect the exact deployed commit. If it implements
 `/admin/preview/glasgow-2026`, pre-publication QA requires all of the following:
 
-- enable `DRAFT_PREVIEW_ENABLED` only for the bounded QA window;
-- use stable, reviewed operator IDs from the allowlist, never an ad hoc account;
+- keep `DRAFT_PREVIEW_ENABLED=false` and `DRAFT_PREVIEW_OPERATOR_IDS` absent
+  before the window; configure the controlled Render operator list only while
+  preparing the approved QA deployment;
+- use unique stable NextAuth user IDs matching the 1-to-128-character syntax
+  documented in [`production-environment.md`](production-environment.md), never email addresses, session
+  IDs, provider metadata, an ad hoc account, or IDs copied into evidence;
+- require exact lowercase `true`; any other enable value, missing list, empty
+  list or malformed ID must remain denied;
 - record authenticated authorized success plus unauthenticated and unauthorized
   denial, with the route's audit evidence;
 - verify the rendered data remains DRAFT; and
-- disable `DRAFT_PREVIEW_ENABLED` immediately after QA and prove access is
-  denied again.
+- set `DRAFT_PREVIEW_ENABLED=false`, remove `DRAFT_PREVIEW_OPERATOR_IDS`, deploy
+  immediately after QA, and prove access is denied again for anonymous,
+  unallowlisted and previously authorized sessions.
 
 If that route is absent from the deployed commit, or any part of this contract
 cannot be proven, Glasgow publication remains **NO-GO**. Do not infer that the

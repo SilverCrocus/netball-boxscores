@@ -20,6 +20,8 @@ narrow telemetry/rate-limit credential is `STATS_OPERATIONS_DATABASE_URL`.
 | `STATS_RATE_LIMIT_SECRET` | independent non-placeholder random secret, minimum 32 characters; HMAC only | yes | security/application owner; independent rotation resets effective identities |
 | `ANALYTICS_FEATURES_ENABLED` | kill switch; `false` until scoped role/readiness passes, `true` for production release | no | release owner; restart/deploy and verify readiness |
 | `ASK_CENTREPASS_ENABLED` | narrower kill switch; requires analytics; `false` until operations role/secret pass | no | release owner; restart/deploy and verify readiness |
+| `DRAFT_PREVIEW_ENABLED` | fail-closed Glasgow DRAFT preview gate; unset/empty/`false` disables, exact lowercase `true` enables only for bounded QA | no | release owner; set `false` normally and after every QA window |
+| `DRAFT_PREVIEW_OPERATOR_IDS` | comma-separated stable NextAuth user IDs; configured only for approved QA operators and removed after QA | controlled | auth/release owner; rotate on operator/access change and remove after the bounded window |
 | `WORKER_ENABLED` | `true` in normal production; `false` only for documented containment | no | operations owner; readiness intentionally degrades while false |
 | `ALLOW_SHARED_PRODUCTION_DB_WRITES` | `false` (or unset, which fails closed); prefer explicit `false` in production | no | operations owner; changing to true is prohibited without a separate reviewed incident plan |
 | `NEXTAUTH_SECRET` | generated high-entropy NextAuth secret | yes | auth owner; rotate with forced session invalidation plan |
@@ -42,8 +44,8 @@ not be used against production.
   [`production-release.md`](production-release.md).
 - `DIRECT_URL` uses direct/session mode on port `5432`; `DATABASE_URL` uses
   transaction mode on port `6543`. The scoped analytics/operations URLs use
-  the Supavisor transaction pooler on port `6543`; application code
-  enforces their pool limits and timeout parameters.
+  the Supavisor transaction pooler on port `6543`. Stored URLs and application
+  overrides must agree with the exact parameter contract below.
 - The four database roles/URLs are not interchangeable.
 - Both feature flags fail closed. Ask cannot be enabled while analytics is off.
 - Normal production is `WORKER_ENABLED=true`,
@@ -52,6 +54,55 @@ not be used against production.
 - `/api/readiness` is the authoritative runtime probe for URL presence,
   database identities, exact grants, read-only status, statement timeouts,
   rate-limit secret and worker health.
+
+## Database URL parameter contract
+
+All database URLs require exactly one `sslmode=verify-full`. Duplicate query
+keys fail closed, including percent-encoded duplicates. `connect_timeout` is
+optional but, when present, must be a base-10 integer from `1` through `30`.
+
+- Direct/session `DIRECT_URL` accepts no pooler parameters.
+- Transaction `DATABASE_URL` requires `pgbouncer=true`. Optional
+  `connection_limit` is `1..20`; optional `pool_timeout` is `1..30`.
+- `ANALYTICS_DATABASE_URL` requires `pgbouncer=true`, `connection_limit=5`, and
+  `pool_timeout=5`.
+- `STATS_OPERATIONS_DATABASE_URL` requires `pgbouncer=true`,
+  `connection_limit=2`, and `pool_timeout=5`.
+
+The guard rejects `channel_binding` rather than permitting a disabling value,
+and rejects `application_name` and `sslrootcert` as unused/unbound parameters.
+Do not add `sslrootcert` until a separately reviewed protected-certificate
+path, checksum and rotation evidence contract exists. Arbitrary filesystem
+paths are not acceptable trust anchors.
+
+## Guarded Glasgow DRAFT preview environment
+
+In Render, keep `DRAFT_PREVIEW_ENABLED=false` during normal operation and do
+not retain `DRAFT_PREVIEW_OPERATOR_IDS`. Never place real user IDs in the
+Blueprint, repository, release template, screenshots or logs. For an approved
+QA window, configure the operator list as controlled server-side Render
+environment data. Each ID must be 1 to 128 characters, begin and end with an
+ASCII letter or digit, and otherwise contain only ASCII letters, digits,
+`.`, `_`, `:`, or `-`. Use unique stable NextAuth database user IDs, not email
+addresses, names, session IDs or provider metadata.
+
+The parser fails closed: unset, empty or exact lowercase `false` disables the
+route; only exact lowercase `true` can enable it; a missing, empty or malformed
+operator list is denied and audited as malformed configuration. Use this
+bounded Render sequence:
+
+1. Add the reviewed, deduplicated operator IDs while the enable flag remains
+   `false`; deploy and record the deployment/commit.
+2. Immediately before QA, set the flag to exact `true`, deploy, and record the
+   window start, owner and deployment ID.
+3. Capture authorized, unauthenticated and authenticated-unallowlisted outcomes
+   plus `[DraftPreviewAudit]` records without copying real IDs into evidence.
+4. Immediately after QA, set the flag to `false`, remove the operator-ID
+   variable, deploy, and prove the route is denied. Record window end and the
+   disabling deployment ID.
+
+Any interrupted window, malformed value, unexpected operator, missing denial
+proof or inability to remove the IDs is a publication `NO-GO`.
 
 ## Provisioning and rotation
 

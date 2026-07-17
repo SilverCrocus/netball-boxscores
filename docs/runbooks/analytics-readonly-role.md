@@ -11,7 +11,7 @@ Two separate server credentials are required:
 
 Do not reuse `DATABASE_URL`, `DIRECT_URL`, or either scoped credential for the other responsibility.
 
-Both scoped runtime URLs must use the Supavisor **transaction pooler** endpoint (normally port `6543`). The application always supplies Prisma's transaction-pooler compatibility settings: `pgbouncer=true`, `connection_limit=5` for analytics or `2` for operations, and `pool_timeout=5`. Those bounded parameters override values in the stored URL. This avoids prepared-statement collisions and prevents either public feature from opening an unbounded process-local pool. `DIRECT_URL`, Prisma migrations, both provisioning scripts, and owner-level verification must use Supabase's direct connection or Supavisor session mode instead; never run DDL or role administration through transaction mode.
+Both scoped runtime URLs must use the Supavisor **transaction pooler** endpoint (normally port `6543`) and store the exact Prisma compatibility settings: `pgbouncer=true`, `connection_limit=5` for analytics or `2` for operations, and `pool_timeout=5`. The application reapplies the same values when constructing each client; the production guard rejects a stored mismatch rather than relying on the override. This avoids prepared-statement collisions and prevents either public feature from opening an unbounded process-local pool. `DIRECT_URL`, Prisma migrations, both provisioning scripts, and owner-level verification must use Supabase's direct connection or Supavisor session mode instead; never run DDL or role administration through transaction mode.
 
 ## Provision or rotate
 

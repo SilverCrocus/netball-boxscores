@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { createHash } from 'node:crypto';
-import { mkdir, open } from 'node:fs/promises';
+import { chmod, lstat, mkdir, open, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -697,6 +697,21 @@ export async function writeProductionSmokeEvidence(
   outputDirectory: string,
 ): Promise<{ jsonPath: string; markdownPath: string }> {
   await mkdir(outputDirectory, { recursive: true, mode: 0o700 });
+  const linkDetails = await lstat(outputDirectory);
+  let directoryDetails = await stat(outputDirectory);
+  if (linkDetails.isSymbolicLink() || !directoryDetails.isDirectory()) {
+    throw new Error('production smoke evidence path must be a real directory');
+  }
+  if (typeof process.getuid === 'function' && directoryDetails.uid !== process.getuid()) {
+    throw new Error('production smoke evidence directory must be owned by the current user');
+  }
+  if ((directoryDetails.mode & 0o777) !== 0o700) {
+    await chmod(outputDirectory, 0o700);
+    directoryDetails = await stat(outputDirectory);
+  }
+  if ((directoryDetails.mode & 0o777) !== 0o700) {
+    throw new Error('production smoke evidence directory must have mode 0700');
+  }
   const stamp = evidence.startedAt.replace(/[-:.]/g, '').replace('Z', 'Z');
   const prefix = path.join(outputDirectory, `production-smoke-${stamp}`);
   const jsonPath = `${prefix}.json`;
@@ -704,6 +719,7 @@ export async function writeProductionSmokeEvidence(
   const writePrivateFile = async (filePath: string, contents: string): Promise<void> => {
     const file = await open(filePath, 'wx', 0o600);
     try {
+      await file.chmod(0o600);
       await file.writeFile(contents, { encoding: 'utf8' });
     } finally {
       await file.close();
