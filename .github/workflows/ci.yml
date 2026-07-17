@@ -139,24 +139,9 @@ jobs:
         env: *fresh-migration-env
         run: npx tsx scripts/verify-prisma-baseline-artifact.ts
 
-      - name: Initialize fresh PostgreSQL 17 from historical baseline
+      - name: Rehearse historical baseline and complete retained migration chain
         env: *fresh-migration-env
-        run: >-
-          npx prisma db execute
-          --file prisma/baselines/pre-20260602/baseline.sql
-          --schema prisma/baselines/pre-20260602/schema.prisma
-
-      - name: Verify initialized historical baseline parity
-        env: *fresh-migration-env
-        run: >-
-          npx prisma migrate diff
-          --from-schema-datamodel prisma/baselines/pre-20260602/schema.prisma
-          --to-schema-datasource prisma/baselines/pre-20260602/schema.prisma
-          --exit-code
-
-      - name: Rehearse complete migration chain on fresh PostgreSQL 17
-        env: *fresh-migration-env
-        run: npx prisma migrate deploy
+        run: npx tsx scripts/rehearse-complete-prisma-migrations.ts
 
       - name: Verify complete fresh PostgreSQL 17 migration ledger
         env: *fresh-migration-env

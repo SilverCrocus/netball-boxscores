@@ -58,13 +58,21 @@ describe('Glasgow preview workflow', () => {
   it('installs dependencies, deploys and verifies migrations, proves rollback, and never publishes', async () => {
     const workflow = await readFile(path.resolve('.github/workflows/ci.yml'), 'utf8');
     const rehearsal = workflow.slice(workflow.indexOf('  glasgow-preview-rehearsal:'));
+    const migrationRehearsal = await readFile(
+      path.resolve('scripts/rehearse-complete-prisma-migrations.ts'),
+      'utf8',
+    );
 
     expect(rehearsal).toContain('npm ci');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-database-target.ts');
     expect(rehearsal).toContain('image: postgres:17');
     expect(rehearsal).toContain('npx tsx scripts/verify-fresh-prisma-migration-target.ts');
     expect(rehearsal).toContain('npx tsx scripts/verify-prisma-baseline-artifact.ts');
-    expect(rehearsal).toContain('prisma/baselines/pre-20260602/baseline.sql');
+    expect(rehearsal).toContain('npx tsx scripts/rehearse-complete-prisma-migrations.ts');
+    expect(rehearsal).not.toContain('prisma db execute');
+    expect(migrationRehearsal).toContain('prisma/baselines/pre-20260602/baseline.sql');
+    expect(migrationRehearsal).toContain('00000000000000_historical_baseline');
+    expect(migrationRehearsal).toContain('P3005 or migration drift is not accepted');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-prisma-baseline.ts --resolve');
     expect(rehearsal).toContain('npx prisma migrate deploy');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-migrations.ts');

@@ -16,7 +16,7 @@ function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Preview migration verification failed: ${message}`);
 }
 
-async function localMigrations() {
+async function localMigrations(includeHistoricalBaseline = false) {
   const migrationRoot = path.resolve('prisma/migrations');
   const entries = await readdir(migrationRoot, { withFileTypes: true });
   const migrations = await Promise.all(entries
@@ -28,15 +28,25 @@ async function localMigrations() {
         checksum: createHash('sha256').update(sql).digest('hex'),
       };
     }));
-  return migrations.toSorted((left, right) =>
+  const ordered = migrations.toSorted((left, right) =>
     left.migrationName.localeCompare(right.migrationName));
+  if (includeHistoricalBaseline) {
+    const sql = await readFile(path.resolve(
+      'prisma/baselines/pre-20260602/baseline.sql',
+    ));
+    ordered.unshift({
+      migrationName: '00000000000000_historical_baseline',
+      checksum: createHash('sha256').update(sql).digest('hex'),
+    });
+  }
+  return ordered;
 }
 
 async function main() {
   const freshLocalRehearsal = process.env.FRESH_MIGRATION_REHEARSAL === 'true';
   const target = freshLocalRehearsal ? null : verifyPreviewDatabaseTarget();
   const [local, applied] = await Promise.all([
-    localMigrations(),
+    localMigrations(freshLocalRehearsal),
     prisma.$queryRaw<MigrationLedgerRow[]>(Prisma.sql`
       SELECT
         migration_name AS "migrationName",
