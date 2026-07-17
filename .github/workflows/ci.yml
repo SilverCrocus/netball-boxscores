@@ -162,6 +162,9 @@ jobs:
       - name: Verify exact checked-in migration ledger
         run: npx tsx scripts/verify-preview-migrations.ts
 
+      - name: Verify zero current and default Data API grants
+        run: npx tsx scripts/verify-preview-data-api-acls.ts
+
       - name: Validate the immutable bundle offline
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
 

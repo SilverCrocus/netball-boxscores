@@ -93,6 +93,12 @@ describe('Glasgow preview workflow', () => {
       path.resolve('scripts/rehearse-complete-prisma-migrations.ts'),
       'utf8',
     );
+    const maintainMigration = await readFile(
+      path.resolve(
+        'prisma/migrations/20260717010000_close_postgres17_maintain_acl/migration.sql',
+      ),
+      'utf8',
+    );
 
     expect(workflow).toContain(
       "format('preview-rehearsal-{0}', inputs.expected_preview_project_ref)",
@@ -113,9 +119,14 @@ describe('Glasgow preview workflow', () => {
     expect(migrationRehearsal).toContain('P3005 or migration drift is not accepted');
     expect(migrationRehearsal).toContain("mkdtemp(path.resolve('.prisma-rehearsal-'))");
     expect(migrationRehearsal).not.toContain("from 'node:os'");
+    expect(maintainMigration).toContain("server_version_num')::integer >= 170000");
+    expect(maintainMigration).toContain('REVOKE MAINTAIN ON ALL TABLES');
+    expect(maintainMigration).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE postgres');
+    expect(maintainMigration).not.toContain('supabase_admin');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-prisma-baseline.ts --resolve');
     expect(rehearsal).toContain('npx prisma migrate deploy');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-migrations.ts');
+    expect(rehearsal).toContain('npx tsx scripts/verify-preview-data-api-acls.ts');
     expect(rehearsal).toContain('npx tsx scripts/rehearse-glasgow-2026-rollback.ts');
     expect(rehearsal).toContain('db:publish:edition -- commonwealth-games-netball glasgow-2026 --dry-run');
     expect(rehearsal).not.toMatch(/db:publish:edition[^\n]*--apply/);

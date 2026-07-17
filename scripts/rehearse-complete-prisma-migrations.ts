@@ -33,7 +33,7 @@ async function main() {
     const retained = (await readdir(path.resolve('prisma/migrations'), { withFileTypes: true }))
       .filter((entry) => entry.isDirectory() && /^\d+_/.test(entry.name))
       .map((entry) => entry.name).toSorted();
-    invariant(retained.length === 13, `expected 13 retained migrations, found ${retained.length}`);
+    invariant(retained.length === 14, `expected 14 retained migrations, found ${retained.length}`);
     for (const migration of retained) {
       await cp(
         path.resolve('prisma/migrations', migration),
