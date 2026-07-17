@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const retrievedAt = '2026-07-16T04:15:40.000Z';
+const retrievedAt = '2026-07-17T13:45:48.000Z';
 const outputDirectory = path.resolve('data/glasgow-2026/v1');
 
 const teamRows = [
@@ -45,13 +45,13 @@ const squadRows = [
   ['AUS', 'Jo Weston', 'GK'],
   ['ENG', 'Halimat Adio', 'GK'],
   ['ENG', 'Francesca Williams', 'GD', true],
-  ['ENG', 'Funmi Fadoju', 'WD'],
+  ['ENG', 'Funmi Fadoju', 'GD'],
   ['ENG', 'Jayda Pechová', 'GK'],
   ['ENG', 'Imogen Allison', 'WD'],
   ['ENG', 'Jess Shaw', 'WA'],
   ['ENG', 'Amy Carter', 'C'],
-  ['ENG', 'Natalie Metcalf', 'GA'],
-  ['ENG', 'Sasha Glasgow', 'GS'],
+  ['ENG', 'Natalie Metcalf', 'WA'],
+  ['ENG', 'Sasha Glasgow', 'GA'],
   ['ENG', 'Olivia Tchine', 'GS'],
   ['ENG', 'Eleanor Cardwell', 'GS'],
   ['ENG', 'Lois Pearson', 'GA'],
@@ -375,8 +375,12 @@ const sources = [
   ['glasgow-sec-venue', 'https://www.glasgow2026.com/venues/sec', 'The Hydro venue'],
   ['commonwealth-qualification-system', 'https://commonwealthgames.com.au/wp-content/uploads/Netball_G2026-CWG-Qualification-System_FINAL.pdf', 'final squad registration deadline'],
   ['england-squad', 'https://www.teamengland.org/news/ready-to-score-team-england-confirm-netball-squad-for-glasgow-2026', 'England final squad identities and captain'],
-  ['england-positions', 'https://www.englandnetball.co.uk/vitality-roses/current-squad/', 'England player positions'],
-  ['england-jayda-position', 'https://www.englandnetball.co.uk/news/vitality-roses-squad-confirmed-for-jamaica-series/', 'Jayda Pechová position'],
+  ['england-positions', 'https://londonpulsenetball.com/nsl-rd-1-match-report-london-pulse-vs-manchester-thunder/', 'Halimat Adio, Funmi Fadoju, Imogen Allison, Amy Carter, Natalie Metcalf, Olivia Tchine and Lois Pearson positions'],
+  ['england-jayda-position', 'https://teamengland.org/news/jayda-pechov-completes-the-ultimate-comeback-at-glasgow-2026', 'Jayda Pechová goal-keeper position'],
+  ['england-francesca-position', 'https://teamengland.org/team-england-athletes/francesca-williams', 'Francesca Williams goal-defence position'],
+  ['england-jess-position', 'https://teamengland.org/team-england-athletes/jess-shaw', 'Jess Shaw wing-attack position'],
+  ['england-sasha-position', 'https://teamengland.org/team-england-athletes/sasha-glasgow', 'Sasha Glasgow goal-attack position'],
+  ['england-eleanor-position', 'https://www.manchesterthunder.co.uk/welcome-back-eleanor-cardwell/', 'Eleanor Cardwell goal-shooter position'],
   ['new-zealand-squad', 'https://www.silverferns.co.nz/silver-ferns/news/latest-news/new-zealand-netball-team-ready-for-glasgow-2026-commonwealth-games-challenge.html', 'New Zealand final squad identities and captain'],
   ['new-zealand-positions', 'https://www.silverferns.co.nz/silver-ferns/team/sf-squad.html', 'New Zealand player positions'],
   ['scotland-squad', 'https://www.glasgow2026.com/news/4528552/meet-the-12-thistles-headed-for-the-hydro', 'Scotland final squad identities and positions'],
@@ -399,8 +403,8 @@ const sources = [
   ['jamaica-squad-post', 'https://www.facebook.com/NetballJamaica/posts/1479327667570966', 'Netball Jamaica final squad graphic'],
   ['jamaica-squad-report', 'https://www.jamaicaobserver.com/2026/07/10/sunshine-girls-head-glasgow-gold-mind/', 'Jamaica final squad identities'],
   ['jamaica-position-guide', 'https://mcges.gov.jm/images/PDF/BIGUP_2023_SunshineGirls.pdf', 'Jamaica established player positions'],
-  ['jamaica-new-player-positions', 'https://www.englandnetball.co.uk/news/athletes-selected-for-roses-academy-2023-24/', 'Azara Wilmot positions'],
-  ['jamaica-rhea-position', 'https://jamaica-star.com/article/sports/20231020/england-born-dixon-hopes-add-sunshine-girls%E2%80%99-style', 'Rhea Dixon primary position'],
+  ['jamaica-new-player-positions', 'https://londonpulsenetball.com/academy-npl-season-complete-u17-u19-crowned-champions/', 'Azara Wilmot goal-shooter position'],
+  ['jamaica-rhea-position', 'https://netballnz.co.nz/images/silver-ferns/documents/SFTJT-21-Media-Guide-web.pdf', 'Rhea Dixon goal-attack position'],
   ['jamaica-brie-position', 'https://londonpulsenetball.com/brie-grierson-back-in-pink-and-black/', 'Brie Grierson primary position'],
   ['jamaica-crystal-position', 'https://www.jamaicaobserver.com/2024/08/15/crystal-plummers-netball-future-shines-bright/', 'Crystal Plummer positions'],
   ['trinidad-tobago-squad-hub', 'https://netball.sport/events-and-results/commonwealth-games/trinidadtobago/', 'Trinidad and Tobago final squad announcement embed'],
@@ -450,7 +454,7 @@ const manifest = {
     utcConversion: 'Every published BST time was stored with a +01:00 offset and serialized to UTC.',
     venue: 'The Hydro',
     matchCoverage: { total: 38, poolStage: 30, classification: 4, semiFinals: 2, medalMatches: 2, unresolvedSlots: 12, dependentSlots: 4 },
-    squadPositionConvention: 'Where an official source listed multiple positions, the first listed position is the database primary position.',
+    squadPositionConvention: 'A database primary position is recorded only when a fetched source directly supports that player-position fact; no unsupported position is inferred for import completeness.',
     squadIdentityCoverage: { finalSquads: 11, provisionalSquads: 1, importedCompleteSquads: 8 },
     squadCoverage,
     squadMembers,
