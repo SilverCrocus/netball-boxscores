@@ -285,6 +285,47 @@ describe('PrismaCompetitionImportWriter', () => {
     expect(state.matches).toHaveLength(1);
   });
 
+  it('reconciles a legacy same-checksum run before allowing a provenance-matched replay', async () => {
+    const input = validImport();
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    expect(preview.valid).toBe(true);
+
+    const { prisma } = createFakePrisma();
+    const legacyWriter = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+    });
+    await legacyWriter.execute(input, preview);
+
+    const currentWriter = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+      receiptMetadata: { importKind: 'GLASGOW_FOUNDATION' },
+    });
+    const reconciled = await currentWriter.execute(input, preview);
+    expect(reconciled).toMatchObject({
+      skipped: 0,
+      publicationStatus: 'PUBLISHED',
+    });
+    expect(reconciled.inserted + reconciled.updated).toBeGreaterThan(0);
+
+    const replay = await currentWriter.execute(input, preview);
+    expect(replay).toMatchObject({
+      inserted: 0,
+      updated: 0,
+      skipped: preview.writes.length,
+      publicationStatus: 'PUBLISHED',
+    });
+  });
+
   it('reuses a reviewed canonical player without moving their legacy club team', async () => {
     const input = validImport();
     input.players[0].canonicalChampionDataPlayerId = 12345;

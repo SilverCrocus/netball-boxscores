@@ -114,6 +114,9 @@ jobs:
       - name: Validate the immutable bundle offline
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
 
+      - name: Normalize preview publication state to DRAFT
+        run: npm run db:reset:glasgow-preview
+
       - name: Prepare unpublished foundation
         run: npm run db:prepare:glasgow
 

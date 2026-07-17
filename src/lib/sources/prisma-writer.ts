@@ -239,7 +239,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           }
         }
 
-        const priorRun = await transaction.importRun.findFirst({
+        const priorRunCandidates = await transaction.importRun.findMany({
           where: {
             sourceSystemId: source.id,
             competitionId: this.options.competitionId,
@@ -248,7 +248,11 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             dryRun: false,
           },
           orderBy: { completedAt: 'desc' },
+          take: 20,
+          select: { id: true, metadata: true },
         });
+        const priorRun = priorRunCandidates.find((candidate) =>
+          receiptMetadataMatches(candidate.metadata, this.options.receiptMetadata)) ?? null;
 
         await transaction.importRun.create({
           data: {
