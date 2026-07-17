@@ -1,4 +1,4 @@
-import { access, chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { access, chmod, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -332,6 +332,36 @@ describe('production operation guards', () => {
     expect(() => parseGuardedGlasgowArguments([
       '--evidence-file', evidence, 'results', 'relative.json',
     ])).toThrow('Usage:');
+  });
+
+  it('requires every production runbook publication command to use the guarded wrapper', async () => {
+    const runbooksDirectory = path.resolve('docs/runbooks');
+    const runbooks = (await readdir(runbooksDirectory))
+      .filter((file) => file.endsWith('.md'))
+      .sort((left, right) => left.localeCompare(right));
+    const rollback = await readFile(path.join(runbooksDirectory, 'glasgow-2026-rollback.md'), 'utf8');
+
+    expect(rollback).not.toMatch(/^\s*npm run db:publish:edition\b/m);
+    expect(rollback.match(/npm run production:glasgow --/g)).toHaveLength(2);
+    expect(rollback.match(/--evidence-file /g)).toHaveLength(2);
+    expect(rollback).toContain('chmod 700 "$RELEASE_EVIDENCE_DIR/glasgow/targets"');
+    expect(rollback).toContain('rollback-publication-dry-run.json');
+    expect(rollback).toContain('rollback-publication-apply.json');
+
+    for (const runbook of runbooks) {
+      const body = await readFile(path.join(runbooksDirectory, runbook), 'utf8');
+      const bashBlocks = [...body.matchAll(/```bash\n([\s\S]*?)```/g)].map((match) => match[1] ?? '');
+      for (const block of bashBlocks) {
+        expect(block, `${runbook} contains a direct publication command`)
+          .not.toMatch(/^\s*npm run db:publish:edition\b/m);
+        if (/^\s*publish --(?:dry-run|apply)\b/m.test(block)) {
+          expect(block, `${runbook} publication must use production:glasgow`)
+            .toMatch(/^\s*npm run production:glasgow --/m);
+          expect(block, `${runbook} publication must capture target evidence`)
+            .toMatch(/^\s*--evidence-file /m);
+        }
+      }
+    }
   });
 
   it('writes refs-only private evidence before executing an approved Glasgow action', async () => {
