@@ -3,7 +3,7 @@
 \if :{?operations_password}
 \else
   \echo 'operations_password is required. Pass it with --set=operations_password=...'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'operations_password is required'; END $$;
 \endif
 
 -- Credentials are provisioned operationally so secrets never enter migration
@@ -41,7 +41,7 @@ WHERE role.rolname = 'centrepass_stats_operations'
   \echo 'Verified: centrepass_stats_operations has the required restricted role attributes.'
 \else
   \echo 'FAILED: centrepass_stats_operations has elevated or unexpected role attributes.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_stats_operations has elevated or unexpected role attributes'; END $$;
 \endif
 
 SELECT NOT EXISTS (
@@ -56,7 +56,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_stats_operations has no SET ROLE path through role membership.'
 \else
   \echo 'FAILED: centrepass_stats_operations is a member of another role.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_stats_operations is a member of another role'; END $$;
 \endif
 
 GRANT USAGE ON SCHEMA analytics TO centrepass_stats_operations;
@@ -79,7 +79,7 @@ SELECT
   \echo 'Verified: centrepass_stats_operations cannot create objects in application schemas.'
 \else
   \echo 'FAILED: centrepass_stats_operations inherited schema CREATE privileges.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_stats_operations inherited schema CREATE privileges'; END $$;
 \endif
 
 GRANT EXECUTE ON FUNCTION analytics.reserve_stat_query_rate_limit(TEXT)
@@ -122,7 +122,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_stats_operations has no relation privileges.'
 \else
   \echo 'FAILED: centrepass_stats_operations can access a relation directly.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_stats_operations can access a relation directly'; END $$;
 \endif
 
 SELECT NOT EXISTS (
@@ -145,7 +145,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_stats_operations has no sequence privileges.'
 \else
   \echo 'FAILED: centrepass_stats_operations can access a sequence.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_stats_operations can access a sequence'; END $$;
 \endif
 
 SELECT
@@ -176,5 +176,5 @@ SELECT
   \echo 'Verified: centrepass_stats_operations can execute only the reviewed operations functions.'
 \else
   \echo 'FAILED: centrepass_stats_operations function privileges differ from the reviewed allowlist.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_stats_operations function privileges differ from the reviewed allowlist'; END $$;
 \endif

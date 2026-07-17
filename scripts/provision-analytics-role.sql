@@ -3,7 +3,7 @@
 \if :{?analytics_password}
 \else
   \echo 'analytics_password is required. Pass it with --set=analytics_password=...'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'analytics_password is required'; END $$;
 \endif
 
 -- This script is intentionally operational rather than a Prisma migration:
@@ -40,7 +40,7 @@ WHERE role.rolname = 'centrepass_analytics'
   \echo 'Verified: centrepass_analytics has the required restricted role attributes.'
 \else
   \echo 'FAILED: centrepass_analytics has elevated or unexpected role attributes.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics has elevated or unexpected role attributes'; END $$;
 \endif
 
 SELECT NOT EXISTS (
@@ -55,7 +55,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics has no SET ROLE path through role membership.'
 \else
   \echo 'FAILED: centrepass_analytics is a member of another role.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics is a member of another role'; END $$;
 \endif
 
 GRANT USAGE ON SCHEMA analytics TO centrepass_analytics;
@@ -78,7 +78,7 @@ SELECT
   \echo 'Verified: centrepass_analytics cannot create objects in application schemas.'
 \else
   \echo 'FAILED: centrepass_analytics inherited schema CREATE privileges.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics inherited schema CREATE privileges'; END $$;
 \endif
 
 -- Explicit allowlist: adding a new analytics view does not grant it to the
@@ -137,7 +137,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics cannot SELECT outside analytics.'
 \else
   \echo 'FAILED: centrepass_analytics inherited SELECT outside analytics.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics inherited SELECT outside analytics'; END $$;
 \endif
 
 SELECT NOT EXISTS (
@@ -163,7 +163,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics has no table write grants.'
 \else
   \echo 'FAILED: centrepass_analytics has a table write grant.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics has a table write grant'; END $$;
 \endif
 
 SELECT NOT EXISTS (
@@ -186,7 +186,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics has no sequence privileges.'
 \else
   \echo 'FAILED: centrepass_analytics can access a sequence.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics can access a sequence'; END $$;
 \endif
 
 WITH allowed(schema_name, relation_name) AS (
@@ -238,7 +238,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics SELECT privileges exactly match the reviewed allowlist.'
 \else
   \echo 'FAILED: centrepass_analytics SELECT privileges differ from the reviewed allowlist.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics SELECT privileges differ from the reviewed allowlist'; END $$;
 \endif
 
 SELECT NOT EXISTS (
@@ -256,7 +256,7 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics cannot execute external security-definer functions.'
 \else
   \echo 'FAILED: centrepass_analytics can execute a security-definer function outside analytics.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics can execute a security-definer function outside analytics'; END $$;
 \endif
 
 SELECT NOT EXISTS (
@@ -272,5 +272,5 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics cannot execute application functions.'
 \else
   \echo 'FAILED: centrepass_analytics can execute a public or analytics function.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics can execute a public or analytics function'; END $$;
 \endif

@@ -53,6 +53,8 @@ describe('Readiness API', () => {
       no_sequence_privileges: true,
       no_function_privileges: true,
       no_schema_create: true,
+      statement_timeout_ok: true,
+      statement_timeout_ms: 2000,
     }]);
     operationsQueryRawMock.mockReset().mockResolvedValue([{
       identity_ok: true,
@@ -63,6 +65,8 @@ describe('Readiness API', () => {
       no_relation_privileges: true,
       no_sequence_privileges: true,
       no_schema_create: true,
+      statement_timeout_ok: true,
+      statement_timeout_ms: 2000,
     }]);
     scopedConfigurationMock.mockReset().mockReturnValue({
       analyticsDatabaseUrlConfigured: false,
@@ -231,6 +235,8 @@ describe('Readiness API', () => {
       noSequencePrivileges: true,
       noFunctionPrivileges: true,
       noSchemaCreate: true,
+      statementTimeoutOk: true,
+      statementTimeoutMs: 2000,
     });
     expect(data.checks.statsOperations).toMatchObject({
       state: 'healthy',
@@ -244,6 +250,8 @@ describe('Readiness API', () => {
       noRelationPrivileges: true,
       noSequencePrivileges: true,
       noSchemaCreate: true,
+      statementTimeoutOk: true,
+      statementTimeoutMs: 2000,
     });
   });
 
@@ -266,6 +274,8 @@ describe('Readiness API', () => {
       no_sequence_privileges: false,
       no_function_privileges: false,
       no_schema_create: false,
+      statement_timeout_ok: false,
+      statement_timeout_ms: 120000,
     }]);
     const { GET } = await import('@/app/api/readiness/route');
 
@@ -285,6 +295,8 @@ describe('Readiness API', () => {
       noSequencePrivileges: false,
       noFunctionPrivileges: false,
       noSchemaCreate: false,
+      statementTimeoutOk: false,
+      statementTimeoutMs: 120000,
     });
   });
 
@@ -307,6 +319,8 @@ describe('Readiness API', () => {
       no_relation_privileges: false,
       no_sequence_privileges: false,
       no_schema_create: false,
+      statement_timeout_ok: false,
+      statement_timeout_ms: 120000,
     }]);
     const { GET } = await import('@/app/api/readiness/route');
 
@@ -324,6 +338,43 @@ describe('Readiness API', () => {
       noRelationPrivileges: false,
       noSequencePrivileges: false,
       noSchemaCreate: false,
+      statementTimeoutOk: false,
+      statementTimeoutMs: 120000,
+    });
+  });
+
+  it('fails readiness when a scoped database role has a statement timeout above two seconds', async () => {
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'true');
+    scopedConfigurationMock.mockReturnValue({
+      analyticsDatabaseUrlConfigured: true,
+      analyticsDatabaseUrlValid: true,
+      statsOperationsDatabaseUrlConfigured: false,
+      statsOperationsDatabaseUrlValid: false,
+    });
+    analyticsQueryRawMock.mockResolvedValue([{
+      identity_ok: true,
+      role_attributes_ok: true,
+      no_role_memberships: true,
+      schema_usage_ok: true,
+      read_only_ok: true,
+      exact_surface_ok: true,
+      no_write_privileges: true,
+      no_sequence_privileges: true,
+      no_function_privileges: true,
+      no_schema_create: true,
+      statement_timeout_ok: false,
+      statement_timeout_ms: 3000,
+    }]);
+    const { GET } = await import('@/app/api/readiness/route');
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(data.checks.analytics).toMatchObject({
+      state: 'unhealthy',
+      statementTimeoutOk: false,
+      statementTimeoutMs: 3000,
     });
   });
 

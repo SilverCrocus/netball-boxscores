@@ -158,6 +158,8 @@ describe('secure analytics query boundary', () => {
     expect(analyticsRole).toContain('no_application_function_execution');
     expect(analyticsRole).toContain('default_transaction_read_only = on');
     expect(analyticsRole).toContain("statement_timeout = %L");
+    expect(analyticsRole).not.toContain('\\quit');
+    expect(analyticsRole).toContain('RAISE EXCEPTION');
     const plannedViews = [...queryPlanChecks.matchAll(/analytics\.([a-z_]+)/g)]
       .map((match) => match[1]);
     expect(plannedViews.length).toBeGreaterThan(0);
@@ -177,12 +179,16 @@ describe('secure analytics query boundary', () => {
     expect(operationsRole).toContain('no_schema_create');
     expect(operationsRole).not.toContain('GRANT SELECT ON');
     expect(operationsRole).not.toContain('default_transaction_read_only = on');
+    expect(operationsRole).not.toContain('\\quit');
+    expect(operationsRole).toContain('RAISE EXCEPTION');
   });
 
   it('makes readiness prove both scoped role contracts instead of connection liveness', () => {
     expect(readinessRoute).toContain("CURRENT_USER = 'centrepass_analytics'");
     expect(readinessRoute).toContain("CURRENT_USER = 'centrepass_stats_operations'");
     expect(readinessRoute).toContain("current_setting('default_transaction_read_only', true) = 'on'");
+    expect(readinessRoute.match(/current_setting\('statement_timeout'\)/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(readinessRoute.match(/statementTimeoutOk/g)?.length).toBeGreaterThanOrEqual(4);
     expect(readinessRoute.match(/role_attributes_ok/g)?.length).toBeGreaterThanOrEqual(2);
     expect(readinessRoute.match(/no_role_memberships/g)?.length).toBeGreaterThanOrEqual(2);
     expect(readinessRoute.match(/no_sequence_privileges/g)?.length).toBeGreaterThanOrEqual(2);

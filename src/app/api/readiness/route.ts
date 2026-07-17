@@ -28,6 +28,8 @@ interface AnalyticsBoundaryRow {
   no_sequence_privileges: boolean;
   no_function_privileges: boolean;
   no_schema_create: boolean;
+  statement_timeout_ok: boolean;
+  statement_timeout_ms: number;
 }
 
 interface OperationsBoundaryRow {
@@ -39,6 +41,8 @@ interface OperationsBoundaryRow {
   no_relation_privileges: boolean;
   no_sequence_privileges: boolean;
   no_schema_create: boolean;
+  statement_timeout_ok: boolean;
+  statement_timeout_ms: number;
 }
 
 async function runProbeQuery<Row>(client: ProbeClient, query: Prisma.Sql) {
@@ -176,7 +180,15 @@ async function probeAnalyticsBoundary(client: ProbeClient) {
           AND has_function_privilege(CURRENT_USER, routine.oid, 'EXECUTE')
       ) AS no_function_privileges,
       NOT has_schema_privilege(CURRENT_USER, 'public', 'CREATE')
-        AND NOT has_schema_privilege(CURRENT_USER, 'analytics', 'CREATE') AS no_schema_create
+        AND NOT has_schema_privilege(CURRENT_USER, 'analytics', 'CREATE') AS no_schema_create,
+      current_setting('statement_timeout')::INTERVAL > INTERVAL '0 seconds'
+        AND current_setting('statement_timeout')::INTERVAL <= INTERVAL '2 seconds'
+        AS statement_timeout_ok,
+      (
+        pg_catalog.extract(
+          EPOCH FROM current_setting('statement_timeout')::INTERVAL
+        ) * 1000
+      )::INTEGER AS statement_timeout_ms
   `);
   const row = result.rows?.[0];
   const identityOk = row?.identity_ok === true;
@@ -189,6 +201,8 @@ async function probeAnalyticsBoundary(client: ProbeClient) {
   const noSequencePrivileges = row?.no_sequence_privileges === true;
   const noFunctionPrivileges = row?.no_function_privileges === true;
   const noSchemaCreate = row?.no_schema_create === true;
+  const statementTimeoutOk = row?.statement_timeout_ok === true;
+  const statementTimeoutMs = row?.statement_timeout_ms ?? null;
 
   return {
     ok: identityOk
@@ -200,7 +214,8 @@ async function probeAnalyticsBoundary(client: ProbeClient) {
       && noWritePrivileges
       && noSequencePrivileges
       && noFunctionPrivileges
-      && noSchemaCreate,
+      && noSchemaCreate
+      && statementTimeoutOk,
     latencyMs: result.latencyMs,
     identityOk,
     roleAttributesOk,
@@ -212,6 +227,8 @@ async function probeAnalyticsBoundary(client: ProbeClient) {
     noSequencePrivileges,
     noFunctionPrivileges,
     noSchemaCreate,
+    statementTimeoutOk,
+    statementTimeoutMs,
   };
 }
 
@@ -294,7 +311,15 @@ async function probeOperationsBoundary(client: ProbeClient) {
         SELECT 1 FROM sequence_access access WHERE access.can_access
       ) AS no_sequence_privileges,
       NOT has_schema_privilege(CURRENT_USER, 'public', 'CREATE')
-        AND NOT has_schema_privilege(CURRENT_USER, 'analytics', 'CREATE') AS no_schema_create
+        AND NOT has_schema_privilege(CURRENT_USER, 'analytics', 'CREATE') AS no_schema_create,
+      current_setting('statement_timeout')::INTERVAL > INTERVAL '0 seconds'
+        AND current_setting('statement_timeout')::INTERVAL <= INTERVAL '2 seconds'
+        AS statement_timeout_ok,
+      (
+        pg_catalog.extract(
+          EPOCH FROM current_setting('statement_timeout')::INTERVAL
+        ) * 1000
+      )::INTEGER AS statement_timeout_ms
   `);
   const row = result.rows?.[0];
   const identityOk = row?.identity_ok === true;
@@ -305,6 +330,8 @@ async function probeOperationsBoundary(client: ProbeClient) {
   const noRelationPrivileges = row?.no_relation_privileges === true;
   const noSequencePrivileges = row?.no_sequence_privileges === true;
   const noSchemaCreate = row?.no_schema_create === true;
+  const statementTimeoutOk = row?.statement_timeout_ok === true;
+  const statementTimeoutMs = row?.statement_timeout_ms ?? null;
 
   return {
     ok: identityOk
@@ -314,7 +341,8 @@ async function probeOperationsBoundary(client: ProbeClient) {
       && exactFunctionSurface
       && noRelationPrivileges
       && noSequencePrivileges
-      && noSchemaCreate,
+      && noSchemaCreate
+      && statementTimeoutOk,
     latencyMs: result.latencyMs,
     identityOk,
     roleAttributesOk,
@@ -324,6 +352,8 @@ async function probeOperationsBoundary(client: ProbeClient) {
     noRelationPrivileges,
     noSequencePrivileges,
     noSchemaCreate,
+    statementTimeoutOk,
+    statementTimeoutMs,
   };
 }
 
@@ -400,6 +430,8 @@ export async function GET(): Promise<NextResponse> {
         noSequencePrivileges: analyticsProbe?.noSequencePrivileges ?? false,
         noFunctionPrivileges: analyticsProbe?.noFunctionPrivileges ?? false,
         noSchemaCreate: analyticsProbe?.noSchemaCreate ?? false,
+        statementTimeoutOk: analyticsProbe?.statementTimeoutOk ?? false,
+        statementTimeoutMs: analyticsProbe?.statementTimeoutMs ?? null,
       },
       statsOperations: {
         ok: features.askCentrePassEnabled ? operationsProbe?.ok === true : false,
@@ -422,6 +454,8 @@ export async function GET(): Promise<NextResponse> {
         noRelationPrivileges: operationsProbe?.noRelationPrivileges ?? false,
         noSequencePrivileges: operationsProbe?.noSequencePrivileges ?? false,
         noSchemaCreate: operationsProbe?.noSchemaCreate ?? false,
+        statementTimeoutOk: operationsProbe?.statementTimeoutOk ?? false,
+        statementTimeoutMs: operationsProbe?.statementTimeoutMs ?? null,
       },
       worker: {
         ok: workerIsHealthy,
