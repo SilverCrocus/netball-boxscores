@@ -47,6 +47,70 @@ function validProductionEnvironment(): NodeJS.ProcessEnv {
   };
 }
 
+function fencedBashLogicalCommands(markdown: string): string[] {
+  const commands: string[] = [];
+  const blocks = [...markdown.matchAll(/```bash\r?\n([\s\S]*?)```/g)]
+    .map((match) => match[1] ?? '');
+  for (const block of blocks) {
+    let command = '';
+    for (const rawLine of block.split(/\r?\n/)) {
+      const continued = /\\\s*$/.test(rawLine);
+      const segment = rawLine.replace(/\\\s*$/, '').trim();
+      if (!segment || segment.startsWith('#')) continue;
+      command = command ? `${command} ${segment}` : segment;
+      if (!continued) {
+        commands.push(command);
+        command = '';
+      }
+    }
+    if (command) throw new Error('fenced Bash block has an unterminated line continuation');
+  }
+  return commands;
+}
+
+function shellTokens(command: string): string[] {
+  return (command.match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+/g) ?? [])
+    .map((token) => {
+      const first = token.at(0);
+      return first && first === token.at(-1) && ['"', "'"].includes(first)
+        ? token.slice(1, -1)
+        : token;
+    });
+}
+
+function scriptInvocationIndex(tokens: string[], script: string): number {
+  return tokens.findIndex((token, index) => (
+    token === 'npm' && tokens[index + 1] === 'run' && tokens[index + 2] === script
+  ));
+}
+
+function assertGuardedRunbookPublicationCommands(markdown: string, label: string): void {
+  for (const command of fencedBashLogicalCommands(markdown)) {
+    const tokens = shellTokens(command);
+    if (scriptInvocationIndex(tokens, 'db:publish:edition') >= 0) {
+      throw new Error(`${label} contains a direct publication command`);
+    }
+    const wrapperIndex = scriptInvocationIndex(tokens, 'production:glasgow');
+    const publishIndex = tokens.indexOf('publish', wrapperIndex + 3);
+    if (wrapperIndex < 0 || publishIndex < 0) continue;
+
+    const evidenceIndexes = tokens
+      .map((token, index) => token === '--evidence-file' ? index : -1)
+      .filter((index) => index >= 0);
+    if (evidenceIndexes.length !== 1) {
+      throw new Error(`${label} publication must contain exactly one --evidence-file option`);
+    }
+    const evidenceIndex = evidenceIndexes[0]!;
+    const evidencePath = tokens[evidenceIndex + 1];
+    if (!evidencePath || evidencePath.startsWith('--') || evidencePath === 'publish') {
+      throw new Error(`${label} publication --evidence-file must have a following path argument`);
+    }
+    if (evidenceIndex > publishIndex) {
+      throw new Error(`${label} publication --evidence-file must precede the publish action`);
+    }
+  }
+}
+
 describe('production operation guards', () => {
   it('requires both owner URLs to resolve to the same production project', () => {
     const result = verifyProductionTargets({
@@ -350,18 +414,42 @@ describe('production operation guards', () => {
 
     for (const runbook of runbooks) {
       const body = await readFile(path.join(runbooksDirectory, runbook), 'utf8');
-      const bashBlocks = [...body.matchAll(/```bash\n([\s\S]*?)```/g)].map((match) => match[1] ?? '');
-      for (const block of bashBlocks) {
-        expect(block, `${runbook} contains a direct publication command`)
-          .not.toMatch(/^\s*npm run db:publish:edition\b/m);
-        if (/^\s*publish --(?:dry-run|apply)\b/m.test(block)) {
-          expect(block, `${runbook} publication must use production:glasgow`)
-            .toMatch(/^\s*npm run production:glasgow --/m);
-          expect(block, `${runbook} publication must capture target evidence`)
-            .toMatch(/^\s*--evidence-file /m);
-        }
-      }
+      expect(() => assertGuardedRunbookPublicationCommands(body, runbook)).not.toThrow();
     }
+  });
+
+  it('rejects evidence flags attached to the wrong logical publication command', () => {
+    const malformed = [
+      '```bash',
+      'npm run production:glasgow -- \\',
+      '  --evidence-file "/private/dry-run.json" \\',
+      '  --evidence-file "/private/apply.json" \\',
+      '  publish --dry-run',
+      'npm run production:glasgow -- \\',
+      '  publish --apply --confirm <TOKEN>',
+      '```',
+    ].join('\n');
+    const publishCommands = fencedBashLogicalCommands(malformed);
+
+    expect(publishCommands).toHaveLength(2);
+    expect(publishCommands.map((command) => (
+      shellTokens(command).filter((token) => token === '--evidence-file').length
+    ))).toEqual([2, 0]);
+    expect(() => assertGuardedRunbookPublicationCommands(malformed, 'malformed.md'))
+      .toThrow('exactly one --evidence-file');
+  });
+
+  it('rejects a publication evidence option without a following path value', () => {
+    const malformed = [
+      '```bash',
+      'npm run production:glasgow -- \\',
+      '  --evidence-file \\',
+      '  publish --dry-run',
+      '```',
+    ].join('\n');
+
+    expect(() => assertGuardedRunbookPublicationCommands(malformed, 'missing-value.md'))
+      .toThrow('must have a following path argument');
   });
 
   it('writes refs-only private evidence before executing an approved Glasgow action', async () => {
