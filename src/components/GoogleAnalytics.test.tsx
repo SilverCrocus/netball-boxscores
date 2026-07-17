@@ -12,9 +12,13 @@ import { GoogleAnalytics } from '@/components/GoogleAnalytics';
 describe('GoogleAnalytics private-route suppression', () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it('emits no analytics scripts anywhere under the private admin prefix', () => {
+  it.each([
+    '/admin/preview/glasgow-2026',
+    '/auth/signin?callbackUrl=%2Fadmin%2Fpreview%2Fglasgow-2026',
+    '/auth/signup',
+  ])('installs no analytics network scripts on %s', (pathname) => {
     vi.stubEnv('NEXT_PUBLIC_GA4_ID', 'G-TEST');
-    usePathname.mockReturnValue('/admin/preview/glasgow-2026');
+    usePathname.mockReturnValue(pathname);
     const { container } = render(<GoogleAnalytics />);
     expect(container.querySelector('[data-script]')).toBeNull();
   });
