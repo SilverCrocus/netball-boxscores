@@ -33,7 +33,8 @@ async function localMigrations() {
 }
 
 async function main() {
-  const target = verifyPreviewDatabaseTarget();
+  const freshLocalRehearsal = process.env.FRESH_MIGRATION_REHEARSAL === 'true';
+  const target = freshLocalRehearsal ? null : verifyPreviewDatabaseTarget();
   const [local, applied] = await Promise.all([
     localMigrations(),
     prisma.$queryRaw<MigrationLedgerRow[]>(Prisma.sql`
@@ -63,9 +64,13 @@ async function main() {
     'the Prisma ledger contains an untracked migration');
 
   console.log(JSON.stringify({
-    status: 'verified-checked-in-preview-migrations',
-    expectedPreviewProjectRef: target.expectedPreviewProjectRef,
-    productionProjectRef: target.productionProjectRef,
+    status: freshLocalRehearsal
+      ? 'verified-complete-fresh-postgres-17-migration-chain'
+      : 'verified-checked-in-preview-migrations',
+    ...(target ? {
+      expectedPreviewProjectRef: target.expectedPreviewProjectRef,
+      productionProjectRef: target.productionProjectRef,
+    } : {}),
     migrationCount: local.length,
     migrations: local.map((migration) => migration.migrationName),
   }, null, 2));

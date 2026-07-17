@@ -71,6 +71,18 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      migration-rehearsal-postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: ${{ secrets.SUPABASE_PREVIEW_DATABASE_URL }}
       DIRECT_URL: ${{ secrets.SUPABASE_PREVIEW_DATABASE_URL }}
@@ -83,6 +95,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Verify preview-only database target
         shell: bash
@@ -114,11 +128,39 @@ jobs:
       - name: Capture refs-only preview target evidence
         run: npx tsx scripts/verify-preview-database-target.ts
 
-      - name: Verify Supabase remote-schema Prisma baseline
-        run: npx tsx scripts/verify-preview-prisma-baseline.ts
+      - name: Prove empty PostgreSQL 17 target and seed minimal Supabase roles
+        env: &fresh-migration-env
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          DIRECT_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          FRESH_MIGRATION_REHEARSAL: "true"
+        run: npx tsx scripts/verify-fresh-prisma-migration-target.ts
 
-      - name: Record verified remote-schema baseline in Prisma
-        run: npx prisma migrate resolve --applied 20260602_expand_stats_fields
+      - name: Verify immutable historical Prisma baseline
+        env: *fresh-migration-env
+        run: npx tsx scripts/verify-prisma-baseline-artifact.ts
+
+      - name: Initialize fresh PostgreSQL 17 from historical baseline
+        env: *fresh-migration-env
+        run: npx prisma db execute --file prisma/baselines/pre-20260602/baseline.sql
+
+      - name: Verify initialized historical baseline parity
+        env: *fresh-migration-env
+        run: >-
+          npx prisma migrate diff
+          --from-schema-datamodel prisma/baselines/pre-20260602/schema.prisma
+          --to-schema-datasource prisma/baselines/pre-20260602/schema.prisma
+          --exit-code
+
+      - name: Rehearse complete migration chain on fresh PostgreSQL 17
+        env: *fresh-migration-env
+        run: npx prisma migrate deploy
+
+      - name: Verify complete fresh PostgreSQL 17 migration ledger
+        env: *fresh-migration-env
+        run: npx tsx scripts/verify-preview-migrations.ts
+
+      - name: Verify and resolve Supabase remote-schema Prisma prefix
+        run: npx tsx scripts/verify-preview-prisma-baseline.ts --resolve
 
       - name: Deploy checked-in Prisma migrations
         run: npx prisma migrate deploy
