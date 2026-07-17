@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
   }));
 
   const expressApp = {
+    disable: vi.fn(),
     set: vi.fn(),
     use: vi.fn(),
     all: vi.fn(),
@@ -82,6 +83,7 @@ describe('custom server worker wiring', () => {
     await vi.waitFor(() => expect(mocks.httpServer.listen).toHaveBeenCalledOnce());
 
     expect(mocks.startWorker).not.toHaveBeenCalled();
+    expect(mocks.expressApp.disable).toHaveBeenCalledWith('x-powered-by');
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
