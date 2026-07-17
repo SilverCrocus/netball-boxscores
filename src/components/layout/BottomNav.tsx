@@ -22,6 +22,25 @@ const DIALOG_FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+function getOutsideModalTargets(modalLayer: HTMLElement) {
+  const targets = new Set<HTMLElement>();
+  let current: HTMLElement | null = modalLayer;
+
+  while (current) {
+    const parent: HTMLElement | null = current.parentElement;
+    if (!parent) break;
+    for (const sibling of Array.from(parent.children)) {
+      if (sibling !== current && sibling instanceof HTMLElement) {
+        targets.add(sibling);
+      }
+    }
+    if (parent === document.body) break;
+    current = parent;
+  }
+
+  return Array.from(targets);
+}
+
 export function BottomNav({
   editions = [],
   analyticsEnabled = false,
@@ -34,10 +53,16 @@ export function BottomNav({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { hasLive, minutesUntilNext } = useLiveStatus();
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreState, setMoreState] = useState({ pathname, open: false });
   const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const modalLayerRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusOnCloseRef = useRef(false);
+  if (moreState.pathname !== pathname) {
+    setMoreState({ pathname, open: false });
+  }
+  const moreOpen = moreState.pathname === pathname && moreState.open;
   const navigationItems = getVisibleNavigationItems({ analyticsEnabled, askCentrePassEnabled });
   const primaryItems = navigationItems.filter((item) => !['/teams', '/explore'].includes(item.href));
   const moreItems = navigationItems.filter((item) => ['/explore', '/teams'].includes(item.href));
@@ -56,26 +81,44 @@ export function BottomNav({
 
   useEffect(() => {
     if (!moreOpen) return;
+    const modalLayer = modalLayerRef.current;
+    const dialog = dialogRef.current;
+    if (!modalLayer || !dialog) return;
+
     const previousBodyOverflow = document.body.style.overflow;
+    const moreButton = moreButtonRef.current;
+    const outsideTargets = getOutsideModalTargets(modalLayer).map((element) => ({
+      element,
+      hadInert: element.hasAttribute('inert'),
+      ariaHidden: element.getAttribute('aria-hidden'),
+    }));
+
     document.body.style.overflow = 'hidden';
+    for (const { element } of outsideTargets) {
+      element.setAttribute('inert', '');
+      element.setAttribute('aria-hidden', 'true');
+    }
     closeButtonRef.current?.focus();
 
     const handleDialogKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setMoreOpen(false);
-        moreButtonRef.current?.focus();
+        restoreFocusOnCloseRef.current = true;
+        setMoreState({ pathname, open: false });
         return;
       }
 
       if (event.key !== 'Tab') return;
       const focusableElements = Array.from(
-        dialogRef.current?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) ?? [],
+        dialog.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR),
       );
       const firstFocusable = focusableElements[0];
       const lastFocusable = focusableElements.at(-1);
       if (!firstFocusable || !lastFocusable) return;
 
-      if (event.shiftKey && document.activeElement === firstFocusable) {
+      if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? lastFocusable : firstFocusable).focus();
+      } else if (event.shiftKey && document.activeElement === firstFocusable) {
         event.preventDefault();
         lastFocusable.focus();
       } else if (!event.shiftKey && document.activeElement === lastFocusable) {
@@ -83,51 +126,85 @@ export function BottomNav({
         firstFocusable.focus();
       }
     };
+
+    const handleDocumentFocusIn = (event: FocusEvent) => {
+      if (dialog.contains(event.target as Node)) return;
+      const firstFocusable = dialog.querySelector<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR);
+      (firstFocusable ?? dialog).focus();
+    };
+
     document.addEventListener('keydown', handleDialogKeyDown);
+    document.addEventListener('focusin', handleDocumentFocusIn);
     return () => {
       document.removeEventListener('keydown', handleDialogKeyDown);
+      document.removeEventListener('focusin', handleDocumentFocusIn);
       document.body.style.overflow = previousBodyOverflow;
+      for (const { element, hadInert, ariaHidden } of outsideTargets) {
+        if (!hadInert) element.removeAttribute('inert');
+        if (ariaHidden === null) {
+          element.removeAttribute('aria-hidden');
+        } else {
+          element.setAttribute('aria-hidden', ariaHidden);
+        }
+      }
+      if (restoreFocusOnCloseRef.current && moreButton?.isConnected) {
+        moreButton.focus();
+      }
+      restoreFocusOnCloseRef.current = false;
     };
-  }, [moreOpen]);
+  }, [moreOpen, pathname]);
 
   function closeMore() {
-    setMoreOpen(false);
-    moreButtonRef.current?.focus();
+    restoreFocusOnCloseRef.current = true;
+    setMoreState({ pathname, open: false });
   }
 
   return (
     <>
       {moreOpen && (
         <div
-          ref={dialogRef}
-          id="mobile-more-menu"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="mobile-more-heading"
-          className="fixed inset-x-3 bottom-24 z-[60] rounded-2xl border border-outline-variant/20 bg-white p-5 text-on-surface shadow-2xl lg:hidden"
+          ref={modalLayerRef}
+          data-testid="mobile-more-modal-layer"
+          className="fixed inset-0 z-[55] lg:hidden"
         >
-          <div className="mb-4 flex items-center justify-between">
-            <h2 id="mobile-more-heading" className="font-headline text-xl font-black uppercase">More</h2>
-            <button ref={closeButtonRef} type="button" onClick={closeMore} aria-label="Close more menu" className="min-h-11 min-w-11 rounded-full text-on-surface-variant">
-              <span aria-hidden="true" className="material-symbols-outlined">close</span>
-            </button>
-          </div>
-          <GlobalSearch onNavigate={closeMore} askCentrePassEnabled={askCentrePassEnabled} />
-          <div className="my-4 grid gap-2">
-            {moreItems.map((item) => (
-              <Link
-                key={item.href}
-                href={editionAwareNavigationHref(currentEdition, item.href)}
-                onClick={closeMore}
-                className="flex min-h-11 items-center gap-3 rounded-xl bg-surface-container-low px-4 font-headline text-sm font-bold"
-              >
-                <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
-                {item.href === '/teams' ? 'Browse teams' : 'Ask CentrePass'}
-              </Link>
-            ))}
-          </div>
-          <div className="border-t border-outline-variant/20 pt-4">
-            <AuthButton onNavigate={closeMore} />
+          <div aria-hidden="true" className="absolute inset-0 bg-slate-950/60" />
+          <div
+            ref={dialogRef}
+            id="mobile-more-menu"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-more-heading"
+            tabIndex={-1}
+            style={{
+              bottom: 'calc(5.5rem + env(safe-area-inset-bottom))',
+              maxHeight: 'calc(100dvh - 6.5rem - env(safe-area-inset-bottom))',
+              overscrollBehavior: 'contain',
+            }}
+            className="absolute inset-x-3 z-10 overflow-y-auto rounded-2xl border border-outline-variant/20 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-on-surface shadow-2xl"
+          >
+            <div className="sticky top-0 z-10 mb-4 flex items-center justify-between bg-white pb-2">
+              <h2 id="mobile-more-heading" className="font-headline text-xl font-black uppercase">More</h2>
+              <button ref={closeButtonRef} type="button" onClick={closeMore} aria-label="Close more menu" className="min-h-11 min-w-11 rounded-full text-on-surface-variant">
+                <span aria-hidden="true" className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <GlobalSearch onNavigate={closeMore} askCentrePassEnabled={askCentrePassEnabled} />
+            <div className="my-4 grid gap-2">
+              {moreItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={editionAwareNavigationHref(currentEdition, item.href)}
+                  onClick={closeMore}
+                  className="flex min-h-11 items-center gap-3 rounded-xl bg-surface-container-low px-4 font-headline text-sm font-bold"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
+                  {item.href === '/teams' ? 'Browse teams' : 'Ask CentrePass'}
+                </Link>
+              ))}
+            </div>
+            <div className="border-t border-outline-variant/20 pt-4">
+              <AuthButton onNavigate={closeMore} />
+            </div>
           </div>
         </div>
       )}
@@ -175,7 +252,10 @@ export function BottomNav({
           type="button"
           aria-expanded={moreOpen}
           aria-controls="mobile-more-menu"
-          onClick={() => setMoreOpen((open) => !open)}
+          onClick={() => {
+            restoreFocusOnCloseRef.current = moreOpen;
+            setMoreState({ pathname, open: !moreOpen });
+          }}
           className={`relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 transition-all ${moreOpen || moreActive || pathname.startsWith('/settings') ? 'bg-lime-500 text-slate-950' : 'text-slate-500 hover:bg-slate-800'}`}
         >
           <span aria-hidden="true" className="material-symbols-outlined">more_horiz</span>
