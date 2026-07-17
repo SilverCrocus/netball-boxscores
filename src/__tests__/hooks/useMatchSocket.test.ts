@@ -186,28 +186,34 @@ describe('useMatchSocket', () => {
     expect(result.current.statEvents).toEqual([]);
   });
 
-  it('cancels a pending completion disconnect when a newer revision reopens live', () => {
+  it('stays subscribed past completion and receives a reopen after a network reconnect', () => {
     vi.useFakeTimers();
     try {
-      renderHook(() => useMatchSocket('match-123', true));
+      const { result } = renderHook(() => useMatchSocket('match-123', true));
       const handler = (event: string) => mockSocket.on.mock.calls.find(
         (call: unknown[]) => call[0] === event,
       )?.[1] as (payload: Record<string, unknown>) => void;
 
       act(() => {
+        handler('connect')({});
         handler('match:status')({
           matchId: 'match-123', status: 'COMPLETED', quarter: 4, time: '0',
           revision: '2026-07-25T09:00:01Z',
         });
+        vi.advanceTimersByTime(30_000);
+        handler('disconnect')({});
+        handler('connect')({});
         handler('match:status')({
           matchId: 'match-123', status: 'LIVE', quarter: 4, time: '899',
           revision: '2026-07-25T09:00:02Z',
         });
-        vi.advanceTimersByTime(2_000);
       });
 
       expect(mockSocket.disconnect).not.toHaveBeenCalled();
       expect(mockSocket.io.opts.reconnection).toBe(true);
+      expect(mockSocket.emit).toHaveBeenCalledTimes(2);
+      expect(result.current.matchStatus).toMatchObject({ status: 'LIVE' });
+      expect(result.current.isConnected).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -237,6 +243,8 @@ describe('useMatchSocket', () => {
 
     expect(result.current.scoreFlow).toEqual([]);
     expect(result.current.statEvents).toEqual([]);
+    expect(result.current.hasScoreFlowSnapshot).toBe(true);
+    expect(result.current.hasStatEventsSnapshot).toBe(true);
   });
 
   it('never lets an older or unversioned payload regress an observed canonical revision', () => {

@@ -53,13 +53,27 @@ export function initSocketServer(httpServer: HttpServer) {
       if (
         !requestedMatches.has(matchId)
         || !access
-        || access.status !== 'LIVE'
+        || !isPublicMatchLiveOrFinal(access)
         || !access.features.finalScore.available
         || !hasRealtimeDetail
       ) return;
 
       socket.join(`match:${matchId}`);
       console.log(`[Socket.io] ${socket.id} joined match:${matchId}`);
+
+      if (access.status === 'COMPLETED') {
+        // A reconnect can happen after a correction broadcast was missed.
+        // Re-emit the complete canonical replacement set after the room join;
+        // each emit rechecks publication, capabilities, and the revision.
+        const { broadcastCompletion } = await import('@/lib/broadcasting');
+        await broadcastCompletion(
+          matchId,
+          0,
+          0,
+          4,
+          access.sourceUpdatedAt,
+        );
+      }
     });
 
     socket.on('match:unsubscribe', (data) => {

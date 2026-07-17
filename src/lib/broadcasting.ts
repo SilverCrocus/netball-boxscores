@@ -196,14 +196,13 @@ export async function broadcastPlayerStats(
       ...pickStatFields(ps),
     }));
 
-  if (statsPayload.length > 0) {
-    await broadcastStatsUpdate(
-      matchId,
-      { matchId, playerStats: statsPayload },
-      access,
-      expectedRevision,
-    );
-  }
+  // An empty array is a canonical replacement tombstone, not "no update".
+  await broadcastStatsUpdate(
+    matchId,
+    { matchId, playerStats: statsPayload },
+    access,
+    expectedRevision,
+  );
 }
 
 /** Emit the persisted player-stat table as a canonical replacement snapshot. */

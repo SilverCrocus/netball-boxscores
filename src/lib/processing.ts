@@ -95,6 +95,14 @@ const PROMOTABLE_RESULT_QUALITY_VALUES: ResultQualityStatus[] = [
   'UNOFFICIAL_FINAL',
 ];
 
+function hasAcceptedFixtureRevision(
+  sourceRetrievedAt: Date | null,
+  expectedRevision?: Date,
+): boolean {
+  return expectedRevision === undefined
+    || sourceRetrievedAt?.getTime() === expectedRevision.getTime();
+}
+
 /**
  * Keep the local schedule aligned with an upstream Champion Data fixture.
  * Finals are published under a separate upstream competition, but belong to
@@ -135,7 +143,6 @@ export async function syncFixtureMatches(
   // fixture request cannot overwrite metadata from a newer observation.
   const retrievedAt = fixtureObservationAt;
 
-  const operations: Prisma.PrismaPromise<unknown>[] = [];
   let syncedMatches = 0;
   for (const fixture of fixtureMatches) {
     const homeTeamId = teamIds.get(fixture.homeSquadId);
@@ -163,44 +170,84 @@ export async function syncFixtureMatches(
 
     const initialStatus = mapMatchStatus(fixture.matchStatus);
 
-    operations.push(prisma.match.upsert({
-      where: { championDataMatchId: fixture.matchId },
-      // Live score/status changes must remain visible to detectChanges so the
-      // socket layer can broadcast them. Fixture sync only refreshes metadata
-      // on existing rows; full state is used when a match is first discovered.
-      // Existing metadata is updated below through an observation-time CAS.
-      update: {},
-      create: {
-        championDataMatchId: fixture.matchId,
-        ...staticData,
-        status: initialStatus,
-        resultQuality:
-          initialStatus === 'COMPLETED'
-            // A fixture score is not a coherent final detail revision. Keep it
-            // non-public/non-standings until finalization applies the matching
-            // detail snapshot transactionally.
-            ? 'PROVISIONAL'
-            : initialStatus === 'LIVE'
-              ? 'PROVISIONAL'
-              : 'UNKNOWN',
-        homeScore: fixture.homeSquadScore ?? 0,
-        awayScore: fixture.awaySquadScore ?? 0,
-      },
-    }));
-    operations.push(prisma.match.updateMany({
-      where: {
-        championDataMatchId: fixture.matchId,
-        OR: [
-          { sourceRetrievedAt: null },
-          { sourceRetrievedAt: { lt: retrievedAt } },
-        ],
-      },
-      data: staticData,
-    }));
-    syncedMatches += 1;
-  }
+    const accepted = await runSerializableTransaction(async (tx) => {
+      const current = await tx.match.findUnique({
+        where: { championDataMatchId: fixture.matchId },
+        select: {
+          id: true,
+          competitionId: true,
+          homeTeamId: true,
+          awayTeamId: true,
+          stageId: true,
+          finalCode: true,
+          status: true,
+          resultQuality: true,
+          sourceRetrievedAt: true,
+        },
+      });
 
-  await prisma.$transaction(operations);
+      if (!current) {
+        const inserted = await tx.match.upsert({
+          where: { championDataMatchId: fixture.matchId },
+          update: {},
+          create: {
+            championDataMatchId: fixture.matchId,
+            ...staticData,
+            status: initialStatus,
+            resultQuality:
+              initialStatus === 'COMPLETED'
+                // A fixture score is not a coherent final detail revision. Keep it
+                // non-public/non-standings until finalization applies the matching
+                // detail snapshot transactionally.
+                ? 'PROVISIONAL'
+                : initialStatus === 'LIVE'
+                  ? 'PROVISIONAL'
+                  : 'UNKNOWN',
+            homeScore: fixture.homeSquadScore ?? 0,
+            awayScore: fixture.awaySquadScore ?? 0,
+          },
+          select: { sourceRetrievedAt: true },
+        });
+        return inserted.sourceRetrievedAt?.getTime() === retrievedAt.getTime();
+      }
+
+      if (current.sourceRetrievedAt && current.sourceRetrievedAt >= retrievedAt) {
+        return false;
+      }
+
+      const standingsMetadataChanged = (
+        current.competitionId !== competition.id
+        || current.homeTeamId !== homeTeamId
+        || current.awayTeamId !== awayTeamId
+        || current.stageId !== (stageId ?? null)
+        || current.finalCode !== (fixture.finalCode || null)
+      ) && current.status === 'COMPLETED'
+        && ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'].includes(current.resultQuality);
+      const affectedCompetitionIds = standingsMetadataChanged
+        ? [...new Set([current.competitionId, competition.id])].toSorted()
+        : [];
+      for (const affectedCompetitionId of affectedCompetitionIds) {
+        await acquireStandingsSourceLock(tx, affectedCompetitionId);
+      }
+
+      // Compare against the exact revision read above. This serializes fixture
+      // metadata with live/final result transactions for the same match.
+      const updated = await tx.match.updateMany({
+        where: {
+          id: current.id,
+          sourceRetrievedAt: current.sourceRetrievedAt,
+        },
+        data: staticData,
+      });
+      if (updated.count !== 1) return false;
+
+      for (const affectedCompetitionId of affectedCompetitionIds) {
+        await rebuildStandingsInTransaction(tx, affectedCompetitionId);
+      }
+      return true;
+    });
+    if (accepted) syncedMatches += 1;
+  }
   return syncedMatches;
 }
 
@@ -888,6 +935,7 @@ export async function reconcileCompletedMatches(
       championDataMatchId: true,
       homeScore: true,
       awayScore: true,
+      sourceRetrievedAt: true,
       sourceUpdatedAt: true,
     },
   });
@@ -901,6 +949,7 @@ export async function reconcileCompletedMatches(
     const fixture = fixtureMap.get(dbMatch.championDataMatchId);
     if (!fixture || fixture.matchStatus.toLowerCase() !== 'complete') continue;
     const fixtureObservationAt = fixtureObservationByMatchId.get(fixture.matchId);
+    if (!hasAcceptedFixtureRevision(dbMatch.sourceRetrievedAt, fixtureObservationAt)) continue;
     if (
       fixtureObservationAt
       && dbMatch.sourceUpdatedAt
@@ -915,10 +964,12 @@ export async function reconcileCompletedMatches(
           homeScore: true,
           awayScore: true,
           currentQuarter: true,
+          sourceRetrievedAt: true,
           sourceUpdatedAt: true,
         },
       });
       if (!current || !['LIVE', 'SCHEDULED'].includes(current.status)) return null;
+      if (!hasAcceptedFixtureRevision(current.sourceRetrievedAt, fixtureObservationAt)) return null;
       if (
         fixtureObservationAt
         && current.sourceUpdatedAt
@@ -931,10 +982,13 @@ export async function reconcileCompletedMatches(
           status: { in: ['LIVE', 'SCHEDULED'] },
           ...(fixtureObservationAt
             ? {
-                OR: [
-                  { sourceUpdatedAt: null },
-                  { sourceUpdatedAt: { lt: fixtureObservationAt } },
-                ],
+                sourceRetrievedAt: fixtureObservationAt,
+                AND: [{
+                  OR: [
+                    { sourceUpdatedAt: null },
+                    { sourceUpdatedAt: { lt: fixtureObservationAt } },
+                  ],
+                }],
               }
             : {}),
         },
@@ -983,6 +1037,7 @@ export async function reconcileStaleCompletedScores(
       resultQuality: true,
       currentQuarter: true,
       competitionId: true,
+      sourceRetrievedAt: true,
       sourceUpdatedAt: true,
     },
   });
@@ -995,6 +1050,7 @@ export async function reconcileStaleCompletedScores(
     const fixture = fixtureMap.get(dbMatch.championDataMatchId!);
     if (!fixture || fixture.matchStatus.toLowerCase() !== 'complete') continue;
     const fixtureObservationAt = fixtureObservationByMatchId.get(fixture.matchId);
+    if (!hasAcceptedFixtureRevision(dbMatch.sourceRetrievedAt, fixtureObservationAt)) continue;
     if (
       fixtureObservationAt
       && dbMatch.sourceUpdatedAt
@@ -1118,6 +1174,7 @@ export async function finalizeCompletedMatches(
       resultQuality: true,
       competitionId: true,
       status: true,
+      sourceRetrievedAt: true,
       sourceUpdatedAt: true,
     },
   });
@@ -1144,6 +1201,10 @@ export async function finalizeCompletedMatches(
       continue;
     }
     const fixtureObservationAt = fixtureObservationByMatchId.get(fixture.matchId);
+    if (!hasAcceptedFixtureRevision(match.sourceRetrievedAt, fixtureObservationAt)) {
+      failedMatchIds.push(match.id);
+      continue;
+    }
     if (
       fixtureObservationAt
       && match.sourceUpdatedAt
@@ -1167,6 +1228,10 @@ export async function finalizeCompletedMatches(
           polledAt: detailObservationAt,
           endpoint: correctionAttempt ? 'final-detail-correction' : 'final-detail',
           rawResponse: {
+            fixtureSourceRetrievedAt:
+              fixtureObservationAt?.toISOString()
+              ?? match.sourceRetrievedAt?.toISOString()
+              ?? null,
             fixtureHomeScore: fixture.homeSquadScore,
             fixtureAwayScore: fixture.awaySquadScore,
             previousHomeScore: match.homeScore,
@@ -1210,10 +1275,16 @@ export async function finalizeCompletedMatches(
             homeScore: true,
             awayScore: true,
             currentQuarter: true,
+            sourceRetrievedAt: true,
             sourceUpdatedAt: true,
           },
         });
         if (!effectiveMatch) return null;
+
+        if (!hasAcceptedFixtureRevision(
+          effectiveMatch.sourceRetrievedAt,
+          fixtureObservationAt,
+        )) return null;
 
         if (
           fixtureObservationAt
@@ -1254,7 +1325,14 @@ export async function finalizeCompletedMatches(
         const finalQuarter = detail.matchInfo.period || fixtureFinalQuarter;
 
         await tx.match.update({
-          where: { id: match.id },
+          where: {
+            id: match.id,
+            ...(fixtureObservationAt ? { sourceRetrievedAt: fixtureObservationAt } : {}),
+            OR: [
+              { sourceUpdatedAt: null },
+              { sourceUpdatedAt: { lt: detailObservationAt } },
+            ],
+          },
           data: {
             status: 'COMPLETED',
             ...qualityUpdate,
@@ -1280,7 +1358,19 @@ export async function finalizeCompletedMatches(
         where: { id: finalDetailPollLogId },
         data: { status: transactionFinal ? 'processed' : 'superseded' },
       });
-      if (transactionFinal) finalized.push(transactionFinal);
+      if (transactionFinal) {
+        if (correctionAttempt) {
+          await prisma.pollLog.updateMany({
+            where: {
+              cdMatchId: match.championDataMatchId!,
+              endpoint: 'final-detail-correction',
+              status: { in: ['pending', 'fetch_error', 'revision_mismatch'] },
+            },
+            data: { status: 'superseded' },
+          });
+        }
+        finalized.push(transactionFinal);
+      }
     } catch (error) {
       console.error(`[Processing] Failed to finalize ${match.id}:`, error);
       if (finalDetailPollLogId) {

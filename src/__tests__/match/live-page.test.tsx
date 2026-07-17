@@ -1,17 +1,36 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
 
 // Mock the useMatchSocket hook
-vi.mock('@/hooks/useMatchSocket', () => ({
-  useMatchSocket: vi.fn(() => ({
+const socketState = vi.hoisted(() => ({
+  current: {
     score: null,
     playerStats: null,
     matchStatus: null,
     scoreFlow: [],
     statEvents: [],
+    hasPlayerStatsSnapshot: false,
+    hasScoreFlowSnapshot: false,
+    hasStatEventsSnapshot: false,
     isConnected: false,
-  })),
+  } as Record<string, unknown>,
 }));
+
+vi.mock('@/hooks/useMatchSocket', () => ({
+  useMatchSocket: vi.fn(() => socketState.current),
+}));
+
+const emptySocketState = () => ({
+  score: null,
+  playerStats: null,
+  matchStatus: null,
+  scoreFlow: [],
+  statEvents: [],
+  hasPlayerStatsSnapshot: false,
+  hasScoreFlowSnapshot: false,
+  hasStatEventsSnapshot: false,
+  isConnected: false,
+});
 
 import { LiveGameClient } from '@/app/match/[matchId]/live/LiveGameClient';
 
@@ -96,6 +115,10 @@ const mockMatch = {
 };
 
 describe('LiveGameClient', () => {
+  beforeEach(() => {
+    socketState.current = emptySocketState();
+  });
+
   it('should render both team names', () => {
     render(<LiveGameClient match={mockMatch} />);
     expect(screen.getAllByText('Viper Hawks').length).toBeGreaterThan(0);
@@ -141,5 +164,87 @@ describe('LiveGameClient', () => {
     render(<LiveGameClient match={mockMatch} />);
     const roundText = screen.getByText(/Round 5/);
     expect(roundText).toBeInTheDocument();
+  });
+
+  it('treats empty canonical snapshots as tombstones for SSR collections and stats', () => {
+    socketState.current = {
+      ...emptySocketState(),
+      playerStats: { matchId: 'match-1', playerStats: [] },
+      hasPlayerStatsSnapshot: true,
+      hasScoreFlowSnapshot: true,
+      hasStatEventsSnapshot: true,
+    };
+    render(<LiveGameClient match={{
+      ...mockMatch,
+      initialScoreFlow: [{
+        matchId: 'match-1', period: 1, periodSeconds: 10,
+        scoringTeamId: 'team-1', homeScore: 1, awayScore: 0,
+        scorePoints: 1, scorerPlayerId: 'p1', scorerName: 'Stale Scorer',
+      }],
+      initialMatchEvents: [{
+        eventId: 'stale-event', type: 'intercept', period: 1, periodSeconds: 20,
+        playerId: 'p2', playerName: 'Stale Defender', teamId: 'team-1',
+        teamName: 'Viper Hawks', teamAbbreviation: 'VH', teamLogoUrl: null,
+      }],
+    }} realtimeEnabled />);
+
+    expect(screen.queryByText('Stale Scorer')).not.toBeInTheDocument();
+    expect(screen.queryByText('Stale Defender')).not.toBeInTheDocument();
+    expect(screen.getByText('Waiting for live events...')).toBeInTheDocument();
+    const playerRow = screen.getAllByRole('link', { name: 'Sarah Jenkins' })[0].closest('tr');
+    expect(playerRow).not.toBeNull();
+    expect(within(playerRow!).getAllByRole('cell').slice(1).map((cell) => cell.textContent))
+      .toEqual(['0', '0', '0', '0', '0']);
+  });
+
+  it('replaces SSR flow, events, and player values with a downward canonical snapshot', () => {
+    socketState.current = {
+      ...emptySocketState(),
+      playerStats: {
+        matchId: 'match-1',
+        playerStats: [{
+          playerId: 'p1', goals: 5, attempts: 6, goalAssists: 0,
+          intercepts: 0, deflections: 0, rebounds: 0, penalties: 0,
+          feeds: 0, centrePassReceives: 0, turnovers: 0, minutesPlayed: 10,
+        }],
+      },
+      scoreFlow: [{
+        matchId: 'match-1', period: 1, periodSeconds: 30,
+        scoringTeamId: 'team-2', homeScore: 0, awayScore: 1,
+        scorePoints: 1, scorerPlayerId: 'p3', scorerName: 'Canonical Scorer',
+      }],
+      statEvents: [{
+        eventId: 'canonical-event', matchId: 'match-1', type: 'turnover',
+        playerId: 'p3', playerName: 'Canonical Defender', teamId: 'team-2',
+        teamName: 'Nova Stars', teamAbbreviation: 'NS', isHomeTeam: false,
+        quarter: 1, time: '40',
+      }],
+      hasPlayerStatsSnapshot: true,
+      hasScoreFlowSnapshot: true,
+      hasStatEventsSnapshot: true,
+    };
+    render(<LiveGameClient match={{
+      ...mockMatch,
+      initialScoreFlow: [{
+        matchId: 'match-1', period: 1, periodSeconds: 10,
+        scoringTeamId: 'team-1', homeScore: 1, awayScore: 0,
+        scorePoints: 1, scorerPlayerId: 'p1', scorerName: 'Stale Scorer',
+      }],
+      initialMatchEvents: [{
+        eventId: 'stale-event', type: 'intercept', period: 1, periodSeconds: 20,
+        playerId: 'p2', playerName: 'Stale Defender', teamId: 'team-1',
+        teamName: 'Viper Hawks', teamAbbreviation: 'VH', teamLogoUrl: null,
+      }],
+    }} realtimeEnabled />);
+
+    expect(screen.queryByText('Stale Scorer')).not.toBeInTheDocument();
+    expect(screen.queryByText('Stale Defender')).not.toBeInTheDocument();
+    expect(screen.getByText('Canonical Scorer')).toBeInTheDocument();
+    expect(screen.getByText('Canonical Defender')).toBeInTheDocument();
+    const playerRow = screen.getAllByRole('link', { name: 'Sarah Jenkins' })[0].closest('tr');
+    expect(within(playerRow!).getAllByRole('cell')[1]).toHaveTextContent('5');
+    const absentPlayerRow = screen.getAllByRole('link', { name: 'Jessica Chen' })[0].closest('tr');
+    expect(within(absentPlayerRow!).getAllByRole('cell').slice(1).map((cell) => cell.textContent))
+      .toEqual(['0', '0', '0', '0', '0']);
   });
 });

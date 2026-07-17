@@ -6,6 +6,7 @@ const {
   mockOn,
   mockTo,
   resolvePublicMatchMock,
+  broadcastCompletionMock,
 } = vi.hoisted(() => {
   const emit = vi.fn();
   return {
@@ -13,6 +14,7 @@ const {
     mockOn: vi.fn(),
     mockTo: vi.fn(() => ({ emit })),
     resolvePublicMatchMock: vi.fn(),
+    broadcastCompletionMock: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -27,6 +29,10 @@ vi.mock('@/lib/public-match', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/public-match')>();
   return { ...actual, resolvePublicMatchAccess: resolvePublicMatchMock };
 });
+
+vi.mock('@/lib/broadcasting', () => ({
+  broadcastCompletion: broadcastCompletionMock,
+}));
 
 import { resolveEditionFeatures } from '@/lib/edition-capabilities';
 import type { PublicMatchAccess } from '@/lib/public-match';
@@ -189,6 +195,23 @@ describe('socket-server public safety', () => {
     expect(socket.join).toHaveBeenNthCalledWith(1, 'match:match-1');
     expect(socket.leave).toHaveBeenCalledWith('match:match-1');
     expect(socket.join).toHaveBeenNthCalledWith(2, 'match:match-2');
+  });
+
+  it('resubscribes a public completed match and emits its canonical replacement snapshots', async () => {
+    const access = publicAccess(undefined, 'COMPLETED');
+    resolvePublicMatchMock.mockResolvedValue(access);
+    const { handlers, socket } = connectFakeSocket();
+
+    await handlers.get('match:subscribe')?.({ matchId: 'match-1' });
+
+    expect(socket.join).toHaveBeenCalledWith('match:match-1');
+    expect(broadcastCompletionMock).toHaveBeenCalledWith(
+      'match-1',
+      0,
+      0,
+      4,
+      access.sourceUpdatedAt,
+    );
   });
 
   it.each([

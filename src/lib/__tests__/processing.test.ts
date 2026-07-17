@@ -44,7 +44,12 @@ vi.mock('@/lib/db', () => {
       upsert: vi.fn(),
     },
     teamMatchStats: { deleteMany: vi.fn(), upsert: vi.fn() },
-    pollLog: { create: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    pollLog: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
   };
   return {
     prisma: {
@@ -77,6 +82,10 @@ beforeEach(() => {
   vi.mocked(prisma.pollLog.findMany).mockResolvedValue([]);
   vi.mocked(prisma.pollLog.create).mockResolvedValue({ id: 'final-poll-log' } as never);
   vi.mocked(prisma.pollLog.update).mockResolvedValue({} as never);
+  vi.mocked(prisma.pollLog.updateMany).mockResolvedValue({ count: 0 } as never);
+  vi.mocked(prisma.match.upsert).mockImplementation((async ({ create }: any) => ({
+    sourceRetrievedAt: create.sourceRetrievedAt,
+  })) as never);
   standingsMocks.acquire.mockResolvedValue(undefined);
   standingsMocks.rebuild.mockResolvedValue(0);
 });
@@ -289,6 +298,7 @@ describe('syncFixtureMatches', () => {
       { id: 'home', championDataTeamId: 801 },
       { id: 'away', championDataTeamId: 804 },
     ] as any);
+    mockMatch.findUnique.mockResolvedValue(null);
 
     const synced = await syncFixtureMatches([{
       matchId: 129500301,
@@ -318,21 +328,94 @@ describe('syncFixtureMatches', () => {
         status: 'COMPLETED',
         resultQuality: 'PROVISIONAL',
       }),
+      select: { sourceRetrievedAt: true },
     });
-    expect(prisma.match.updateMany).toHaveBeenCalledWith({
-      where: {
-        championDataMatchId: 129500301,
-        OR: [
-          { sourceRetrievedAt: null },
-          { sourceRetrievedAt: { lt: observedAt } },
-        ],
-      },
+    expect(prisma.match.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('serializes standings-affecting metadata and rebuilds old and new competitions atomically', async () => {
+    const previousRevision = new Date('2026-07-04T08:59:00.000Z');
+    const observedAt = new Date('2026-07-04T09:00:00.000Z');
+    vi.mocked(prisma.competition.findUnique).mockResolvedValue({
+      id: 'new-season',
+      stages: [{ id: 'regular-stage', slug: 'regular-season' }],
+    } as never);
+    vi.mocked(prisma.team.findMany).mockResolvedValue([
+      { id: 'new-home', championDataTeamId: 801 },
+      { id: 'new-away', championDataTeamId: 804 },
+    ] as never);
+    mockMatch.findUnique.mockResolvedValue({
+      id: 'match-1',
+      competitionId: 'old-season',
+      homeTeamId: 'old-home',
+      awayTeamId: 'old-away',
+      stageId: 'old-stage',
+      finalCode: null,
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+      sourceRetrievedAt: previousRevision,
+    });
+    mockMatch.updateMany.mockResolvedValue({ count: 1 });
+
+    await syncFixtureMatches([{
+      matchId: 100,
+      roundNumber: 2,
+      homeSquadId: 801,
+      awaySquadId: 804,
+      venueName: 'Arena',
+      utcStartTime: '2026-07-04T09:30:00Z',
+      matchStatus: 'complete',
+      finalCode: '',
+    } as CDFixtureMatch], 12949, 12949, observedAt);
+
+    expect(standingsMocks.acquire.mock.calls.map(([, id]) => id)).toEqual([
+      'new-season',
+      'old-season',
+    ]);
+    expect(mockMatch.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'match-1', sourceRetrievedAt: previousRevision },
       data: expect.objectContaining({
+        competitionId: 'new-season',
+        homeTeamId: 'new-home',
+        awayTeamId: 'new-away',
+        stageId: 'regular-stage',
         sourceRetrievedAt: observedAt,
-        sourceCompetitionId: 12950,
-        stageId: 'finals-stage',
       }),
+    }));
+    expect(standingsMocks.rebuild.mock.calls.map(([, id]) => id)).toEqual([
+      'new-season',
+      'old-season',
+    ]);
+    expect(mockMatch.updateMany.mock.invocationCallOrder[0])
+      .toBeLessThan(standingsMocks.rebuild.mock.invocationCallOrder[0]);
+  });
+
+  it('does not let an older fixture overwrite a newer accepted metadata revision', async () => {
+    const observedAt = new Date('2026-07-04T09:00:00.000Z');
+    vi.mocked(prisma.competition.findUnique).mockResolvedValue({
+      id: 'season-2026',
+      stages: [],
+    } as never);
+    vi.mocked(prisma.team.findMany).mockResolvedValue([
+      { id: 'home', championDataTeamId: 801 },
+      { id: 'away', championDataTeamId: 804 },
+    ] as never);
+    mockMatch.findUnique.mockResolvedValue({
+      id: 'match-1', competitionId: 'season-2026', homeTeamId: 'home',
+      awayTeamId: 'away', stageId: null, finalCode: null, status: 'SCHEDULED',
+      resultQuality: 'UNKNOWN',
+      sourceRetrievedAt: new Date('2026-07-04T09:00:01.000Z'),
     });
+
+    const synced = await syncFixtureMatches([{
+      matchId: 100, roundNumber: 2, homeSquadId: 801, awaySquadId: 804,
+      venueName: 'Stale Arena', utcStartTime: '2026-07-04T09:30:00Z',
+      matchStatus: 'scheduled',
+    } as CDFixtureMatch], 12949, 12949, observedAt);
+
+    expect(synced).toBe(0);
+    expect(mockMatch.updateMany).not.toHaveBeenCalled();
+    expect(standingsMocks.rebuild).not.toHaveBeenCalled();
   });
 });
 
@@ -442,6 +525,14 @@ describe('finalizeCompletedMatches', () => {
     expect(mockMatch.update).toHaveBeenLastCalledWith(expect.objectContaining({
       data: expect.objectContaining({ resultQuality: 'CORRECTED' }),
     }));
+    expect(prisma.pollLog.updateMany).toHaveBeenCalledWith({
+      where: {
+        cdMatchId: 100,
+        endpoint: 'final-detail-correction',
+        status: { in: ['pending', 'fetch_error', 'revision_mismatch'] },
+      },
+      data: { status: 'superseded' },
+    });
   });
 
   it('atomically accepts a newer downward score and matching final detail revision', async () => {
@@ -470,7 +561,13 @@ describe('finalizeCompletedMatches', () => {
     });
     expect(prisma.scoreFlow.deleteMany).toHaveBeenCalledWith({ where: { matchId: 'match-1' } });
     expect(mockMatch.update).toHaveBeenCalledWith({
-      where: { id: 'match-1' },
+      where: {
+        id: 'match-1',
+        OR: [
+          { sourceUpdatedAt: null },
+          { sourceUpdatedAt: { lt: expect.any(Date) } },
+        ],
+      },
       data: {
         status: 'COMPLETED',
         resultQuality: 'CORRECTED',
@@ -563,6 +660,31 @@ describe('finalizeCompletedMatches', () => {
     expect(mockMatch.update).not.toHaveBeenCalled();
     expect(prisma.matchQuarter.upsert).not.toHaveBeenCalled();
     expect(result).toEqual({ matches: [], failedMatchIds: ['match-1'] });
+  });
+
+  it('abandons finalization when newer fixture metadata commits during the detail fetch', async () => {
+    const accepted = new Date('2026-07-25T09:00:00Z');
+    const newer = new Date('2026-07-25T09:00:01Z');
+    mockMatch.findMany.mockResolvedValue([pendingMatch({ sourceRetrievedAt: accepted })]);
+    mockEffectiveMatch({ sourceRetrievedAt: newer });
+    vi.mocked(fetchMatchStats).mockResolvedValue(detail());
+
+    const result = await finalizeCompletedMatches(
+      [fixture()],
+      12949,
+      ['match-1'],
+      [],
+      new Map([[100, accepted]]),
+    );
+
+    expect(prisma.matchQuarter.deleteMany).not.toHaveBeenCalled();
+    expect(mockMatch.update).not.toHaveBeenCalled();
+    expect(standingsMocks.rebuild).not.toHaveBeenCalled();
+    expect(prisma.pollLog.update).toHaveBeenCalledWith({
+      where: { id: 'final-poll-log' },
+      data: { status: 'superseded' },
+    });
+    expect(result).toEqual({ matches: [], failedMatchIds: [] });
   });
 });
 
@@ -836,6 +958,24 @@ describe('reconcileStaleCompletedScores', () => {
     expect(mockMatch.updateMany).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
+
+  it('does not derive a correction from a superseded fixture metadata token', async () => {
+    const accepted = new Date('2026-07-25T09:00:00Z');
+    mockMatch.findMany.mockResolvedValue([storedMatch({
+      sourceRetrievedAt: new Date('2026-07-25T09:00:01Z'),
+      sourceUpdatedAt: null,
+      homeScore: 61,
+      awayScore: 40,
+      resultQuality: 'OFFICIAL_FINAL',
+    })]);
+
+    const result = await reconcileStaleCompletedScores(
+      [fixtureEntry(100, 60, 39)],
+      new Map([[100, accepted]]),
+    );
+
+    expect(result).toEqual([]);
+  });
 });
 
 describe('reconcileCompletedMatches', () => {
@@ -902,6 +1042,27 @@ describe('reconcileCompletedMatches', () => {
     } as CDFixtureMatch], new Map([[100, fixtureObservedAt]]));
 
     expect(mockMatch.findUnique).not.toHaveBeenCalled();
+    expect(mockMatch.updateMany).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('rejects an interleaved completion when the exact fixture metadata token changed', async () => {
+    const accepted = new Date('2026-07-25T09:00:00Z');
+    mockMatch.findMany.mockResolvedValue([{
+      id: 'm1', status: 'LIVE', championDataMatchId: 100,
+      homeScore: 60, awayScore: 59, sourceRetrievedAt: accepted,
+      sourceUpdatedAt: null,
+    }]);
+    mockMatch.findUnique.mockResolvedValue({
+      status: 'LIVE', homeScore: 60, awayScore: 59, currentQuarter: 4,
+      sourceRetrievedAt: new Date('2026-07-25T09:00:01Z'), sourceUpdatedAt: null,
+    });
+
+    const result = await reconcileCompletedMatches([{
+      matchId: 100, matchStatus: 'complete', homeSquadScore: 60,
+      awaySquadScore: 59, period: 4,
+    } as CDFixtureMatch], new Map([[100, accepted]]));
+
     expect(mockMatch.updateMany).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });

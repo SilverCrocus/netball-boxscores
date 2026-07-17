@@ -120,13 +120,25 @@ async function filterSupersededFixtureObservation(
   const championDataMatchIds = ingested.fixture.map((match) => match.matchId);
   const current = await prisma.match.findMany({
     where: { championDataMatchId: { in: championDataMatchIds } },
-    select: { championDataMatchId: true, sourceUpdatedAt: true },
+    select: {
+      championDataMatchId: true,
+      sourceRetrievedAt: true,
+      sourceUpdatedAt: true,
+    },
   });
   const supersededIds = new Set(
     current.flatMap((match) => (
       match.championDataMatchId !== null
-      && match.sourceUpdatedAt !== null
-      && match.sourceUpdatedAt >= ingested.fixtureObservationAt
+      && (
+        (
+          match.sourceRetrievedAt !== null
+          && match.sourceRetrievedAt >= ingested.fixtureObservationAt
+        )
+        || (
+          match.sourceUpdatedAt !== null
+          && match.sourceUpdatedAt >= ingested.fixtureObservationAt
+        )
+      )
         ? [match.championDataMatchId]
         : []
     )),
@@ -248,6 +260,11 @@ export async function pollChampionData(): Promise<void> {
 
       const validatedData = validation.validatedData;
       if (!validatedData) continue;
+      const acceptedFixtureObservationAt = fixtureObservationByMatchId.get(cdMatchId);
+      if (!acceptedFixtureObservationAt) {
+        supersededChampionDataMatchIds.add(cdMatchId);
+        continue;
+      }
 
       await withMatchProcessingLock(`champion-data:${cdMatchId}`, async () => {
         const startMs = Date.now();
@@ -267,10 +284,16 @@ export async function pollChampionData(): Promise<void> {
           }
           const observationAlreadyApplied = currentMatch.sourceUpdatedAt !== null
             && currentMatch.sourceUpdatedAt >= observation.polledAt;
+          const fixtureRevisionStillAccepted = currentMatch.sourceRetrievedAt?.getTime()
+            === acceptedFixtureObservationAt.getTime();
           const protectedFinalReopened = currentMatch.status === 'COMPLETED'
             && ['OFFICIAL_FINAL', 'CORRECTED'].includes(currentMatch.resultQuality)
             && validatedData.status !== 'COMPLETED';
-          if (observationAlreadyApplied || protectedFinalReopened) {
+          if (
+            observationAlreadyApplied
+            || !fixtureRevisionStillAccepted
+            || protectedFinalReopened
+          ) {
             return { applied: false as const, reason: 'superseded' as const };
           }
 
@@ -333,6 +356,7 @@ export async function pollChampionData(): Promise<void> {
           const revisionUpdate = await tx.match.updateMany({
             where: {
               id: currentMatch.id,
+              sourceRetrievedAt: acceptedFixtureObservationAt,
               OR: [
                 { sourceUpdatedAt: null },
                 { sourceUpdatedAt: { lt: observation.polledAt } },
@@ -441,6 +465,36 @@ export async function pollChampionData(): Promise<void> {
       select: { id: true },
     });
 
+    // Failed official corrections are retryable source intent in their own
+    // right. Bound the recovery scan and do not require the fixture score to
+    // differ again before scheduling the next canonical detail attempt.
+    const unresolvedCorrectionLogs = await prisma.pollLog.findMany({
+      where: {
+        endpoint: 'final-detail-correction',
+        status: { in: ['pending', 'fetch_error', 'revision_mismatch'] },
+        cdMatchId: { not: null },
+      },
+      select: { cdMatchId: true },
+      orderBy: { polledAt: 'asc' },
+      distinct: ['cdMatchId'],
+      take: 100,
+    });
+    const currentFixtureIds = new Set(currentFixture.map((match) => match.matchId));
+    const retryChampionDataMatchIds = unresolvedCorrectionLogs.flatMap((log) => (
+      log.cdMatchId !== null && currentFixtureIds.has(log.cdMatchId)
+        ? [log.cdMatchId]
+        : []
+    ));
+    const durableCorrections = retryChampionDataMatchIds.length > 0
+      ? await prisma.match.findMany({
+          where: {
+            status: 'COMPLETED',
+            championDataMatchId: { in: retryChampionDataMatchIds },
+          },
+          select: { id: true },
+        })
+      : [];
+
     // Phase: finalization atomically applies score, quarters, player/team stats,
     // score-flow, quality, source revision, and affected standings.
     const finalizationIds = [...new Set([
@@ -448,14 +502,19 @@ export async function pollChampionData(): Promise<void> {
       ...staleCompleted.map((c) => c.matchId),
       ...pendingCorrections.map((c) => c.matchId),
       ...durablePending.map((match) => match.id),
+      ...durableCorrections.map((match) => match.id),
+    ])];
+    const correctionRetryIds = [...new Set([
+      ...pendingCorrections.filter((candidate) => candidate.wasCorrection).map((candidate) => (
+        candidate.matchId
+      )),
+      ...durableCorrections.map((match) => match.id),
     ])];
     const finalization = await finalizeCompletedMatches(
       currentFixture,
       COMP_ID,
       finalizationIds,
-      pendingCorrections.filter((candidate) => candidate.wasCorrection).map((candidate) => (
-        candidate.matchId
-      )),
+      correctionRetryIds,
       fixtureObservationByMatchId,
     );
 

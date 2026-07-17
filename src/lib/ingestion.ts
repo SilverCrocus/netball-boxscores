@@ -20,10 +20,14 @@ export async function ingestFromChampionData(
   const matchDetails = new Map<number, CDMatchStatsResponse>();
   let detailFetchErrors = 0;
 
-  // Cleanup old PollLog entries (7-day retention)
+  // Cleanup only terminal PollLog entries. Pending/fetch-error/revision-mismatch
+  // rows are durable retry intent and must survive the ordinary retention age.
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   await prisma.pollLog.deleteMany({
-    where: { polledAt: { lt: sevenDaysAgo } },
+    where: {
+      polledAt: { lt: sevenDaysAgo },
+      status: { in: ['success', 'processed', 'superseded', 'validation_error'] },
+    },
   });
 
   // Fetch fixture

@@ -278,6 +278,25 @@ describe('player and match broadcasts', () => {
     expect(broadcastStatsUpdate).not.toHaveBeenCalled();
   });
 
+  it('emits an explicit empty player snapshot as a canonical tombstone', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(['PLAYER_BOX_SCORE']));
+    mockPlayerFindMany.mockResolvedValue([]);
+
+    await broadcastPlayerStats(
+      'match-1',
+      matchDetail([], []),
+      publicAccess(['PLAYER_BOX_SCORE']),
+      '2026-07-25T09:00:01.000Z',
+    );
+
+    expect(broadcastStatsUpdate).toHaveBeenCalledWith(
+      'match-1',
+      { matchId: 'match-1', playerStats: [] },
+      expect.anything(),
+      '2026-07-25T09:00:01.000Z',
+    );
+  });
+
   it('emits the canonical lifecycle instead of a stale raw status delta', async () => {
     await broadcastMatchChanges({
       matchId: 'match-1',

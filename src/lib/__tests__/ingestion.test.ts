@@ -178,20 +178,26 @@ describe('ingestFromChampionData', () => {
     expect(result.matchDetails.has(600)).toBe(true);
   });
 
-  it('cleans up PollLog entries older than 7 days', async () => {
+  it('expires only terminal PollLog entries and retains unresolved correction intent', async () => {
     mockFetchFixture.mockResolvedValue([]);
     mockMatchFindMany.mockResolvedValue([]);
     mockPollLogCreate.mockResolvedValue({ id: 'log-1' } as any);
 
     await ingestFromChampionData(12949);
 
-    expect(mockPollLogDeleteMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          polledAt: expect.objectContaining({ lt: expect.any(Date) }),
-        }),
+    expect(mockPollLogDeleteMany).toHaveBeenCalledWith({
+      where: {
+        polledAt: { lt: expect.any(Date) },
+        status: {
+          in: ['success', 'processed', 'superseded', 'validation_error'],
+        },
+      },
+    });
+    expect(mockPollLogDeleteMany).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: { in: expect.arrayContaining(['pending', 'fetch_error', 'revision_mismatch']) },
       }),
-    );
+    }));
   });
 
   it('orders overlapping detail observations by request start even when the older response finishes last', async () => {

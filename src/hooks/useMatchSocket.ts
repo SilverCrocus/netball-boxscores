@@ -21,6 +21,9 @@ interface MatchSocketState {
   matchStatus: MatchStatusPayload | null;
   scoreFlow: ScoreFlowAddPayload[];
   statEvents: StatEventPayload[];
+  hasPlayerStatsSnapshot: boolean;
+  hasScoreFlowSnapshot: boolean;
+  hasStatEventsSnapshot: boolean;
   isConnected: boolean;
 }
 
@@ -34,12 +37,14 @@ const EMPTY_SOCKET_STATE: MatchSocketState = {
   matchStatus: null,
   scoreFlow: [],
   statEvents: [],
+  hasPlayerStatsSnapshot: false,
+  hasScoreFlowSnapshot: false,
+  hasStatEventsSnapshot: false,
   isConnected: false,
 };
 
 export function useMatchSocket(matchId: string, enabled = false): MatchSocketState {
   const socketRef = useRef<TypedSocket | null>(null);
-  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRevisionRef = useRef<{ matchId: string; revision: number | null }>({
     matchId,
     revision: null,
@@ -113,6 +118,7 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
         setState((prev) => ({
           ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
           playerStats: payload,
+          hasPlayerStatsSnapshot: true,
         }));
       }
     });
@@ -124,18 +130,9 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
           matchStatus: payload,
         }));
 
-        if (payload.status === 'COMPLETED') {
-          if (completionTimeoutRef.current) {
-            clearTimeout(completionTimeoutRef.current);
-          }
-          completionTimeoutRef.current = setTimeout(() => {
-            socket.io.opts.reconnection = false;
-            socket.disconnect();
-          }, 2000);
-        } else if (completionTimeoutRef.current) {
-          clearTimeout(completionTimeoutRef.current);
-          completionTimeoutRef.current = null;
-        }
+        // Keep the public subscription alive after completion. Official score
+        // corrections and heuristic reopenings can arrive well after the old
+        // two-second cutoff, and reconnect re-subscribes to a canonical final.
       }
     });
 
@@ -155,6 +152,7 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
         setState((prev) => ({
           ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
           scoreFlow: payload.entries,
+          hasScoreFlowSnapshot: true,
         }));
       }
     });
@@ -178,15 +176,12 @@ export function useMatchSocket(matchId: string, enabled = false): MatchSocketSta
         setState((prev) => ({
           ...(prev.matchId === matchId ? prev : { matchId, ...EMPTY_SOCKET_STATE }),
           statEvents: payload.events,
+          hasStatEventsSnapshot: true,
         }));
       }
     });
 
     return () => {
-      if (completionTimeoutRef.current) {
-        clearTimeout(completionTimeoutRef.current);
-        completionTimeoutRef.current = null;
-      }
       socket.emit('match:unsubscribe', { matchId });
       socket.off('connect');
       socket.off('disconnect');
