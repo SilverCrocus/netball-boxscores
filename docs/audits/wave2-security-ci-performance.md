@@ -26,7 +26,9 @@ placeholder credentials only.
   policy. This enabled an object-level authorization bypass for DRAFT match
   metadata. GET, POST, and team-follow behavior now filter through the public
   access policy, reject private IDs as not found, cap each resource type at 100,
-  and use private `no-store` responses.
+  and use private `no-store` responses. The personalized home feed applies the
+  same team predicate in its database query and revalidates the bounded result,
+  so stale private associations cannot expose team IDs or metadata.
 
 ### Medium
 
@@ -44,6 +46,10 @@ placeholder credentials only.
   response reads; the first two also lacked request deadlines. All now have
   request timeouts, response-size limits, bounded error messages, and existing
   cache behavior preserved.
+- Signal handling used separate unbounded HTTP-only shutdown paths. SIGTERM,
+  SIGINT, and required-worker failure now share one idempotent path that stops
+  polling, stops accepting HTTP work, disconnects Socket.IO clients, closes both
+  servers, and forces a non-zero exit if shutdown exceeds five seconds.
 - Public search, today's matches, and the private followed-team feed performed
   per-match access lookups. They now use bounded batch authorization queries;
   candidate sets are capped at 5, 64, and 96 matches respectively. Team lists
@@ -62,8 +68,9 @@ placeholder credentials only.
   commits, and checkout credentials are disabled. The production dependency gate
   now fails on moderate findings.
 - A tracked Playwright console log and screenshot were generated QA evidence,
-  not application inputs. Both were removed; repository ignore rules already
-  cover their paths.
+  not application inputs. Both were removed; precise ignore rules now cover the
+  Playwright directory and the historical root-level `live-page-working.png`
+  without hiding legitimate application images.
 - Selected API and server errors could log URLs or credential-like values.
   New logs in this lane use bounded redaction, with direct tests for URL
   credentials and common secret assignments.
@@ -89,6 +96,8 @@ placeholder credentials only.
   incidents while still providing a deployment/readiness gate.
 - The worker uses a single recursive timeout and clears it on shutdown. Socket
   reconnects re-resolve public access instead of retaining publication access.
+  Real launcher smoke coverage holds an active Socket.IO client through SIGTERM
+  and separately verifies development SIGINT shutdown.
 
 ## Remaining risks and ownership
 
@@ -103,9 +112,10 @@ placeholder credentials only.
   Database rehearsal commands and guards were not edited here.
 - The CSP still permits inline scripts for current Next compatibility. A nonce-
   based strict CSP needs a separate rendering/cache change and browser coverage.
-- Some worker/processing paths outside this lane still log raw caught errors.
-  They should adopt `safeErrorMessage` in the runtime/data lane, after confirming
-  operational diagnostics remain sufficient.
+- Processing paths outside this lane still log raw caught errors. Worker error
+  sinks owned here now use `safeErrorMessage`; remaining processing sinks should
+  adopt the same policy in the data lane after confirming diagnostics remain
+  sufficient.
 - General auth/signup limiting is process-local. It bounds a single Render
   instance and caps memory at 10,000 keys, but a future multi-instance service
   should use a shared limiter. Ask CentrePass already uses its durable database

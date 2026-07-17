@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth, badRequest } from '@/lib/api-auth';
-import { getPublicCompetitions } from '@/lib/competitions';
 import {
   resolvePublicMatchAccess,
   resolvePublicMatchAccessBatch,
 } from '@/lib/public-match';
+import { resolvePublicTeamIds } from '@/lib/public-team';
 import {
   consumeRateLimit,
   isSameOriginRequest,
@@ -53,19 +53,7 @@ async function publicResourceIds(
     return new Set((await resolvePublicMatchAccessBatch(ids)).keys());
   }
 
-  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
-  const teams = await prisma.team.findMany({
-    where: {
-      id: { in: ids },
-      OR: [
-        { competitionId: { in: publicEditionIds } },
-        { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
-      ],
-    },
-    select: { id: true },
-    take: MAX_USER_RESOURCES,
-  });
-  return new Set(teams.map((team) => team.id));
+  return resolvePublicTeamIds(ids);
 }
 
 async function isPublicResource(

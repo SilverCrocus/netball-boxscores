@@ -6,6 +6,8 @@ import { getSimulationDatabaseSafetyDecision } from "./src/lib/simulation/safety
 import { assertRuntimeEnvironment } from "./src/lib/runtime-environment";
 import { safeErrorMessage } from "./src/lib/safe-logging";
 
+const SHUTDOWN_TIMEOUT_MS = 5_000;
+
 const SIM_MODE = process.env.SIMULATION_MODE === 'true';
 const dev = process.env.NODE_ENV !== "production";
 const hostname = dev ? "localhost" : (process.env.HOSTNAME || "0.0.0.0");
@@ -44,6 +46,46 @@ app.prepare().then(async () => {
   const io = initSocketServer(httpServer);
   console.log("[Server] Socket.io initialized");
 
+  let shutdownStarted = false;
+  const shutdown = (reason: string, requestedExitCode = 0): void => {
+    if (shutdownStarted) return;
+    shutdownStarted = true;
+    let exitCode = requestedExitCode;
+    let pendingClosures = 2;
+    let finished = false;
+
+    console.log(`[Server] ${reason} received, shutting down gracefully`);
+    if (workerStartup.shouldStart) stopWorker();
+
+    const deadline = setTimeout(() => {
+      if (finished) return;
+      finished = true;
+      console.error(`[Server] Shutdown exceeded ${SHUTDOWN_TIMEOUT_MS}ms; forcing exit`);
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+
+    const closed = (component: string, error?: Error | null) => {
+      if (finished) return;
+      if (error && (error as NodeJS.ErrnoException).code !== 'ERR_SERVER_NOT_RUNNING') {
+        exitCode = 1;
+        console.error(`[Server] ${component} close failed:`, safeErrorMessage(error));
+      }
+      pendingClosures -= 1;
+      if (pendingClosures > 0) return;
+      finished = true;
+      clearTimeout(deadline);
+      console.log('[Server] Socket.IO clients and HTTP server closed');
+      process.exit(exitCode);
+    };
+
+    // Stop accepting new HTTP work first, then explicitly disconnect upgraded
+    // Socket.IO clients so the HTTP close callback cannot wait indefinitely.
+    httpServer.close((error) => closed('HTTP server', error));
+    httpServer.closeIdleConnections?.();
+    io.disconnectSockets(true);
+    io.close(() => closed('Socket.IO'));
+  };
+
   // Make io accessible to API routes via Express app locals
   expressApp.set("io", io);
 
@@ -72,9 +114,7 @@ app.prepare().then(async () => {
       })
       .catch((error) => {
         console.error('[Server] Required background worker failed:', safeErrorMessage(error));
-        stopWorker();
-        httpServer.close();
-        process.exit(1);
+        shutdown('required background worker failure', 1);
       });
   } else {
     console.log(`[Server] Background worker disabled: ${workerStartup.reason}`);
@@ -90,21 +130,8 @@ app.prepare().then(async () => {
     console.log(`> Socket.io server attached`);
   });
 
-  // Graceful shutdown (for Render deploys)
-  process.on("SIGTERM", () => {
-    console.log("[Server] SIGTERM received, shutting down gracefully");
-    if (workerStartup.shouldStart) stopWorker();
-    httpServer.close(() => {
-      console.log("[Server] HTTP server closed");
-      process.exit(0);
-    });
-  });
-
-  process.on("SIGINT", () => {
-    console.log("[Server] SIGINT received, shutting down");
-    if (workerStartup.shouldStart) stopWorker();
-    httpServer.close(() => process.exit(0));
-  });
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
 }).catch((error) => {
   console.error('[Server] Failed to start:', safeErrorMessage(error));
   process.exit(1);

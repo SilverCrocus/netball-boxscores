@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-auth';
 import { excludeSimData, prisma } from '@/lib/db';
-import { resolveCompetition } from '@/lib/competitions';
+import { getPublicCompetitions, resolveCompetition } from '@/lib/competitions';
 import {
   homepageMatchSelect,
   publicHomepageMatchState,
@@ -13,6 +13,11 @@ import {
   resolvePublicMatchAccessBatch,
   type PublicMatchAccess,
 } from '@/lib/public-match';
+import {
+  MAX_PUBLIC_TEAM_BATCH,
+  publicTeamWhere,
+  resolvePublicTeamIds,
+} from '@/lib/public-team';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,15 +53,25 @@ export async function GET() {
   if (auth.error) return auth.error;
 
   try {
-    const follows = await prisma.userTeam.findMany({
-      where: { userId: auth.user.id },
+    const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+    const candidateFollows = await prisma.userTeam.findMany({
+      where: {
+        userId: auth.user.id,
+        team: { is: publicTeamWhere(publicEditionIds) },
+      },
       select: {
         teamId: true,
         team: { select: { id: true, name: true, abbreviation: true, logoUrl: true, primaryColor: true } },
       },
       orderBy: { team: { name: 'asc' } },
-      take: 100,
+      take: MAX_PUBLIC_TEAM_BATCH,
     });
+    const boundedFollows = candidateFollows.slice(0, MAX_PUBLIC_TEAM_BATCH);
+    const allowedTeamIds = await resolvePublicTeamIds(
+      boundedFollows.map((follow) => follow.teamId),
+      publicEditionIds,
+    );
+    const follows = boundedFollows.filter((follow) => allowedTeamIds.has(follow.teamId));
     if (follows.length === 0) {
       return NextResponse.json([], { headers: { 'Cache-Control': 'private, no-store' } });
     }

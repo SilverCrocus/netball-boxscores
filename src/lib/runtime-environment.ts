@@ -102,6 +102,7 @@ export function validateRuntimeEnvironment(
     if (!value) continue;
     const url = validUrl(value, production ? ['https:'] : ['http:', 'https:']);
     if (!url) errors.push(`${name} must use ${production ? 'HTTPS' : 'HTTP or HTTPS'}`);
+    else if (url.username || url.password) errors.push(`${name} must not include URL credentials`);
   }
 
   return [...new Set(errors)];

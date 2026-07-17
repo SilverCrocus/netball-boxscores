@@ -49,4 +49,19 @@ describe('runtime environment validation', () => {
       'DRAFT_PREVIEW_OPERATOR_IDS must contain only stable comma-separated user IDs when preview is enabled',
     ]));
   });
+
+  it('rejects credential-bearing upstream URLs without echoing credentials', () => {
+    const errors = validateRuntimeEnvironment({
+      ...productionEnvironment,
+      CHAMPION_DATA_BASE_URL: 'https://worker:not-a-real-secret@upstream.example/data',
+      THESPORTSDB_BASE_URL: 'https://api:not-a-real-key@upstream.example/data',
+    });
+
+    expect(errors).toEqual(expect.arrayContaining([
+      'CHAMPION_DATA_BASE_URL must not include URL credentials',
+      'THESPORTSDB_BASE_URL must not include URL credentials',
+    ]));
+    expect(errors.join(' ')).not.toContain('not-a-real-secret');
+    expect(errors.join(' ')).not.toContain('not-a-real-key');
+  });
 });

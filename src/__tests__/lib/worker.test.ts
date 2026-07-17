@@ -151,6 +151,22 @@ describe('Worker', () => {
     expect(getPollingInterval(true, true, false)).toBe(2_000);
   });
 
+  it('redacts credential-bearing URLs from ingestion errors', async () => {
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const { pollChampionData } = await import('@/lib/worker');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(ingestFromChampionData).mockRejectedValue(
+      new Error('request failed at https://worker:not-a-real-secret@upstream.example/data'),
+    );
+
+    await pollChampionData();
+
+    const logged = errorSpy.mock.calls.flat().join(' ');
+    expect(logged).toContain('https://[redacted]@upstream.example/data');
+    expect(logged).not.toContain('not-a-real-secret');
+    errorSpy.mockRestore();
+  });
+
   it('serializes overlapping work for the same match', async () => {
     const { withMatchProcessingLock } = await import('@/lib/worker');
     const order: string[] = [];
