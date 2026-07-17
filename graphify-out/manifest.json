@@ -4035,8 +4035,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/server.ts": {
-    "mtime": 1784197214.1783903,
-    "ast_hash": "f444eec81916b39dbd6c9fbd62d988ff",
+    "mtime": 1784249574.7308607,
+    "ast_hash": "bf31a097ae15a128b748368323b9c5bf",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/eslint.config.mjs": {
@@ -4045,8 +4045,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/next.config.ts": {
-    "mtime": 1784197214.164289,
-    "ast_hash": "204bdc143d4d8c644e405c441173b232",
+    "mtime": 1784249415.984658,
+    "ast_hash": "bc9abe9502989dbe5353bba3985cf8d5",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/test-data/live-snapshots/match_129490301_20260328_180007.json": {
@@ -6302,6 +6302,16 @@
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/.github/workflows/ci.yml": {
     "mtime": 1784248800.4610288,
     "ast_hash": "bbaffcdc217b1f8795dcbcb487066484",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/lib/security-headers.ts": {
+    "mtime": 1784249438.7782903,
+    "ast_hash": "4830c016803fd2d4ff563fe317e68b6c",
+    "semantic_hash": ""
+  },
+  "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/lib/__tests__/security-headers.test.ts": {
+    "mtime": 1784249417.3197517,
+    "ast_hash": "2617ed60e06760be257919d55c825aa2",
     "semantic_hash": ""
   }
 }

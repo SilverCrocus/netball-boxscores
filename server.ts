@@ -28,6 +28,7 @@ app.prepare().then(async () => {
   }
 
   const expressApp = express();
+  expressApp.disable('x-powered-by');
   const httpServer = createServer(expressApp);
 
   // Initialize Socket.io

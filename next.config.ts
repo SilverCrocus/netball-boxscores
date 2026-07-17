@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
+import { buildSecurityHeaders } from "./src/lib/security-headers";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   allowedDevOrigins: ['127.0.0.1'],
   turbopack: {
     root: process.cwd(),
@@ -23,6 +25,14 @@ const nextConfig: NextConfig = {
         pathname: "/wikipedia/commons/**",
       },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: buildSecurityHeaders(),
+      },
+    ];
   },
 };
 
