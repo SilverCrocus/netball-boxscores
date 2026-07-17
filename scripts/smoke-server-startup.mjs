@@ -141,4 +141,4 @@ async function runLauncherSmoke({ mode, signal, requireSocket }) {
 }
 
 await runLauncherSmoke({ mode: 'production', signal: 'SIGTERM', requireSocket: true });
-await runLauncherSmoke({ mode: 'development', signal: 'SIGINT', requireSocket: false });
+await runLauncherSmoke({ mode: 'development', signal: 'SIGINT', requireSocket: true });

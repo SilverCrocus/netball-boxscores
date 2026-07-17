@@ -67,10 +67,11 @@ placeholder credentials only.
   official Node 24 `checkout` and `setup-node` v7 actions are pinned to immutable
   commits, and checkout credentials are disabled. The production dependency gate
   now fails on moderate findings.
-- A tracked Playwright console log and screenshot were generated QA evidence,
-  not application inputs. Both were removed; precise ignore rules now cover the
-  Playwright directory and the historical root-level `live-page-working.png`
-  without hiding legitimate application images.
+- A tracked Playwright console log, screenshot, and local brainstorm server log
+  were generated QA evidence, not application inputs. They were removed;
+  existing scoped ignore rules cover the generated directories and the
+  historical root-level `live-page-working.png` without hiding legitimate
+  application images.
 - Selected API and server errors could log URLs or credential-like values.
   New logs in this lane use bounded redaction, with direct tests for URL
   credentials and common secret assignments.
@@ -96,8 +97,8 @@ placeholder credentials only.
   incidents while still providing a deployment/readiness gate.
 - The worker uses a single recursive timeout and clears it on shutdown. Socket
   reconnects re-resolve public access instead of retaining publication access.
-  Real launcher smoke coverage holds an active Socket.IO client through SIGTERM
-  and separately verifies development SIGINT shutdown.
+  Real launcher smoke coverage holds active Socket.IO clients through both
+  production SIGTERM and development SIGINT shutdown.
 
 ## Remaining risks and ownership
 
