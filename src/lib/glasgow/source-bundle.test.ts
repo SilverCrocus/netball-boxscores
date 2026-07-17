@@ -195,6 +195,13 @@ describe('Glasgow 2026 source bundle', () => {
       playerExternalId: 'JAM-shamera-sterling-humphrey',
       isCaptain: true,
     }));
+    expect(bundle.players).toEqual(expect.arrayContaining([
+      expect.objectContaining({ externalId: 'ENG-funmi-fadoju', position: 'GD' }),
+      expect.objectContaining({ externalId: 'ENG-natalie-metcalf', position: 'WA' }),
+      expect.objectContaining({ externalId: 'ENG-sasha-glasgow', position: 'GA' }),
+      expect.objectContaining({ externalId: 'JAM-azara-wilmot', position: 'GS' }),
+      expect.objectContaining({ externalId: 'JAM-rhea-dixon', position: 'GA' }),
+    ]));
     expect(playersWithPhotos).toHaveLength(4);
     expect(playersWithPhotos).toHaveLength(manifest.declarations.photoCoverage.verifiedReusablePhotos);
     expect(playersWithPhotos.map((player) => player.photoUrl).sort()).toEqual([
@@ -253,6 +260,10 @@ describe('Glasgow 2026 source bundle', () => {
     });
     expect(sourceIds).toEqual(expect.arrayContaining([
       'australia-squad',
+      'england-eleanor-position',
+      'england-francesca-position',
+      'england-jess-position',
+      'england-sasha-position',
       'south-africa-squad',
       'northern-ireland-squad',
       'malawi-squad-post',
@@ -260,6 +271,30 @@ describe('Glasgow 2026 source bundle', () => {
       'jamaica-squad-post',
       'trinidad-tobago-squad-post',
       'uganda-provisional-squad',
+    ]));
+    expect(manifest.sources).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'england-positions',
+        url: 'https://londonpulsenetball.com/nsl-rd-1-match-report-london-pulse-vs-manchester-thunder/',
+      }),
+      expect.objectContaining({
+        id: 'england-jayda-position',
+        url: 'https://teamengland.org/news/jayda-pechov-completes-the-ultimate-comeback-at-glasgow-2026',
+      }),
+      expect.objectContaining({
+        id: 'jamaica-new-player-positions',
+        url: 'https://londonpulsenetball.com/academy-npl-season-complete-u17-u19-crowned-champions/',
+      }),
+      expect.objectContaining({
+        id: 'jamaica-rhea-position',
+        url: 'https://netballnz.co.nz/images/silver-ferns/documents/SFTJT-21-Media-Guide-web.pdf',
+      }),
+    ]));
+    expect(manifest.sources.map((source) => source.url)).not.toEqual(expect.arrayContaining([
+      'https://www.englandnetball.co.uk/vitality-roses/current-squad/',
+      'https://www.englandnetball.co.uk/news/vitality-roses-squad-confirmed-for-jamaica-series/',
+      'https://www.englandnetball.co.uk/news/athletes-selected-for-roses-academy-2023-24/',
+      'https://jamaica-star.com/article/sports/20231020/england-born-dixon-hopes-add-sunshine-girls%E2%80%99-style',
     ]));
     expect(new Set(
       manifest.sources

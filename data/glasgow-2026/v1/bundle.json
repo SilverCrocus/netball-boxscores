@@ -2,7 +2,7 @@
   "context": {
     "sourceKey": "glasgow-2026-public-data",
     "editionExternalId": "glasgow-2026",
-    "retrievedAt": "2026-07-16T04:15:40.000Z",
+    "retrievedAt": "2026-07-17T13:45:48.000Z",
     "sourceUrl": "https://netball.sport/events-and-results/commonwealth-games/"
   },
   "teams": [
@@ -216,12 +216,12 @@
       "externalId": "ENG-funmi-fadoju",
       "teamExternalId": "ENG",
       "name": "Funmi Fadoju",
-      "position": "WD",
+      "position": "GD",
       "photoUrl": "https://upload.wikimedia.org/wikipedia/commons/3/34/England_Netball_player_Funmi_Fadoju.jpg",
       "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg",
       "photoCredit": "Amy Martin Photography",
       "photoLicense": "CC BY-SA 4.0",
-      "photoVerifiedAt": "2026-07-16T04:15:40.000Z"
+      "photoVerifiedAt": "2026-07-17T13:45:48.000Z"
     },
     {
       "externalId": "ENG-jayda-pechova",
@@ -252,14 +252,14 @@
       "externalId": "ENG-natalie-metcalf",
       "teamExternalId": "ENG",
       "name": "Natalie Metcalf",
-      "position": "GA"
+      "position": "WA"
     },
     {
       "externalId": "ENG-sasha-glasgow",
       "teamExternalId": "ENG",
       "canonicalChampionDataPlayerId": 1007298,
       "name": "Sasha Glasgow",
-      "position": "GS"
+      "position": "GA"
     },
     {
       "externalId": "ENG-olivia-tchine",
@@ -270,7 +270,7 @@
       "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:England_Netball_player_Olivia_Tchine.jpg",
       "photoCredit": "Amy Martin Photography",
       "photoLicense": "CC BY-SA 4.0",
-      "photoVerifiedAt": "2026-07-16T04:15:40.000Z"
+      "photoVerifiedAt": "2026-07-17T13:45:48.000Z"
     },
     {
       "externalId": "ENG-eleanor-cardwell",
@@ -281,7 +281,7 @@
       "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg",
       "photoCredit": "トりン",
       "photoLicense": "CC BY-SA 4.0",
-      "photoVerifiedAt": "2026-07-16T04:15:40.000Z"
+      "photoVerifiedAt": "2026-07-17T13:45:48.000Z"
     },
     {
       "externalId": "ENG-lois-pearson",
@@ -519,7 +519,7 @@
       "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:Thunderbirds_defender_Shamera_Sterling.jpg",
       "photoCredit": "トりン",
       "photoLicense": "CC BY-SA 4.0",
-      "photoVerifiedAt": "2026-07-16T04:15:40.000Z"
+      "photoVerifiedAt": "2026-07-17T13:45:48.000Z"
     },
     {
       "externalId": "JAM-latanya-wilson",
