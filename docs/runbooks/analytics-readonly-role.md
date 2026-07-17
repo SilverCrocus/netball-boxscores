@@ -11,21 +11,34 @@ Two separate server credentials are required:
 
 Do not reuse `DATABASE_URL`, `DIRECT_URL`, or either scoped credential for the other responsibility.
 
-Both scoped runtime URLs must use the Supavisor **transaction pooler** endpoint (normally port `6543`). The application always supplies Prisma's transaction-pooler compatibility settings: `pgbouncer=true`, `connection_limit=5` for analytics or `2` for operations, and `pool_timeout=5`. Those bounded parameters override values in the stored URL. This avoids prepared-statement collisions and prevents either public feature from opening an unbounded process-local pool. `DIRECT_URL`, Prisma migrations, both provisioning scripts, and owner-level verification must use Supabase's direct connection or Supavisor session mode instead; never run DDL or role administration through transaction mode.
+Both scoped runtime URLs must use the Supavisor **transaction pooler** endpoint (normally port `6543`) and store the exact Prisma compatibility settings: `pgbouncer=true`, `connection_limit=5` for analytics or `2` for operations, and `pool_timeout=5`. The application reapplies the same values when constructing each client; the production guard rejects a stored mismatch rather than relying on the override. This avoids prepared-statement collisions and prevents either public feature from opening an unbounded process-local pool. `DIRECT_URL`, Prisma migrations, both provisioning scripts, and owner-level verification must use Supabase's direct connection or Supavisor session mode instead; never run DDL or role administration through transaction mode.
 
 ## Provision or rotate
 
 1. Generate two independent random passwords in the deployment secret manager. Do not put them in shell history, `.env`, a migration, or this repository.
 2. Connect to the direct Supabase Postgres endpoint (or Supavisor session mode) as the database owner. Do not use the transaction pooler for migrations or role administration.
-3. Run the provisioning script with the password supplied through a protected `psql` variable or temporary secret-injected process environment:
+3. Configure the protected owner libpq service/password files in
+   [`production-environment.md`](production-environment.md). Have the secret
+   manager materialize two additional mode-`0600` psql variable files: one
+   containing only the safely quoted `analytics_password` variable and one
+   containing only the safely quoted `operations_password` variable. Do not
+   construct either file in shell history. Run the provisioning scripts in the
+   same psql session as their matching variable file:
 
    ```bash
-   psql "$DIRECT_URL" --set=analytics_password="$ANALYTICS_PASSWORD" \
+   PGSERVICE=centrepass-production-direct psql --no-psqlrc \
+     --file "$ANALYTICS_PSQL_VARIABLE_FILE" \
      --file scripts/provision-analytics-role.sql
 
-   psql "$DIRECT_URL" --set=operations_password="$STATS_OPERATIONS_PASSWORD" \
+   PGSERVICE=centrepass-production-direct psql --no-psqlrc \
+     --file "$OPERATIONS_PSQL_VARIABLE_FILE" \
      --file scripts/provision-stats-operations-role.sql
    ```
+
+   File paths are non-secret arguments; database URLs and password values never
+   enter the process argument list. The secret-manager lifecycle must remove
+   both variable files after provisioning, and they must never enter release
+   evidence.
 
 4. Store the two dedicated Supavisor transaction-pooler connection strings in the server-side deployment secret manager. Never expose either through a `NEXT_PUBLIC_` variable or browser bundle. The runtime adds the required Prisma pool parameters without logging the resulting URLs.
 5. Generate an independent `STATS_RATE_LIMIT_SECRET` of at least 32 random characters. It is used for domain-separated HMACs and must not be reused as a database password.
@@ -142,10 +155,12 @@ SELECT count(*) FROM analytics.query_rate_limit_bucket;
 SELECT count(*) FROM analytics.player_match_fact;
 ```
 
-Run query-plan checks through the same allowlisted analytics login used by the application, with known fixture IDs:
+Run query-plan checks through a separate protected libpq service/password-file
+entry for the same allowlisted analytics login used by the application, with
+known fixture IDs:
 
 ```bash
-psql "$ANALYTICS_DATABASE_URL" \
+PGSERVICE=centrepass-production-analytics psql --no-psqlrc \
   --set=competition_id='COMPETITION_ID' \
   --set=position='GA' \
   --file scripts/check-analytics-query-plans.sql
