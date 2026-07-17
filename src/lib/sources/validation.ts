@@ -26,12 +26,13 @@ function required(
 function duplicateIssues(
   issues: ImportIssueInput[],
   values: readonly string[],
-  fieldPath: string
+  fieldPath: string,
+  code = 'DUPLICATE_EXTERNAL_ID',
 ) {
   const seen = new Set<string>();
   for (const value of values) {
     if (seen.has(value)) {
-      issues.push({ severity: 'ERROR', code: 'DUPLICATE_EXTERNAL_ID', message: `Duplicate ${fieldPath}: ${value}`, fieldPath, externalId: value });
+      issues.push({ severity: 'ERROR', code, message: `Duplicate ${fieldPath}: ${value}`, fieldPath, externalId: value });
     }
     seen.add(value);
   }
@@ -65,6 +66,32 @@ export function validateNormalizedImport(input: NormalizedCompetitionImport): Im
   duplicateIssues(issues, input.teams.map((team) => team.externalId), 'teams.externalId');
   duplicateIssues(issues, input.players.map((player) => player.externalId), 'players.externalId');
   duplicateIssues(issues, input.matches.map((match) => match.externalId), 'matches.externalId');
+  duplicateIssues(
+    issues,
+    input.rosters.map((roster) => `${roster.teamExternalId}:${roster.playerExternalId}`),
+    'rosters.teamExternalId/playerExternalId',
+    'DUPLICATE_ROSTER_IDENTITY',
+  );
+  duplicateIssues(
+    issues,
+    input.results.map((result) => result.matchExternalId),
+    'results.matchExternalId',
+    'DUPLICATE_RESULT_IDENTITY',
+  );
+  duplicateIssues(
+    issues,
+    input.results.flatMap((result) =>
+      (result.periods ?? []).map((period) => `${result.matchExternalId}:${period.period}`)),
+    'results.matchExternalId/period',
+    'DUPLICATE_RESULT_PERIOD_IDENTITY',
+  );
+  duplicateIssues(
+    issues,
+    input.coverage.map((coverage) =>
+      `${coverage.matchExternalId ?? 'edition'}:${coverage.capability}`),
+    'coverage.matchExternalId/capability',
+    'DUPLICATE_COVERAGE_IDENTITY',
+  );
 
   for (const team of input.teams) {
     required(issues, team.externalId, 'teams.externalId', team.externalId);

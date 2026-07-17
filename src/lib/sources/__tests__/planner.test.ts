@@ -109,4 +109,33 @@ describe('provider-scoped import planning', () => {
     expect(preview.valid).toBe(true);
     expect(preview.unresolved).toEqual([]);
   });
+
+  it('rejects every duplicate bulk identity before persistence planning', () => {
+    const duplicateRoster = validImport();
+    duplicateRoster.rosters.push(structuredClone(duplicateRoster.rosters[0]));
+    expect(planCompetitionImport(duplicateRoster, planningContext).issues).toContainEqual(
+      expect.objectContaining({ code: 'DUPLICATE_ROSTER_IDENTITY' }),
+    );
+
+    const duplicateResult = validImport();
+    duplicateResult.results.push(structuredClone(duplicateResult.results[0]));
+    expect(planCompetitionImport(duplicateResult, planningContext).issues).toContainEqual(
+      expect.objectContaining({ code: 'DUPLICATE_RESULT_IDENTITY' }),
+    );
+
+    const duplicatePeriod = validImport();
+    duplicatePeriod.results[0].periods = [
+      { period: 1, sideAScore: 15, sideBScore: 12 },
+      { period: 1, sideAScore: 30, sideBScore: 25 },
+    ];
+    expect(planCompetitionImport(duplicatePeriod, planningContext).issues).toContainEqual(
+      expect.objectContaining({ code: 'DUPLICATE_RESULT_PERIOD_IDENTITY' }),
+    );
+
+    const duplicateCoverage = validImport();
+    duplicateCoverage.coverage.push(structuredClone(duplicateCoverage.coverage[0]));
+    expect(planCompetitionImport(duplicateCoverage, planningContext).issues).toContainEqual(
+      expect.objectContaining({ code: 'DUPLICATE_COVERAGE_IDENTITY' }),
+    );
+  });
 });

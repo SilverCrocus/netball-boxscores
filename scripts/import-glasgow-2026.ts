@@ -76,6 +76,8 @@ async function main() {
     expectedPublicationStatus: 'DRAFT',
     requireMatchingDryRun: true,
     receiptMetadata: evidence.receiptMetadata,
+    completeEditionRosterSnapshot: true,
+    coverageSourcePrecedence: 'INCOMING_SOURCE',
   });
   const service = new CompetitionImportService(
     new JsonCompetitionAdapter(),
@@ -114,6 +116,8 @@ async function main() {
       editionSourceId: foundation.editionSourceId,
       expectedPublicationStatus: 'DRAFT',
       receiptMetadata: evidence.receiptMetadata,
+      completeEditionRosterSnapshot: true,
+      coverageSourcePrecedence: 'INCOMING_SOURCE',
     }, normalized, preview);
     console.log(JSON.stringify({
       mode: 'recorded-preview',
