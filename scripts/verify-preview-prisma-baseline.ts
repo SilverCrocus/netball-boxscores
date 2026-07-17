@@ -20,6 +20,16 @@ interface PolicyRow extends DefinitionRow { command: string; checkExpression: st
 interface RlsRow { name: string; enabled: boolean; forced: boolean }
 interface GrantCounts { tableGrants: bigint; sequenceGrants: bigint; routineGrants: bigint; defaultGrants: bigint }
 interface ExpectedColumn { name: string; dataType: string; isNullable: 'YES' | 'NO'; defaultValue: string | null }
+interface IndexRow {
+  name: string;
+  tableName: string;
+  unique: boolean;
+  valid: boolean;
+  ready: boolean;
+  method: string;
+  columns: string[];
+  predicate: string | null;
+}
 
 const POSTGRES_TYPES: Record<string, string> = {
   BOOLEAN: 'boolean',
@@ -135,17 +145,30 @@ async function verifyHotIndexes() {
     /CREATE INDEX "([^"]+)"\s+ON "([^"]+)"\(([^)]+)\);/g,
   )].map((match) => ({
     name: match[1],
-    definition: `CREATE INDEX "${match[1]}" ON public."${match[2]}" USING btree (${match[3]})`,
+    tableName: match[2],
+    columns: match[3].split(',').map((column) => column.trim().replaceAll('"', '')),
   }));
   invariant(expected.length > 0, 'hot-index migration contains no indexes');
-  const actual = await prisma.$queryRaw<DefinitionRow[]>(Prisma.sql`
-    SELECT indexname AS name, indexdef AS definition FROM pg_indexes
-    WHERE schemaname = 'public' AND indexname IN (${Prisma.join(expected.map((row) => row.name))})
-    ORDER BY indexname`);
-  const actualByName = new Map(actual.map((row) => [row.name, row.definition]));
+  const actual = await prisma.$queryRaw<IndexRow[]>(Prisma.sql`
+    SELECT idx.relname AS name, tbl.relname AS "tableName", i.indisunique AS unique,
+      i.indisvalid AS valid, i.indisready AS ready, am.amname AS method,
+      ARRAY(SELECT pg_get_indexdef(i.indexrelid, key_position, true)
+        FROM generate_series(1, i.indnkeyatts) AS key_position ORDER BY key_position) AS columns,
+      pg_get_expr(i.indpred, i.indrelid) AS predicate
+    FROM pg_index i JOIN pg_class idx ON idx.oid = i.indexrelid
+    JOIN pg_class tbl ON tbl.oid = i.indrelid JOIN pg_namespace n ON n.oid = tbl.relnamespace
+    JOIN pg_am am ON am.oid = idx.relam
+    WHERE n.nspname = 'public' AND idx.relname IN (${Prisma.join(expected.map((row) => row.name))})
+    ORDER BY idx.relname`);
+  const actualByName = new Map(actual.map((row) => [row.name, row]));
   invariant(actual.length === expected.length, 'hot-index count differs from the migration');
-  for (const row of expected) invariant(actualByName.get(row.name) === row.definition,
-    `index ${row.name} does not exactly match the migration`);
+  for (const row of expected) {
+    const index = actualByName.get(row.name);
+    invariant(index && index.tableName === row.tableName && !index.unique && index.valid &&
+      index.ready && index.method === 'btree' && index.predicate === null &&
+      JSON.stringify(index.columns) === JSON.stringify(row.columns),
+    `index ${row.name} does not exactly match the migration semantics`);
+  }
 }
 
 async function verifyPublicSchemaHardening() {

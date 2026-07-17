@@ -73,6 +73,8 @@ describe('Glasgow preview workflow', () => {
     expect(migrationRehearsal).toContain('prisma/baselines/pre-20260602/baseline.sql');
     expect(migrationRehearsal).toContain('00000000000000_historical_baseline');
     expect(migrationRehearsal).toContain('P3005 or migration drift is not accepted');
+    expect(migrationRehearsal).toContain("mkdtemp(path.resolve('.prisma-rehearsal-'))");
+    expect(migrationRehearsal).not.toContain("from 'node:os'");
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-prisma-baseline.ts --resolve');
     expect(rehearsal).toContain('npx prisma migrate deploy');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-migrations.ts');
