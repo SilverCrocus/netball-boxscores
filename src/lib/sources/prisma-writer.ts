@@ -511,9 +511,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             playerInput.canonicalChampionDataPlayerId,
           );
           if (!canonicalPlayer) {
-            throw new Error(
-              `Reviewed canonical player was not found: ${playerInput.externalId}/${playerInput.canonicalChampionDataPlayerId}`,
-            );
+            continue;
           }
           if (normalizedPlayerName(canonicalPlayer.name) !== normalizedPlayerName(playerInput.name)) {
             throw new Error(
@@ -830,6 +828,9 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
               name: playerInput.name,
               position: playerInput.position,
               teamId,
+              ...(playerInput.canonicalChampionDataPlayerId !== undefined
+                ? { championDataPlayerId: playerInput.canonicalChampionDataPlayerId }
+                : {}),
               ...photoFields,
             },
           });

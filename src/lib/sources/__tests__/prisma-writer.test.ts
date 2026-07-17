@@ -584,6 +584,38 @@ describe('PrismaCompetitionImportWriter', () => {
     ]));
   });
 
+  it('creates and replays a reviewed canonical player on a fresh database', async () => {
+    const input = validImport();
+    input.players[0].canonicalChampionDataPlayerId = 12345;
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const { prisma, state } = createFakePrisma();
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+    });
+
+    await writer.execute(input, preview);
+    const created = [...state.players.values()][0];
+    expect(created).toMatchObject({
+      name: 'Test Player',
+      championDataPlayerId: 12345,
+    });
+
+    await writer.execute(input, preview);
+    expect(state.players).toHaveLength(1);
+    expect([...state.players.values()][0]).toMatchObject({
+      id: created.id,
+      championDataPlayerId: 12345,
+    });
+  });
+
   it('does not rename or update a mapped Champion Data player when canonical review is omitted', async () => {
     const firstInput = validImport();
     const { prisma, state } = createFakePrisma();
