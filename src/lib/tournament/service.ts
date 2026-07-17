@@ -1,9 +1,10 @@
 import type { StageType } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import type { CompetitionOption } from '@/lib/competitions';
 import { formatMatchStage } from '@/lib/match-label';
 import {
   canExposePublicMatchScore,
-  resolvePublicMatchAccess,
+  resolvePublicMatchAccessBatch,
 } from '@/lib/public-match';
 import type {
   TournamentBracketMatch,
@@ -306,6 +307,7 @@ export function projectBracketMatch(
 
 export async function getTournamentBracket(
   competitionId: string,
+  loadedEdition?: CompetitionOption,
 ): Promise<TournamentBracketStage[]> {
   const stages = await prisma.stage.findMany({
     where: {
@@ -352,16 +354,22 @@ export async function getTournamentBracket(
     },
   });
 
-  return Promise.all(stages.map(async (stage) => {
-    const publicMatches = await Promise.all(stage.matches.map(async (match) => {
-      const access = await resolvePublicMatchAccess(match.id).catch(() => null);
-      if (!access) return null;
+  const matchIds = stages.flatMap((stage) => stage.matches.map((match) => match.id));
+  const accessByMatchId = await resolvePublicMatchAccessBatch(
+    matchIds,
+    loadedEdition?.id === competitionId ? [loadedEdition] : undefined,
+  );
 
-      return projectBracketMatch({
+  return stages.map((stage) => {
+    const publicMatches = stage.matches.flatMap((match) => {
+      const access = accessByMatchId.get(match.id);
+      if (!access) return [];
+
+      return [projectBracketMatch({
         ...match,
         scoreAvailable: canExposePublicMatchScore(access),
-      }, stage.name);
-    }));
+      }, stage.name)];
+    });
 
     return {
       id: stage.id,
@@ -369,7 +377,7 @@ export async function getTournamentBracket(
       name: stage.name,
       type: stage.type as TournamentBracketStage['type'],
       sequence: stage.sequence,
-      matches: publicMatches.filter((match): match is TournamentBracketMatch => match !== null),
+      matches: publicMatches,
     };
-  }));
+  });
 }

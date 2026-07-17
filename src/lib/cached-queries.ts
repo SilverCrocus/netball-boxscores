@@ -1,10 +1,10 @@
 import { unstable_cache } from 'next/cache';
 import { excludeSimData, prisma } from '@/lib/db';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
-import { getPublicCompetitions } from '@/lib/competitions';
+import { getPublicCompetitions, type CompetitionOption } from '@/lib/competitions';
 import {
   canExposePublicMatchScore,
-  resolvePublicMatchAccess,
+  resolvePublicMatchAccessBatch,
 } from '@/lib/public-match';
 
 const matchTeamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
@@ -129,27 +129,39 @@ const getUpcomingTeamMatchCandidates = process.env.NODE_ENV === 'test'
       tags: ['upcoming-matches'],
     });
 
-export async function getRecentTeamMatches(competitionId: string, teamId: string) {
+export async function getRecentTeamMatches(
+  competitionId: string,
+  teamId: string,
+  loadedEdition?: CompetitionOption,
+) {
   const candidates = await getRecentTeamMatchCandidates(competitionId, teamId);
-  const matches = await Promise.all(candidates.map(async (match) => {
-    const access = await resolvePublicMatchAccess(match.id).catch(() => null);
-    return access && canExposePublicMatchScore(access) ? match : null;
-  }));
+  const accessByMatchId = await resolvePublicMatchAccessBatch(
+    candidates.map((match) => match.id),
+    loadedEdition?.id === competitionId ? [loadedEdition] : undefined,
+  );
 
-  return matches
-    .filter((match): match is (typeof candidates)[number] => match !== null)
+  return candidates
+    .filter((match) => {
+      const access = accessByMatchId.get(match.id);
+      return access ? canExposePublicMatchScore(access) : false;
+    })
     .filter(hasResolvedMatchTeams)
     .slice(0, 5);
 }
 
-export async function getUpcomingTeamMatches(competitionId: string, teamId: string) {
+export async function getUpcomingTeamMatches(
+  competitionId: string,
+  teamId: string,
+  loadedEdition?: CompetitionOption,
+) {
   const candidates = await getUpcomingTeamMatchCandidates(competitionId, teamId);
-  const matches = await Promise.all(candidates.map(async (match) => (
-    await resolvePublicMatchAccess(match.id).catch(() => null) ? match : null
-  )));
+  const accessByMatchId = await resolvePublicMatchAccessBatch(
+    candidates.map((match) => match.id),
+    loadedEdition?.id === competitionId ? [loadedEdition] : undefined,
+  );
 
-  return matches
-    .filter((match): match is (typeof candidates)[number] => match !== null)
+  return candidates
+    .filter((match) => accessByMatchId.has(match.id))
     .filter(hasResolvedMatchTeams)
     .slice(0, 3);
 }
