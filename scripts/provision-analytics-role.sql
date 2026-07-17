@@ -8,15 +8,19 @@
 
 -- This script is intentionally operational rather than a Prisma migration:
 -- credentials must be created and rotated outside source-controlled DDL.
+-- Supabase's managed postgres login is CREATEROLE but not a true superuser, so
+-- it cannot explicitly toggle SUPERUSER, REPLICATION, or BYPASSRLS attributes.
+-- New roles inherit their safe PostgreSQL defaults and the checks below fail
+-- closed if any elevated attribute is ever present.
 SELECT format(
-  'CREATE ROLE centrepass_analytics LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+  'CREATE ROLE centrepass_analytics LOGIN NOINHERIT NOCREATEDB NOCREATEROLE PASSWORD %L',
   :'analytics_password'
 )
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'centrepass_analytics')
 \gexec
 
 SELECT format(
-  'ALTER ROLE centrepass_analytics LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+  'ALTER ROLE centrepass_analytics LOGIN NOINHERIT NOCREATEDB NOCREATEROLE PASSWORD %L',
   :'analytics_password'
 )
 \gexec
@@ -125,6 +129,13 @@ SELECT NOT EXISTS (
     AND n.nspname NOT LIKE 'pg_toast%'
     AND n.nspname NOT LIKE 'pg_temp%'
     AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+    -- Supabase grants PUBLIC read access to these provider-owned observability
+    -- views. Without pg_read_all_stats membership they expose no other role's
+    -- query text, and PostgreSQL has no per-role deny that overrides PUBLIC.
+    AND NOT (
+      n.nspname = 'extensions'
+      AND c.relname IN ('pg_stat_statements', 'pg_stat_statements_info')
+    )
     AND has_table_privilege(
       'centrepass_analytics',
       format('%I.%I', n.nspname, c.relname),

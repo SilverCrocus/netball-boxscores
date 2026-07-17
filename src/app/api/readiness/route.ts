@@ -165,6 +165,10 @@ async function probeAnalyticsBoundary(client: ProbeClient) {
             WHERE allowed.schema_name = access.schema_name
               AND allowed.relation_name = access.relation_name
           )
+          AND NOT (
+            access.schema_name = 'extensions'
+            AND access.relation_name IN ('pg_stat_statements', 'pg_stat_statements_info')
+          )
       ) AS exact_surface_ok,
       NOT EXISTS (
         SELECT 1 FROM relation_access access WHERE access.can_write
@@ -236,13 +240,15 @@ async function probeOperationsBoundary(client: ProbeClient) {
   const result = await runProbeQuery<OperationsBoundaryRow>(client, Prisma.sql`
     WITH relation_access AS (
       SELECT
-        has_table_privilege(CURRENT_USER, relation.oid, 'SELECT')
-          OR has_table_privilege(CURRENT_USER, relation.oid, 'INSERT')
+        namespace.nspname AS schema_name,
+        relation.relname AS relation_name,
+        has_table_privilege(CURRENT_USER, relation.oid, 'SELECT') AS can_select,
+        has_table_privilege(CURRENT_USER, relation.oid, 'INSERT')
           OR has_table_privilege(CURRENT_USER, relation.oid, 'UPDATE')
           OR has_table_privilege(CURRENT_USER, relation.oid, 'DELETE')
           OR has_table_privilege(CURRENT_USER, relation.oid, 'TRUNCATE')
           OR has_table_privilege(CURRENT_USER, relation.oid, 'TRIGGER')
-          OR has_table_privilege(CURRENT_USER, relation.oid, 'REFERENCES') AS can_access
+          OR has_table_privilege(CURRENT_USER, relation.oid, 'REFERENCES') AS can_write
       FROM pg_catalog.pg_class relation
       JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
       WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
@@ -305,7 +311,16 @@ async function probeOperationsBoundary(client: ProbeClient) {
           )
       ) AS exact_function_surface_ok,
       NOT EXISTS (
-        SELECT 1 FROM relation_access access WHERE access.can_access
+        SELECT 1
+        FROM relation_access access
+        WHERE access.can_write
+          OR (
+            access.can_select
+            AND NOT (
+              access.schema_name = 'extensions'
+              AND access.relation_name IN ('pg_stat_statements', 'pg_stat_statements_info')
+            )
+          )
       ) AS no_relation_privileges,
       NOT EXISTS (
         SELECT 1 FROM sequence_access access WHERE access.can_access

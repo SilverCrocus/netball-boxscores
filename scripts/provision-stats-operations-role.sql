@@ -9,15 +9,18 @@
 -- Credentials are provisioned operationally so secrets never enter migration
 -- history. This login has no table privileges; it may execute only two
 -- bounded SECURITY DEFINER functions in the private analytics schema.
+-- Supabase's managed postgres login cannot explicitly toggle SUPERUSER,
+-- REPLICATION, or BYPASSRLS. New roles inherit safe PostgreSQL defaults and
+-- the validation below fails closed if any elevated attribute is present.
 SELECT format(
-  'CREATE ROLE centrepass_stats_operations LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+  'CREATE ROLE centrepass_stats_operations LOGIN NOINHERIT NOCREATEDB NOCREATEROLE PASSWORD %L',
   :'operations_password'
 )
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'centrepass_stats_operations')
 \gexec
 
 SELECT format(
-  'ALTER ROLE centrepass_stats_operations LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+  'ALTER ROLE centrepass_stats_operations LOGIN NOINHERIT NOCREATEDB NOCREATEROLE PASSWORD %L',
   :'operations_password'
 )
 \gexec
@@ -109,11 +112,17 @@ SELECT NOT EXISTS (
     AND namespace.nspname NOT LIKE 'pg_temp%'
     AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
     AND (
-      has_table_privilege('centrepass_stats_operations', relation.oid, 'SELECT')
-      OR has_table_privilege('centrepass_stats_operations', relation.oid, 'INSERT')
+      has_table_privilege('centrepass_stats_operations', relation.oid, 'INSERT')
       OR has_table_privilege('centrepass_stats_operations', relation.oid, 'UPDATE')
       OR has_table_privilege('centrepass_stats_operations', relation.oid, 'DELETE')
       OR has_table_privilege('centrepass_stats_operations', relation.oid, 'TRUNCATE')
+      OR (
+        has_table_privilege('centrepass_stats_operations', relation.oid, 'SELECT')
+        AND NOT (
+          namespace.nspname = 'extensions'
+          AND relation.relname IN ('pg_stat_statements', 'pg_stat_statements_info')
+        )
+      )
     )
 ) AS no_relation_privileges
 \gset

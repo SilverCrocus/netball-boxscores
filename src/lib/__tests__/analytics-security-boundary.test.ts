@@ -159,6 +159,8 @@ describe('secure analytics query boundary', () => {
     expect(analyticsRole).toContain('exact_view_allowlist_ok');
     expect(analyticsRole).toContain('no_schema_create');
     expect(analyticsRole).toContain('role_attributes_ok');
+    expect(analyticsRole).not.toContain('ALTER ROLE centrepass_analytics LOGIN NOINHERIT NOSUPERUSER');
+    expect(analyticsRole).toContain("c.relname IN ('pg_stat_statements', 'pg_stat_statements_info')");
     expect(analyticsRole).toContain('no_role_memberships');
     expect(analyticsRole).toContain('no_sequence_privileges');
     expect(analyticsRole).toContain('no_application_function_execution');
@@ -179,6 +181,8 @@ describe('secure analytics query boundary', () => {
     expect(operationsRole).toContain('REVOKE ALL ON ALL TABLES IN SCHEMA analytics FROM centrepass_stats_operations');
     expect(operationsRole).toContain('no_relation_privileges');
     expect(operationsRole).toContain('role_attributes_ok');
+    expect(operationsRole).not.toContain('ALTER ROLE centrepass_stats_operations LOGIN NOINHERIT NOSUPERUSER');
+    expect(operationsRole).toContain("relation.relname IN ('pg_stat_statements', 'pg_stat_statements_info')");
     expect(operationsRole).toContain('no_role_memberships');
     expect(operationsRole).toContain('no_sequence_privileges');
     expect(operationsRole).toContain('exact_function_allowlist_ok');
@@ -196,6 +200,7 @@ describe('secure analytics query boundary', () => {
     expect(readinessRoute.match(/current_setting\('statement_timeout'\)/g)?.length).toBeGreaterThanOrEqual(4);
     expect(readinessRoute.match(/statementTimeoutOk/g)?.length).toBeGreaterThanOrEqual(4);
     expect(readinessRoute).not.toContain('pg_catalog.extract(');
+    expect(readinessRoute.match(/pg_stat_statements_info/g)?.length).toBeGreaterThanOrEqual(2);
     expect(readinessRoute.match(/role_attributes_ok/g)?.length).toBeGreaterThanOrEqual(2);
     expect(readinessRoute.match(/no_role_memberships/g)?.length).toBeGreaterThanOrEqual(2);
     expect(readinessRoute.match(/no_sequence_privileges/g)?.length).toBeGreaterThanOrEqual(2);
