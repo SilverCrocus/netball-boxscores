@@ -371,6 +371,44 @@ describe('tournament data service', () => {
     expect(mocks.resolvePublicMatchAccessBatch).toHaveBeenCalledOnce();
   });
 
+  it('returns flattened empty bracket stages without invoking the batch resolver', async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: 'classification',
+        slug: 'classification',
+        name: 'Classification Matches',
+        type: 'CLASSIFICATION',
+        sequence: 2,
+        matches: [],
+      },
+      {
+        id: 'medals',
+        slug: 'medal-matches',
+        name: 'Medal Matches',
+        type: 'MEDAL_MATCHES',
+        sequence: 4,
+        matches: [],
+      },
+    ]);
+
+    const stages = await getTournamentBracket('glasgow-2026');
+
+    expect(stages.map((stage) => stage.matches)).toEqual([[], []]);
+    expect(mocks.findMany).toHaveBeenCalledOnce();
+    expect(mocks.resolvePublicMatchAccessBatch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mismatched loaded edition before querying bracket stages', async () => {
+    const wrongEdition = { id: 'other-edition' } as never;
+
+    await expect(getTournamentBracket('glasgow-2026', wrongEdition))
+      .rejects.toThrow(
+        'Loaded edition other-edition does not match competition glasgow-2026',
+      );
+    expect(mocks.findMany).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicMatchAccessBatch).not.toHaveBeenCalled();
+  });
+
   it('loads only the published classification, semi-final and medal stages', async () => {
     mocks.findMany.mockResolvedValue([
       {

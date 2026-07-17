@@ -9,6 +9,19 @@ import {
 
 const matchTeamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
 
+function loadedEditionContext(
+  competitionId: string,
+  loadedEdition?: CompetitionOption,
+): readonly CompetitionOption[] | undefined {
+  if (!loadedEdition) return undefined;
+  if (loadedEdition.id !== competitionId) {
+    throw new RangeError(
+      `Loaded edition ${loadedEdition.id} does not match competition ${competitionId}`,
+    );
+  }
+  return [loadedEdition];
+}
+
 const standingsQuery = (competitionId: string) =>
   prisma.standing.findMany({
     where: { competitionId },
@@ -134,10 +147,13 @@ export async function getRecentTeamMatches(
   teamId: string,
   loadedEdition?: CompetitionOption,
 ) {
+  const loadedEditions = loadedEditionContext(competitionId, loadedEdition);
   const candidates = await getRecentTeamMatchCandidates(competitionId, teamId);
+  if (candidates.length === 0) return [];
+
   const accessByMatchId = await resolvePublicMatchAccessBatch(
     candidates.map((match) => match.id),
-    loadedEdition?.id === competitionId ? [loadedEdition] : undefined,
+    loadedEditions,
   );
 
   return candidates
@@ -154,10 +170,13 @@ export async function getUpcomingTeamMatches(
   teamId: string,
   loadedEdition?: CompetitionOption,
 ) {
+  const loadedEditions = loadedEditionContext(competitionId, loadedEdition);
   const candidates = await getUpcomingTeamMatchCandidates(competitionId, teamId);
+  if (candidates.length === 0) return [];
+
   const accessByMatchId = await resolvePublicMatchAccessBatch(
     candidates.map((match) => match.id),
-    loadedEdition?.id === competitionId ? [loadedEdition] : undefined,
+    loadedEditions,
   );
 
   return candidates

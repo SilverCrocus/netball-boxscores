@@ -3,10 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import TeamPageError from '../error';
 
 describe('TeamPageError', () => {
-  it('explains the retryable failure and retries on request', () => {
+  it('re-fetches the failed Server Component tree on retry', () => {
     const reset = vi.fn();
+    const unstableRetry = vi.fn();
 
-    render(<TeamPageError error={new Error('database unavailable')} reset={reset} />);
+    render(
+      <TeamPageError
+        error={new Error('database unavailable')}
+        reset={reset}
+        unstable_retry={unstableRetry}
+      />,
+    );
 
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Team details are temporarily unavailable',
@@ -17,6 +24,7 @@ describe('TeamPageError', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(reset).toHaveBeenCalledOnce();
+    expect(unstableRetry).toHaveBeenCalledOnce();
+    expect(reset).not.toHaveBeenCalled();
   });
 });

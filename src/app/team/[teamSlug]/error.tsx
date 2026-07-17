@@ -1,13 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import type { ErrorInfo } from 'next/error';
 
-interface TeamPageErrorProps {
-  error: Error & { digest?: string };
-  reset: () => void;
-}
-
-export default function TeamPageError({ reset }: TeamPageErrorProps) {
+export default function TeamPageError({ unstable_retry }: ErrorInfo) {
   return (
     <main className="mx-auto flex min-h-[50vh] max-w-2xl items-center px-4 py-16">
       <section
@@ -27,7 +23,7 @@ export default function TeamPageError({ reset }: TeamPageErrorProps) {
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button
             className="rounded-xl bg-primary px-5 py-3 font-headline text-sm font-bold text-on-primary focus:outline-none focus:ring-4 focus:ring-primary/30"
-            onClick={reset}
+            onClick={unstable_retry}
             type="button"
           >
             Try again

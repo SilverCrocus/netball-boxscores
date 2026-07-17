@@ -56,6 +56,36 @@ describe('public team match queries', () => {
     );
   });
 
+  it('returns empty candidate sets without invoking the batch resolver', async () => {
+    mocks.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await expect(getRecentTeamMatches('edition', 'team-a', edition)).resolves.toEqual([]);
+    await expect(getUpcomingTeamMatches('edition', 'team-a', edition)).resolves.toEqual([]);
+
+    expect(mocks.findMany).toHaveBeenCalledTimes(2);
+    expect(mocks.resolvePublicMatchAccessBatch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mismatched loaded edition before querying recent candidates', async () => {
+    const wrongEdition = { id: 'other-edition' } as never;
+
+    await expect(getRecentTeamMatches('edition', 'team-a', wrongEdition))
+      .rejects.toThrow('Loaded edition other-edition does not match competition edition');
+    expect(mocks.findMany).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicMatchAccessBatch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mismatched loaded edition before querying upcoming candidates', async () => {
+    const wrongEdition = { id: 'other-edition' } as never;
+
+    await expect(getUpcomingTeamMatches('edition', 'team-a', wrongEdition))
+      .rejects.toThrow('Loaded edition other-edition does not match competition edition');
+    expect(mocks.findMany).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicMatchAccessBatch).not.toHaveBeenCalled();
+  });
+
   it('returns recent results only when full public access and score policy allow them', async () => {
     mocks.findMany.mockResolvedValue([
       match('allowed', 'COMPLETED'),

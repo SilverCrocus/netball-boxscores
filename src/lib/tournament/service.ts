@@ -32,6 +32,19 @@ const TEAM_SELECT = {
   logoUrl: true,
 } as const;
 
+function loadedEditionContext(
+  competitionId: string,
+  loadedEdition?: CompetitionOption,
+): readonly CompetitionOption[] | undefined {
+  if (!loadedEdition) return undefined;
+  if (loadedEdition.id !== competitionId) {
+    throw new RangeError(
+      `Loaded edition ${loadedEdition.id} does not match competition ${competitionId}`,
+    );
+  }
+  return [loadedEdition];
+}
+
 function entryName(entry: {
   displayName: string | null;
   team: { name: string };
@@ -309,6 +322,7 @@ export async function getTournamentBracket(
   competitionId: string,
   loadedEdition?: CompetitionOption,
 ): Promise<TournamentBracketStage[]> {
+  const loadedEditions = loadedEditionContext(competitionId, loadedEdition);
   const stages = await prisma.stage.findMany({
     where: {
       competitionId,
@@ -355,9 +369,20 @@ export async function getTournamentBracket(
   });
 
   const matchIds = stages.flatMap((stage) => stage.matches.map((match) => match.id));
+  if (matchIds.length === 0) {
+    return stages.map((stage) => ({
+      id: stage.id,
+      slug: stage.slug,
+      name: stage.name,
+      type: stage.type as TournamentBracketStage['type'],
+      sequence: stage.sequence,
+      matches: [],
+    }));
+  }
+
   const accessByMatchId = await resolvePublicMatchAccessBatch(
     matchIds,
-    loadedEdition?.id === competitionId ? [loadedEdition] : undefined,
+    loadedEditions,
   );
 
   return stages.map((stage) => {
