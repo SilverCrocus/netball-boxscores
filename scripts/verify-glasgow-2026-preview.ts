@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { loadGlasgowFoundationSourceEvidence } from '@/lib/glasgow/source-manifest';
+import { sourcePayloadChecksum } from '@/lib/sources/checksum';
 
 const COMPETITION_SERIES_SLUG = 'commonwealth-games-netball';
 const EDITION_SLUG = 'glasgow-2026';
@@ -15,6 +16,11 @@ function receiptKind(metadata: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+function jsonObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 async function main() {
   invariant(process.env.DATABASE_ENVIRONMENT === 'staging', 'DATABASE_ENVIRONMENT must be staging');
   invariant(process.env.ALLOW_SHARED_PRODUCTION_DB_WRITES === 'false', 'shared production writes must be disabled');
@@ -24,6 +30,7 @@ async function main() {
   );
   const expectation = evidence.publicationExpectation;
   const bundle = JSON.parse(evidence.bundleText) as {
+    context: { sourceUrl: string; retrievedAt: string };
     players: Array<{
       externalId: string;
       photoUrl?: string;
@@ -69,10 +76,11 @@ async function main() {
     matchCount,
     slotCount,
     activeRosterCount,
+    simulationMatchCount,
     mappings,
     coverage,
     runs,
-    snapshotCount,
+    snapshots,
     openErrorCount,
   ] = await Promise.all([
     prisma.editionEntry.count({
@@ -86,6 +94,9 @@ async function main() {
         status: 'ACTIVE',
         validTo: null,
       },
+    }),
+    prisma.match.count({
+      where: { competitionId: edition.id, isSimulation: true },
     }),
     prisma.sourceEntityMapping.findMany({
       where: {
@@ -112,6 +123,7 @@ async function main() {
         issueCount: 0,
       },
       select: {
+        id: true,
         dryRun: true,
         trigger: true,
         checksum: true,
@@ -121,11 +133,17 @@ async function main() {
         metadata: true,
       },
     }),
-    prisma.sourceSnapshot.count({
+    prisma.sourceSnapshot.findMany({
       where: {
         sourceSystemId: source.id,
         competitionId: edition.id,
         checksum: expectation.importChecksum,
+      },
+      select: {
+        checksum: true,
+        sourceUrl: true,
+        retrievedAt: true,
+        metadata: true,
       },
     }),
     prisma.importIssue.count({
@@ -141,6 +159,8 @@ async function main() {
   invariant(matchCount === 38, `expected 38 matches, found ${matchCount}`);
   invariant(slotCount === 76, `expected 76 match slots, found ${slotCount}`);
   invariant(activeRosterCount === 96, `expected 96 active roster rows, found ${activeRosterCount}`);
+  invariant(simulationMatchCount === 0,
+    `expected zero simulation matches, found ${simulationMatchCount}`);
   invariant(openErrorCount === 0, `found ${openErrorCount} open import errors`);
 
   const stageMatchCounts = Object.fromEntries(
@@ -228,6 +248,34 @@ async function main() {
   }
 
   const foundationRuns = runs.filter((run) => receiptKind(run.metadata) === 'GLASGOW_FOUNDATION');
+  const expectedImportPolicy = {
+    completeEditionRosterSnapshot: true,
+    coverageSourcePrecedence: 'INCOMING_SOURCE',
+  };
+  const previewStateFingerprints = new Set<string>();
+  for (const run of foundationRuns) {
+    const metadata = jsonObject(run.metadata);
+    invariant(metadata, `receipt ${run.id} metadata is invalid`);
+    const sourceManifest = jsonObject(metadata.sourceManifest);
+    invariant(sourceManifest, `receipt ${run.id} source manifest is missing`);
+    invariant(
+      sourceManifest.bundleFileSha256 === expectation.bundleFileSha256
+      && sourceManifest.manifestFileSha256 === expectation.manifestFileSha256
+      && sourceManifest.publicationStatusPolicy === 'DRAFT_ONLY'
+      && JSON.stringify(sourceManifest.sourceIds) === JSON.stringify(expectation.sourceIds),
+      `receipt ${run.id} source-manifest fingerprint is incorrect`,
+    );
+    invariant(
+      JSON.stringify(metadata.importPolicy) === JSON.stringify(expectedImportPolicy),
+      `receipt ${run.id} import policy is incorrect`,
+    );
+    const previewFingerprint = metadata.previewStateFingerprint;
+    invariant(typeof previewFingerprint === 'string',
+      `receipt ${run.id} preview-state fingerprint is missing`);
+    invariant(previewFingerprint === sourcePayloadChecksum(metadata.preview),
+      `receipt ${run.id} preview-state fingerprint is incorrect`);
+    previewStateFingerprints.add(previewFingerprint);
+  }
   invariant(foundationRuns.some((run) => run.dryRun), 'recorded clean dry-run receipt is missing');
   invariant(
     foundationRuns.some((run) => !run.dryRun && run.trigger !== 'REPLAY'),
@@ -243,22 +291,51 @@ async function main() {
     )),
     'idempotent replay receipt is missing',
   );
-  invariant(snapshotCount === 1, `expected one deduplicated source snapshot, found ${snapshotCount}`);
+  invariant(snapshots.length === 1,
+    `expected one deduplicated source snapshot, found ${snapshots.length}`);
+  const snapshot = snapshots[0];
+  invariant(snapshot.checksum === expectation.importChecksum,
+    'source snapshot input checksum is incorrect');
+  invariant(snapshot.sourceUrl === bundle.context.sourceUrl,
+    'source snapshot URL does not match the exact bundle');
+  invariant(snapshot.retrievedAt.toISOString() === bundle.context.retrievedAt,
+    'source snapshot retrieval time does not match the exact bundle');
+  const snapshotMetadata = jsonObject(snapshot.metadata);
+  const snapshotSourceManifest = jsonObject(snapshotMetadata?.sourceManifest);
+  invariant(
+    snapshotSourceManifest?.bundleFileSha256 === expectation.bundleFileSha256
+    && snapshotSourceManifest.manifestFileSha256 === expectation.manifestFileSha256,
+    'source snapshot provenance fingerprint is incorrect',
+  );
 
   console.log(JSON.stringify({
     status: 'reconciled-draft-preview',
     editionId: edition.id,
     checksum: expectation.importChecksum,
+    bundleFileSha256: expectation.bundleFileSha256,
+    manifestFileSha256: expectation.manifestFileSha256,
     entries: activeEntryCount,
     pools: 2,
     matches: matchCount,
+    simulationMatches: simulationMatchCount,
     matchSlots: slotCount,
     activeRosterMemberships: activeRosterCount,
     reviewedCanonicalPlayers: expectation.canonicalPlayers.length,
     sourceMappings: mappings.length,
     coverageRows: coverage.length,
     sourceCount: expectation.sourceIds.length,
+    sourceUrlsAndRetrievalDatesVerified: expectation.sources.length,
     reusablePhotos: expectedPhotos.length,
+    reusablePhotoLicencesAndCreditsVerified: expectedPhotos.length,
+    receiptPolicyFingerprintsVerified: foundationRuns.length,
+    previewStateFingerprints: [...previewStateFingerprints].toSorted(),
+    dryRunReceiptIds: foundationRuns.filter((run) => run.dryRun).map((run) => run.id),
+    appliedReceiptIds: foundationRuns
+      .filter((run) => !run.dryRun && run.trigger !== 'REPLAY')
+      .map((run) => run.id),
+    replayReceiptIds: foundationRuns
+      .filter((run) => !run.dryRun && run.trigger === 'REPLAY')
+      .map((run) => run.id),
     publishedStages: 0,
     publicationStatus: edition.publicationStatus,
   }, null, 2));

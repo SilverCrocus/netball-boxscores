@@ -4,6 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import { planCompetitionImport } from '@/lib/sources/planner';
 import {
+  CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
   PrismaCompetitionImportWriter,
   recordPrismaImportPreview,
 } from '@/lib/sources/prisma-writer';
@@ -1171,6 +1172,49 @@ describe('PrismaCompetitionImportWriter', () => {
     expect(state.editionSource.lastSyncedAt).toBeNull();
     expect([...state.runs.values()]).toEqual([
       expect.objectContaining({ status: 'FAILED', errorMessage: 'audit flush failed' }),
+    ]);
+  });
+
+  it('supports an audited preview-only failure before the atomic audit flush', async () => {
+    const input = validImport();
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const { prisma, state, tx } = createFakePrisma('DRAFT');
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+      expectedPublicationStatus: 'DRAFT',
+      controlledFailurePoint: 'BEFORE_AUDIT_FLUSH',
+    });
+
+    await expect(writer.execute(input, preview)).rejects.toThrow(
+      CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
+    );
+
+    expect(tx.importMutation.createMany).not.toHaveBeenCalled();
+    expect(state.teams).toHaveLength(0);
+    expect(state.entries).toHaveLength(0);
+    expect(state.players).toHaveLength(0);
+    expect(state.rosters).toHaveLength(0);
+    expect(state.matches).toHaveLength(0);
+    expect(state.slots).toHaveLength(0);
+    expect(state.coverage).toHaveLength(0);
+    expect(state.mappings).toHaveLength(0);
+    expect(state.snapshots).toHaveLength(0);
+    expect(state.mutations).toHaveLength(0);
+    expect(state.editionSource.lastSyncedAt).toBeNull();
+    expect([...state.runs.values()]).toEqual([
+      expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
+        metadata: expect.objectContaining({ controlledFailurePoint: 'BEFORE_AUDIT_FLUSH' }),
+      }),
     ]);
   });
 

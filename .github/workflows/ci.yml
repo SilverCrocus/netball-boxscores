@@ -111,6 +111,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Capture refs-only preview target evidence
+        run: npx tsx scripts/verify-preview-database-target.ts
+
+      - name: Deploy checked-in Prisma migrations
+        run: npx prisma migrate deploy
+
+      - name: Verify exact checked-in migration ledger
+        run: npx tsx scripts/verify-preview-migrations.ts
+
       - name: Validate the immutable bundle offline
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
 
@@ -125,6 +134,9 @@ jobs:
 
       - name: Record clean preview receipt
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --record-preview
+
+      - name: Prove controlled import failure rolls back canonical writes
+        run: npx tsx scripts/rehearse-glasgow-2026-rollback.ts
 
       - name: Apply exact bundle to preview
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --apply

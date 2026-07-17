@@ -49,7 +49,16 @@ export interface PrismaCompetitionImportWriterOptions {
    * selects incoming-source precedence.
    */
   coverageSourcePrecedence?: CoverageSourcePrecedence;
+  /**
+   * Preview-rehearsal-only fault injection. This is intentionally an internal
+   * constructor option rather than an environment flag or CLI argument so it
+   * cannot be enabled by production configuration or untrusted input.
+   */
+  controlledFailurePoint?: 'BEFORE_AUDIT_FLUSH';
 }
+
+export const CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR =
+  'Controlled preview import rollback rehearsal failed before audit flush';
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -313,6 +322,12 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
   ): Promise<ImportExecutionReceipt> {
     if (!preview.valid) throw new Error('Cannot execute an invalid import preview');
     validateInputPreview(input, preview);
+    if (
+      this.options.controlledFailurePoint
+      && this.options.expectedPublicationStatus !== 'DRAFT'
+    ) {
+      throw new Error('Controlled import failure is restricted to an expected DRAFT edition');
+    }
 
     const importRunId = randomUUID();
     const importStartedAt = new Date();
@@ -551,6 +566,9 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             issueCount: preview.issues.length,
             metadata: importRunMetadata(this.options, preview, {
               replayOfImportRunId: priorRun?.id ?? null,
+              ...(this.options.controlledFailurePoint
+                ? { controlledFailurePoint: this.options.controlledFailurePoint }
+                : {}),
             }),
           },
         });
@@ -1476,6 +1494,10 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           );
         }
 
+        if (this.options.controlledFailurePoint === 'BEFORE_AUDIT_FLUSH') {
+          throw new Error(CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR);
+        }
+
         if (mutationRows.length > 0) {
           await transaction.importMutation.createMany({ data: mutationRows });
         }
@@ -1527,7 +1549,11 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             checksum: preview.checksum,
             issueCount: preview.issues.length,
             errorMessage: message,
-            metadata: importRunMetadata(this.options, preview),
+            metadata: importRunMetadata(this.options, preview, {
+              ...(this.options.controlledFailurePoint
+                ? { controlledFailurePoint: this.options.controlledFailurePoint }
+                : {}),
+            }),
           },
         });
       } catch {
