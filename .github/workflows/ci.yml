@@ -141,7 +141,10 @@ jobs:
 
       - name: Initialize fresh PostgreSQL 17 from historical baseline
         env: *fresh-migration-env
-        run: npx prisma db execute --file prisma/baselines/pre-20260602/baseline.sql
+        run: >-
+          npx prisma db execute
+          --file prisma/baselines/pre-20260602/baseline.sql
+          --schema prisma/baselines/pre-20260602/schema.prisma
 
       - name: Verify initialized historical baseline parity
         env: *fresh-migration-env
