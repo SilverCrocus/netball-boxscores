@@ -370,4 +370,3 @@ ALTER TABLE "UserFavorite" ADD CONSTRAINT "UserFavorite_userId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "UserFavorite" ADD CONSTRAINT "UserFavorite_matchId_fkey" FOREIGN KEY ("matchId") REFERENCES "Match"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

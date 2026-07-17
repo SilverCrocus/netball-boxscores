@@ -5,8 +5,9 @@
   "sourcePath": "prisma/schema.prisma",
   "sourceGitBlobSha1": "66717001197fcde2cf1c123896b0dbb778caf274",
   "schemaSha256": "382f7bdc1b689214d9a076e675c0c45be93263f46ce2caa99aa62132fc9cbb52",
-  "baselineSqlSha256": "f6c7bc93ab67dc3e76c9f80dfe638a56facb3efab6466b627a6ae8b6d1c2451c",
+  "baselineSqlSha256": "0a6b678a8adc37c3e92368e5cf1a916da603fd7f43fc3650e0ab88aa95c0c590",
   "generator": "prisma migrate diff --from-empty --to-schema-datamodel schema.prisma --script",
+  "generatorNormalization": "strip terminal ASCII whitespace and append LF",
   "prismaVersion": "6.19.3",
   "firstRetainedMigration": "20260602_expand_stats_fields"
 }
