@@ -55,6 +55,9 @@ jobs:
 
       - name: Run lint, typecheck, and tests
         run: npm run check
+        env:
+          ANALYTICS_FEATURES_ENABLED: "true"
+          ASK_CENTREPASS_ENABLED: "true"
 
       - name: Build production application
         run: npm run build
