@@ -146,7 +146,7 @@ describe("CP-01 competition foundation migration", () => {
     expect(processingSource).toContain("stages: {");
     expect(processingSource).toContain("sourceRetrievedAt: retrievedAt");
     expect(processingSource).toContain("resultQuality:");
-    expect(processingSource).toContain("resultQuality: 'OFFICIAL_FINAL'");
+    expect(processingSource).toContain("? 'PROVISIONAL'");
   });
 
   it("uses a concrete mutation target for every CP-03A write surface", () => {
