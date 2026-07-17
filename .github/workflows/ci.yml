@@ -3,6 +3,16 @@ name: CI
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      run_glasgow_preview:
+        description: Run the DRAFT-only Glasgow import rehearsal after verification
+        required: false
+        default: false
+        type: boolean
+      expected_preview_project_ref:
+        description: Supabase preview project ref required by the target guard
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -48,3 +58,76 @@ jobs:
 
       - name: Build production application
         run: npm run build
+
+  glasgow-preview-rehearsal:
+    name: Glasgow DRAFT preview rehearsal
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      && inputs.run_glasgow_preview
+      && github.ref_name != github.event.repository.default_branch
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.SUPABASE_PREVIEW_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.SUPABASE_PREVIEW_DATABASE_URL }}
+      DATABASE_ENVIRONMENT: staging
+      WORKER_ENABLED: "false"
+      ALLOW_SHARED_PRODUCTION_DB_WRITES: "false"
+      EXPECTED_PREVIEW_PROJECT_REF: ${{ inputs.expected_preview_project_ref }}
+      PRODUCTION_PROJECT_REF: ${{ vars.SUPABASE_PRODUCTION_PROJECT_REF }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify preview-only database target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DATABASE_URL"
+          test -n "$EXPECTED_PREVIEW_PROJECT_REF"
+          test -n "$PRODUCTION_PROJECT_REF"
+          [[ "$EXPECTED_PREVIEW_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]]
+          [[ "$PRODUCTION_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]]
+          test "$EXPECTED_PREVIEW_PROJECT_REF" != "$PRODUCTION_PROJECT_REF"
+          case "$DATABASE_URL" in
+            *"$EXPECTED_PREVIEW_PROJECT_REF"*) ;;
+            *) echo "Database URL does not match the requested preview ref" >&2; exit 72 ;;
+          esac
+          case "$DATABASE_URL" in
+            *"$PRODUCTION_PROJECT_REF"*) echo "Production database target rejected" >&2; exit 73 ;;
+          esac
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate the immutable bundle offline
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
+
+      - name: Prepare unpublished foundation
+        run: npm run db:prepare:glasgow
+
+      - name: Build database-aware import plan
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json
+
+      - name: Record clean preview receipt
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --record-preview
+
+      - name: Apply exact bundle to preview
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --apply
+
+      - name: Prove exact replay is idempotent
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --apply
+
+      - name: Reconcile exact DRAFT preview state
+        run: npm run db:verify:glasgow-preview
+
+      - name: Exercise publication readiness without publishing
+        run: npm run db:publish:edition -- commonwealth-games-netball glasgow-2026 --dry-run
