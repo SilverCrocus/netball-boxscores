@@ -13,6 +13,15 @@ import {
   navigationEditionFromLocation,
 } from '@/lib/edition-links';
 
+const DIALOG_FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
 export function BottomNav({
   editions = [],
   analyticsEnabled = false,
@@ -27,6 +36,7 @@ export function BottomNav({
   const { hasLive, minutesUntilNext } = useLiveStatus();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const navigationItems = getVisibleNavigationItems({ analyticsEnabled, askCentrePassEnabled });
   const primaryItems = navigationItems.filter((item) => !['/teams', '/explore'].includes(item.href));
@@ -46,15 +56,38 @@ export function BottomNav({
 
   useEffect(() => {
     if (!moreOpen) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     closeButtonRef.current?.focus();
-    const handleEscape = (event: globalThis.KeyboardEvent) => {
+
+    const handleDialogKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMoreOpen(false);
         moreButtonRef.current?.focus();
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+      const focusableElements = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) ?? [],
+      );
+      const firstFocusable = focusableElements[0];
+      const lastFocusable = focusableElements.at(-1);
+      if (!firstFocusable || !lastFocusable) return;
+
+      if (event.shiftKey && document.activeElement === firstFocusable) {
+        event.preventDefault();
+        lastFocusable.focus();
+      } else if (!event.shiftKey && document.activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus();
       }
     };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleDialogKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleDialogKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+    };
   }, [moreOpen]);
 
   function closeMore() {
@@ -66,6 +99,7 @@ export function BottomNav({
     <>
       {moreOpen && (
         <div
+          ref={dialogRef}
           id="mobile-more-menu"
           role="dialog"
           aria-modal="true"

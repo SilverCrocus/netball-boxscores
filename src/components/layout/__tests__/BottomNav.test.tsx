@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { BottomNav } from '../BottomNav';
 import type { EditionContextValue } from '@/lib/edition-context';
@@ -71,6 +71,27 @@ describe('BottomNav', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(moreButton).toHaveFocus();
+  });
+
+  it('locks background scrolling and traps keyboard focus inside the More dialog', () => {
+    render(<BottomNav />);
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'More' });
+    const closeButton = within(dialog).getByRole('button', { name: 'Close more menu' });
+    const lastControl = within(dialog).getByRole('link', { name: 'Sign In' });
+    expect(document.body).toHaveStyle({ overflow: 'hidden' });
+    expect(closeButton).toHaveFocus();
+
+    lastControl.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(lastControl).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.body.style.overflow).toBe('');
   });
 
   it('scopes fixtures, standings, and teams to the selected edition', () => {
