@@ -7,6 +7,7 @@ import type {
 
 interface TournamentMatchCardProps {
   fixture: EditionScheduleFixture;
+  presentationMode?: 'public' | 'draft-preview';
 }
 
 function TeamSide({ side, variant }: {
@@ -37,7 +38,7 @@ function TeamSide({ side, variant }: {
   );
 }
 
-function CardContents({ fixture }: TournamentMatchCardProps) {
+function CardContents({ fixture, presentationMode = 'public' }: TournamentMatchCardProps) {
   const scoreLabel = fixture.score
     ? `${fixture.sideA.displayName} ${fixture.score.sideA}, ${fixture.sideB.displayName} ${fixture.score.sideB}`
     : `${fixture.sideA.displayName} versus ${fixture.sideB.displayName}`;
@@ -92,7 +93,11 @@ function CardContents({ fixture }: TournamentMatchCardProps) {
           <span className="material-symbols-outlined text-base" aria-hidden="true">location_on</span>
           <span className="break-words [overflow-wrap:anywhere]">{fixture.venue}</span>
         </span>
-        {fixture.href ? (
+        {presentationMode === 'draft-preview' ? (
+          <span className="font-label text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
+            Private preview only
+          </span>
+        ) : fixture.href ? (
           <span className="flex items-center gap-1 font-label text-[10px] font-black uppercase tracking-wider text-secondary">
             Match centre
             <span className="material-symbols-outlined text-base transition-transform group-hover:translate-x-0.5" aria-hidden="true">
@@ -111,10 +116,10 @@ function CardContents({ fixture }: TournamentMatchCardProps) {
 
 const cardClassName = 'group block h-full min-w-0 rounded-2xl border border-outline-variant/50 bg-surface-container-lowest p-5 shadow-sm transition-[box-shadow,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-secondary/50 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2';
 
-export function TournamentMatchCard({ fixture }: TournamentMatchCardProps) {
+export function TournamentMatchCard({ fixture, presentationMode = 'public' }: TournamentMatchCardProps) {
   const label = `${fixture.sideA.displayName} versus ${fixture.sideB.displayName}, ${fixture.localTimeLabel}`;
 
-  if (fixture.href) {
+  if (fixture.href && presentationMode === 'public') {
     return (
       <Link
         href={fixture.href}
@@ -123,7 +128,7 @@ export function TournamentMatchCard({ fixture }: TournamentMatchCardProps) {
         className={cardClassName}
         data-testid="edition-fixture"
       >
-        <CardContents fixture={fixture} />
+        <CardContents fixture={fixture} presentationMode={presentationMode} />
       </Link>
     );
   }
@@ -134,7 +139,7 @@ export function TournamentMatchCard({ fixture }: TournamentMatchCardProps) {
       className={cardClassName}
       data-testid="edition-fixture"
     >
-      <CardContents fixture={fixture} />
+      <CardContents fixture={fixture} presentationMode={presentationMode} />
     </article>
   );
 }
