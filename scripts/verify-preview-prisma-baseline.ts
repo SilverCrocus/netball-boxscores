@@ -3,6 +3,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  type IndexSemantics,
+  matchesPlainBtreeIndex,
+} from './lib/preview-index-contract';
 import { verifyPreviewDatabaseTarget } from './lib/preview-database-target';
 
 const BASELINED_MIGRATIONS = [
@@ -20,16 +24,6 @@ interface PolicyRow extends DefinitionRow { command: string; checkExpression: st
 interface RlsRow { name: string; enabled: boolean; forced: boolean }
 interface GrantCounts { tableGrants: bigint; sequenceGrants: bigint; routineGrants: bigint; defaultGrants: bigint }
 interface ExpectedColumn { name: string; dataType: string; isNullable: 'YES' | 'NO'; defaultValue: string | null }
-interface IndexRow {
-  name: string;
-  tableName: string;
-  unique: boolean;
-  valid: boolean;
-  ready: boolean;
-  method: string;
-  columns: string[];
-  predicate: string | null;
-}
 
 const POSTGRES_TYPES: Record<string, string> = {
   BOOLEAN: 'boolean',
@@ -149,12 +143,33 @@ async function verifyHotIndexes() {
     columns: match[3].split(',').map((column) => column.trim().replaceAll('"', '')),
   }));
   invariant(expected.length > 0, 'hot-index migration contains no indexes');
-  const actual = await prisma.$queryRaw<IndexRow[]>(Prisma.sql`
+  const actual = await prisma.$queryRaw<IndexSemantics[]>(Prisma.sql`
     SELECT idx.relname AS name, tbl.relname AS "tableName", i.indisunique AS unique,
-      i.indisvalid AS valid, i.indisready AS ready, am.amname AS method,
-      ARRAY(SELECT pg_get_indexdef(i.indexrelid, key_position, true)
-        FROM generate_series(1, i.indnkeyatts) AS key_position ORDER BY key_position) AS columns,
-      pg_get_expr(i.indpred, i.indrelid) AS predicate
+      i.indisvalid AS valid, i.indisready AS ready, i.indislive AS live,
+      i.indisexclusion AS exclusion, i.indisclustered AS clustered,
+      i.indnullsnotdistinct AS "nullsNotDistinct", am.amname AS method,
+      ARRAY(SELECT attribute.attname
+        FROM unnest(i.indkey) WITH ORDINALITY AS key(attnum, position)
+        JOIN pg_attribute attribute ON attribute.attrelid = i.indrelid
+          AND attribute.attnum = key.attnum
+        WHERE key.position <= i.indnkeyatts ORDER BY key.position) AS columns,
+      pg_get_expr(i.indpred, i.indrelid) AS predicate,
+      EXISTS(SELECT 1 FROM unnest(i.indkey) AS key(attnum) WHERE key.attnum = 0)
+        AS "hasExpressions",
+      i.indnatts <> i.indnkeyatts AS "hasIncludedColumns",
+      EXISTS(SELECT 1 FROM unnest(i.indoption) AS option(value) WHERE option.value <> 0)
+        AS "hasNondefaultSortOptions",
+      EXISTS(SELECT 1 FROM unnest(i.indclass) AS operator_class(oid)
+        JOIN pg_opclass opc ON opc.oid = operator_class.oid WHERE NOT opc.opcdefault)
+        AS "hasNondefaultOperatorClasses",
+      EXISTS(SELECT 1
+        FROM unnest(i.indkey) WITH ORDINALITY AS key(attnum, position)
+        JOIN pg_attribute attribute ON attribute.attrelid = i.indrelid
+          AND attribute.attnum = key.attnum
+        JOIN unnest(i.indcollation) WITH ORDINALITY AS index_collation(oid, position)
+          USING (position)
+        WHERE key.position <= i.indnkeyatts AND index_collation.oid <> attribute.attcollation)
+        AS "hasNondefaultCollations"
     FROM pg_index i JOIN pg_class idx ON idx.oid = i.indexrelid
     JOIN pg_class tbl ON tbl.oid = i.indrelid JOIN pg_namespace n ON n.oid = tbl.relnamespace
     JOIN pg_am am ON am.oid = idx.relam
@@ -164,9 +179,7 @@ async function verifyHotIndexes() {
   invariant(actual.length === expected.length, 'hot-index count differs from the migration');
   for (const row of expected) {
     const index = actualByName.get(row.name);
-    invariant(index && index.tableName === row.tableName && !index.unique && index.valid &&
-      index.ready && index.method === 'btree' && index.predicate === null &&
-      JSON.stringify(index.columns) === JSON.stringify(row.columns),
+    invariant(matchesPlainBtreeIndex(index, row),
     `index ${row.name} does not exactly match the migration semantics`);
   }
 }

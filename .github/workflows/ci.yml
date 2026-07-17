@@ -18,8 +18,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: >-
+    ${{ github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview
+      && format('preview-rehearsal-{0}', inputs.expected_preview_project_ref)
+      || format('ci-{0}-{1}', github.workflow, github.event.pull_request.number || github.ref) }}
+  cancel-in-progress: >-
+    ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview) }}
 
 jobs:
   verify:
@@ -71,6 +75,8 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: centrepass-preview-rehearsal
     services:
       migration-rehearsal-postgres:
         image: postgres:17

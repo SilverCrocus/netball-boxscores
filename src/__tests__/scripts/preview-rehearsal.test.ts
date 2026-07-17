@@ -5,6 +5,7 @@ import {
   projectRefFromPreviewDatabaseUrl,
   verifyPreviewDatabaseTarget,
 } from '../../../scripts/lib/preview-database-target';
+import { matchesPlainBtreeIndex } from '../../../scripts/lib/preview-index-contract';
 
 const PREVIEW_REF = 'xpfdjkqrbvdasjpllxnc';
 const PRODUCTION_REF = 'iqnhnlttvnvkwrqvnrna';
@@ -55,6 +56,36 @@ describe('preview rehearsal target guard', () => {
 });
 
 describe('Glasgow preview workflow', () => {
+  it('compares mixed-case quoted index identifiers by catalog semantics', () => {
+    const expectation = {
+      name: 'Match_competitionId_status_scheduledAt_idx',
+      tableName: 'Match',
+      columns: ['competitionId', 'status', 'scheduledAt'],
+    };
+    const actual = {
+      ...expectation,
+      unique: false,
+      valid: true,
+      ready: true,
+      live: true,
+      exclusion: false,
+      clustered: false,
+      nullsNotDistinct: false,
+      method: 'btree',
+      predicate: null,
+      hasExpressions: false,
+      hasIncludedColumns: false,
+      hasNondefaultSortOptions: false,
+      hasNondefaultOperatorClasses: false,
+      hasNondefaultCollations: false,
+    };
+    expect(matchesPlainBtreeIndex(actual, expectation)).toBe(true);
+    expect(matchesPlainBtreeIndex(
+      { ...actual, columns: ['competitionid', 'status', 'scheduledat'] },
+      expectation,
+    )).toBe(false);
+  });
+
   it('installs dependencies, deploys and verifies migrations, proves rollback, and never publishes', async () => {
     const workflow = await readFile(path.resolve('.github/workflows/ci.yml'), 'utf8');
     const rehearsal = workflow.slice(workflow.indexOf('  glasgow-preview-rehearsal:'));
@@ -63,7 +94,14 @@ describe('Glasgow preview workflow', () => {
       'utf8',
     );
 
+    expect(workflow).toContain(
+      "format('preview-rehearsal-{0}', inputs.expected_preview_project_ref)",
+    );
+    expect(workflow).toContain(
+      "${{ !(github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview) }}",
+    );
     expect(rehearsal).toContain('npm ci');
+    expect(rehearsal).toContain('name: centrepass-preview-rehearsal');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-database-target.ts');
     expect(rehearsal).toContain('image: postgres:17');
     expect(rehearsal).toContain('npx tsx scripts/verify-fresh-prisma-migration-target.ts');
