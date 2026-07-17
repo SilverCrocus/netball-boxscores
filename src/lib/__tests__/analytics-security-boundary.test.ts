@@ -7,6 +7,7 @@ const migration = read('prisma/migrations/20260717000000_secure_analytics_query_
 const analyticsRole = read('scripts/provision-analytics-role.sql');
 const operationsRole = read('scripts/provision-stats-operations-role.sql');
 const queryPlanChecks = read('scripts/check-analytics-query-plans.sql');
+const readinessRoute = read('src/app/api/readiness/route.ts');
 
 const ANALYTICS_VIEW_ALLOWLIST = [
   'competition_directory',
@@ -26,26 +27,26 @@ const ANALYTICS_VIEW_ALLOWLIST = [
 ] as const;
 
 describe('secure analytics query boundary', () => {
-  it('closes current and future public Data API grants without revoking service_role', () => {
-    expect(migration).toContain('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated');
-    expect(migration).toContain('REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated');
-    expect(migration).toContain('REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated');
-    expect(migration).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public');
-    expect(migration).toContain("to_regrole('supabase_admin')");
-    expect(migration).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public');
+  it('closes current and postgres-owned future public Data API grants, including service_role', () => {
+    expect(migration).toContain('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role');
+    expect(migration).toContain('REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role');
+    expect(migration).toContain('REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role');
+    expect(migration.match(/ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public/g)).toHaveLength(3);
+    expect(migration).toContain('REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES\n  FROM PUBLIC, anon, authenticated, service_role');
+    expect(migration).toContain('REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role');
+    expect(migration).toContain('REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role');
+    expect(migration).not.toContain('ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin');
+    expect(migration).not.toContain("to_regrole('supabase_admin')");
+    expect(migration).not.toContain("pg_has_role(CURRENT_USER, 'supabase_admin'");
     for (const legacyFunction of [
       'cp_prepare_legacy_match_write',
       'cp_sync_legacy_match_foundation',
       'cp_validate_competition_topology',
     ]) {
-      expect(migration).toContain(`REVOKE EXECUTE ON FUNCTION public.${legacyFunction}()`);
+      expect(migration).toContain(
+        `REVOKE EXECUTE ON FUNCTION public.${legacyFunction}()\n  FROM PUBLIC, anon, authenticated, service_role`,
+      );
     }
-    expect(migration).not.toContain(
-      'ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role',
-    );
-    expect(migration).not.toContain(
-      'ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role',
-    );
   });
 
   it('creates only private, coverage-gated directory and read views', () => {
@@ -70,6 +71,23 @@ describe('secure analytics query boundary', () => {
     expect(migration).not.toContain('JOIN public."Team" team ON team."id" = player."teamId"');
   });
 
+  it('carries edition-specific roster or match positions into public directories', () => {
+    const editionDirectory = migration.match(
+      /CREATE VIEW analytics\.player_edition_directory[\s\S]*?CREATE VIEW analytics\.player_directory/,
+    )?.[0] ?? '';
+    const playerDirectory = migration.match(
+      /CREATE VIEW analytics\.player_directory[\s\S]*?CREATE VIEW analytics\.team_directory/,
+    )?.[0] ?? '';
+
+    expect(editionDirectory).toContain('membership."designatedPosition"::TEXT AS position');
+    expect(editionDirectory).toContain('fact.position');
+    expect(editionDirectory).toContain(
+      'COALESCE(edition_players.position, player."position"::TEXT) AS position',
+    );
+    expect(playerDirectory).toContain('edition_player.position');
+    expect(playerDirectory).not.toContain('player."position"::TEXT AS position');
+  });
+
   it('does not grant unpublished raw facts to the public analytics login', () => {
     expect(migration).toContain('CREATE VIEW analytics.player_match_read');
     expect(migration).toContain('CREATE VIEW analytics.team_match_read');
@@ -77,6 +95,38 @@ describe('secure analytics query boundary', () => {
     expect(analyticsRole).not.toContain('GRANT SELECT ON analytics.player_match_fact');
     expect(analyticsRole).not.toContain('GRANT SELECT ON analytics.team_match_fact');
     expect(read('src/lib/analytics/repository.ts')).not.toMatch(/FROM analytics\.(player_match_fact|team_match_fact)/);
+  });
+
+  it('filters unpublished stages while retaining legacy matches without a stage', () => {
+    const playerRead = migration.match(
+      /CREATE VIEW analytics\.player_match_read[\s\S]*?CREATE VIEW analytics\.team_match_read/,
+    )?.[0] ?? '';
+    const teamRead = migration.match(
+      /CREATE VIEW analytics\.team_match_read[\s\S]*?CREATE VIEW analytics\.team_edition_directory/,
+    )?.[0] ?? '';
+    const teamPower = migration.match(
+      /CREATE VIEW analytics\.team_power_match[\s\S]*?CREATE VIEW analytics\.opponent_match_directory/,
+    )?.[0] ?? '';
+    const opponents = migration.match(
+      /CREATE VIEW analytics\.opponent_match_directory[\s\S]*?CREATE VIEW analytics\.cache_revision_read/,
+    )?.[0] ?? '';
+
+    for (const viewSql of [playerRead, teamRead]) {
+      expect(viewSql).toContain('LEFT JOIN public."Stage" stage');
+      expect(viewSql).toContain('fact.stage_id IS NULL');
+      expect(viewSql).toContain('stage."isPublished" = true');
+    }
+    for (const viewSql of [teamPower, opponents]) {
+      expect(viewSql).toContain('LEFT JOIN public."Stage" stage');
+      expect(viewSql).toContain('eligible.stage_id IS NULL');
+      expect(viewSql).toContain('stage."isPublished" = true');
+    }
+    expect(migration).toMatch(
+      /CREATE VIEW analytics\.stage_directory[\s\S]*?WHERE stage\."isPublished" = true;/,
+    );
+    expect(migration).toContain(
+      'JOIN analytics.stage_directory stage ON stage.stage_id = stage_group."stageId"',
+    );
   });
 
   it('separates durable rate-limit storage from query telemetry', () => {
@@ -102,6 +152,10 @@ describe('secure analytics query boundary', () => {
     expect(analyticsRole).not.toContain("SELECT format('GRANT SELECT ON %I.%I TO centrepass_analytics'");
     expect(analyticsRole).toContain('exact_view_allowlist_ok');
     expect(analyticsRole).toContain('no_schema_create');
+    expect(analyticsRole).toContain('role_attributes_ok');
+    expect(analyticsRole).toContain('no_role_memberships');
+    expect(analyticsRole).toContain('no_sequence_privileges');
+    expect(analyticsRole).toContain('no_application_function_execution');
     expect(analyticsRole).toContain('default_transaction_read_only = on');
     expect(analyticsRole).toContain("statement_timeout = %L");
     const plannedViews = [...queryPlanChecks.matchAll(/analytics\.([a-z_]+)/g)]
@@ -116,10 +170,24 @@ describe('secure analytics query boundary', () => {
     expect(operationsRole).toContain('GRANT EXECUTE ON FUNCTION analytics.write_stat_query_telemetry');
     expect(operationsRole).toContain('REVOKE ALL ON ALL TABLES IN SCHEMA analytics FROM centrepass_stats_operations');
     expect(operationsRole).toContain('no_relation_privileges');
+    expect(operationsRole).toContain('role_attributes_ok');
+    expect(operationsRole).toContain('no_role_memberships');
+    expect(operationsRole).toContain('no_sequence_privileges');
     expect(operationsRole).toContain('exact_function_allowlist_ok');
     expect(operationsRole).toContain('no_schema_create');
     expect(operationsRole).not.toContain('GRANT SELECT ON');
     expect(operationsRole).not.toContain('default_transaction_read_only = on');
+  });
+
+  it('makes readiness prove both scoped role contracts instead of connection liveness', () => {
+    expect(readinessRoute).toContain("CURRENT_USER = 'centrepass_analytics'");
+    expect(readinessRoute).toContain("CURRENT_USER = 'centrepass_stats_operations'");
+    expect(readinessRoute).toContain("current_setting('default_transaction_read_only', true) = 'on'");
+    expect(readinessRoute.match(/role_attributes_ok/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(readinessRoute.match(/no_role_memberships/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(readinessRoute.match(/no_sequence_privileges/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(readinessRoute).toContain('no_function_privileges');
+    expect(readinessRoute).toContain('exact_function_surface_ok');
   });
 
   it('keeps every public analytics service off the general Prisma client', () => {

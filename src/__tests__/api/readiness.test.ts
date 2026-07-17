@@ -42,8 +42,28 @@ describe('Readiness API', () => {
     vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'false');
     vi.stubEnv('ASK_CENTREPASS_ENABLED', 'false');
     queryRawMock.mockReset().mockResolvedValue([{ ready: 1 }]);
-    analyticsQueryRawMock.mockReset().mockResolvedValue([{ ready: 1 }]);
-    operationsQueryRawMock.mockReset().mockResolvedValue([{ ready: 1 }]);
+    analyticsQueryRawMock.mockReset().mockResolvedValue([{
+      identity_ok: true,
+      role_attributes_ok: true,
+      no_role_memberships: true,
+      schema_usage_ok: true,
+      read_only_ok: true,
+      exact_surface_ok: true,
+      no_write_privileges: true,
+      no_sequence_privileges: true,
+      no_function_privileges: true,
+      no_schema_create: true,
+    }]);
+    operationsQueryRawMock.mockReset().mockResolvedValue([{
+      identity_ok: true,
+      role_attributes_ok: true,
+      no_role_memberships: true,
+      schema_usage_ok: true,
+      exact_function_surface_ok: true,
+      no_relation_privileges: true,
+      no_sequence_privileges: true,
+      no_schema_create: true,
+    }]);
     scopedConfigurationMock.mockReset().mockReturnValue({
       analyticsDatabaseUrlConfigured: false,
       analyticsDatabaseUrlValid: false,
@@ -198,11 +218,112 @@ describe('Readiness API', () => {
     expect(response.status).toBe(200);
     expect(analyticsQueryRawMock).toHaveBeenCalledOnce();
     expect(operationsQueryRawMock).toHaveBeenCalledOnce();
-    expect(data.checks.analytics).toMatchObject({ state: 'healthy', configured: true });
+    expect(data.checks.analytics).toMatchObject({
+      state: 'healthy',
+      configured: true,
+      identityOk: true,
+      roleAttributesOk: true,
+      noRoleMemberships: true,
+      schemaUsageOk: true,
+      readOnly: true,
+      exactSurface: true,
+      noWritePrivileges: true,
+      noSequencePrivileges: true,
+      noFunctionPrivileges: true,
+      noSchemaCreate: true,
+    });
     expect(data.checks.statsOperations).toMatchObject({
       state: 'healthy',
       configured: true,
       rateLimitSecretConfigured: true,
+      identityOk: true,
+      roleAttributesOk: true,
+      noRoleMemberships: true,
+      schemaUsageOk: true,
+      exactFunctionSurface: true,
+      noRelationPrivileges: true,
+      noSequencePrivileges: true,
+      noSchemaCreate: true,
+    });
+  });
+
+  it('fails readiness when the analytics URL authenticates as a writer or wrong role', async () => {
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'true');
+    scopedConfigurationMock.mockReturnValue({
+      analyticsDatabaseUrlConfigured: true,
+      analyticsDatabaseUrlValid: true,
+      statsOperationsDatabaseUrlConfigured: false,
+      statsOperationsDatabaseUrlValid: false,
+    });
+    analyticsQueryRawMock.mockResolvedValue([{
+      identity_ok: false,
+      role_attributes_ok: false,
+      no_role_memberships: false,
+      schema_usage_ok: false,
+      read_only_ok: false,
+      exact_surface_ok: false,
+      no_write_privileges: false,
+      no_sequence_privileges: false,
+      no_function_privileges: false,
+      no_schema_create: false,
+    }]);
+    const { GET } = await import('@/app/api/readiness/route');
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(data.checks.analytics).toMatchObject({
+      state: 'unhealthy',
+      identityOk: false,
+      roleAttributesOk: false,
+      noRoleMemberships: false,
+      schemaUsageOk: false,
+      readOnly: false,
+      exactSurface: false,
+      noWritePrivileges: false,
+      noSequencePrivileges: false,
+      noFunctionPrivileges: false,
+      noSchemaCreate: false,
+    });
+  });
+
+  it('fails readiness when the operations URL has relation access or the wrong role', async () => {
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'true');
+    vi.stubEnv('ASK_CENTREPASS_ENABLED', 'true');
+    scopedConfigurationMock.mockReturnValue({
+      analyticsDatabaseUrlConfigured: true,
+      analyticsDatabaseUrlValid: true,
+      statsOperationsDatabaseUrlConfigured: true,
+      statsOperationsDatabaseUrlValid: true,
+    });
+    secretConfiguredMock.mockReturnValue(true);
+    operationsQueryRawMock.mockResolvedValue([{
+      identity_ok: false,
+      role_attributes_ok: false,
+      no_role_memberships: false,
+      schema_usage_ok: false,
+      exact_function_surface_ok: false,
+      no_relation_privileges: false,
+      no_sequence_privileges: false,
+      no_schema_create: false,
+    }]);
+    const { GET } = await import('@/app/api/readiness/route');
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(data.checks.statsOperations).toMatchObject({
+      state: 'unhealthy',
+      identityOk: false,
+      roleAttributesOk: false,
+      noRoleMemberships: false,
+      schemaUsageOk: false,
+      exactFunctionSurface: false,
+      noRelationPrivileges: false,
+      noSequencePrivileges: false,
+      noSchemaCreate: false,
     });
   });
 

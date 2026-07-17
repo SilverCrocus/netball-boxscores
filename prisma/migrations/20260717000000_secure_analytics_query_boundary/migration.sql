@@ -1,46 +1,35 @@
 -- Supabase projects created with older default ACLs can automatically grant
 -- Data API roles access to later Prisma objects. Close both the current public
--- schema and every default-privilege owner we are allowed to manage. The
--- server and service_role grants are deliberately left intact.
-REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated;
-REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated;
+-- schema and the postgres-owned future object defaults. service_role is also
+-- a Data API role and receives no implicit access; server access uses the
+-- dedicated direct database credentials provisioned later in the release.
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
 
 -- These trigger functions were present before this migration and had inherited
 -- broad Data API EXECUTE grants. Name them explicitly so an access review can
 -- verify the current-object repair independently of the schema-wide revoke.
 REVOKE EXECUTE ON FUNCTION public.cp_prepare_legacy_match_write()
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.cp_sync_legacy_match_foundation()
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.cp_validate_competition_topology()
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated;
+  REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role;
 
-DO $supabase_admin_default_privileges$
-BEGIN
-  IF pg_catalog.to_regrole('supabase_admin') IS NOT NULL
-    AND pg_catalog.pg_has_role(CURRENT_USER, 'supabase_admin', 'MEMBER')
-  THEN
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-      REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES
-      FROM PUBLIC, anon, authenticated';
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-      REVOKE USAGE, SELECT, UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated';
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-      REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated';
-  ELSE
-    RAISE WARNING 'Cannot alter supabase_admin default privileges as role %; verify them operationally', CURRENT_USER;
-  END IF;
-END;
-$supabase_admin_default_privileges$;
+-- supabase_admin is a provider-managed role on hosted Supabase projects and
+-- postgres is not expected to be a member. Do not make a Prisma migration
+-- depend on privileges it cannot own. Release verification audits those
+-- provider-owned defaults and application-object ownership separately; all
+-- CentrePass migrations and runtime objects must remain postgres-owned.
 
 -- This migration creates the complete database boundary consumed by public
 -- analytics features. Application query credentials receive SELECT only on
@@ -53,7 +42,9 @@ $supabase_admin_default_privileges$;
 -- remain eligible when their validity period covers the match. If roster dates
 -- are incomplete, prefer the nearest membership in that edition; never expose
 -- the player's legacy club unless it is genuinely a side in this match.
-CREATE OR REPLACE VIEW analytics.player_match_fact AS
+CREATE OR REPLACE VIEW analytics.player_match_fact
+WITH (security_barrier = true)
+AS
 SELECT
   eligible.match_id,
   eligible.competition_id,
@@ -244,13 +235,23 @@ CREATE VIEW analytics.player_match_read AS
 SELECT fact.*
 FROM analytics.player_match_fact fact
 JOIN analytics.competition_directory competition
-  ON competition.competition_id = fact.competition_id;
+  ON competition.competition_id = fact.competition_id
+LEFT JOIN public."Stage" stage
+  ON stage."id" = fact.stage_id
+  AND stage."competitionId" = fact.competition_id
+WHERE fact.stage_id IS NULL
+  OR stage."isPublished" = true;
 
 CREATE VIEW analytics.team_match_read AS
 SELECT fact.*
 FROM analytics.team_match_fact fact
 JOIN analytics.competition_directory competition
-  ON competition.competition_id = fact.competition_id;
+  ON competition.competition_id = fact.competition_id
+LEFT JOIN public."Stage" stage
+  ON stage."id" = fact.stage_id
+  AND stage."competitionId" = fact.competition_id
+WHERE fact.stage_id IS NULL
+  OR stage."isPublished" = true;
 
 CREATE VIEW analytics.team_edition_directory AS
 SELECT
@@ -271,6 +272,8 @@ WITH edition_player_candidates AS (
     entry."competitionId" AS competition_id,
     membership."playerId" AS player_id,
     entry."teamId" AS team_id,
+    membership."designatedPosition"::TEXT AS position,
+    membership."validFrom" AS effective_at,
     0 AS source_priority
   FROM public."RosterMembership" membership
   JOIN public."EditionEntry" entry ON entry."id" = membership."editionEntryId"
@@ -279,12 +282,14 @@ WITH edition_player_candidates AS (
   WHERE entry."status" = 'ACTIVE'::public."EditionEntryStatus"
     AND membership."status" = 'ACTIVE'::public."RosterMembershipStatus"
 
-  UNION
+  UNION ALL
 
   SELECT
     fact.competition_id,
     fact.player_id,
     fact.team_id,
+    fact.position,
+    fact.scheduled_at AS effective_at,
     1 AS source_priority
   FROM analytics.player_match_read fact
 ),
@@ -292,15 +297,23 @@ edition_players AS (
   SELECT DISTINCT ON (competition_id, player_id)
     competition_id,
     player_id,
-    team_id
+    team_id,
+    position
   FROM edition_player_candidates
-  ORDER BY competition_id, player_id, source_priority, team_id
+  WHERE team_id IS NOT NULL
+  ORDER BY
+    competition_id,
+    player_id,
+    (position IS NULL),
+    source_priority,
+    effective_at DESC NULLS LAST,
+    team_id
 )
 SELECT DISTINCT
   edition_players.competition_id,
   player."id" AS player_id,
   player."name" AS player_name,
-  player."position"::TEXT AS position,
+  COALESCE(edition_players.position, player."position"::TEXT) AS position,
   team."id" AS team_id,
   team."name" AS team_name
 FROM edition_players
@@ -311,7 +324,7 @@ CREATE VIEW analytics.player_directory AS
 SELECT DISTINCT ON (player."id")
   player."id" AS player_id,
   player."name" AS player_name,
-  player."position"::TEXT AS position,
+  edition_player.position,
   team."id" AS team_id,
   team."name" AS team_name
 FROM analytics.player_edition_directory edition_player
@@ -354,7 +367,8 @@ SELECT
   stage."type"::TEXT AS stage_type
 FROM public."Stage" stage
 JOIN analytics.competition_directory competition
-  ON competition.competition_id = stage."competitionId";
+  ON competition.competition_id = stage."competitionId"
+WHERE stage."isPublished" = true;
 
 CREATE VIEW analytics.stage_group_directory AS
 SELECT
@@ -363,9 +377,7 @@ SELECT
   stage_group."name" AS stage_group_name,
   stage_group."slug" AS stage_group_slug
 FROM public."StageGroup" stage_group
-JOIN public."Stage" stage ON stage."id" = stage_group."stageId"
-JOIN analytics.competition_directory competition
-  ON competition.competition_id = stage."competitionId";
+JOIN analytics.stage_directory stage ON stage.stage_id = stage_group."stageId";
 
 CREATE VIEW analytics.team_power_match AS
 SELECT
@@ -384,21 +396,42 @@ FROM analytics.eligible_match eligible
 JOIN analytics.competition_directory competition
   ON competition.competition_id = eligible.competition_id
 JOIN public."Match" match ON match."id" = eligible.match_id
+LEFT JOIN public."Stage" stage
+  ON stage."id" = eligible.stage_id
+  AND stage."competitionId" = eligible.competition_id
 WHERE match."homeTeamId" IS NOT NULL
-  AND match."awayTeamId" IS NOT NULL;
+  AND match."awayTeamId" IS NOT NULL
+  AND (
+    eligible.stage_id IS NULL
+    OR stage."isPublished" = true
+  );
 
 CREATE VIEW analytics.opponent_match_directory AS
 SELECT eligible.match_id, eligible.competition_id, eligible.home_team_id AS team_id
 FROM analytics.eligible_match eligible
 JOIN analytics.competition_directory competition
   ON competition.competition_id = eligible.competition_id
+LEFT JOIN public."Stage" stage
+  ON stage."id" = eligible.stage_id
+  AND stage."competitionId" = eligible.competition_id
 WHERE eligible.home_team_id IS NOT NULL
+  AND (
+    eligible.stage_id IS NULL
+    OR stage."isPublished" = true
+  )
 UNION ALL
 SELECT eligible.match_id, eligible.competition_id, eligible.away_team_id AS team_id
 FROM analytics.eligible_match eligible
 JOIN analytics.competition_directory competition
   ON competition.competition_id = eligible.competition_id
-WHERE eligible.away_team_id IS NOT NULL;
+LEFT JOIN public."Stage" stage
+  ON stage."id" = eligible.stage_id
+  AND stage."competitionId" = eligible.competition_id
+WHERE eligible.away_team_id IS NOT NULL
+  AND (
+    eligible.stage_id IS NULL
+    OR stage."isPublished" = true
+  );
 
 CREATE VIEW analytics.cache_revision_read AS
 SELECT

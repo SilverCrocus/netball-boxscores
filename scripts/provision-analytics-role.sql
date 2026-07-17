@@ -24,6 +24,40 @@ SELECT format(
 SELECT format('GRANT CONNECT ON DATABASE %I TO centrepass_analytics', current_database())
 \gexec
 
+SELECT
+  role.rolcanlogin
+  AND NOT role.rolsuper
+  AND NOT role.rolinherit
+  AND NOT role.rolcreaterole
+  AND NOT role.rolcreatedb
+  AND NOT role.rolreplication
+  AND NOT role.rolbypassrls AS role_attributes_ok
+FROM pg_roles role
+WHERE role.rolname = 'centrepass_analytics'
+\gset
+
+\if :role_attributes_ok
+  \echo 'Verified: centrepass_analytics has the required restricted role attributes.'
+\else
+  \echo 'FAILED: centrepass_analytics has elevated or unexpected role attributes.'
+  \quit
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_auth_members membership
+  JOIN pg_roles member ON member.oid = membership.member
+  WHERE member.rolname = 'centrepass_analytics'
+) AS no_role_memberships
+\gset
+
+\if :no_role_memberships
+  \echo 'Verified: centrepass_analytics has no SET ROLE path through role membership.'
+\else
+  \echo 'FAILED: centrepass_analytics is a member of another role.'
+  \quit
+\endif
+
 GRANT USAGE ON SCHEMA analytics TO centrepass_analytics;
 REVOKE ALL ON SCHEMA public FROM centrepass_analytics;
 REVOKE CREATE ON SCHEMA analytics FROM centrepass_analytics;
@@ -132,6 +166,29 @@ SELECT NOT EXISTS (
   \quit
 \endif
 
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_class relation
+  JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+    AND namespace.nspname NOT LIKE 'pg_toast%'
+    AND namespace.nspname NOT LIKE 'pg_temp%'
+    AND relation.relkind = 'S'
+    AND (
+      has_sequence_privilege('centrepass_analytics', relation.oid, 'USAGE')
+      OR has_sequence_privilege('centrepass_analytics', relation.oid, 'SELECT')
+      OR has_sequence_privilege('centrepass_analytics', relation.oid, 'UPDATE')
+    )
+) AS no_sequence_privileges
+\gset
+
+\if :no_sequence_privileges
+  \echo 'Verified: centrepass_analytics has no sequence privileges.'
+\else
+  \echo 'FAILED: centrepass_analytics can access a sequence.'
+  \quit
+\endif
+
 WITH allowed(schema_name, relation_name) AS (
   VALUES
     ('analytics', 'competition_directory'),
@@ -199,5 +256,21 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics cannot execute external security-definer functions.'
 \else
   \echo 'FAILED: centrepass_analytics can execute a security-definer function outside analytics.'
+  \quit
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_proc routine
+  JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+  WHERE namespace.nspname IN ('public', 'analytics')
+    AND has_function_privilege('centrepass_analytics', routine.oid, 'EXECUTE')
+) AS no_application_function_execution
+\gset
+
+\if :no_application_function_execution
+  \echo 'Verified: centrepass_analytics cannot execute application functions.'
+\else
+  \echo 'FAILED: centrepass_analytics can execute a public or analytics function.'
   \quit
 \endif

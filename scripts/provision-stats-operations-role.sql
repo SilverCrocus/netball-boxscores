@@ -25,6 +25,40 @@ SELECT format(
 SELECT format('GRANT CONNECT ON DATABASE %I TO centrepass_stats_operations', current_database())
 \gexec
 
+SELECT
+  role.rolcanlogin
+  AND NOT role.rolsuper
+  AND NOT role.rolinherit
+  AND NOT role.rolcreaterole
+  AND NOT role.rolcreatedb
+  AND NOT role.rolreplication
+  AND NOT role.rolbypassrls AS role_attributes_ok
+FROM pg_roles role
+WHERE role.rolname = 'centrepass_stats_operations'
+\gset
+
+\if :role_attributes_ok
+  \echo 'Verified: centrepass_stats_operations has the required restricted role attributes.'
+\else
+  \echo 'FAILED: centrepass_stats_operations has elevated or unexpected role attributes.'
+  \quit
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_auth_members membership
+  JOIN pg_roles member ON member.oid = membership.member
+  WHERE member.rolname = 'centrepass_stats_operations'
+) AS no_role_memberships
+\gset
+
+\if :no_role_memberships
+  \echo 'Verified: centrepass_stats_operations has no SET ROLE path through role membership.'
+\else
+  \echo 'FAILED: centrepass_stats_operations is a member of another role.'
+  \quit
+\endif
+
 GRANT USAGE ON SCHEMA analytics TO centrepass_stats_operations;
 REVOKE ALL ON SCHEMA public FROM centrepass_stats_operations;
 REVOKE CREATE ON SCHEMA analytics FROM centrepass_stats_operations;
@@ -88,6 +122,29 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_stats_operations has no relation privileges.'
 \else
   \echo 'FAILED: centrepass_stats_operations can access a relation directly.'
+  \quit
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_class relation
+  JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+    AND namespace.nspname NOT LIKE 'pg_toast%'
+    AND namespace.nspname NOT LIKE 'pg_temp%'
+    AND relation.relkind = 'S'
+    AND (
+      has_sequence_privilege('centrepass_stats_operations', relation.oid, 'USAGE')
+      OR has_sequence_privilege('centrepass_stats_operations', relation.oid, 'SELECT')
+      OR has_sequence_privilege('centrepass_stats_operations', relation.oid, 'UPDATE')
+    )
+) AS no_sequence_privileges
+\gset
+
+\if :no_sequence_privileges
+  \echo 'Verified: centrepass_stats_operations has no sequence privileges.'
+\else
+  \echo 'FAILED: centrepass_stats_operations can access a sequence.'
   \quit
 \endif
 

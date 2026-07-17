@@ -76,6 +76,23 @@ describe('POST /api/stats/query', () => {
     expect(mocks.parse).not.toHaveBeenCalled();
   });
 
+  it('uses the left-most client address from Render multi-hop forwarding', async () => {
+    mocks.rate.mockResolvedValue({ allowed: false, remaining: 0, retryAfterSeconds: 42 });
+    const forwardedRequest = new Request('https://centrepass.test/api/stats/query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10, 10.0.0.3, 10.0.0.4',
+      },
+      body: JSON.stringify({ question: 'Grace Nweke goals' }),
+    });
+
+    const response = await POST(forwardedRequest);
+
+    expect(response.status).toBe(429);
+    expect(mocks.rateKey).toHaveBeenCalledWith('203.0.113.10');
+  });
+
   it('rejects non-JSON, cross-origin, oversized, and extra-property bodies before database work', async () => {
     const nonJson = new Request('https://centrepass.test/api/stats/query', {
       method: 'POST', headers: { 'content-type': 'text/plain' }, body: 'hello',
@@ -105,6 +122,37 @@ describe('POST /api/stats/query', () => {
     expect((await POST(oversized)).status).toBe(413);
 
     expect((await POST(request({ question: 'Grace goals', sql: 'select *' }))).status).toBe(400);
+    expect(mocks.rate).not.toHaveBeenCalled();
+  });
+
+  it('cancels a chunked request as soon as the streamed byte limit is exceeded', async () => {
+    const encoder = new TextEncoder();
+    const cancel = vi.fn();
+    let pullCount = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pullCount += 1;
+        if (pullCount === 1) {
+          controller.enqueue(encoder.encode('a'.repeat(800)));
+        } else if (pullCount === 2) {
+          controller.enqueue(encoder.encode('b'.repeat(400)));
+        } else {
+          controller.close();
+        }
+      },
+      cancel,
+    }, { highWaterMark: 0 });
+    const chunkedRequest = new Request('https://centrepass.test/api/stats/query', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+
+    const response = await POST(chunkedRequest);
+
+    expect(response.status).toBe(413);
+    expect(cancel).toHaveBeenCalledOnce();
     expect(mocks.rate).not.toHaveBeenCalled();
   });
 

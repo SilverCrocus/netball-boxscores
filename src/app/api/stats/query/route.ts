@@ -31,13 +31,13 @@ function errorResponse(
 }
 
 function clientIdentifier(request: Request): string {
-  // Use the final forwarded address: a reverse proxy appends the peer it
-  // actually observed, while an attacker may control earlier values.
+  // Render's trusted proxy chain preserves the original client as the first
+  // X-Forwarded-For value and appends infrastructure hops to its right.
   const forwardedChain = request.headers.get('x-forwarded-for')
     ?.split(',')
     .map((value) => value.trim())
     .filter(Boolean);
-  const candidate = forwardedChain?.at(-1)
+  const candidate = forwardedChain?.[0]
     ?? request.headers.get('x-real-ip')
     ?? 'unknown';
   return candidate.trim().slice(0, 128) || 'unknown';
@@ -49,6 +49,44 @@ function resultCount(result: unknown): number {
   if (Array.isArray(value.entries)) return value.entries.length;
   if (Array.isArray(value.metrics)) return value.metrics.length;
   return value.value || value.entry ? 1 : 0;
+}
+
+async function readBodyWithinLimit(request: Request): Promise<string | NextResponse> {
+  if (!request.body) return '';
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let byteCount = 0;
+  let rawBody = '';
+
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) {
+        rawBody += decoder.decode();
+        return rawBody;
+      }
+
+      byteCount += chunk.value.byteLength;
+      if (byteCount > MAX_BODY_BYTES) {
+        try {
+          await reader.cancel('request body exceeds the configured limit');
+        } catch {
+          // The response remains a deterministic 413 even when the producer
+          // has already closed or rejects stream cancellation.
+        }
+        return errorResponse(
+          'BODY_TOO_LARGE',
+          `Request bodies are limited to ${MAX_BODY_BYTES} bytes.`,
+          413,
+        );
+      }
+
+      rawBody += decoder.decode(chunk.value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 async function readQuestion(request: Request): Promise<{ question: string } | NextResponse> {
@@ -67,10 +105,8 @@ async function readQuestion(request: Request): Promise<{ question: string } | Ne
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
     return errorResponse('BODY_TOO_LARGE', `Request bodies are limited to ${MAX_BODY_BYTES} bytes.`, 413);
   }
-  const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
-    return errorResponse('BODY_TOO_LARGE', `Request bodies are limited to ${MAX_BODY_BYTES} bytes.`, 413);
-  }
+  const rawBody = await readBodyWithinLimit(request);
+  if (rawBody instanceof NextResponse) return rawBody;
   let body: unknown;
   try {
     body = JSON.parse(rawBody);

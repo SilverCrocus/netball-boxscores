@@ -1,6 +1,6 @@
 # Analytics and Ask CentrePass database roles
 
-CentrePass analytics live in the private `analytics` Postgres schema. Supabase's Data API exposes `public` by default; do not add `analytics` to the project's exposed-schema setting. The migration revokes `PUBLIC`, `anon`, and `authenticated` access.
+CentrePass analytics live in the private `analytics` Postgres schema. Supabase's Data API exposes `public` by default; do not add `analytics` to the project's exposed-schema setting. The migration revokes implicit `PUBLIC`, `anon`, `authenticated`, and `service_role` access. Any future Data API route must receive an explicit, reviewed grant alongside its RLS policy.
 
 The reviewed views use PostgreSQL's owner-run view behavior inside that private schema. This lets the server-side analytics login query a deliberately small surface without receiving `SELECT` on source tables. If a view is ever moved into an exposed schema, redesign its access policy and use `security_invoker = true` before release.
 
@@ -34,18 +34,34 @@ Both scoped runtime URLs must use the Supavisor **transaction pooler** endpoint 
 
 Both scripts are idempotent for password rotation. The analytics script enforces `NOINHERIT`, `NOBYPASSRLS`, read-only transactions, a two-second statement timeout, an `analytics`-only search path, and an exact view allowlist. The operations script enforces `NOINHERIT`, `NOBYPASSRLS`, a two-second statement timeout, an empty search path, no relation privileges, and an exact two-function allowlist.
 
-The migration also removes existing and future `public`-schema privileges for `PUBLIC`, `anon`, and `authenticated`. Prisma migrations normally run as `postgres`, so that owner's default privileges are repaired directly. The migration repairs `supabase_admin` defaults when its execution role is a member; otherwise it emits a warning. Treat that warning as a release blocker until an owner-level session runs the equivalent three `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin` revokes and the audit below passes. The existing trigger functions continue to run as triggers; callers do not need direct `EXECUTE` on them.
+The migration also removes existing and future `public`-schema privileges for `PUBLIC`, `anon`, `authenticated`, and `service_role`. Prisma migrations run as `postgres`, so that owner's current grants and default privileges are repaired directly. Hosted Supabase manages `supabase_admin`; `postgres` is not expected to be a member and this migration deliberately does not try to alter that role's defaults. Audit those provider-owned defaults and object ownership separately. Provider defaults alone are not a release blocker because they affect only objects created by that owner. Block release if a CentrePass application object is unexpectedly owned by `supabase_admin`, if a current application object has an effective broad grant, or if Prisma migrations are not running as `postgres`. The existing trigger functions continue to run as triggers; callers do not need direct `EXECUTE` on them.
 
 ## Verification
 
-As the database owner, verify neither current nor future Data API privileges remain broad:
+As the database owner, verify neither current nor `postgres`-owned future Data API privileges remain broad:
 
 ```sql
 SELECT table_schema, table_name, grantee, privilege_type
 FROM information_schema.table_privileges
 WHERE table_schema = 'public'
-  AND grantee IN ('PUBLIC', 'anon', 'authenticated')
+  AND grantee IN ('PUBLIC', 'anon', 'authenticated', 'service_role')
 ORDER BY table_name, grantee, privilege_type;
+
+SELECT namespace.nspname AS schema_name, relation.relname AS sequence_name,
+       CASE WHEN acl.grantee = 0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(acl.grantee) END AS grantee,
+       acl.privilege_type
+FROM pg_catalog.pg_class relation
+JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+CROSS JOIN LATERAL pg_catalog.aclexplode(
+  COALESCE(relation.relacl, pg_catalog.acldefault('S', relation.relowner))
+) acl
+WHERE namespace.nspname = 'public'
+  AND relation.relkind = 'S'
+  AND (
+    acl.grantee = 0
+    OR pg_catalog.pg_get_userbyid(acl.grantee) IN ('anon', 'authenticated', 'service_role')
+  )
+ORDER BY sequence_name, grantee, acl.privilege_type;
 
 SELECT
   defaults.defaclrole::regrole AS owner,
@@ -55,21 +71,47 @@ SELECT
 FROM pg_catalog.pg_default_acl defaults
 CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) acl
 WHERE defaults.defaclnamespace = 'public'::regnamespace
-  AND defaults.defaclrole IN ('postgres'::regrole, 'supabase_admin'::regrole)
+  AND defaults.defaclrole = 'postgres'::regrole
   AND (
     acl.grantee = 0
-    OR pg_catalog.pg_get_userbyid(acl.grantee) IN ('anon', 'authenticated')
+    OR pg_catalog.pg_get_userbyid(acl.grantee) IN ('anon', 'authenticated', 'service_role')
   )
 ORDER BY owner, defaults.defaclobjtype, grantee, acl.privilege_type;
 
 SELECT routine_name, grantee, privilege_type
 FROM information_schema.routine_privileges
 WHERE routine_schema = 'public'
-  AND grantee IN ('PUBLIC', 'anon', 'authenticated')
+  AND grantee IN ('PUBLIC', 'anon', 'authenticated', 'service_role')
 ORDER BY routine_name, grantee;
+
+-- Read-only audit of provider-owned defaults. Record the result; do not try to
+-- mutate the hosted provider role from a Prisma migration.
+SELECT
+  defaults.defaclrole::regrole AS owner,
+  defaults.defaclobjtype,
+  CASE WHEN acl.grantee = 0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(acl.grantee) END AS grantee,
+  acl.privilege_type
+FROM pg_catalog.pg_default_acl defaults
+CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) acl
+WHERE defaults.defaclnamespace = 'public'::regnamespace
+  AND defaults.defaclrole = pg_catalog.to_regrole('supabase_admin')
+  AND (
+    acl.grantee = 0
+    OR pg_catalog.pg_get_userbyid(acl.grantee) IN ('anon', 'authenticated', 'service_role')
+  )
+ORDER BY defaults.defaclobjtype, grantee, acl.privilege_type;
+
+SELECT namespace.nspname AS schema_name, relation.relname AS object_name,
+       relation.relkind, owner.rolname AS owner
+FROM pg_catalog.pg_class relation
+JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+JOIN pg_catalog.pg_roles owner ON owner.oid = relation.relowner
+WHERE namespace.nspname IN ('public', 'analytics')
+  AND owner.rolname = 'supabase_admin'
+ORDER BY schema_name, object_name;
 ```
 
-All three queries must return no effective grants to those roles. In particular, verify `cp_prepare_legacy_match_write`, `cp_sync_legacy_match_foundation`, and `cp_validate_competition_topology` have no direct Data API execution grant. Do not enable either feature flag if the audit fails.
+The first four queries must return no effective grants to the Data API roles. The provider-default query is evidence only; the ownership query must return no CentrePass application objects. In particular, verify `cp_prepare_legacy_match_write`, `cp_sync_legacy_match_foundation`, and `cp_validate_competition_topology` have no direct Data API execution grant. Do not enable either feature flag if the effective-grant or ownership audit fails.
 
 Connect as the analytics login and verify:
 
