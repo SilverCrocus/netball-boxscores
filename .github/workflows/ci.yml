@@ -114,6 +114,12 @@ jobs:
       - name: Capture refs-only preview target evidence
         run: npx tsx scripts/verify-preview-database-target.ts
 
+      - name: Verify Supabase remote-schema Prisma baseline
+        run: npx tsx scripts/verify-preview-prisma-baseline.ts
+
+      - name: Record verified remote-schema baseline in Prisma
+        run: npx prisma migrate resolve --applied 20260602_expand_stats_fields
+
       - name: Deploy checked-in Prisma migrations
         run: npx prisma migrate deploy
 

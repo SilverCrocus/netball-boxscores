@@ -61,6 +61,10 @@ describe('Glasgow preview workflow', () => {
 
     expect(rehearsal).toContain('npm ci');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-database-target.ts');
+    expect(rehearsal).toContain('npx tsx scripts/verify-preview-prisma-baseline.ts');
+    expect(rehearsal).toContain(
+      'npx prisma migrate resolve --applied 20260602_expand_stats_fields',
+    );
     expect(rehearsal).toContain('npx prisma migrate deploy');
     expect(rehearsal).toContain('npx tsx scripts/verify-preview-migrations.ts');
     expect(rehearsal).toContain('npx tsx scripts/rehearse-glasgow-2026-rollback.ts');
