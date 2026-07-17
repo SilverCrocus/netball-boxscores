@@ -341,7 +341,7 @@ describe('Glasgow guarded results import', () => {
   });
 
   it('rejects a completed draw when winner or loser slots depend on the match', async () => {
-    const { prisma } = fakeResultsPrisma();
+    const { prisma, state } = fakeResultsPrisma();
     const service = new GlasgowResultsImportService(prisma);
     const input = resultInput();
     input.results[0].sideAScore = 50;
@@ -357,6 +357,12 @@ describe('Glasgow guarded results import', () => {
     await expect(service.apply(input, recorded.preview.confirmationToken!)).rejects.toThrow(
       'cannot be a draw',
     );
+    const failedRun = state.runs.find((run) => run.status === 'FAILED');
+    expect(failedRun?.startedAt).toBeInstanceOf(Date);
+    expect(failedRun?.completedAt).toBeInstanceOf(Date);
+    expect((failedRun?.completedAt as Date).getTime()).toBeGreaterThanOrEqual(
+      (failedRun?.startedAt as Date).getTime(),
+    );
   });
 
   it('requires a recorded dry-run, applies atomically, reconciles standings and knockout slots, and skips an exact replay', async () => {
@@ -370,6 +376,9 @@ describe('Glasgow guarded results import', () => {
       'requires a recorded clean dry-run',
     );
     const recorded = await service.recordPreview(input);
+    const recordedRun = state.runs.find((run) => run.id === recorded.importRunId);
+    expect(recordedRun?.startedAt).toBeInstanceOf(Date);
+    expect(recordedRun?.completedAt).toBe(recordedRun?.startedAt);
     const receipt = await service.apply(input, recorded.preview.confirmationToken!);
 
     expect(state.matches.get('match-pool-1')).toMatchObject({
@@ -394,7 +403,8 @@ describe('Glasgow guarded results import', () => {
     expect(receipt.updated).toBe(
       state.mutations.filter((mutation) => mutation.operation === 'UPDATE').length,
     );
-    expect(state.runs.find((run) => run.id === receipt.importRunId)?.metadata).toMatchObject({
+    const appliedRun = state.runs.find((run) => run.id === receipt.importRunId);
+    expect(appliedRun?.metadata).toMatchObject({
       importKind: 'GLASGOW_RESULTS',
       sourceManifest: expect.objectContaining({ checksum: 'a'.repeat(64) }),
       mutationOperations: {
@@ -403,6 +413,11 @@ describe('Glasgow guarded results import', () => {
         DELETE: 0,
       },
     });
+    expect(appliedRun?.startedAt).toBeInstanceOf(Date);
+    expect(appliedRun?.completedAt).toBeInstanceOf(Date);
+    expect((appliedRun?.completedAt as Date).getTime()).toBeGreaterThanOrEqual(
+      (appliedRun?.startedAt as Date).getTime(),
+    );
 
     const replayPreview = await service.recordPreview(input);
     const replay = await service.apply(input, replayPreview.preview.confirmationToken!);

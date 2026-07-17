@@ -89,6 +89,10 @@ function importRunMetadata(
   });
 }
 
+function completionTimestamp(startedAt: Date): Date {
+  return new Date(Math.max(Date.now(), startedAt.getTime()));
+}
+
 export async function recordPrismaImportPreview(
   prisma: PrismaClient,
   options: PrismaCompetitionImportWriterOptions,
@@ -132,6 +136,7 @@ export async function recordPrismaImportPreview(
     }
 
     const importRunId = randomUUID();
+    const recordedAt = new Date();
     await transaction.importRun.create({
       data: {
         id: importRunId,
@@ -141,8 +146,9 @@ export async function recordPrismaImportPreview(
         trigger: options.trigger ?? 'MANUAL',
         status: 'SUCCEEDED',
         dryRun: true,
+        startedAt: recordedAt,
         retrievedAt: new Date(input.context.retrievedAt),
-        completedAt: new Date(),
+        completedAt: recordedAt,
         checksum: preview.checksum,
         issueCount: 0,
         metadata: importRunMetadata(options, preview, { previewRecorded: true }),
@@ -180,6 +186,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
     if (!preview.valid) throw new Error('Cannot execute an invalid import preview');
 
     const importRunId = randomUUID();
+    const importStartedAt = new Date();
     try {
       return await this.prisma.$transaction(async (transaction) => {
         const source = await transaction.sourceSystem.findUnique({
@@ -263,6 +270,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             trigger: priorRun ? 'REPLAY' : (this.options.trigger ?? 'MANUAL'),
             status: 'RUNNING',
             dryRun: false,
+            startedAt: importStartedAt,
             retrievedAt: new Date(input.context.retrievedAt),
             checksum: preview.checksum,
             issueCount: preview.issues.length,
@@ -333,7 +341,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             where: { id: importRunId },
             data: {
               status: 'SUCCEEDED',
-              completedAt: new Date(),
+              completedAt: completionTimestamp(importStartedAt),
               skippedCount: preview.writes.length,
             },
           });
@@ -815,7 +823,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           where: { id: importRunId },
           data: {
             status: 'SUCCEEDED',
-            completedAt: new Date(),
+            completedAt: completionTimestamp(importStartedAt),
             insertedCount: inserted,
             updatedCount: updated,
             skippedCount: skipped,
@@ -854,8 +862,9 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             trigger: this.options.trigger ?? 'MANUAL',
             status: 'FAILED',
             dryRun: false,
+            startedAt: importStartedAt,
             retrievedAt: new Date(input.context.retrievedAt),
-            completedAt: new Date(),
+            completedAt: completionTimestamp(importStartedAt),
             checksum: preview.checksum,
             issueCount: preview.issues.length,
             errorMessage: message,

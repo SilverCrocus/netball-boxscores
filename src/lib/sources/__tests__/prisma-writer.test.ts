@@ -269,10 +269,16 @@ describe('PrismaCompetitionImportWriter', () => {
     expect(first.updated).toBe(
       state.mutations.filter((mutation) => mutation.operation === 'UPDATE').length,
     );
-    expect([...state.runs.values()].find((run) => run.id === first.importRunId)).toMatchObject({
+    const firstRun = [...state.runs.values()].find((run) => run.id === first.importRunId);
+    expect(firstRun).toMatchObject({
       insertedCount: first.inserted,
       updatedCount: first.updated,
     });
+    expect(firstRun?.startedAt).toBeInstanceOf(Date);
+    expect(firstRun?.completedAt).toBeInstanceOf(Date);
+    expect((firstRun?.completedAt as Date).getTime()).toBeGreaterThanOrEqual(
+      (firstRun?.startedAt as Date).getTime(),
+    );
 
     const second = await writer.execute(input, preview);
     expect(second).toMatchObject({
@@ -498,6 +504,8 @@ describe('PrismaCompetitionImportWriter', () => {
 
     const stalePreview = await recordPrismaImportPreview(draft.prisma, options, input, preview);
     const staleRun = draft.state.runs.get(stalePreview.importRunId);
+    expect(staleRun?.startedAt).toBeInstanceOf(Date);
+    expect(staleRun?.completedAt).toBe(staleRun?.startedAt);
     draft.state.runs.set(stalePreview.importRunId, {
       ...staleRun,
       metadata: { importKind: 'OTHER_IMPORT' },

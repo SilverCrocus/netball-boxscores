@@ -869,6 +869,10 @@ function publicPreview(preview: DatabasePreview): GlasgowResultsPreview {
   };
 }
 
+function completionTimestamp(startedAt: Date): Date {
+  return new Date(Math.max(Date.now(), startedAt.getTime()));
+}
+
 export class GlasgowResultsImportService {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -888,6 +892,7 @@ export class GlasgowResultsImportService {
       const preview = await buildDatabasePreview(transaction, input);
       if (!preview.valid) throw new Error(`Results preview is not clean: ${preview.issues.map((issue) => issue.message).join('; ')}`);
       const importRunId = randomUUID();
+      const recordedAt = new Date();
       await transaction.importRun.create({
         data: {
           id: importRunId,
@@ -897,8 +902,8 @@ export class GlasgowResultsImportService {
           trigger: 'MANUAL',
           status: 'SUCCEEDED',
           dryRun: true,
-          startedAt: new Date(),
-          completedAt: new Date(),
+          startedAt: recordedAt,
+          completedAt: recordedAt,
           retrievedAt: new Date(input.retrievedAt),
           checksum: preview.checksum,
           issueCount: 0,
@@ -914,6 +919,7 @@ export class GlasgowResultsImportService {
     suppliedConfirmationToken: string,
   ): Promise<GlasgowResultsImportReceipt> {
     const importRunId = randomUUID();
+    const importStartedAt = new Date();
     try {
       return await this.prisma.$transaction(async (transaction) => {
         const preview = await buildDatabasePreview(transaction, input);
@@ -969,6 +975,7 @@ export class GlasgowResultsImportService {
             trigger: priorResultsRun ? 'REPLAY' : 'MANUAL',
             status: 'RUNNING',
             dryRun: false,
+            startedAt: importStartedAt,
             retrievedAt: new Date(input.retrievedAt),
             checksum: preview.checksum,
             issueCount: 0,
@@ -984,7 +991,7 @@ export class GlasgowResultsImportService {
             where: { id: importRunId },
             data: {
               status: 'SUCCEEDED',
-              completedAt: new Date(),
+              completedAt: completionTimestamp(importStartedAt),
               skippedCount: preview.resultCount,
             },
           });
@@ -1319,7 +1326,7 @@ export class GlasgowResultsImportService {
           where: { id: importRunId },
           data: {
             status: 'SUCCEEDED',
-            completedAt: new Date(),
+            completedAt: completionTimestamp(importStartedAt),
             insertedCount: inserted,
             updatedCount: updated,
             skippedCount: 0,
@@ -1352,7 +1359,8 @@ export class GlasgowResultsImportService {
             trigger: 'MANUAL',
             status: 'FAILED',
             dryRun: false,
-            completedAt: new Date(),
+            startedAt: importStartedAt,
+            completedAt: completionTimestamp(importStartedAt),
             retrievedAt: new Date(input.retrievedAt),
             checksum: sourcePayloadChecksum(input),
             errorMessage: message,
