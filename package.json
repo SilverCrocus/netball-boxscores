@@ -16,7 +16,9 @@
     "db:seed": "npx tsx prisma/seed.ts",
     "db:prepare:glasgow": "npx tsx scripts/prepare-glasgow-2026.ts",
     "db:publish:edition": "npx tsx scripts/publish-edition.ts",
+    "db:unpublish:edition": "npx tsx scripts/unpublish-edition.ts",
     "db:import:glasgow": "npx tsx scripts/import-glasgow-2026.ts",
+    "db:import:glasgow:results": "npx tsx scripts/import-glasgow-2026-results.ts",
     "db:studio": "npx prisma studio"
   },
   "dependencies": {

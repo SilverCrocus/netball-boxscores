@@ -2,7 +2,7 @@ import { connection } from 'next/server';
 import { cache } from 'react';
 import { prisma } from '@/lib/db';
 import {
-  evaluateEditionPublicationReadiness,
+  evaluateGlasgowPublishedVisibility,
   isGlasgow2026Identity,
   MIN_PUBLIC_EDITION_MATCHES,
   MIN_PUBLIC_EDITION_TEAMS,
@@ -117,15 +117,12 @@ export function isEditionPubliclyReady(edition: CompetitionOption): boolean {
     return passesGenericGate;
   }
 
-  return evaluateEditionPublicationReadiness({
-    competitionSlug: edition.series?.slug,
-    editionSlug: edition.slug,
+  return evaluateGlasgowPublishedVisibility({
     publicationStatus: edition.publicationStatus,
     teamCount: edition._count.entries,
     matchCount: edition._count.matches,
     matchSlotCount: edition.matches.reduce((total, match) => total + match._count.slots, 0),
     cleanSuccessfulImportCount: edition.importRuns.length,
-    requirePublishedStages: true,
     stages: edition.stages.map((stage) => ({
       slug: stage.slug,
       type: stage.type,

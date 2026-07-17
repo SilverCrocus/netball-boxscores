@@ -456,7 +456,7 @@ const manifest = {
     squadMembers,
     photoCoverage: { verifiedReusablePhotos: 4, license: 'CC BY-SA 4.0', allOtherPlayers: 'UNAVAILABLE' },
     resultCoverage: 'UNAVAILABLE — the tournament has not started.',
-    publicationStatusPolicy: 'PRESERVE_EXISTING',
+    publicationStatusPolicy: 'DRAFT_ONLY',
     publicationBlockers: [],
     publicSurfacePolicy: {
       matchLabels: 'Use roundLabel first, then final code, numerical round, or stage name.',

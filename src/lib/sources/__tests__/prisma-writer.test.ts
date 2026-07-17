@@ -1,10 +1,13 @@
 import type { PrismaClient } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import { planCompetitionImport } from '@/lib/sources/planner';
-import { PrismaCompetitionImportWriter } from '@/lib/sources/prisma-writer';
+import {
+  PrismaCompetitionImportWriter,
+  recordPrismaImportPreview,
+} from '@/lib/sources/prisma-writer';
 import { validImport } from '@/lib/sources/__tests__/fixtures';
 
-function createFakePrisma() {
+function createFakePrisma(publicationStatus: 'DRAFT' | 'PUBLISHED' = 'PUBLISHED') {
   let sequence = 0;
   const nextId = (prefix: string) => `${prefix}-${++sequence}`;
   const state = {
@@ -52,15 +55,26 @@ function createFakePrisma() {
       update: vi.fn(async ({ where, data }) => ({ id: where.id, ...data })),
     },
     competition: {
-      findUnique: vi.fn(async () => ({ publicationStatus: 'PUBLISHED' })),
+      findUnique: vi.fn(async () => ({ publicationStatus })),
     },
     importRun: {
+      findMany: vi.fn(async ({ where, take }) =>
+        [...state.runs.values()].filter((run) =>
+          run.sourceSystemId === where.sourceSystemId &&
+          run.competitionId === where.competitionId &&
+          run.checksum === where.checksum &&
+          run.status === where.status &&
+          (where.dryRun === undefined || run.dryRun === where.dryRun) &&
+          (where.issueCount === undefined || run.issueCount === where.issueCount)
+        ).reverse().slice(0, take)),
       findFirst: vi.fn(async ({ where }) =>
         [...state.runs.values()].find((run) =>
           run.sourceSystemId === where.sourceSystemId &&
           run.competitionId === where.competitionId &&
           run.checksum === where.checksum &&
-          run.status === where.status
+          run.status === where.status &&
+          (where.dryRun === undefined || run.dryRun === where.dryRun) &&
+          (where.issueCount === undefined || run.issueCount === where.issueCount)
         ) ?? null),
       create: create(state.runs, 'run'),
       update: update(state.runs),
@@ -126,6 +140,9 @@ function createFakePrisma() {
       update: update(state.players),
     },
     rosterMembership: {
+      findMany: vi.fn(async () => [...state.rosters.values()].filter((roster) =>
+        roster.status === 'ACTIVE' && roster.validTo == null
+      )),
       findFirst: vi.fn(async ({ where }) =>
         [...state.rosters.values()].find((roster) =>
           roster.editionEntryId === where.editionEntryId &&
@@ -246,6 +263,16 @@ describe('PrismaCompetitionImportWriter', () => {
       'DATA_COVERAGE',
       'SOURCE_ENTITY_MAPPING',
     ]));
+    expect(first.inserted).toBe(
+      state.mutations.filter((mutation) => mutation.operation === 'INSERT').length,
+    );
+    expect(first.updated).toBe(
+      state.mutations.filter((mutation) => mutation.operation === 'UPDATE').length,
+    );
+    expect([...state.runs.values()].find((run) => run.id === first.importRunId)).toMatchObject({
+      insertedCount: first.inserted,
+      updatedCount: first.updated,
+    });
 
     const second = await writer.execute(input, preview);
     expect(second).toMatchObject({
@@ -392,5 +419,100 @@ describe('PrismaCompetitionImportWriter', () => {
     await expect(writer.execute(input, preview)).rejects.toThrow(
       'Reviewed canonical player mapping is missing on replay: player-1/canonical-player',
     );
+  });
+
+  it('requires the selected edition status and a matching recorded dry-run', async () => {
+    const input = validImport();
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const published = createFakePrisma('PUBLISHED');
+    const publishedWriter = new PrismaCompetitionImportWriter(published.prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+      expectedPublicationStatus: 'DRAFT',
+    });
+    await expect(publishedWriter.execute(input, preview)).rejects.toThrow(
+      'Import requires DRAFT edition status; found PUBLISHED',
+    );
+
+    const draft = createFakePrisma('DRAFT');
+    const options = {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+      expectedPublicationStatus: 'DRAFT' as const,
+      requireMatchingDryRun: true,
+      receiptMetadata: { importKind: 'GLASGOW_FOUNDATION' },
+    };
+    const draftWriter = new PrismaCompetitionImportWriter(draft.prisma, options);
+    await expect(draftWriter.execute(input, preview)).rejects.toThrow(
+      `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${preview.checksum}`,
+    );
+
+    const stalePreview = await recordPrismaImportPreview(draft.prisma, options, input, preview);
+    const staleRun = draft.state.runs.get(stalePreview.importRunId);
+    draft.state.runs.set(stalePreview.importRunId, {
+      ...staleRun,
+      metadata: { importKind: 'OTHER_IMPORT' },
+    });
+    await expect(draftWriter.execute(input, preview)).rejects.toThrow(
+      `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${preview.checksum}`,
+    );
+
+    await recordPrismaImportPreview(draft.prisma, options, input, preview);
+    await expect(draftWriter.execute(input, preview)).resolves.toMatchObject({
+      publicationStatus: 'DRAFT',
+    });
+  });
+
+  it('closes stale active roster memberships absent from a revised complete snapshot', async () => {
+    const firstInput = validImport();
+    const { prisma, state } = createFakePrisma('DRAFT');
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+      expectedPublicationStatus: 'DRAFT',
+    });
+    const firstPreview = planCompetitionImport(firstInput, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    await writer.execute(firstInput, firstPreview);
+
+    const revisedInput = structuredClone(firstInput);
+    revisedInput.rosters = [];
+    revisedInput.context.retrievedAt = '2026-07-16T00:00:00.000Z';
+    const revisedPreview = planCompetitionImport(revisedInput, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [...state.mappings.values()].map((mapping) => ({
+        entityType: mapping.entityType as 'TEAM' | 'PLAYER' | 'MATCH',
+        externalId: String(mapping.externalId),
+        internalEntityId: String(mapping.internalEntityId),
+      })),
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    await writer.execute(revisedInput, revisedPreview);
+
+    expect([...state.rosters.values()][0]).toMatchObject({
+      status: 'REPLACED',
+      validTo: new Date('2026-07-16T00:00:00.000Z'),
+      notes: 'Closed by complete source-snapshot reconciliation',
+    });
+    expect(state.mutations).toContainEqual(expect.objectContaining({
+      target: 'ROSTER_MEMBERSHIP',
+      operation: 'UPDATE',
+    }));
   });
 });

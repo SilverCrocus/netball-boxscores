@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { NormalizedCompetitionImport } from '@/lib/sources/types';
+import { loadGlasgowFoundationSourceEvidence } from '@/lib/glasgow/source-manifest';
 import nextConfig from '../../../next.config';
 
 const bundlePath = path.resolve('data/glasgow-2026/v1/bundle.json');
@@ -56,8 +57,34 @@ describe('Glasgow 2026 source bundle', () => {
     const { bundleText, manifest } = await loadSourceBundle();
 
     expect(createHash('sha256').update(bundleText).digest('hex')).toBe(manifest.bundleFileSha256);
-    expect(manifest.declarations.publicationStatusPolicy).toBe('PRESERVE_EXISTING');
+    expect(manifest.declarations.publicationStatusPolicy).toBe('DRAFT_ONLY');
     expect(manifest.declarations.publicationBlockers).toEqual([]);
+  });
+
+  it('derives publication expectations and compact receipt provenance from the audited sidecar', async () => {
+    const evidence = await loadGlasgowFoundationSourceEvidence(bundlePath);
+
+    expect(evidence.expectedImportChecksum).toMatch(/^[a-f0-9]{64}$/);
+    expect(evidence.receiptMetadata).toMatchObject({
+      importKind: 'GLASGOW_FOUNDATION',
+      sourceManifest: expect.objectContaining({
+        bundleVersion: 'v1',
+        publicationStatusPolicy: 'DRAFT_ONLY',
+        sourceCount: expect.any(Number),
+      }),
+    });
+    expect(evidence.publicationExpectation).toMatchObject({
+      importChecksum: evidence.expectedImportChecksum,
+      teamExternalIds: expect.arrayContaining(['AUS', 'NZL']),
+      canonicalPlayers: expect.arrayContaining([
+        expect.objectContaining({ externalId: 'JAM-shamera-sterling-humphrey' }),
+      ]),
+    });
+    expect(evidence.publicationExpectation.teamExternalIds).toHaveLength(12);
+    expect(evidence.publicationExpectation.playerExternalIds).toHaveLength(96);
+    expect(evidence.publicationExpectation.matchExternalIds).toHaveLength(38);
+    expect(evidence.publicationExpectation.canonicalPlayers).toHaveLength(23);
+    expect(evidence.publicationExpectation.editionCoverage).toHaveLength(10);
   });
 
   it('contains the complete tournament structure without inventing unresolved teams', async () => {

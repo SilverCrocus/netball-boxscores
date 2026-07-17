@@ -6,10 +6,10 @@ import {
   upsertGlasgow2026Foundation,
 } from '@/lib/glasgow/edition';
 
-function foundationClient() {
+function foundationClient(publicationStatus: 'DRAFT' | 'PUBLISHED' = 'DRAFT') {
   const competitionUpsert = vi.fn().mockResolvedValue({
     id: 'edition-id',
-    publicationStatus: 'PUBLISHED',
+    publicationStatus,
   });
   const stageUpsert = vi.fn(async ({ create }: {
     create: { slug: string; isPublished: boolean };
@@ -58,7 +58,7 @@ describe('Glasgow 2026 foundation', () => {
     expect(GLASGOW_2026_FOUNDATION.source.key).toBe('glasgow-2026-public-data');
   });
 
-  it('preserves publication state when the foundation is replayed', async () => {
+  it('keeps foundation writes scoped to a draft edition', async () => {
     const { prisma, competitionUpsert, stageUpsert, sourceSystemUpsert } = foundationClient();
 
     await upsertGlasgow2026Foundation(prisma);
@@ -72,6 +72,15 @@ describe('Glasgow 2026 foundation', () => {
       factualDataReuse: 'PUBLIC_FACTUAL_DATA_USER_ASSERTED',
       organiserApproval: 'NOT_CLAIMED',
     });
+  });
+
+  it('rejects foundation preparation after the edition is published', async () => {
+    const { prisma, stageUpsert } = foundationClient('PUBLISHED');
+
+    await expect(upsertGlasgow2026Foundation(prisma)).rejects.toThrow(
+      'Glasgow 2026 foundation preparation requires DRAFT edition status; found PUBLISHED',
+    );
+    expect(stageUpsert).not.toHaveBeenCalled();
   });
 
   it('resolves an existing foundation for read-only previews without an upsert', async () => {
@@ -98,7 +107,7 @@ describe('Glasgow 2026 foundation', () => {
     } as unknown as PrismaClient;
 
     await expect(resolveGlasgow2026Foundation(prisma)).rejects.toThrow(
-      'Glasgow 2026 import foundation is missing; use --apply to create it, or use --offline-preview for a database-free preview',
+      'Glasgow 2026 import foundation is missing; run npm run db:prepare:glasgow first, or use --offline-preview for a database-free preview',
     );
   });
 });

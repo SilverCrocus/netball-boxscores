@@ -74,7 +74,7 @@ export async function resolveGlasgow2026Foundation(
 
   if (!editionSource) {
     throw new Error(
-      'Glasgow 2026 import foundation is missing; use --apply to create it, or use --offline-preview for a database-free preview',
+      'Glasgow 2026 import foundation is missing; run npm run db:prepare:glasgow first, or use --offline-preview for a database-free preview',
     );
   }
 
@@ -122,14 +122,18 @@ export async function upsertGlasgow2026Foundation(prisma: PrismaClient) {
         publicationStatus: 'DRAFT',
       },
     });
+    if (edition.publicationStatus !== 'DRAFT') {
+      throw new Error(
+        `Glasgow 2026 foundation preparation requires DRAFT edition status; found ${edition.publicationStatus}`,
+      );
+    }
 
     const stages = new Map<string, string>();
     for (const stageInput of GLASGOW_2026_FOUNDATION.stages) {
       const stage = await transaction.stage.upsert({
         where: { competitionId_slug: { competitionId: edition.id, slug: stageInput.slug } },
-        // A foundation replay must never unpublish an edition that has already
-        // passed the explicit publication gate. Publication is editorial state,
-        // not source-owned tournament metadata.
+        // Publication remains an explicit later gate. A foundation replay is
+        // permitted only while the parent edition is DRAFT.
         update: stageInput,
         create: { ...stageInput, competitionId: edition.id, isPublished: false },
       });

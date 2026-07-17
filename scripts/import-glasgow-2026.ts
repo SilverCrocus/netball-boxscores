@@ -1,30 +1,38 @@
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from '@/lib/db';
 import {
   resolveGlasgow2026Foundation,
-  upsertGlasgow2026Foundation,
 } from '@/lib/glasgow/edition';
+import { loadGlasgowFoundationSourceEvidence } from '@/lib/glasgow/source-manifest';
 import { JsonCompetitionAdapter } from '@/lib/sources/adapter';
 import {
   loadPrismaImportPlanningState,
   PrismaCompetitionImportWriter,
+  recordPrismaImportPreview,
 } from '@/lib/sources/prisma-writer';
 import { CompetitionImportService } from '@/lib/sources/service';
 
 function usage(): never {
-  throw new Error('Usage: npm run db:import:glasgow -- <bundle.json> [--apply|--offline-preview]');
+  throw new Error(
+    'Usage: npm run db:import:glasgow -- <bundle.json> [--offline-preview|--record-preview|--apply]',
+  );
 }
 
 async function main() {
   const apply = process.argv.includes('--apply');
   const offlinePreview = process.argv.includes('--offline-preview');
+  const recordPreview = process.argv.includes('--record-preview');
   const sourceFile = process.argv.slice(2).find((argument) => !argument.startsWith('--'));
   if (!sourceFile) usage();
   if (apply && offlinePreview) throw new Error('--offline-preview cannot be combined with --apply');
+  if (apply && recordPreview) throw new Error('--record-preview cannot be combined with --apply');
+  if (offlinePreview && recordPreview) {
+    throw new Error('--offline-preview cannot be combined with --record-preview');
+  }
 
   const bundlePath = path.resolve(sourceFile);
-  const sourceInput = await readFile(bundlePath, 'utf8');
+  const evidence = await loadGlasgowFoundationSourceEvidence(bundlePath);
+  const sourceInput = evidence.bundleText;
   if (offlinePreview) {
     const service = new CompetitionImportService(
       new JsonCompetitionAdapter(),
@@ -50,15 +58,13 @@ async function main() {
       unresolved: preview.unresolved,
       writes: preview.writes,
       nextStep: preview.valid
-        ? 'Re-run with --apply against the selected database transport to persist this exact bundle'
+        ? 'Prepare the DRAFT foundation, then run a database-aware preview and --record-preview before --apply'
         : 'Resolve every blocking issue before applying',
     }, null, 2));
     if (!preview.valid) process.exitCode = 2;
     return;
   }
-  const foundation = apply
-    ? await upsertGlasgow2026Foundation(prisma)
-    : await resolveGlasgow2026Foundation(prisma);
+  const foundation = await resolveGlasgow2026Foundation(prisma);
   const planningState = await loadPrismaImportPlanningState(prisma, {
     sourceSystemId: foundation.sourceSystemId,
     competitionId: foundation.editionId,
@@ -67,6 +73,9 @@ async function main() {
     sourceSystemId: foundation.sourceSystemId,
     competitionId: foundation.editionId,
     editionSourceId: foundation.editionSourceId,
+    expectedPublicationStatus: 'DRAFT',
+    requireMatchingDryRun: true,
+    receiptMetadata: evidence.receiptMetadata,
   });
   const service = new CompetitionImportService(
     new JsonCompetitionAdapter(),
@@ -78,9 +87,9 @@ async function main() {
     },
     writer
   );
-  const { preview } = await service.preview(sourceInput);
+  const { normalized, preview } = await service.preview(sourceInput);
 
-  if (!preview.valid || !apply) {
+  if (!preview.valid) {
     console.log(JSON.stringify({
       mode: 'preview',
       bundlePath,
@@ -95,6 +104,40 @@ async function main() {
         : 'Resolve every blocking issue before applying',
     }, null, 2));
     if (!preview.valid) process.exitCode = 2;
+    return;
+  }
+
+  if (recordPreview) {
+    const receipt = await recordPrismaImportPreview(prisma, {
+      sourceSystemId: foundation.sourceSystemId,
+      competitionId: foundation.editionId,
+      editionSourceId: foundation.editionSourceId,
+      expectedPublicationStatus: 'DRAFT',
+      receiptMetadata: evidence.receiptMetadata,
+    }, normalized, preview);
+    console.log(JSON.stringify({
+      mode: 'recorded-preview',
+      bundlePath,
+      editionId: foundation.editionId,
+      valid: true,
+      ...receipt,
+      nextStep: `Re-run with --apply to persist checksum ${preview.checksum}`,
+    }, null, 2));
+    return;
+  }
+
+  if (!apply) {
+    console.log(JSON.stringify({
+      mode: 'preview',
+      bundlePath,
+      editionId: foundation.editionId,
+      valid: true,
+      checksum: preview.checksum,
+      issues: preview.issues,
+      unresolved: preview.unresolved,
+      writes: preview.writes,
+      nextStep: 'Re-run with --record-preview before --apply',
+    }, null, 2));
     return;
   }
 

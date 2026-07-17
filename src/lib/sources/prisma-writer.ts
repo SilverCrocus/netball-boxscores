@@ -5,6 +5,7 @@ import type {
   MatchSide,
   MatchSlotSourceType,
   Player,
+  PublicationStatus,
   Prisma,
   PrismaClient,
   SourceEntityType,
@@ -21,6 +22,9 @@ export interface PrismaCompetitionImportWriterOptions {
   competitionId: string;
   editionSourceId: string;
   trigger?: 'MANUAL' | 'SCHEDULED' | 'REPLAY';
+  expectedPublicationStatus?: PublicationStatus;
+  requireMatchingDryRun?: boolean;
+  receiptMetadata?: Prisma.InputJsonObject;
 }
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
@@ -41,6 +45,120 @@ function mappingKey(entityType: SourceEntityType, externalId: string): string {
 
 function normalizedPlayerName(name: string): string {
   return name.normalize('NFKD').toLocaleLowerCase('en').replace(/[^a-z0-9]+/g, '');
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function jsonValuesEqual(left: unknown, right: unknown): boolean {
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left)
+      && Array.isArray(right)
+      && left.length === right.length
+      && left.every((value, index) => jsonValuesEqual(value, right[index]));
+  }
+  if (isJsonObject(left) || isJsonObject(right)) {
+    if (!isJsonObject(left) || !isJsonObject(right)) return false;
+    const rightEntries = Object.entries(right);
+    return Object.keys(left).length === rightEntries.length
+      && rightEntries.every(([key, value]) => jsonValuesEqual(left[key], value));
+  }
+  return left === right;
+}
+
+function receiptMetadataMatches(
+  metadata: Prisma.JsonValue | null,
+  expected: Prisma.InputJsonObject | undefined,
+): boolean {
+  if (!expected) return true;
+  if (!isJsonObject(metadata)) return false;
+  return Object.entries(expected).every(([key, value]) =>
+    jsonValuesEqual(metadata[key], value));
+}
+
+function importRunMetadata(
+  options: PrismaCompetitionImportWriterOptions,
+  preview: ImportPreview,
+  extra: Record<string, unknown> = {},
+): Prisma.InputJsonValue {
+  return jsonValue({
+    ...(options.receiptMetadata ?? {}),
+    preview,
+    ...extra,
+  });
+}
+
+export async function recordPrismaImportPreview(
+  prisma: PrismaClient,
+  options: PrismaCompetitionImportWriterOptions,
+  input: NormalizedCompetitionImport,
+  preview: ImportPreview,
+): Promise<{ importRunId: string; checksum: string; publicationStatus: PublicationStatus }> {
+  if (!preview.valid || preview.issues.length > 0 || preview.unresolved.length > 0) {
+    throw new Error('Cannot record an unclean import preview');
+  }
+
+  return prisma.$transaction(async (transaction) => {
+    const source = await transaction.sourceSystem.findUnique({
+      where: { id: options.sourceSystemId },
+    });
+    if (!source || source.key !== input.context.sourceKey) {
+      throw new Error(`Source system does not match import context: ${input.context.sourceKey}`);
+    }
+    const editionSource = await transaction.editionSource.findUnique({
+      where: { id: options.editionSourceId },
+    });
+    if (
+      !editionSource
+      || editionSource.competitionId !== options.competitionId
+      || editionSource.sourceSystemId !== source.id
+      || editionSource.externalId !== input.context.editionExternalId
+    ) {
+      throw new Error('Edition source does not match the selected competition import context');
+    }
+    const competition = await transaction.competition.findUnique({
+      where: { id: options.competitionId },
+      select: { publicationStatus: true },
+    });
+    if (!competition) throw new Error(`Competition edition not found: ${options.competitionId}`);
+    if (
+      options.expectedPublicationStatus
+      && competition.publicationStatus !== options.expectedPublicationStatus
+    ) {
+      throw new Error(
+        `Import requires ${options.expectedPublicationStatus} edition status; found ${competition.publicationStatus}`,
+      );
+    }
+
+    const importRunId = randomUUID();
+    await transaction.importRun.create({
+      data: {
+        id: importRunId,
+        sourceSystemId: source.id,
+        competitionId: options.competitionId,
+        editionSourceId: editionSource.id,
+        trigger: options.trigger ?? 'MANUAL',
+        status: 'SUCCEEDED',
+        dryRun: true,
+        retrievedAt: new Date(input.context.retrievedAt),
+        completedAt: new Date(),
+        checksum: preview.checksum,
+        issueCount: 0,
+        metadata: importRunMetadata(options, preview, { previewRecorded: true }),
+      },
+    });
+
+    return {
+      importRunId,
+      checksum: preview.checksum,
+      publicationStatus: competition.publicationStatus,
+    };
+  }, {
+    isolationLevel: 'Serializable',
+    maxWait: 10_000,
+    timeout: 30_000,
+  });
 }
 
 /**
@@ -89,6 +207,37 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
         if (!competition) {
           throw new Error(`Competition edition not found: ${this.options.competitionId}`);
         }
+        if (
+          this.options.expectedPublicationStatus
+          && competition.publicationStatus !== this.options.expectedPublicationStatus
+        ) {
+          throw new Error(
+            `Import requires ${this.options.expectedPublicationStatus} edition status; found ${competition.publicationStatus}`,
+          );
+        }
+
+        if (this.options.requireMatchingDryRun) {
+          const dryRunCandidates = await transaction.importRun.findMany({
+            where: {
+              sourceSystemId: source.id,
+              competitionId: this.options.competitionId,
+              checksum: preview.checksum,
+              status: 'SUCCEEDED',
+              dryRun: true,
+              issueCount: 0,
+            },
+            orderBy: { completedAt: 'desc' },
+            take: 20,
+            select: { id: true, metadata: true },
+          });
+          const matchingDryRun = dryRunCandidates.find((candidate) =>
+            receiptMetadataMatches(candidate.metadata, this.options.receiptMetadata));
+          if (!matchingDryRun) {
+            throw new Error(
+              `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${preview.checksum}`,
+            );
+          }
+        }
 
         const priorRun = await transaction.importRun.findFirst({
           where: {
@@ -96,6 +245,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             competitionId: this.options.competitionId,
             checksum: preview.checksum,
             status: 'SUCCEEDED',
+            dryRun: false,
           },
           orderBy: { completedAt: 'desc' },
         });
@@ -112,7 +262,9 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             retrievedAt: new Date(input.context.retrievedAt),
             checksum: preview.checksum,
             issueCount: preview.issues.length,
-            metadata: jsonValue({ preview, replayOfImportRunId: priorRun?.id ?? null }),
+            metadata: importRunMetadata(this.options, preview, {
+              replayOfImportRunId: priorRun?.id ?? null,
+            }),
           },
         });
 
@@ -196,6 +348,8 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
         }
 
         let mutationSequence = 0;
+        let insertedMutationCount = 0;
+        let updatedMutationCount = 0;
         const recordMutation = async (
           target: ImportMutationTarget,
           entityId: string,
@@ -204,6 +358,8 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           after: object
         ) => {
           mutationSequence++;
+          if (operation === 'INSERT') insertedMutationCount++;
+          if (operation === 'UPDATE') updatedMutationCount++;
           await transaction.importMutation.create({
             data: {
               importRunId,
@@ -374,6 +530,15 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           playerIds.set(playerInput.externalId, player.id);
         }
 
+        const existingActiveRosters = await transaction.rosterMembership.findMany({
+          where: {
+            editionEntry: { competitionId: this.options.competitionId },
+            status: 'ACTIVE',
+            validTo: null,
+          },
+          orderBy: { id: 'asc' },
+        });
+        const incomingRosterKeys = new Set<string>();
         const playerInputByExternalId = new Map(
           input.players.map((playerInput) => [playerInput.externalId, playerInput]),
         );
@@ -412,6 +577,28 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
               },
             });
           await recordMutation('ROSTER_MEMBERSHIP', roster.id, before ? 'UPDATE' : 'INSERT', before, roster);
+          incomingRosterKeys.add(`${editionEntryId}:${playerId}`);
+        }
+
+        for (const staleRoster of existingActiveRosters) {
+          if (incomingRosterKeys.has(`${staleRoster.editionEntryId}:${staleRoster.playerId}`)) {
+            continue;
+          }
+          const closedRoster = await transaction.rosterMembership.update({
+            where: { id: staleRoster.id },
+            data: {
+              status: 'REPLACED',
+              validTo: new Date(input.context.retrievedAt),
+              notes: 'Closed by complete source-snapshot reconciliation',
+            },
+          });
+          await recordMutation(
+            'ROSTER_MEMBERSHIP',
+            closedRoster.id,
+            'UPDATE',
+            staleRoster,
+            closedRoster,
+          );
         }
 
         const matchIds = new Map<string, string>();
@@ -608,6 +795,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
               checksum: preview.checksum,
               rawPayload: source.rawPayloadStorageAllowed ? jsonValue(input) : undefined,
               metadata: jsonValue({
+                ...(this.options.receiptMetadata ?? {}),
                 teamCount: input.teams.length,
                 playerCount: input.players.length,
                 matchCount: input.matches.length,
@@ -616,9 +804,9 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           });
         }
 
-        const inserted = preview.writes.filter((write) => write.operation === 'INSERT').length;
-        const updated = preview.writes.filter((write) => write.operation === 'UPDATE').length;
-        const skipped = preview.writes.filter((write) => write.operation === 'SKIP').length;
+        const inserted = insertedMutationCount;
+        const updated = updatedMutationCount;
+        const skipped = 0;
         await transaction.importRun.update({
           where: { id: importRunId },
           data: {
@@ -667,7 +855,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             checksum: preview.checksum,
             issueCount: preview.issues.length,
             errorMessage: message,
-            metadata: jsonValue({ preview }),
+            metadata: importRunMetadata(this.options, preview),
           },
         });
       } catch {
