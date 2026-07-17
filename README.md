@@ -6,7 +6,8 @@ Live scores, box scores, standings, fixtures, team profiles, and player profiles
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router) with custom Express server
+- **Framework:** Next.js 16 (App Router) with custom Express server
+- **Runtime:** Node.js 24.14.1 on Render
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS 4
 - **Database:** Supabase PostgreSQL via Prisma 6.x
