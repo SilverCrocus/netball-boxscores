@@ -1,15 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findMatchMock } = vi.hoisted(() => ({ findMatchMock: vi.fn() }));
+const { findMatchMock, findMatchesMock, findCompetitionsMock } = vi.hoisted(() => ({
+  findMatchMock: vi.fn(),
+  findMatchesMock: vi.fn(),
+  findCompetitionsMock: vi.fn(),
+}));
 
 vi.mock('@/lib/db', () => ({
-  prisma: { match: { findUnique: findMatchMock } },
+  prisma: {
+    match: { findUnique: findMatchMock, findMany: findMatchesMock },
+    competition: { findMany: findCompetitionsMock },
+  },
   excludeSimData: { isSimulation: false },
 }));
 
 import {
   canExposePublicMatchScore,
+  MAX_PUBLIC_MATCH_ACCESS_BATCH,
   resolvePublicMatchAccess,
+  resolvePublicMatchAccessBatch,
 } from '@/lib/public-match';
 
 function match(overrides: Record<string, unknown> = {}) {
@@ -21,6 +30,7 @@ function match(overrides: Record<string, unknown> = {}) {
     scheduledAt: new Date('2026-07-04T09:30:00Z'),
     homeTeamId: 'home',
     awayTeamId: 'away',
+    sourceUpdatedAt: null,
     isSimulation: false,
     stageId: 'stage-1',
     stage: { isPublished: true },
@@ -37,8 +47,18 @@ function match(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function matchRow(source: ReturnType<typeof match>) {
+  const row = { ...source };
+  Reflect.deleteProperty(row, 'competition');
+  return row;
+}
+
 describe('public match access', () => {
-  beforeEach(() => findMatchMock.mockReset());
+  beforeEach(() => {
+    findMatchMock.mockReset();
+    findMatchesMock.mockReset();
+    findCompetitionsMock.mockReset();
+  });
 
   it('resolves a match only when its edition is public-ready', async () => {
     findMatchMock.mockResolvedValue(match());
@@ -138,5 +158,56 @@ describe('public match access', () => {
     await expect(resolvePublicMatchAccess('match-1')).resolves.not.toBeNull();
     await expect(resolvePublicMatchAccess('match-1')).resolves.toBeNull();
     expect(findMatchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('resolves a candidate page with one capability query and one readiness query', async () => {
+    const first = match({ id: 'match-1' });
+    const hidden = match({
+      id: 'match-2',
+      dataCoverage: [{ capability: 'FINAL_SCORE', state: 'UNAVAILABLE' }],
+    });
+    findMatchesMock.mockResolvedValue([matchRow(first), matchRow(hidden)]);
+    findCompetitionsMock.mockResolvedValue([first.competition]);
+
+    const access = await resolvePublicMatchAccessBatch(['match-1', 'match-2', 'match-1']);
+
+    expect(access).toHaveLength(2);
+    expect(canExposePublicMatchScore(access.get('match-1')!)).toBe(true);
+    expect(canExposePublicMatchScore(access.get('match-2')!)).toBe(false);
+    expect(findMatchesMock).toHaveBeenCalledOnce();
+    expect(findCompetitionsMock).toHaveBeenCalledOnce();
+    expect(findMatchesMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: { in: ['match-1', 'match-2'] } },
+    }));
+  });
+
+  it('uses an already-loaded ready edition without another readiness query', async () => {
+    const source = match();
+    findMatchesMock.mockResolvedValue([matchRow(source)]);
+
+    const access = await resolvePublicMatchAccessBatch(
+      ['match-1'],
+      [source.competition as never],
+    );
+
+    expect(access.has('match-1')).toBe(true);
+    expect(findCompetitionsMock).not.toHaveBeenCalled();
+  });
+
+  it('propagates batch access infrastructure failures instead of treating them as denial', async () => {
+    findMatchesMock.mockRejectedValue(new Error('database unavailable'));
+
+    await expect(resolvePublicMatchAccessBatch(['match-1']))
+      .rejects.toThrow('database unavailable');
+  });
+
+  it('rejects an unbounded public-access lookup before querying the database', async () => {
+    const ids = Array.from(
+      { length: MAX_PUBLIC_MATCH_ACCESS_BATCH + 1 },
+      (_, index) => `match-${index}`,
+    );
+
+    await expect(resolvePublicMatchAccessBatch(ids)).rejects.toThrow(RangeError);
+    expect(findMatchesMock).not.toHaveBeenCalled();
   });
 });

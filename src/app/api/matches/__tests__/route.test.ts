@@ -41,7 +41,11 @@ describe('GET /api/matches', () => {
     expect(response.status).toBe(200);
     expect(resolveCompetitionByIdMock).toHaveBeenCalledWith('glasgow-2026');
     expect(resolveCompetitionMock).not.toHaveBeenCalled();
-    expect(loadPageMock).toHaveBeenCalledWith('glasgow-2026', undefined);
+    expect(loadPageMock).toHaveBeenCalledWith(
+      'glasgow-2026',
+      undefined,
+      [{ id: 'glasgow-2026', season: 2026 }],
+    );
   });
 
   it('resolves the requested season and forwards the cursor', async () => {
@@ -49,7 +53,11 @@ describe('GET /api/matches', () => {
 
     expect(response.status).toBe(200);
     expect(resolveLegacyLeagueCompetitionMock).toHaveBeenCalledWith('2026');
-    expect(loadPageMock).toHaveBeenCalledWith('competition-2026', 'next-page');
+    expect(loadPageMock).toHaveBeenCalledWith(
+      'competition-2026',
+      'next-page',
+      [{ id: 'competition-2026', season: 2026 }],
+    );
   });
 
   it('returns a typed client error for an invalid cursor', async () => {

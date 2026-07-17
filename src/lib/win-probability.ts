@@ -16,9 +16,15 @@
 
 import { prisma, excludeSimData } from '@/lib/db';
 import { getPublicCompetitions } from '@/lib/competitions';
+import { isFinalFixture } from '@/lib/edition-capabilities';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchAccessBatch,
+} from '@/lib/public-match';
 
 const QUARTER_SECONDS = 900;
 const GAME_DURATION_SECONDS = 4 * QUARTER_SECONDS; // 3600s = 60 min
+const TEAM_STRENGTH_HISTORY_LIMIT = 200;
 const BASE_SIGMA = 13;
 const LEAGUE_AVG_RATE = 64 / 60; // goals per minute per team (~1.07)
 
@@ -183,7 +189,8 @@ export async function computeTeamStrengthPrior(
   awayTeamId: string,
   currentMatchId: string,
 ): Promise<PreMatchPrior | null> {
-  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  const publicEditions = await getPublicCompetitions();
+  const publicEditionIds = publicEditions.map((edition) => edition.id);
   if (publicEditionIds.length === 0) return null;
 
   const completedMatches = await prisma.match.findMany({
@@ -209,17 +216,31 @@ export async function computeTeamStrengthPrior(
       ],
     },
     select: {
+      id: true,
       homeTeamId: true,
       awayTeamId: true,
       homeScore: true,
       awayScore: true,
     },
+    orderBy: [{ scheduledAt: 'desc' }, { id: 'desc' }],
+    take: TEAM_STRENGTH_HISTORY_LIMIT,
+  });
+
+  const accessByMatch = await resolvePublicMatchAccessBatch(
+    completedMatches.map((match) => match.id),
+    publicEditions,
+  );
+  const accessibleMatches = completedMatches.filter((match) => {
+    const access = accessByMatch.get(match.id);
+    return Boolean(access
+      && isFinalFixture(access.status, access.resultQuality)
+      && canExposePublicMatchScore(access));
   });
 
   let homeGoalsFor = 0, homeGoalsAgainst = 0, homeGames = 0;
   let awayGoalsFor = 0, awayGoalsAgainst = 0, awayGames = 0;
 
-  for (const m of completedMatches) {
+  for (const m of accessibleMatches) {
     if (m.homeTeamId === homeTeamId) {
       homeGoalsFor += m.homeScore;
       homeGoalsAgainst += m.awayScore;

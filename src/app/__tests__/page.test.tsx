@@ -20,10 +20,15 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchAccess: vi.fn().mockResolvedValue({
-    scoreAvailable: true,
-    features: { superShots: { available: true } },
-  }),
+  resolvePublicMatchAccessBatch: vi.fn().mockImplementation(async (matchIds: string[]) => new Map(
+    matchIds.map((matchId) => [matchId, {
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+      sourceUpdatedAt: new Date('2026-07-25T09:00:01.000Z'),
+      scoreAvailable: true,
+      features: { superShots: { available: true } },
+    }]),
+  )),
   canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
 }));
 
@@ -128,6 +133,7 @@ const MATCHES = [
   stage: null,
   competition: { dataCoverage: PUBLIC_COVERAGE },
   dataCoverage: [],
+  sourceUpdatedAt: new Date('2026-07-25T09:00:01.000Z'),
   ...match,
 }));
 
@@ -151,9 +157,15 @@ describe('HomePage', () => {
       seasonStart: new Date('2026-03-01T00:00:00Z'),
       seasonEnd: new Date('2026-07-31T00:00:00Z'),
     }]);
-    findMatchesMock.mockReset().mockImplementation(({ where }: { where: { status: string } }) =>
-      Promise.resolve(MATCHES.filter((match) => match.status === where.status)),
-    );
+    findMatchesMock.mockReset().mockImplementation(({ where }: {
+      where: { status?: string; id?: { in: string[] } };
+    }) => Promise.resolve(
+      where.status
+        ? MATCHES.filter((match) => match.status === where.status)
+        : where.id?.in
+          ? MATCHES.filter((match) => where.id?.in.includes(match.id))
+          : [],
+    ));
   });
 
   afterEach(() => {
@@ -227,9 +239,16 @@ describe('HomePage', () => {
       finalCode: null,
       scheduledAt: new Date('2026-06-14T06:00:00Z'),
     };
-    findMatchesMock.mockImplementation(({ where }: { where: { status: string } }) =>
-      Promise.resolve(where.status === 'COMPLETED' ? [grandFinal, round14] : []),
-    );
+    const finalsMatches = [grandFinal, round14];
+    findMatchesMock.mockImplementation(({ where }: {
+      where: { status?: string; id?: { in: string[] } };
+    }) => Promise.resolve(
+      where.status === 'COMPLETED'
+        ? finalsMatches
+        : where.id?.in
+          ? finalsMatches.filter((match) => where.id?.in.includes(match.id))
+          : [],
+    ));
 
     render(await HomePage());
 
@@ -265,8 +284,12 @@ describe('HomePage', () => {
     const completedQuery = findMatchesMock.mock.calls.find(
       ([query]) => query.where.status === 'COMPLETED',
     )?.[0];
+    const hydratedResultsQuery = findMatchesMock.mock.calls.find(
+      ([query]) => query.where.id?.in,
+    )?.[0];
 
     expect(scheduledQuery.take).toBe(4);
+    expect(liveQuery.take).toBe(16);
     expect(liveQuery.where.OR).toEqual([
       { stageId: null },
       { stage: { is: { isPublished: true } } },
@@ -275,7 +298,7 @@ describe('HomePage', () => {
       { stageId: null },
       { stage: { is: { isPublished: true } } },
     ]);
-    expect(completedQuery.take).toBe(9);
+    expect(completedQuery.take).toBe(73);
     expect(completedQuery.where.competitionId).toBe('competition-2026');
     expect(completedQuery.where.AND).toEqual(expect.arrayContaining([{
       OR: [
@@ -284,7 +307,8 @@ describe('HomePage', () => {
       ],
     }]));
     expect(completedQuery.select.scoreFlow).toBeUndefined();
-    expect(completedQuery.select.teamStats).toBeDefined();
+    expect(completedQuery.select.teamStats).toBeUndefined();
+    expect(hydratedResultsQuery.select.teamStats).toBeDefined();
   });
 
   it('renders a true empty state when the latest season has no matches', async () => {

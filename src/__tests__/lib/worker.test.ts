@@ -1,16 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@/lib/db', () => ({
-  prisma: {
-    team: { findMany: vi.fn() },
-    player: { findMany: vi.fn() },
+vi.mock('@/lib/db', () => {
+  const transactionClient = {
     playerMatchStats: { findMany: vi.fn() },
-    match: { findUnique: vi.fn() },
-    pollLog: { update: vi.fn() },
-    $transaction: vi.fn((callback: (tx: object) => unknown) => callback({ transaction: true })),
-  },
-  excludeSimData: {},
-}));
+    match: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    pollLog: {
+      findUnique: vi.fn().mockResolvedValue({ polledAt: new Date('2026-06-01T00:00:00Z') }),
+    },
+  };
+  return {
+    prisma: {
+      team: { findMany: vi.fn() },
+      player: { findMany: vi.fn() },
+      playerMatchStats: transactionClient.playerMatchStats,
+      match: transactionClient.match,
+      pollLog: { ...transactionClient.pollLog, update: vi.fn() },
+      $transaction: vi.fn((callback: (tx: object) => unknown) => callback(transactionClient)),
+    },
+    excludeSimData: {},
+  };
+});
 
 vi.mock('@/lib/live-state', () => ({
   getLiveState: vi.fn(),
@@ -28,7 +42,7 @@ vi.mock('@/lib/processing', () => ({
   reconcileCompletedMatches: vi.fn(),
   reconcileStaleCompletedScores: vi.fn().mockResolvedValue([]),
   detectStaleCompletedMatches: vi.fn(),
-  finalizeCompletedMatches: vi.fn().mockResolvedValue([]),
+  finalizeCompletedMatches: vi.fn().mockResolvedValue({ matches: [], failedMatchIds: [] }),
 }));
 
 vi.mock('@/lib/broadcasting', () => ({
@@ -36,6 +50,7 @@ vi.mock('@/lib/broadcasting', () => ({
   broadcastPlayerStats: vi.fn().mockResolvedValue(undefined),
   persistStatEvents: vi.fn().mockResolvedValue([]),
   broadcastPersistedStatEvents: vi.fn().mockResolvedValue(undefined),
+  broadcastScoreFlowDelta: vi.fn().mockResolvedValue(undefined),
   broadcastCompletion: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -44,7 +59,8 @@ vi.mock('@/lib/public-match', () => ({
 }));
 
 vi.mock('@/lib/standings', () => ({
-  recalculateStandings: vi.fn(),
+  acquireStandingsSourceLock: vi.fn().mockResolvedValue(undefined),
+  rebuildStandingsInTransaction: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock('@/lib/worker-health', () => ({
@@ -53,10 +69,44 @@ vi.mock('@/lib/worker-health', () => ({
 }));
 
 describe('Worker', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     // Most worker unit tests exercise one source; a dedicated test below covers finals.
     vi.stubEnv('SSN_FINALS_COMPETITION_ID', '12949');
+    const { prisma } = await import('@/lib/db');
+    const processing = await import('@/lib/processing');
+    vi.mocked(prisma.team.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.player.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.playerMatchStats.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.match.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.match.findUnique).mockResolvedValue({
+      id: 'db-match',
+      competitionId: 'comp-1',
+      resultQuality: 'UNKNOWN',
+      sourceUpdatedAt: null,
+      status: 'LIVE',
+      homeScore: 10,
+      awayScore: 9,
+      currentQuarter: 1,
+      currentTime: '300',
+      round: 1,
+      homeTeamId: 'home',
+      awayTeamId: 'away',
+      homeTeam: { id: 'home' },
+      awayTeam: { id: 'away' },
+    } as never);
+    vi.mocked(prisma.match.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.pollLog.findUnique).mockResolvedValue({
+      polledAt: new Date('2026-06-01T00:00:00Z'),
+    } as never);
+    vi.mocked(processing.syncFixtureMatches).mockResolvedValue(0);
+    vi.mocked(processing.reconcileCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
+    vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue({
+      matches: [],
+      failedMatchIds: [],
+    });
   });
 
   afterEach(() => {
@@ -99,6 +149,33 @@ describe('Worker', () => {
     expect(getPollingInterval(true, true, false)).toBe(2_000);
   });
 
+  it('serializes overlapping work for the same match', async () => {
+    const { withMatchProcessingLock } = await import('@/lib/worker');
+    const order: string[] = [];
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+
+    const first = withMatchProcessingLock('match-1', async () => {
+      order.push('first-start');
+      await firstGate;
+      order.push('first-end');
+    });
+    await vi.waitFor(() => expect(order).toEqual(['first-start']));
+
+    const second = withMatchProcessingLock('match-1', async () => {
+      order.push('second-start');
+      order.push('second-end');
+    });
+    await Promise.resolve();
+    expect(order).toEqual(['first-start']);
+
+    releaseFirst();
+    await Promise.all([first, second]);
+    expect(order).toEqual(['first-start', 'first-end', 'second-start', 'second-end']);
+  });
+
   it('persists unchanged-state corrections and updates each match PollLog', async () => {
     const { prisma } = await import('@/lib/db');
     const { ingestFromChampionData } = await import('@/lib/ingestion');
@@ -106,6 +183,7 @@ describe('Worker', () => {
     const { pollChampionData } = await import('@/lib/worker');
 
     vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
       fixture: [
         { matchId: 101 } as any,
         { matchId: 102 } as any,
@@ -125,6 +203,14 @@ describe('Worker', () => {
     vi.mocked(prisma.player.findMany).mockResolvedValue([]);
     vi.mocked(prisma.match.findUnique).mockResolvedValue({
       id: 'db-match',
+      competitionId: 'comp-1',
+      resultQuality: 'UNKNOWN',
+      sourceUpdatedAt: null,
+      status: 'LIVE',
+      homeScore: 10,
+      awayScore: 9,
+      currentQuarter: 1,
+      currentTime: '300',
       homeTeam: {},
       awayTeam: {},
     } as any);
@@ -157,7 +243,7 @@ describe('Worker', () => {
     vi.mocked(processing.applyChanges).mockResolvedValue(new Map());
     vi.mocked(processing.reconcileCompletedMatches).mockResolvedValue([]);
     vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
-    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue({ matches: [], failedMatchIds: [] });
     vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
 
     await pollChampionData();
@@ -181,6 +267,7 @@ describe('Worker', () => {
     const { pollChampionData } = await import('@/lib/worker');
 
     vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
       fixture: [{ matchId: 101 } as any],
       matchDetails: new Map(),
       pollLogIds: ['fixture-log'],
@@ -191,7 +278,7 @@ describe('Worker', () => {
     vi.mocked(prisma.player.findMany).mockResolvedValue([]);
     vi.mocked(processing.reconcileCompletedMatches).mockResolvedValue([]);
     vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
-    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue({ matches: [], failedMatchIds: [] });
     vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
 
     await pollChampionData();
@@ -208,6 +295,7 @@ describe('Worker', () => {
 
     vi.mocked(ingestFromChampionData)
       .mockResolvedValueOnce({
+        fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
         fixture: [{ matchId: 101 } as any],
         matchDetails: new Map(),
         pollLogIds: [],
@@ -215,6 +303,7 @@ describe('Worker', () => {
         detailFetchErrors: 0,
       })
       .mockResolvedValueOnce({
+        fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
         fixture: [{ matchId: 201, finalCode: 'SEMI' } as any],
         matchDetails: new Map(),
         pollLogIds: [],
@@ -225,7 +314,7 @@ describe('Worker', () => {
     vi.mocked(prisma.player.findMany).mockResolvedValue([]);
     vi.mocked(processing.reconcileCompletedMatches).mockResolvedValue([]);
     vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
-    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue({ matches: [], failedMatchIds: [] });
     vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
 
     await pollChampionData();
@@ -237,12 +326,14 @@ describe('Worker', () => {
       [{ matchId: 101 }],
       12949,
       12949,
+      new Date('2026-06-01T00:00:00Z'),
     );
     expect(processing.syncFixtureMatches).toHaveBeenNthCalledWith(
       2,
       [{ matchId: 201, finalCode: 'SEMI' }],
       12949,
       12950,
+      new Date('2026-06-01T00:00:00Z'),
     );
   });
 
@@ -255,6 +346,7 @@ describe('Worker', () => {
     let release!: () => void;
 
     vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
       fixture: [{ matchId: 101 } as never],
       matchDetails: new Map(),
       pollLogIds: [],
@@ -267,7 +359,17 @@ describe('Worker', () => {
       { matchId: 'completed-1', homeScore: 60, awayScore: 59, finalQuarter: 4 },
     ] as never);
     vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
-    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue({
+      matches: [{
+        matchId: 'completed-1',
+        homeScore: 60,
+        awayScore: 59,
+        finalQuarter: 4,
+        sourceUpdatedAt: new Date('2026-06-01T00:00:00Z'),
+        standingsChanged: true,
+      }],
+      failedMatchIds: [],
+    });
     vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
     vi.mocked(broadcastCompletion).mockReturnValue(new Promise<void>((resolve) => {
       release = resolve;
@@ -292,6 +394,7 @@ describe('Worker', () => {
     const { pollChampionData } = await import('@/lib/worker');
 
     vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
       fixture: [{ matchId: 101 } as never],
       matchDetails: new Map([[101, {
         playerStats: {
@@ -300,7 +403,7 @@ describe('Worker', () => {
         },
       } as never]]),
       pollLogIds: [],
-      matchPollLogIds: new Map(),
+      matchPollLogIds: new Map([[101, 'match-101-log']]),
       detailFetchErrors: 0,
     });
     vi.mocked(prisma.team.findMany).mockResolvedValue([]);
@@ -308,6 +411,7 @@ describe('Worker', () => {
     vi.mocked(prisma.playerMatchStats.findMany).mockResolvedValue([]);
     vi.mocked(prisma.match.findUnique).mockResolvedValue({
       id: 'db-match',
+      sourceUpdatedAt: null,
       round: 1,
       homeTeamId: 'home',
       awayTeamId: 'away',
@@ -356,7 +460,7 @@ describe('Worker', () => {
     vi.mocked(processing.applyChanges).mockResolvedValue(new Map());
     vi.mocked(processing.reconcileCompletedMatches).mockResolvedValue([]);
     vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
-    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue({ matches: [], failedMatchIds: [] });
     vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
 
     await pollChampionData();
@@ -365,7 +469,10 @@ describe('Worker', () => {
     expect(persistOrder).toBeLessThan(vi.mocked(processing.applyChanges).mock.invocationCallOrder[0]);
     expect(persistOrder).toBeLessThan(vi.mocked(broadcasting.broadcastMatchChanges).mock.invocationCallOrder[0]);
     expect(persistOrder).toBeLessThan(vi.mocked(broadcasting.broadcastPersistedStatEvents).mock.invocationCallOrder[0]);
-    const transactionClient = { transaction: true };
+    const transactionClient = expect.objectContaining({
+      match: expect.anything(),
+      playerMatchStats: expect.anything(),
+    });
     expect(broadcasting.persistStatEvents).toHaveBeenCalledWith(
       'db-match',
       expect.anything(),
@@ -380,6 +487,304 @@ describe('Worker', () => {
       expect.anything(),
       transactionClient,
     );
+    expect(prisma.match.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'db-match',
+        OR: [
+          { sourceUpdatedAt: null },
+          { sourceUpdatedAt: { lt: new Date('2026-06-01T00:00:00Z') } },
+        ],
+      },
+      data: { sourceUpdatedAt: new Date('2026-06-01T00:00:00Z') },
+    });
+  });
+
+  it('accepts a newer downward correction without letting one stat veto score or clock, then continues', async () => {
+    const { prisma } = await import('@/lib/db');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const processing = await import('@/lib/processing');
+    const broadcasting = await import('@/lib/broadcasting');
+    const { pollChampionData } = await import('@/lib/worker');
+
+    vi.mocked(ingestFromChampionData)
+      .mockResolvedValueOnce({
+        fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+        fixture: [{ matchId: 101 } as never],
+        matchDetails: new Map([[101, {
+          playerStats: {
+            home: [{ playerId: 10, intercepts: 1, deflections: 0, rebounds: 0, turnovers: 0 }],
+            away: [],
+          },
+        } as never]]),
+        pollLogIds: [],
+        matchPollLogIds: new Map([[101, 'correction-observation']]),
+        detailFetchErrors: 0,
+      })
+      .mockResolvedValueOnce({
+        fixtureObservationAt: new Date('2026-06-01T00:00:01Z'),
+        fixture: [{ matchId: 101 } as never],
+        matchDetails: new Map([[101, {
+          playerStats: {
+            home: [{ playerId: 10, intercepts: 2, deflections: 0, rebounds: 0, turnovers: 0 }],
+            away: [],
+          },
+        } as never]]),
+        pollLogIds: [],
+        matchPollLogIds: new Map([[101, 'continuation-observation']]),
+        detailFetchErrors: 0,
+      });
+    vi.mocked(prisma.team.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.player.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.match.findUnique)
+      .mockResolvedValueOnce({
+        id: 'db-match',
+        competitionId: 'comp-1',
+        resultQuality: 'UNKNOWN',
+        sourceUpdatedAt: new Date('2026-05-31T23:59:00Z'),
+        status: 'LIVE',
+        homeScore: 10,
+        awayScore: 9,
+        currentQuarter: 2,
+        currentTime: '400',
+        round: 1,
+        homeTeamId: 'home',
+        awayTeamId: 'away',
+        homeTeam: { id: 'home' },
+        awayTeam: { id: 'away' },
+      } as never)
+      .mockResolvedValueOnce({
+        id: 'db-match',
+        competitionId: 'comp-1',
+        resultQuality: 'UNKNOWN',
+        sourceUpdatedAt: new Date('2026-06-01T00:00:00Z'),
+        status: 'LIVE',
+        homeScore: 8,
+        awayScore: 7,
+        currentQuarter: 2,
+        currentTime: '300',
+        round: 1,
+        homeTeamId: 'home',
+        awayTeamId: 'away',
+        homeTeam: { id: 'home' },
+        awayTeam: { id: 'away' },
+      } as never);
+    vi.mocked(prisma.pollLog.findUnique)
+      .mockResolvedValueOnce({ polledAt: new Date('2026-06-01T00:00:00Z') } as never)
+      .mockResolvedValueOnce({ polledAt: new Date('2026-06-01T00:00:01Z') } as never);
+    vi.mocked(prisma.playerMatchStats.findMany)
+      .mockResolvedValueOnce([{
+        playerId: 'player-1',
+        intercepts: 2,
+        deflections: 0,
+        rebounds: 0,
+        turnovers: 0,
+      }] as never)
+      .mockResolvedValueOnce([{
+        playerId: 'player-1',
+        intercepts: 1,
+        deflections: 0,
+        rebounds: 0,
+        turnovers: 0,
+      }] as never);
+    vi.mocked(processing.validateMatchData)
+      .mockReturnValueOnce({
+        valid: true,
+        validatedData: {
+          cdMatchId: 101,
+          homeScore: 8,
+          awayScore: 7,
+          status: 'LIVE',
+          currentQuarter: 2,
+          currentTime: '300',
+          quarterScores: [],
+        },
+      } as never)
+      .mockReturnValueOnce({
+        valid: true,
+        validatedData: {
+          cdMatchId: 101,
+          homeScore: 9,
+          awayScore: 8,
+          status: 'LIVE',
+          currentQuarter: 2,
+          currentTime: '350',
+          quarterScores: [],
+        },
+      } as never);
+    vi.mocked(processing.reconcileCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.detectStaleCompletedMatches).mockResolvedValue([]);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue({ matches: [], failedMatchIds: [] });
+    vi.mocked(processing.reconcileStaleCompletedScores).mockResolvedValue([]);
+
+    await pollChampionData();
+    await pollChampionData();
+
+    expect(processing.applyChanges).toHaveBeenCalledTimes(2);
+    expect(processing.applyChanges).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        newHomeScore: 8,
+        newAwayScore: 7,
+        currentTime: '300',
+      }),
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(processing.applyChanges).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        newHomeScore: 9,
+        newAwayScore: 8,
+        currentTime: '350',
+      }),
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(broadcasting.broadcastMatchChanges).toHaveBeenCalledTimes(2);
+    expect(prisma.match.updateMany).toHaveBeenCalledTimes(2);
+    expect(prisma.pollLog.update).toHaveBeenCalledWith({
+      where: { id: 'correction-observation' },
+      data: { status: 'processed', processingMs: expect.any(Number) },
+    });
+    expect(prisma.pollLog.update).toHaveBeenCalledWith({
+      where: { id: 'continuation-observation' },
+      data: { status: 'processed', processingMs: expect.any(Number) },
+    });
+    expect(processing.finalizeCompletedMatches).toHaveBeenLastCalledWith(
+      [{ matchId: 101 }],
+      12949,
+      [],
+      [],
+      new Map([[101, new Date('2026-06-01T00:00:01Z')]]),
+    );
+  });
+
+  it('lets a newer live observation reopen a heuristic unofficial completion', async () => {
+    const { prisma } = await import('@/lib/db');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const processing = await import('@/lib/processing');
+    const { pollChampionData } = await import('@/lib/worker');
+
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+      fixture: [{ matchId: 101 } as never],
+      matchDetails: new Map([[101, { playerStats: null } as never]]),
+      pollLogIds: [],
+      matchPollLogIds: new Map([[101, 'match-101-log']]),
+      detailFetchErrors: 0,
+    });
+    vi.mocked(prisma.match.findUnique).mockResolvedValue({
+      id: 'db-match',
+      competitionId: 'comp-1',
+      resultQuality: 'UNOFFICIAL_FINAL',
+      sourceUpdatedAt: new Date('2026-05-31T23:59:59Z'),
+      status: 'COMPLETED',
+      homeScore: 10,
+      awayScore: 9,
+      currentQuarter: 4,
+      currentTime: '899',
+      round: 1,
+      homeTeamId: 'home',
+      awayTeamId: 'away',
+      homeTeam: { id: 'home' },
+      awayTeam: { id: 'away' },
+    } as never);
+    vi.mocked(processing.validateMatchData).mockReturnValue({
+      valid: true,
+      validatedData: {
+        cdMatchId: 101, homeScore: 10, awayScore: 9, status: 'LIVE',
+        currentQuarter: 4, currentTime: '850', quarterScores: [],
+      },
+    } as never);
+
+    await pollChampionData();
+
+    expect(processing.applyChanges).toHaveBeenCalledWith(
+      expect.objectContaining({ newStatus: 'LIVE', statusChanged: true }),
+      expect.objectContaining({ status: 'LIVE' }),
+      expect.anything(),
+    );
+    expect(prisma.pollLog.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'match-101-log' },
+      data: expect.objectContaining({ status: 'processed' }),
+    }));
+  });
+
+  it('defers every provider completion to canonical finalization', async () => {
+    const { prisma } = await import('@/lib/db');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const processing = await import('@/lib/processing');
+    const { pollChampionData } = await import('@/lib/worker');
+
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+      fixture: [{ matchId: 101, matchStatus: 'complete' } as never],
+      matchDetails: new Map([[101, { playerStats: { home: [], away: [] } } as never]]),
+      pollLogIds: [],
+      matchPollLogIds: new Map([[101, 'match-101-log']]),
+      detailFetchErrors: 0,
+    });
+    vi.mocked(prisma.match.findUnique).mockResolvedValue({
+      id: 'db-match', competitionId: 'comp-1', resultQuality: 'PROVISIONAL',
+      sourceUpdatedAt: new Date('2026-05-31T23:59:59Z'), status: 'LIVE',
+      homeScore: 59, awayScore: 59, currentQuarter: 4, currentTime: '899',
+      round: 1, homeTeamId: 'home', awayTeamId: 'away',
+      homeTeam: { id: 'home' }, awayTeam: { id: 'away' },
+    } as never);
+    vi.mocked(processing.validateMatchData).mockReturnValue({
+      valid: true,
+      validatedData: {
+        cdMatchId: 101, homeScore: 59, awayScore: 59, status: 'COMPLETED',
+        currentQuarter: 4, currentTime: '900', quarterScores: [],
+      },
+    } as never);
+
+    await pollChampionData();
+
+    expect(processing.applyChanges).not.toHaveBeenCalled();
+    expect(prisma.match.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ sourceUpdatedAt: expect.any(Date) }),
+    }));
+    expect(prisma.pollLog.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'match-101-log' },
+      data: expect.objectContaining({ status: 'processed' }),
+    }));
+    expect(processing.reconcileCompletedMatches).toHaveBeenCalledWith(
+      [{ matchId: 101, matchStatus: 'complete' }],
+      new Map([[101, new Date('2026-06-01T00:00:00Z')]]),
+    );
+  });
+
+  it('discards a slow fixture response older than the committed match revision', async () => {
+    const { prisma } = await import('@/lib/db');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const processing = await import('@/lib/processing');
+    const { recordPoll } = await import('@/lib/worker-health');
+    const { pollChampionData } = await import('@/lib/worker');
+
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+      fixture: [{ matchId: 101, matchStatus: 'complete' } as never],
+      matchDetails: new Map(),
+      pollLogIds: [],
+      matchPollLogIds: new Map(),
+      detailFetchErrors: 1,
+    });
+    vi.mocked(prisma.match.findMany).mockResolvedValueOnce([{
+      championDataMatchId: 101,
+      sourceUpdatedAt: new Date('2026-06-01T00:00:01Z'),
+    }] as never);
+
+    await pollChampionData();
+
+    expect(processing.syncFixtureMatches).toHaveBeenCalledWith(
+      [],
+      12949,
+      12949,
+      new Date('2026-06-01T00:00:00Z'),
+    );
+    expect(processing.reconcileCompletedMatches).not.toHaveBeenCalled();
+    expect(recordPoll).toHaveBeenCalledWith('empty', 0);
   });
 
   it('does not advance aggregate counters or emit when canonical event persistence fails', async () => {
@@ -390,19 +795,20 @@ describe('Worker', () => {
     const { pollChampionData } = await import('@/lib/worker');
 
     vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
       fixture: [{ matchId: 101 } as never],
       matchDetails: new Map([[101, {
         playerStats: { home: [{ playerId: 10, intercepts: 1 }], away: [] },
       } as never]]),
       pollLogIds: [],
-      matchPollLogIds: new Map(),
+      matchPollLogIds: new Map([[101, 'match-101-log']]),
       detailFetchErrors: 0,
     });
     vi.mocked(prisma.team.findMany).mockResolvedValue([]);
     vi.mocked(prisma.player.findMany).mockResolvedValue([]);
     vi.mocked(prisma.playerMatchStats.findMany).mockResolvedValue([]);
     vi.mocked(prisma.match.findUnique).mockResolvedValue({
-      id: 'db-match', round: 1, homeTeamId: 'home', awayTeamId: 'away',
+      id: 'db-match', sourceUpdatedAt: null, round: 1, homeTeamId: 'home', awayTeamId: 'away',
       homeTeam: { id: 'home' }, awayTeam: { id: 'away' },
     } as never);
     vi.mocked(processing.validateMatchData).mockReturnValue({
@@ -433,19 +839,20 @@ describe('Worker', () => {
     const { pollChampionData } = await import('@/lib/worker');
 
     vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
       fixture: [{ matchId: 101 } as never],
       matchDetails: new Map([[101, {
         playerStats: { home: [{ playerId: 10, intercepts: 1 }], away: [] },
       } as never]]),
       pollLogIds: [],
-      matchPollLogIds: new Map(),
+      matchPollLogIds: new Map([[101, 'match-101-log']]),
       detailFetchErrors: 0,
     });
     vi.mocked(prisma.team.findMany).mockResolvedValue([]);
     vi.mocked(prisma.player.findMany).mockResolvedValue([]);
     vi.mocked(prisma.playerMatchStats.findMany).mockResolvedValue([]);
     vi.mocked(prisma.match.findUnique).mockResolvedValue({
-      id: 'db-match', round: 1, homeTeamId: 'home', awayTeamId: 'away',
+      id: 'db-match', sourceUpdatedAt: null, round: 1, homeTeamId: 'home', awayTeamId: 'away',
       homeTeam: { id: 'home' }, awayTeam: { id: 'away' },
     } as never);
     vi.mocked(processing.validateMatchData).mockReturnValue({

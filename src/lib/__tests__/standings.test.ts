@@ -1,214 +1,220 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockDeleteMany,
-  mockFindUnique,
-  mockFindMany,
-  mockTransaction,
-  mockUpsert,
-} = vi.hoisted(() => ({
-  mockDeleteMany: vi.fn(),
-  mockFindUnique: vi.fn(),
-  mockFindMany: vi.fn(),
-  mockTransaction: vi.fn(),
-  mockUpsert: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  outerCompetitionFindUnique: vi.fn(),
+  txCompetitionFindUnique: vi.fn(),
+  matchFindMany: vi.fn(),
+  standingDeleteMany: vi.fn(),
+  standingUpsert: vi.fn(),
+  queryRaw: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    competition: { findUnique: mockFindUnique },
-    match: { findMany: mockFindMany },
-    standing: { deleteMany: mockDeleteMany, upsert: mockUpsert },
-    $transaction: mockTransaction,
+    competition: { findUnique: mocks.outerCompetitionFindUnique },
+    $transaction: mocks.transaction,
   },
   excludeSimData: { isSimulation: false },
 }));
 
-import { recalculateStandings } from '@/lib/standings';
+import {
+  acquireStandingsSourceLock,
+  recalculateStandings,
+  rebuildStandingsInTransaction,
+} from '@/lib/standings';
+import { SERIALIZABLE_TRANSACTION_OPTIONS } from '@/lib/serializable-transaction';
+
+const AVAILABLE = [{ capability: 'FINAL_SCORE', state: 'AVAILABLE' }];
+
+function transactionClient() {
+  return {
+    $queryRaw: mocks.queryRaw,
+    competition: { findUnique: mocks.txCompetitionFindUnique },
+    match: { findMany: mocks.matchFindMany },
+    standing: {
+      deleteMany: mocks.standingDeleteMany,
+      upsert: mocks.standingUpsert,
+    },
+  };
+}
+
+function result(overrides: Record<string, unknown> = {}) {
+  return {
+    homeTeamId: 'team-a',
+    awayTeamId: 'team-b',
+    homeScore: 60,
+    awayScore: 50,
+    dataCoverage: [],
+    ...overrides,
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUpsert.mockResolvedValue({});
-  mockDeleteMany.mockResolvedValue({ count: 0 });
-  mockTransaction.mockImplementation(async (callback) => callback({
-    standing: { deleteMany: mockDeleteMany, upsert: mockUpsert },
-  }));
+  mocks.outerCompetitionFindUnique.mockResolvedValue({ id: 'comp-1' });
+  mocks.txCompetitionFindUnique.mockResolvedValue({
+    id: 'comp-1',
+    dataCoverage: AVAILABLE,
+  });
+  mocks.matchFindMany.mockResolvedValue([]);
+  mocks.queryRaw.mockResolvedValue([]);
+  mocks.standingDeleteMany.mockResolvedValue({ count: 0 });
+  mocks.standingUpsert.mockResolvedValue({});
+  mocks.transaction.mockImplementation(async (operation) => operation(transactionClient()));
 });
 
-const COMP = { id: 'comp-1', championDataId: 12949 };
-
 describe('recalculateStandings', () => {
-  it('skips when competition not found', async () => {
-    mockFindUnique.mockResolvedValue(null);
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('skips when the source competition is absent', async () => {
+    mocks.outerCompetitionFindUnique.mockResolvedValue(null);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     await recalculateStandings();
 
-    expect(mockFindMany).not.toHaveBeenCalled();
-    expect(mockUpsert).not.toHaveBeenCalled();
-    consoleSpy.mockRestore();
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.matchFindMany).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
-  it('computes correct W/L/D and points for two teams', async () => {
-    mockFindUnique.mockResolvedValue(COMP);
-    mockFindMany.mockResolvedValue([
-      // Team A wins
-      { homeTeamId: 'team-a', awayTeamId: 'team-b', homeScore: 60, awayScore: 50 },
-      // Team B wins
-      { homeTeamId: 'team-b', awayTeamId: 'team-a', homeScore: 55, awayScore: 45 },
-      // Team A wins again
-      { homeTeamId: 'team-a', awayTeamId: 'team-b', homeScore: 70, awayScore: 62 },
+  it('computes wins, draws, losses, percentages and rank in one transaction', async () => {
+    mocks.matchFindMany.mockResolvedValue([
+      result(),
+      result({ homeTeamId: 'team-b', awayTeamId: 'team-a', homeScore: 55, awayScore: 55 }),
+      result({ homeScore: 70, awayScore: 62 }),
     ]);
 
     await recalculateStandings();
 
-    expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mocks.transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      SERIALIZABLE_TRANSACTION_OPTIONS,
+    );
+    expect(mocks.standingDeleteMany).toHaveBeenCalledWith({
+      where: { competitionId: 'comp-1' },
+    });
+    const writes = mocks.standingUpsert.mock.calls.map(([write]) => write);
+    const teamA = writes.find((write) => write.where.competitionId_teamId.teamId === 'team-a');
+    const teamB = writes.find((write) => write.where.competitionId_teamId.teamId === 'team-b');
+    expect(teamA.update).toMatchObject({
+      rank: 1,
+      played: 3,
+      wins: 2,
+      draws: 1,
+      losses: 0,
+      points: 10,
+      goalsFor: 185,
+      goalsAgainst: 167,
+      goalPercentage: 110.8,
+    });
+    expect(teamB.update).toMatchObject({
+      rank: 2,
+      played: 3,
+      wins: 0,
+      draws: 1,
+      losses: 2,
+      points: 2,
+      goalsFor: 167,
+      goalsAgainst: 185,
+      goalPercentage: 90.3,
+    });
+  });
+
+  it('excludes a match whose FINAL_SCORE capability is revoked', async () => {
+    mocks.matchFindMany.mockResolvedValue([
+      result({
+        homeTeamId: 'hidden-home',
+        awayTeamId: 'hidden-away',
+        homeScore: 99,
+        awayScore: 1,
+        dataCoverage: [{ capability: 'FINAL_SCORE', state: 'UNAVAILABLE' }],
+      }),
+      result(),
+    ]);
+
+    await recalculateStandings();
+
+    const teamIds = mocks.standingUpsert.mock.calls.map(
+      ([write]) => write.where.competitionId_teamId.teamId,
+    );
+    expect(teamIds).toEqual(['team-a', 'team-b']);
+    expect(mocks.matchFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        dataCoverage: {
+          where: { capability: 'FINAL_SCORE' },
+          select: { capability: true, state: true },
+        },
+      }),
+    }));
+  });
+
+  it('removes stale rows when edition-level final scores are unavailable', async () => {
+    mocks.txCompetitionFindUnique.mockResolvedValue({
+      id: 'comp-1',
+      dataCoverage: [{ capability: 'FINAL_SCORE', state: 'UNAVAILABLE' }],
+    });
+    mocks.matchFindMany.mockResolvedValue([result()]);
+
+    await recalculateStandings();
+
+    expect(mocks.standingDeleteMany).toHaveBeenCalledWith({
+      where: { competitionId: 'comp-1' },
+    });
+    expect(mocks.standingUpsert).not.toHaveBeenCalled();
+  });
+
+  it('queries only eligible published, non-simulation regular results', async () => {
+    await recalculateStandings();
+
+    expect(mocks.matchFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
-        finalCode: null,
+        competitionId: 'comp-1',
+        status: 'COMPLETED',
         resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
+        finalCode: null,
+        isSimulation: false,
         OR: [
           { stageId: null },
           { stage: { is: { isPublished: true } } },
         ],
       }),
     }));
-
-    // Team A: 2W 1L = 8pts, Team B: 1W 2L = 4pts
-    // Team A should be rank 1, Team B rank 2
-    expect(mockUpsert).toHaveBeenCalledTimes(2);
-    expect(mockDeleteMany).toHaveBeenCalledWith({
-      where: { competitionId: 'comp-1' },
-    });
-
-    const calls = mockUpsert.mock.calls.map((c) => c[0]);
-    const teamACall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-a');
-    const teamBCall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-b');
-
-    expect(teamACall.update).toMatchObject({
-      rank: 1,
-      played: 3,
-      wins: 2,
-      losses: 1,
-      draws: 0,
-      points: 8,
-      goalsFor: 175, // 60+45+70
-      goalsAgainst: 167, // 50+55+62
-    });
-
-    expect(teamBCall.update).toMatchObject({
-      rank: 2,
-      played: 3,
-      wins: 1,
-      losses: 2,
-      draws: 0,
-      points: 4,
-      goalsFor: 167,
-      goalsAgainst: 175,
-    });
   });
 
-  it('awards no bonus points for large margin wins (SSN has no margin bonus)', async () => {
-    mockFindUnique.mockResolvedValue(COMP);
-    mockFindMany.mockResolvedValue([
-      // Team A wins by a huge margin — still only 4 pts (no bonus in SSN)
-      { homeTeamId: 'team-a', awayTeamId: 'team-b', homeScore: 80, awayScore: 50 },
-      // Team B wins by a small margin — also 4 pts
-      { homeTeamId: 'team-b', awayTeamId: 'team-a', homeScore: 65, awayScore: 64 },
-    ]);
+  it('acquires the durable competition lock before reading and replacing the ladder', async () => {
+    mocks.matchFindMany.mockResolvedValue([result()]);
 
     await recalculateStandings();
 
-    const calls = mockUpsert.mock.calls.map((c) => c[0]);
-    const teamACall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-a');
-    const teamBCall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-b');
-
-    // Both teams: 1W = 4pts. Margin is irrelevant — SSN awards no bonus points.
-    expect(teamACall.update.points).toBe(4);
-    expect(teamBCall.update.points).toBe(4);
+    const lockOrder = mocks.queryRaw.mock.invocationCallOrder[0];
+    expect(lockOrder).toBeLessThan(mocks.txCompetitionFindUnique.mock.invocationCallOrder[0]);
+    expect(lockOrder).toBeLessThan(mocks.matchFindMany.mock.invocationCallOrder[0]);
+    expect(lockOrder).toBeLessThan(mocks.standingDeleteMany.mock.invocationCallOrder[0]);
   });
 
-  it('handles draws correctly', async () => {
-    mockFindUnique.mockResolvedValue(COMP);
-    mockFindMany.mockResolvedValue([
-      { homeTeamId: 'team-a', awayTeamId: 'team-b', homeScore: 55, awayScore: 55 },
-    ]);
+  it('uses the same advisory key for a contributing mutation and its rebuild', async () => {
+    const tx = transactionClient();
 
-    await recalculateStandings();
+    await acquireStandingsSourceLock(tx as never, 'comp-1');
+    await rebuildStandingsInTransaction(tx as never, 'comp-1');
 
-    const calls = mockUpsert.mock.calls.map((c) => c[0]);
-    const teamACall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-a');
-    const teamBCall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-b');
-
-    expect(teamACall.update).toMatchObject({ draws: 1, points: 2 });
-    expect(teamBCall.update).toMatchObject({ draws: 1, points: 2 });
+    expect(mocks.queryRaw).toHaveBeenCalledTimes(2);
+    expect(mocks.queryRaw.mock.calls[0][1]).toBe('centrepass:standings:comp-1');
+    expect(mocks.queryRaw.mock.calls[1][1]).toBe('centrepass:standings:comp-1');
   });
 
-  it('computes goal percentage correctly', async () => {
-    mockFindUnique.mockResolvedValue(COMP);
-    mockFindMany.mockResolvedValue([
-      { homeTeamId: 'team-a', awayTeamId: 'team-b', homeScore: 70, awayScore: 50 },
-    ]);
-
-    await recalculateStandings();
-
-    const calls = mockUpsert.mock.calls.map((c) => c[0]);
-    const teamACall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-a');
-    const teamBCall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-b');
-
-    // Team A: 70/50 * 100 = 140.0
-    expect(teamACall.update.goalPercentage).toBe(140.0);
-    // Team B: 50/70 * 100 = 71.4
-    expect(teamBCall.update.goalPercentage).toBe(71.4);
-  });
-
-  it('ranks by points first, then goal percentage', async () => {
-    mockFindUnique.mockResolvedValue(COMP);
-    mockFindMany.mockResolvedValue([
-      // Team A and C both win 1 game (4pts each) but A has better goal%
-      { homeTeamId: 'team-a', awayTeamId: 'team-b', homeScore: 80, awayScore: 50 },
-      { homeTeamId: 'team-c', awayTeamId: 'team-b', homeScore: 55, awayScore: 50 },
-    ]);
-
-    await recalculateStandings();
-
-    const calls = mockUpsert.mock.calls.map((c) => c[0]);
-    const teamACall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-a');
-    const teamCCall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-c');
-    const teamBCall = calls.find((c) => c.where.competitionId_teamId.teamId === 'team-b');
-
-    // A and C: 4pts each. A has 80/50=160%, C has 55/50=110%. A ranks higher.
-    expect(teamACall.update.rank).toBe(1);
-    expect(teamCCall.update.rank).toBe(2);
-    // B: 0pts, rank 3
-    expect(teamBCall.update.rank).toBe(3);
-  });
-
-  it('passes excludeSimData in match query', async () => {
-    mockFindUnique.mockResolvedValue(COMP);
-    mockFindMany.mockResolvedValue([]);
-
-    await recalculateStandings();
-
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: 'COMPLETED',
-          isSimulation: false,
-        }),
+  it('retries the complete locked rebuild after a serialization conflict', async () => {
+    mocks.transaction
+      .mockImplementationOnce(async (operation) => {
+        await operation(transactionClient());
+        throw Object.assign(new Error('write conflict'), { code: 'P2034' });
       })
-    );
-  });
-
-  it('removes every stale standing when no eligible result remains', async () => {
-    mockFindUnique.mockResolvedValue(COMP);
-    mockFindMany.mockResolvedValue([]);
+      .mockImplementationOnce(async (operation) => operation(transactionClient()));
 
     await recalculateStandings();
 
-    expect(mockDeleteMany).toHaveBeenCalledWith({
-      where: { competitionId: 'comp-1' },
-    });
-    expect(mockUpsert).not.toHaveBeenCalled();
-    expect(mockTransaction).toHaveBeenCalledOnce();
+    expect(mocks.transaction).toHaveBeenCalledTimes(2);
+    expect(mocks.queryRaw).toHaveBeenCalledTimes(2);
+    expect(mocks.matchFindMany).toHaveBeenCalledTimes(2);
+    expect(mocks.standingDeleteMany).toHaveBeenCalledTimes(2);
   });
 });

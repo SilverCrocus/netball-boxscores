@@ -27,6 +27,7 @@ import {
 import { matchHref } from '@/lib/edition-links';
 
 export const dynamic = 'force-dynamic';
+const HOME_LIVE_MATCH_LIMIT = 16;
 
 export default async function HomePage() {
   let liveMatches: ResolvedHomepageMatch[] = [];
@@ -67,6 +68,7 @@ export default async function HomePage() {
             },
             select: homepageMatchSelect,
             orderBy: { scheduledAt: 'asc' },
+            take: HOME_LIVE_MATCH_LIMIT,
           })),
           timedQuery('home_upcoming_matches', () => prisma.match.findMany({
             where: {
@@ -81,7 +83,11 @@ export default async function HomePage() {
             orderBy: { scheduledAt: 'asc' },
             take: 4,
           })),
-          timedQuery('home_completed_history', () => getCompletedMatchesPage(competition.id)),
+          timedQuery('home_completed_history', () => getCompletedMatchesPage(
+            competition.id,
+            undefined,
+            [competition],
+          )),
         ]);
         liveMatches = live.filter(hasResolvedMatchTeams);
         upcomingMatches = upcoming.filter(hasResolvedMatchTeams);
@@ -94,7 +100,10 @@ export default async function HomePage() {
 
   const featured = upcomingMatches[0];
   const header = deriveHomeHeader(season, liveMatches, upcomingMatches, completedPage.groups);
-  const hasMatches = liveMatches.length > 0 || upcomingMatches.length > 0 || completedPage.groups.length > 0;
+  const hasMatches = liveMatches.length > 0
+    || upcomingMatches.length > 0
+    || completedPage.groups.length > 0
+    || completedPage.nextCursor !== null;
 
   return (
     <div className="max-w-7xl mx-auto">

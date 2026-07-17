@@ -6,11 +6,16 @@ import { hasResolvedMatchTeams, type ResolvedMatchTeams } from '@/lib/edition-ma
 import { isFinalFixture, resolveEditionFeatures } from '@/lib/edition-capabilities';
 import {
   canExposePublicMatchScore,
-  resolvePublicMatchAccess,
+  resolvePublicMatchAccessBatch,
   type PublicMatchAccess,
 } from '@/lib/public-match';
+import type { CompetitionOption } from '@/lib/competitions';
 
 export const HOME_RESULTS_PAGE_SIZE = 8;
+const COMPLETED_RESULTS_MAX_SCAN_BATCHES = 8;
+const COMPLETED_RESULTS_SCAN_LIMIT = (
+  HOME_RESULTS_PAGE_SIZE + 1
+) * COMPLETED_RESULTS_MAX_SCAN_BATCHES;
 
 export const homepageMatchSelect = {
   id: true,
@@ -45,6 +50,21 @@ export const homepageMatchSelect = {
 
 export type HomepageMatch = Prisma.MatchGetPayload<{ select: typeof homepageMatchSelect }>;
 export type ResolvedHomepageMatch = ResolvedMatchTeams<HomepageMatch>;
+
+const homepageMatchHydrationSelect = {
+  ...homepageMatchSelect,
+  sourceUpdatedAt: true,
+} satisfies Prisma.MatchSelect;
+
+interface CachedCompletedMatchCandidate {
+  id: string;
+  scheduledAt: string;
+}
+
+interface CompletedMatchCandidate {
+  id: string;
+  scheduledAt: Date;
+}
 
 interface ScoreBreakdown {
   goals: number;
@@ -211,7 +231,7 @@ export function decodeCompletedCursor(cursor: string): CompletedCursor | null {
 async function loadCompletedMatchCandidates(
   competitionId: string,
   cursor?: string,
-): Promise<HomepageMatch[]> {
+): Promise<CachedCompletedMatchCandidate[]> {
   const decodedCursor = cursor ? decodeCompletedCursor(cursor) : null;
   if (cursor && !decodedCursor) {
     throw new Error('INVALID_CURSOR');
@@ -243,46 +263,99 @@ async function loadCompletedMatchCandidates(
           : []),
       ],
     },
-    select: homepageMatchSelect,
+    select: { id: true, scheduledAt: true },
     orderBy: [{ scheduledAt: 'desc' }, { id: 'desc' }],
-    take: HOME_RESULTS_PAGE_SIZE + 1,
+    take: COMPLETED_RESULTS_SCAN_LIMIT + 1,
   });
 
-  return matches;
+  return matches.map((match) => ({
+    id: match.id,
+    scheduledAt: match.scheduledAt.toISOString(),
+  }));
 }
 
-const getCompletedMatchCandidates = process.env.NODE_ENV === 'test'
+const getCachedCompletedMatchCandidates = process.env.NODE_ENV === 'test'
   ? loadCompletedMatchCandidates
-  : unstable_cache(loadCompletedMatchCandidates, ['completed-home-result-candidates-v1'], {
+  : unstable_cache(loadCompletedMatchCandidates, ['completed-home-result-candidates-v4'], {
       revalidate: 900,
       tags: ['completed-match-history'],
     });
 
+async function getCompletedMatchCandidates(
+  competitionId: string,
+  cursor?: string,
+): Promise<CompletedMatchCandidate[]> {
+  const matches = await getCachedCompletedMatchCandidates(competitionId, cursor);
+  return matches.map((match) => ({
+    ...match,
+    scheduledAt: new Date(match.scheduledAt),
+  }));
+}
+
+function isCurrentCompletedResultAccess(access: PublicMatchAccess): boolean {
+  return isFinalFixture(access.status, access.resultQuality)
+    && canExposePublicMatchScore(access);
+}
+
 export async function loadCompletedMatchesPage(
   competitionId: string,
   cursor?: string,
+  loadedEditions?: readonly CompetitionOption[],
 ): Promise<CompletedMatchesPage> {
-  const matches = await getCompletedMatchCandidates(competitionId, cursor);
-  const accessPairs = await Promise.all(matches.map(async (match) => ({
-    match,
-    access: await resolvePublicMatchAccess(match.id).catch(() => null),
-  })));
-  const currentAccess = new Map(accessPairs.flatMap(({ match, access }) => (
-    access && canExposePublicMatchScore(access) ? [[match.id, access] as const] : []
-  )));
-  const pageMatches = matches
-    .filter((match) => currentAccess.has(match.id) && hasResolvedMatchTeams(match))
-    .slice(0, HOME_RESULTS_PAGE_SIZE);
-  const hasMore = matches.length > HOME_RESULTS_PAGE_SIZE;
-  const lastMatch = pageMatches.at(-1);
+  const candidates = await getCompletedMatchCandidates(competitionId, cursor);
+  const reachedEnd = candidates.length <= COMPLETED_RESULTS_SCAN_LIMIT;
+  const scannedCandidates = candidates.slice(0, COMPLETED_RESULTS_SCAN_LIMIT);
+  const candidateIds = scannedCandidates.map((match) => match.id);
+  const currentMatches = candidateIds.length > 0
+    ? await prisma.match.findMany({
+        where: {
+          ...excludeSimData,
+          competitionId,
+          id: { in: candidateIds },
+        },
+        select: homepageMatchHydrationSelect,
+      })
+    : [];
+  const currentAccess = await resolvePublicMatchAccessBatch(
+    candidateIds,
+    loadedEditions,
+  );
+  const currentMatchById = new Map(currentMatches.map((match) => [match.id, match]));
+  const candidateById = new Map(scannedCandidates.map((match) => [match.id, match]));
+  const eligibleMatches = scannedCandidates.flatMap((candidate) => {
+    const match = currentMatchById.get(candidate.id);
+    const access = currentAccess.get(candidate.id);
+    const sameRevision = match && access
+      ? match.sourceUpdatedAt?.getTime() === access.sourceUpdatedAt?.getTime()
+      : false;
+    return match
+      && access
+      && sameRevision
+      && isCurrentCompletedResultAccess(access)
+      && hasResolvedMatchTeams(match)
+      ? [match]
+      : [];
+  });
+
+  const pageMatches = eligibleMatches.slice(0, HOME_RESULTS_PAGE_SIZE);
+  const lastPageMatch = pageMatches.at(-1);
+  const lastPageCandidate = lastPageMatch
+    ? candidateById.get(lastPageMatch.id)
+    : undefined;
+  const lastScannedMatch = scannedCandidates.at(-1);
+  const nextCursor = eligibleMatches.length > HOME_RESULTS_PAGE_SIZE && lastPageCandidate
+    ? encodeCompletedCursor(lastPageCandidate)
+    : !reachedEnd && lastScannedMatch
+      ? encodeCompletedCursor(lastScannedMatch)
+      : null;
 
   return {
     groups: groupCompletedMatches(pageMatches, currentAccess),
-    nextCursor: hasMore && lastMatch ? encodeCompletedCursor(lastMatch) : null,
+    nextCursor,
   };
 }
 
-/** Candidate rows may be cached; access, score, and capability decisions never are. */
+/** Only stable candidate IDs/order are cached; card data and access are always fresh. */
 export const getCompletedMatchesPage = loadCompletedMatchesPage;
 
 export interface HomeHeaderState {
