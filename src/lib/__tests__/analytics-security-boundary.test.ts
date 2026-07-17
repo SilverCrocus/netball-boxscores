@@ -64,10 +64,14 @@ describe('secure analytics query boundary', () => {
   it('resolves shared international players through their match-edition roster', () => {
     expect(migration).toContain('CREATE OR REPLACE VIEW analytics.player_match_fact');
     expect(migration).toContain('entry."competitionId" = eligible.competition_id');
-    expect(migration).toContain('entry."teamId" IN (eligible.home_team_id, eligible.away_team_id)');
-    expect(migration).toContain("WHEN 'REPLACED'::public.\"RosterMembershipStatus\" THEN 1");
+    expect(migration).toContain('team_id IN (eligible.home_team_id, eligible.away_team_id)');
+    expect(migration).toContain('valid_from <= eligible.scheduled_at');
+    expect(migration).toContain('(valid_to IS NULL OR valid_to >= eligible.scheduled_at)');
+    expect(migration).toContain('WHEN (SELECT COUNT(*) FROM effective_teams) = 1');
+    expect(migration).toContain('NOT edition_roster.has_edition_membership');
     expect(migration).toContain('COALESCE(edition_roster.designated_position, player."position"::TEXT)');
-    expect(migration).toContain('WHEN player."teamId" IN (eligible.home_team_id, eligible.away_team_id)');
+    expect(migration).toContain('player."teamId" IN (eligible.home_team_id, eligible.away_team_id)');
+    expect(migration).not.toContain("WHEN 'REPLACED'::public.\"RosterMembershipStatus\" THEN 1");
     expect(migration).not.toContain('JOIN public."Team" team ON team."id" = player."teamId"');
   });
 

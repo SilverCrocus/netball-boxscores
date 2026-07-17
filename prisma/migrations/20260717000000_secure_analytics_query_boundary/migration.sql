@@ -39,9 +39,9 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 -- Canonical players can be shared by club and international editions. Resolve
 -- the team (and edition-specific position) from the roster that belongs to the
 -- match's edition and one of its two sides. Historical REPLACED/WITHDRAWN rows
--- remain eligible when their validity period covers the match. If roster dates
--- are incomplete, prefer the nearest membership in that edition; never expose
--- the player's legacy club unless it is genuinely a side in this match.
+-- remain eligible only when their validity period covers the match. Ambiguous,
+-- future, and expired edition memberships fail closed. Never expose the
+-- player's legacy club once any roster record exists for this edition.
 CREATE OR REPLACE VIEW analytics.player_match_fact
 WITH (security_barrier = true)
 AS
@@ -58,7 +58,8 @@ SELECT
   COALESCE(
     edition_roster.team_id,
     CASE
-      WHEN player."teamId" IN (eligible.home_team_id, eligible.away_team_id)
+      WHEN NOT edition_roster.has_edition_membership
+        AND player."teamId" IN (eligible.home_team_id, eligible.away_team_id)
         THEN player."teamId"
       ELSE NULL
     END
@@ -88,31 +89,46 @@ JOIN public."PlayerMatchStats" player_stats
   ON player_stats."matchId" = eligible.match_id
 JOIN public."Player" player ON player."id" = player_stats."playerId"
 LEFT JOIN LATERAL (
+  WITH edition_memberships AS (
+    SELECT
+      entry."teamId" AS team_id,
+      membership."designatedPosition"::TEXT AS designated_position,
+      membership."validFrom" AS valid_from,
+      membership."id" AS membership_id,
+      membership."validTo" AS valid_to
+    FROM public."RosterMembership" membership
+    JOIN public."EditionEntry" entry ON entry."id" = membership."editionEntryId"
+    WHERE membership."playerId" = player."id"
+      AND entry."competitionId" = eligible.competition_id
+  ),
+  effective_match_memberships AS (
+    SELECT *
+    FROM edition_memberships
+    WHERE team_id IN (eligible.home_team_id, eligible.away_team_id)
+      AND valid_from <= eligible.scheduled_at
+      AND (valid_to IS NULL OR valid_to >= eligible.scheduled_at)
+  ),
+  effective_teams AS (
+    SELECT DISTINCT team_id
+    FROM effective_match_memberships
+  )
   SELECT
-    entry."teamId" AS team_id,
-    membership."designatedPosition"::TEXT AS designated_position
-  FROM public."RosterMembership" membership
-  JOIN public."EditionEntry" entry ON entry."id" = membership."editionEntryId"
-  WHERE membership."playerId" = player."id"
-    AND entry."competitionId" = eligible.competition_id
-    AND entry."teamId" IN (eligible.home_team_id, eligible.away_team_id)
-  ORDER BY
     CASE
-      WHEN membership."validFrom" <= eligible.scheduled_at
-        AND (membership."validTo" IS NULL OR membership."validTo" >= eligible.scheduled_at)
-        THEN 0
-      WHEN membership."validFrom" <= eligible.scheduled_at THEN 1
-      ELSE 2
-    END,
-    CASE membership."status"
-      WHEN 'ACTIVE'::public."RosterMembershipStatus" THEN 0
-      WHEN 'REPLACED'::public."RosterMembershipStatus" THEN 1
-      ELSE 2
-    END,
-    CASE WHEN membership."validFrom" <= eligible.scheduled_at THEN membership."validFrom" END DESC,
-    CASE WHEN membership."validFrom" > eligible.scheduled_at THEN membership."validFrom" END ASC,
-    membership."id"
-  LIMIT 1
+      WHEN (SELECT COUNT(*) FROM effective_teams) = 1
+        THEN (SELECT team_id FROM effective_teams)
+      ELSE NULL
+    END AS team_id,
+    CASE
+      WHEN (SELECT COUNT(*) FROM effective_teams) = 1 THEN (
+        SELECT effective.designated_position
+        FROM effective_match_memberships effective
+        WHERE effective.designated_position IS NOT NULL
+        ORDER BY effective.valid_from DESC, effective.membership_id
+        LIMIT 1
+      )
+      ELSE NULL
+    END AS designated_position,
+    EXISTS (SELECT 1 FROM edition_memberships) AS has_edition_membership
 ) edition_roster ON true
 JOIN analytics.match_coverage coverage ON coverage.match_id = eligible.match_id
 WHERE coverage.player_box_score_coverage IN (
