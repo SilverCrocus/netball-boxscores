@@ -155,6 +155,36 @@ function importReceiptMatches(
     && metadata.previewStateFingerprint === previewStateFingerprint(preview);
 }
 
+function importReceiptProvenanceMatches(
+  metadata: Prisma.JsonValue | null,
+  options: PrismaCompetitionImportWriterOptions,
+): metadata is Prisma.JsonObject {
+  return receiptMetadataMatches(metadata, options.receiptMetadata)
+    && isJsonObject(metadata)
+    && jsonValuesEqual(metadata.importPolicy, importPolicy(options));
+}
+
+function storedPreviewFingerprintIsValid(metadata: Prisma.JsonValue | null): boolean {
+  return isJsonObject(metadata)
+    && isJsonObject(metadata.preview)
+    && typeof metadata.previewStateFingerprint === 'string'
+    && metadata.previewStateFingerprint === sourcePayloadChecksum(metadata.preview);
+}
+
+function recordedPreviewAuthorizesAppliedReceipt(
+  dryRunMetadata: Prisma.JsonValue | null,
+  appliedMetadata: Prisma.JsonValue | null,
+  options: PrismaCompetitionImportWriterOptions,
+): boolean {
+  return importReceiptProvenanceMatches(dryRunMetadata, options)
+    && importReceiptProvenanceMatches(appliedMetadata, options)
+    && storedPreviewFingerprintIsValid(dryRunMetadata)
+    && storedPreviewFingerprintIsValid(appliedMetadata)
+    && dryRunMetadata.previewRecorded === true
+    && dryRunMetadata.previewStateFingerprint === appliedMetadata.previewStateFingerprint
+    && jsonValuesEqual(dryRunMetadata.preview, appliedMetadata.preview);
+}
+
 function validateInputPreview(
   input: NormalizedCompetitionImport,
   preview: ImportPreview,
@@ -366,43 +396,102 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
         ) {
           throw new Error('Edition source does not match the selected competition import context');
         }
+        const priorRunCandidates = await transaction.importRun.findMany({
+          where: {
+            sourceSystemId: source.id,
+            competitionId: this.options.competitionId,
+            editionSourceId: this.options.editionSourceId,
+            checksum: preview.checksum,
+            status: 'SUCCEEDED',
+            dryRun: false,
+          },
+          orderBy: { completedAt: 'desc' },
+          select: {
+            id: true,
+            trigger: true,
+            issueCount: true,
+            startedAt: true,
+            completedAt: true,
+            metadata: true,
+          },
+        });
+        let priorRun = priorRunCandidates.find((candidate) =>
+          importReceiptMatches(candidate.metadata, this.options, preview)) ?? null;
+
         if (this.options.requireMatchingDryRun) {
           const dryRunCandidates = await transaction.importRun.findMany({
             where: {
               sourceSystemId: source.id,
               competitionId: this.options.competitionId,
+              editionSourceId: this.options.editionSourceId,
               checksum: preview.checksum,
               status: 'SUCCEEDED',
               dryRun: true,
               issueCount: 0,
             },
             orderBy: { completedAt: 'desc' },
-            take: 20,
-            select: { id: true, metadata: true },
+            select: { id: true, completedAt: true, metadata: true },
           });
-          const matchingDryRun = dryRunCandidates.find((candidate) =>
-            importReceiptMatches(candidate.metadata, this.options, preview));
-          if (!matchingDryRun) {
-            throw new Error(
-              `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${preview.checksum}`,
-            );
+
+          if (priorRunCandidates.length > 0) {
+            if (priorRunCandidates.some((candidate) =>
+              candidate.issueCount !== 0
+              || candidate.completedAt === null
+              || !importReceiptProvenanceMatches(candidate.metadata, this.options)
+              || !storedPreviewFingerprintIsValid(candidate.metadata))) {
+              throw new Error(
+                `Existing successful apply receipt does not match the required provenance and policy for checksum ${preview.checksum}`,
+              );
+            }
+
+            const rootRuns = priorRunCandidates.filter((candidate) => candidate.trigger !== 'REPLAY');
+            if (rootRuns.length !== 1) {
+              throw new Error(
+                `Expected exactly one authoritative applied receipt for checksum ${preview.checksum}; found ${rootRuns.length}`,
+              );
+            }
+            const rootRun = rootRuns[0];
+            if (
+              isJsonObject(rootRun.metadata)
+              && rootRun.metadata.replayOfImportRunId != null
+            ) {
+              throw new Error(
+                `Authoritative applied receipt is incorrectly linked as a replay for checksum ${preview.checksum}`,
+              );
+            }
+            const replayRuns = priorRunCandidates.filter((candidate) => candidate.trigger === 'REPLAY');
+            if (replayRuns.some((candidate) =>
+              !isJsonObject(candidate.metadata)
+              || candidate.metadata.replayOfImportRunId !== rootRun.id)) {
+              throw new Error(
+                `Existing replay receipt chain is ambiguous for checksum ${preview.checksum}`,
+              );
+            }
+            const matchingHistoricalDryRun = dryRunCandidates.find((candidate) =>
+              candidate.completedAt !== null
+              && candidate.completedAt.getTime() <= rootRun.startedAt.getTime()
+              && recordedPreviewAuthorizesAppliedReceipt(
+                candidate.metadata,
+                rootRun.metadata,
+                this.options,
+              ));
+            if (!matchingHistoricalDryRun) {
+              throw new Error(
+                `Authoritative applied receipt is missing its matching clean dry-run history for checksum ${preview.checksum}`,
+              );
+            }
+            priorRun = rootRun;
+          } else {
+            const matchingDryRun = dryRunCandidates.find((candidate) =>
+              importReceiptMatches(candidate.metadata, this.options, preview));
+            if (!matchingDryRun) {
+              throw new Error(
+                `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${preview.checksum}`,
+              );
+            }
+            priorRun = null;
           }
         }
-
-        const priorRunCandidates = await transaction.importRun.findMany({
-          where: {
-            sourceSystemId: source.id,
-            competitionId: this.options.competitionId,
-            checksum: preview.checksum,
-            status: 'SUCCEEDED',
-            dryRun: false,
-          },
-          orderBy: { completedAt: 'desc' },
-          take: 20,
-          select: { id: true, metadata: true },
-        });
-        const priorRun = priorRunCandidates.find((candidate) =>
-          importReceiptMatches(candidate.metadata, this.options, preview)) ?? null;
 
         const sourceMappings = await transaction.sourceEntityMapping.findMany({
           where: {
