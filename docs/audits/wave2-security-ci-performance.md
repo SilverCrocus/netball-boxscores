@@ -57,9 +57,10 @@ placeholder credentials only.
 
 ### Low
 
-- CI used mutable major tags for GitHub-owned actions and retained checkout
-  credentials. Actions are pinned to immutable commits and checkout credentials
-  are disabled. The production dependency gate now fails on moderate findings.
+- CI used mutable Node 20 action tags and retained checkout credentials. The
+  official Node 24 `checkout` and `setup-node` v7 actions are pinned to immutable
+  commits, and checkout credentials are disabled. The production dependency gate
+  now fails on moderate findings.
 - A tracked Playwright console log and screenshot were generated QA evidence,
   not application inputs. Both were removed; repository ignore rules already
   cover their paths.
