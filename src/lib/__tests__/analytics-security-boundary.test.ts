@@ -143,6 +143,7 @@ describe('secure analytics query boundary', () => {
     expect(migration).toContain("p_question_hash !~ '^[0-9a-f]{64}$'");
     expect(migration).toContain("pg_catalog.jsonb_typeof(p_query_spec) <> 'object'");
     expect(migration).toContain('pg_catalog.pg_column_size(p_query_spec) > 16384');
+    expect(migration).not.toContain('pg_catalog.extract(');
   });
 
   it('grants the analytics login an exact static view allowlist', () => {
@@ -189,6 +190,7 @@ describe('secure analytics query boundary', () => {
     expect(readinessRoute).toContain("current_setting('default_transaction_read_only', true) = 'on'");
     expect(readinessRoute.match(/current_setting\('statement_timeout'\)/g)?.length).toBeGreaterThanOrEqual(4);
     expect(readinessRoute.match(/statementTimeoutOk/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(readinessRoute).not.toContain('pg_catalog.extract(');
     expect(readinessRoute.match(/role_attributes_ok/g)?.length).toBeGreaterThanOrEqual(2);
     expect(readinessRoute.match(/no_role_memberships/g)?.length).toBeGreaterThanOrEqual(2);
     expect(readinessRoute.match(/no_sequence_privileges/g)?.length).toBeGreaterThanOrEqual(2);

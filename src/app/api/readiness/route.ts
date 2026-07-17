@@ -185,7 +185,7 @@ async function probeAnalyticsBoundary(client: ProbeClient) {
         AND current_setting('statement_timeout')::INTERVAL <= INTERVAL '2 seconds'
         AS statement_timeout_ok,
       (
-        pg_catalog.extract(
+        EXTRACT(
           EPOCH FROM current_setting('statement_timeout')::INTERVAL
         ) * 1000
       )::INTEGER AS statement_timeout_ms
@@ -316,7 +316,7 @@ async function probeOperationsBoundary(client: ProbeClient) {
         AND current_setting('statement_timeout')::INTERVAL <= INTERVAL '2 seconds'
         AS statement_timeout_ok,
       (
-        pg_catalog.extract(
+        EXTRACT(
           EPOCH FROM current_setting('statement_timeout')::INTERVAL
         ) * 1000
       )::INTEGER AS statement_timeout_ms

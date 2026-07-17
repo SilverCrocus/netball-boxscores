@@ -373,7 +373,7 @@ WHERE stage."isPublished" = true;
 CREATE VIEW analytics.stage_group_directory AS
 SELECT
   stage_group."id" AS stage_group_id,
-  stage."competitionId" AS competition_id,
+  stage.competition_id,
   stage_group."name" AS stage_group_name,
   stage_group."slug" AS stage_group_slug
 FROM public."StageGroup" stage_group
@@ -505,7 +505,7 @@ BEGIN
   retry_after_seconds := pg_catalog.greatest(
     1,
     pg_catalog.ceil(
-      pg_catalog.extract(
+      EXTRACT(
         EPOCH FROM (v_bucket_started_at + INTERVAL '1 minute' - pg_catalog.clock_timestamp())
       )
     )::INTEGER
