@@ -30,6 +30,11 @@ describe('Health API', () => {
     const response = await GET();
     const data = await response.json();
 
-    expect(data.release).toEqual({ commit: 'abc123', branch: 'main' });
+    expect(data.release).toEqual({
+      commit: 'abc123',
+      branch: 'main',
+      node: process.version,
+    });
+    expect(data.version).toBe('0.1.0');
   });
 });

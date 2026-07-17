@@ -4565,8 +4565,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/app/api/health/route.ts": {
-    "mtime": 1784249890.7585244,
-    "ast_hash": "7e87995acb2e9b518b5cc167a0ed6510",
+    "mtime": 1784250486.3660944,
+    "ast_hash": "5a89c30f47e2964cbab9eebe13f30b7c",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/app/api/matches/route.ts": {
@@ -5055,8 +5055,8 @@
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/__tests__/api/health.test.ts": {
-    "mtime": 1784249891.813169,
-    "ast_hash": "57d2f84e65a2e63e0aedaad49c531159",
+    "mtime": 1784250487.1949792,
+    "ast_hash": "26631610669fda3b06f01e7da5ce5557",
     "semantic_hash": ""
   },
   "/Users/diyagamah/Documents/personal/netball-boxscores/.worktrees/wave1-navigation/src/hooks/useLiveStatus.ts": {
