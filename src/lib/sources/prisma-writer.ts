@@ -138,6 +138,16 @@ function importPolicy(options: PrismaCompetitionImportWriterOptions): Prisma.Inp
   };
 }
 
+function importSourceIdentity(
+  options: PrismaCompetitionImportWriterOptions,
+): Prisma.InputJsonObject {
+  return {
+    sourceSystemId: options.sourceSystemId,
+    competitionId: options.competitionId,
+    editionSourceId: options.editionSourceId,
+  };
+}
+
 function previewStateFingerprint(preview: ImportPreview): string {
   return sourcePayloadChecksum(preview);
 }
@@ -159,9 +169,16 @@ function importReceiptProvenanceMatches(
   metadata: Prisma.JsonValue | null,
   options: PrismaCompetitionImportWriterOptions,
 ): metadata is Prisma.JsonObject {
+  const policy = importPolicy(options);
+  const sourceIdentity = importSourceIdentity(options);
+  const receiptProvenance = options.receiptMetadata ?? {};
   return receiptMetadataMatches(metadata, options.receiptMetadata)
     && isJsonObject(metadata)
-    && jsonValuesEqual(metadata.importPolicy, importPolicy(options));
+    && jsonValuesEqual(metadata.importPolicy, policy)
+    && metadata.importPolicyFingerprint === sourcePayloadChecksum(policy)
+    && jsonValuesEqual(metadata.sourceIdentity, sourceIdentity)
+    && metadata.sourceIdentityFingerprint === sourcePayloadChecksum(sourceIdentity)
+    && metadata.receiptProvenanceFingerprint === sourcePayloadChecksum(receiptProvenance);
 }
 
 function storedPreviewFingerprintIsValid(metadata: Prisma.JsonValue | null): boolean {
@@ -250,9 +267,16 @@ function importRunMetadata(
   preview: ImportPreview,
   extra: Record<string, unknown> = {},
 ): Prisma.InputJsonValue {
+  const policy = importPolicy(options);
+  const sourceIdentity = importSourceIdentity(options);
+  const receiptProvenance = options.receiptMetadata ?? {};
   return jsonValue({
     ...(options.receiptMetadata ?? {}),
-    importPolicy: importPolicy(options),
+    importPolicy: policy,
+    importPolicyFingerprint: sourcePayloadChecksum(policy),
+    sourceIdentity,
+    sourceIdentityFingerprint: sourcePayloadChecksum(sourceIdentity),
+    receiptProvenanceFingerprint: sourcePayloadChecksum(receiptProvenance),
     preview,
     previewStateFingerprint: previewStateFingerprint(preview),
     ...extra,
@@ -681,6 +705,8 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             data: {
               status: 'SUCCEEDED',
               completedAt: completionTimestamp(importStartedAt),
+              insertedCount: 0,
+              updatedCount: 0,
               skippedCount: skipped,
             },
           });

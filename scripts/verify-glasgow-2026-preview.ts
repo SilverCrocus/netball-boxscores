@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db';
+import { verifyGlasgowFoundationReceiptLineage } from '@/lib/glasgow/receipt-verification';
 import { loadGlasgowFoundationSourceEvidence } from '@/lib/glasgow/source-manifest';
-import { sourcePayloadChecksum } from '@/lib/sources/checksum';
 
 const COMPETITION_SERIES_SLUG = 'commonwealth-games-netball';
 const EDITION_SLUG = 'glasgow-2026';
@@ -8,12 +8,6 @@ const SOURCE_KEY = 'glasgow-2026-public-data';
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Glasgow preview reconciliation failed: ${message}`);
-}
-
-function receiptKind(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
-  const value = (metadata as Record<string, unknown>).importKind;
-  return typeof value === 'string' ? value : null;
 }
 
 function jsonObject(value: unknown): Record<string, unknown> | null {
@@ -30,7 +24,7 @@ async function main() {
   );
   const expectation = evidence.publicationExpectation;
   const bundle = JSON.parse(evidence.bundleText) as {
-    context: { sourceUrl: string; retrievedAt: string };
+    context: { editionExternalId: string; sourceUrl: string; retrievedAt: string };
     players: Array<{
       externalId: string;
       photoUrl?: string;
@@ -70,6 +64,17 @@ async function main() {
     select: { id: true },
   });
   invariant(source, 'source system is missing');
+  const editionSource = await prisma.editionSource.findUnique({
+    where: {
+      competitionId_sourceSystemId_externalId: {
+        competitionId: edition.id,
+        sourceSystemId: source.id,
+        externalId: bundle.context.editionExternalId,
+      },
+    },
+    select: { id: true },
+  });
+  invariant(editionSource, 'edition source is missing');
 
   const [
     activeEntryCount,
@@ -119,17 +124,22 @@ async function main() {
         sourceSystemId: source.id,
         competitionId: edition.id,
         checksum: expectation.importChecksum,
-        status: 'SUCCEEDED',
-        issueCount: 0,
       },
       select: {
         id: true,
+        sourceSystemId: true,
+        competitionId: true,
+        editionSourceId: true,
         dryRun: true,
         trigger: true,
+        status: true,
+        startedAt: true,
+        completedAt: true,
         checksum: true,
         insertedCount: true,
         updatedCount: true,
         skippedCount: true,
+        issueCount: true,
         metadata: true,
       },
     }),
@@ -247,50 +257,20 @@ async function main() {
     );
   }
 
-  const foundationRuns = runs.filter((run) => receiptKind(run.metadata) === 'GLASGOW_FOUNDATION');
   const expectedImportPolicy = {
     completeEditionRosterSnapshot: true,
     coverageSourcePrecedence: 'INCOMING_SOURCE',
   };
-  const previewStateFingerprints = new Set<string>();
-  for (const run of foundationRuns) {
-    const metadata = jsonObject(run.metadata);
-    invariant(metadata, `receipt ${run.id} metadata is invalid`);
-    const sourceManifest = jsonObject(metadata.sourceManifest);
-    invariant(sourceManifest, `receipt ${run.id} source manifest is missing`);
-    invariant(
-      sourceManifest.bundleFileSha256 === expectation.bundleFileSha256
-      && sourceManifest.manifestFileSha256 === expectation.manifestFileSha256
-      && sourceManifest.publicationStatusPolicy === 'DRAFT_ONLY'
-      && JSON.stringify(sourceManifest.sourceIds) === JSON.stringify(expectation.sourceIds),
-      `receipt ${run.id} source-manifest fingerprint is incorrect`,
-    );
-    invariant(
-      JSON.stringify(metadata.importPolicy) === JSON.stringify(expectedImportPolicy),
-      `receipt ${run.id} import policy is incorrect`,
-    );
-    const previewFingerprint = metadata.previewStateFingerprint;
-    invariant(typeof previewFingerprint === 'string',
-      `receipt ${run.id} preview-state fingerprint is missing`);
-    invariant(previewFingerprint === sourcePayloadChecksum(metadata.preview),
-      `receipt ${run.id} preview-state fingerprint is incorrect`);
-    previewStateFingerprints.add(previewFingerprint);
-  }
-  invariant(foundationRuns.some((run) => run.dryRun), 'recorded clean dry-run receipt is missing');
-  invariant(
-    foundationRuns.some((run) => !run.dryRun && run.trigger !== 'REPLAY'),
-    'initial applied import receipt is missing',
-  );
-  invariant(
-    foundationRuns.some((run) => (
-      !run.dryRun
-      && run.trigger === 'REPLAY'
-      && run.insertedCount === 0
-      && run.updatedCount === 0
-      && run.skippedCount > 0
-    )),
-    'idempotent replay receipt is missing',
-  );
+  const receiptLineage = verifyGlasgowFoundationReceiptLineage(runs, {
+    checksum: expectation.importChecksum,
+    receiptMetadata: evidence.receiptMetadata,
+    importPolicy: expectedImportPolicy,
+    sourceIdentity: {
+      sourceSystemId: source.id,
+      competitionId: edition.id,
+      editionSourceId: editionSource.id,
+    },
+  });
   invariant(snapshots.length === 1,
     `expected one deduplicated source snapshot, found ${snapshots.length}`);
   const snapshot = snapshots[0];
@@ -327,15 +307,13 @@ async function main() {
     sourceUrlsAndRetrievalDatesVerified: expectation.sources.length,
     reusablePhotos: expectedPhotos.length,
     reusablePhotoLicencesAndCreditsVerified: expectedPhotos.length,
-    receiptPolicyFingerprintsVerified: foundationRuns.length,
-    previewStateFingerprints: [...previewStateFingerprints].toSorted(),
-    dryRunReceiptIds: foundationRuns.filter((run) => run.dryRun).map((run) => run.id),
-    appliedReceiptIds: foundationRuns
-      .filter((run) => !run.dryRun && run.trigger !== 'REPLAY')
-      .map((run) => run.id),
-    replayReceiptIds: foundationRuns
-      .filter((run) => !run.dryRun && run.trigger === 'REPLAY')
-      .map((run) => run.id),
+    receiptPolicyFingerprintsVerified: runs.length,
+    receiptSourceIdentityFingerprintsVerified: runs.length,
+    receiptProvenanceFingerprintsVerified: runs.length,
+    previewStateFingerprints: receiptLineage.previewStateFingerprints,
+    dryRunReceiptIds: runs.filter((run) => run.dryRun).map((run) => run.id),
+    appliedReceiptIds: [receiptLineage.rootRunId],
+    replayReceiptIds: receiptLineage.replayReceiptIds,
     publishedStages: 0,
     publicationStatus: edition.publicationStatus,
   }, null, 2));

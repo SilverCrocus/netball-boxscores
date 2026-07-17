@@ -2,6 +2,10 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
+import {
+  type GlasgowFoundationReceiptRow,
+  verifyGlasgowFoundationReceiptLineage,
+} from '@/lib/glasgow/receipt-verification';
 import { planCompetitionImport } from '@/lib/sources/planner';
 import {
   CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
@@ -911,6 +915,13 @@ describe('PrismaCompetitionImportWriter', () => {
     const writer = new PrismaCompetitionImportWriter(draft.prisma, options);
 
     await recordPrismaImportPreview(draft.prisma, options, input, initialPreview);
+    const rollbackWriter = new PrismaCompetitionImportWriter(draft.prisma, {
+      ...options,
+      controlledFailurePoint: 'BEFORE_AUDIT_FLUSH',
+    });
+    await expect(rollbackWriter.execute(input, initialPreview)).rejects.toThrow(
+      CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
+    );
     const applied = await writer.execute(input, initialPreview);
     const mutationCount = draft.state.mutations.length;
     const replayPreview = planCompetitionImport(input, {
@@ -937,6 +948,39 @@ describe('PrismaCompetitionImportWriter', () => {
       status: 'SUCCEEDED',
       metadata: expect.objectContaining({ replayOfImportRunId: applied.importRunId }),
     });
+
+    const receiptExpectation = {
+      checksum: initialPreview.checksum,
+      receiptMetadata: options.receiptMetadata,
+      importPolicy: {
+        completeEditionRosterSnapshot: true,
+        coverageSourcePrecedence: 'INCOMING_SOURCE',
+      },
+      sourceIdentity: {
+        sourceSystemId: options.sourceSystemId,
+        competitionId: options.competitionId,
+        editionSourceId: options.editionSourceId,
+      },
+    };
+    const receiptRows = (
+      [...draft.state.runs.values()] as unknown as GlasgowFoundationReceiptRow[]
+    );
+    expect(verifyGlasgowFoundationReceiptLineage(receiptRows, receiptExpectation)).toMatchObject({
+      rootRunId: applied.importRunId,
+      replayReceiptIds: [replay.importRunId],
+    });
+
+    const replayRun = draft.state.runs.get(replay.importRunId)!;
+    const replayMetadata = structuredClone(replayRun.metadata) as Record<string, unknown>;
+    replayMetadata.importPolicy = {
+      completeEditionRosterSnapshot: false,
+      coverageSourcePrecedence: 'INCOMING_SOURCE',
+    };
+    draft.state.runs.set(replay.importRunId, { ...replayRun, metadata: replayMetadata });
+    expect(() => verifyGlasgowFoundationReceiptLineage(
+      [...draft.state.runs.values()] as unknown as GlasgowFoundationReceiptRow[],
+      receiptExpectation,
+    )).toThrow(`receipt ${replay.importRunId} import policy is incorrect`);
   });
 
   it('fails closed for replay provenance, policy, dirty history, and ambiguous roots', async () => {
