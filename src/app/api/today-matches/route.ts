@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { getSydneyDayBounds } from '@/lib/time-zone';
 import {
   canExposePublicMatchScore,
-  resolvePublicMatchAccess,
+  resolvePublicMatchAccessBatch,
 } from '@/lib/public-match';
 
 export const dynamic = 'force-dynamic';
@@ -26,12 +26,13 @@ export async function GET() {
       scheduledAt: true,
     },
     orderBy: { scheduledAt: 'asc' },
+    take: 64,
   });
 
-  const publicMatches = (await Promise.all(matches.map(async (match) => ({
-    match,
-    access: await resolvePublicMatchAccess(match.id).catch(() => null),
-  })))).flatMap(({ match, access }) => {
+  const accessById = await resolvePublicMatchAccessBatch(matches.map((match) => match.id))
+    .catch(() => new Map());
+  const publicMatches = matches.flatMap((match) => {
+    const access = accessById.get(match.id);
     if (!access) return [];
 
     const scoreAvailable = canExposePublicMatchScore(access);

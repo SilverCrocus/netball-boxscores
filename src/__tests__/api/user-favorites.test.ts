@@ -5,10 +5,16 @@ vi.mock('@/lib/db', () => ({
     userFavorite: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
     },
   },
+}));
+
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: vi.fn().mockResolvedValue({ id: 'match-1' }),
+  resolvePublicMatchAccessBatch: vi.fn().mockResolvedValue(new Map([['match-1', { id: 'match-1' }]])),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -20,8 +26,13 @@ vi.mock('next-auth', () => ({
 }));
 
 describe('User Favorites API', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const publicMatch = await import('@/lib/public-match');
+    vi.mocked(publicMatch.resolvePublicMatchAccess).mockResolvedValue({ id: 'match-1' } as any);
+    vi.mocked(publicMatch.resolvePublicMatchAccessBatch).mockResolvedValue(
+      new Map([['match-1', { id: 'match-1' }]]) as any,
+    );
   });
 
   it('should return 401 if not authenticated', async () => {
@@ -89,6 +100,7 @@ describe('User Favorites API', () => {
     const { POST } = await import('@/app/api/user/favorites/route');
     const response = await POST(new Request('http://localhost/api/user/favorites', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ matchId: 'match-1' }),
     }));
 
@@ -105,10 +117,29 @@ describe('User Favorites API', () => {
     const { DELETE } = await import('@/app/api/user/favorites/route');
     const response = await DELETE(new Request('http://localhost/api/user/favorites', {
       method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ matchId: 'match-1' }),
     }));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ success: true });
+  });
+
+  it('does not allow an authenticated user to save a private match', async () => {
+    const { getServerSession } = await import('next-auth');
+    const { prisma } = await import('@/lib/db');
+    const publicMatch = await import('@/lib/public-match');
+    (getServerSession as any).mockResolvedValue({ user: { id: 'user-1' } });
+    vi.mocked(publicMatch.resolvePublicMatchAccess).mockResolvedValue(null);
+
+    const { POST } = await import('@/app/api/user/favorites/route');
+    const response = await POST(new Request('http://localhost/api/user/favorites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchId: 'draft-match' }),
+    }));
+
+    expect(response.status).toBe(404);
+    expect(prisma.userFavorite.create).not.toHaveBeenCalled();
   });
 });

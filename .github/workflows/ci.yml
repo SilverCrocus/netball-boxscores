@@ -31,18 +31,20 @@ jobs:
       DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/centrepass?schema=public
       ANALYTICS_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/centrepass?schema=analytics
       STATS_OPERATIONS_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/centrepass?schema=public
-      STATS_RATE_LIMIT_SECRET: ci-only-rate-limit-secret
+      STATS_RATE_LIMIT_SECRET: integration-test-rate-limit-key-32-characters
       ANALYTICS_FEATURES_ENABLED: "false"
       ASK_CENTREPASS_ENABLED: "false"
       NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: ci-only-nextauth-secret
+      NEXTAUTH_SECRET: integration-test-nextauth-key-32-characters
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.14.1
           cache: npm
@@ -50,8 +52,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma client
+        run: npx prisma generate
+
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --omit=dev --audit-level=moderate
 
       - name: Run lint, typecheck, and tests
         run: npm run check
@@ -61,6 +66,9 @@ jobs:
 
       - name: Build production application
         run: npm run build
+
+      - name: Smoke custom production server
+        run: npm run smoke:server-startup
 
   glasgow-preview-rehearsal:
     name: Glasgow DRAFT preview rehearsal
@@ -82,7 +90,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Verify preview-only database target
         shell: bash
@@ -103,7 +113,7 @@ jobs:
           esac
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.14.1
           cache: npm

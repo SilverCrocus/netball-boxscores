@@ -63,6 +63,11 @@ describe('custom server worker wiring', () => {
     vi.stubEnv('PORT', '3199');
     vi.stubEnv('WORKER_ENABLED', undefined);
     vi.stubEnv('DATABASE_ENVIRONMENT', undefined);
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'false');
+    vi.stubEnv('ASK_CENTREPASS_ENABLED', 'false');
+    vi.stubEnv('DRAFT_PREVIEW_ENABLED', 'false');
+    vi.stubEnv('GOOGLE_CLIENT_ID', undefined);
+    vi.stubEnv('GOOGLE_CLIENT_SECRET', undefined);
 
     mocks.prepare.mockResolvedValue(undefined);
     mocks.startWorker.mockResolvedValue(undefined);
@@ -91,6 +96,10 @@ describe('custom server worker wiring', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('WORKER_ENABLED', 'true');
     vi.stubEnv('DATABASE_ENVIRONMENT', 'production');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:password@127.0.0.1:5432/centrepass');
+    vi.stubEnv('DIRECT_URL', 'postgresql://user:password@127.0.0.1:5432/centrepass');
+    vi.stubEnv('NEXTAUTH_URL', 'https://centrepass.example');
+    vi.stubEnv('NEXTAUTH_SECRET', 'a-secure-test-value-that-is-over-32-characters');
     mocks.startWorker.mockReturnValue(new Promise(() => undefined));
 
     await import('../../server');
@@ -106,6 +115,10 @@ describe('custom server worker wiring', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('WORKER_ENABLED', 'true');
     vi.stubEnv('DATABASE_ENVIRONMENT', 'production');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:password@127.0.0.1:5432/centrepass');
+    vi.stubEnv('DIRECT_URL', 'postgresql://user:password@127.0.0.1:5432/centrepass');
+    vi.stubEnv('NEXTAUTH_URL', 'https://centrepass.example');
+    vi.stubEnv('NEXTAUTH_SECRET', 'a-secure-test-value-that-is-over-32-characters');
     mocks.startWorker.mockRejectedValue(new Error('startup failed'));
 
     await import('../../server');
@@ -152,6 +165,10 @@ describe('custom server worker wiring', () => {
     vi.stubEnv('WORKER_ENABLED', 'true');
     vi.stubEnv('DATABASE_ENVIRONMENT', 'production');
     vi.stubEnv('ALLOW_SHARED_PRODUCTION_DB_WRITES', 'true');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:password@127.0.0.1:5432/centrepass');
+    vi.stubEnv('DIRECT_URL', 'postgresql://user:password@127.0.0.1:5432/centrepass');
+    vi.stubEnv('NEXTAUTH_URL', 'https://centrepass.example');
+    vi.stubEnv('NEXTAUTH_SECRET', 'a-secure-test-value-that-is-over-32-characters');
 
     await import('../../server');
     await vi.waitFor(() => expect(exitSpy).toHaveBeenCalledWith(1));

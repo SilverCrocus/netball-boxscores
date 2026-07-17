@@ -1,10 +1,10 @@
 import express from "express";
 import { createServer } from "http";
 import next from "next";
-import { initSocketServer } from "./src/lib/socket-server";
-import { startWorker, stopWorker } from "./src/lib/worker";
 import { getWorkerStartupDecision } from "./src/lib/worker-startup";
 import { getSimulationDatabaseSafetyDecision } from "./src/lib/simulation/safety";
+import { assertRuntimeEnvironment } from "./src/lib/runtime-environment";
+import { safeErrorMessage } from "./src/lib/safe-logging";
 
 const SIM_MODE = process.env.SIMULATION_MODE === 'true';
 const dev = process.env.NODE_ENV !== "production";
@@ -15,6 +15,15 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(async () => {
+  assertRuntimeEnvironment();
+  // Socket and worker modules reach Next server-only runtime primitives through
+  // their public-access dependencies. Loading them before app.prepare() makes
+  // Next's AsyncLocalStorage unavailable under the standalone TSX launcher.
+  const [{ initSocketServer }, { startWorker, stopWorker }] = await Promise.all([
+    import('./src/lib/socket-server'),
+    import('./src/lib/worker'),
+  ]);
+
   const workerStartup = getWorkerStartupDecision();
   if (workerStartup.state === 'blocked') {
     throw new Error(`[Server] Worker startup blocked: ${workerStartup.reason}`);
@@ -62,7 +71,7 @@ app.prepare().then(async () => {
         console.log("[Server] Background worker started");
       })
       .catch((error) => {
-        console.error('[Server] Required background worker failed:', error);
+        console.error('[Server] Required background worker failed:', safeErrorMessage(error));
         stopWorker();
         httpServer.close();
         process.exit(1);
@@ -97,6 +106,6 @@ app.prepare().then(async () => {
     httpServer.close(() => process.exit(0));
   });
 }).catch((error) => {
-  console.error('[Server] Failed to start:', error);
+  console.error('[Server] Failed to start:', safeErrorMessage(error));
   process.exit(1);
 });

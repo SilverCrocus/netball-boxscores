@@ -10,7 +10,7 @@ import {
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import type { MyTeamHubItem, PersonalizedMatchCard } from '@/types/personalization';
 import {
-  resolvePublicMatchAccess,
+  resolvePublicMatchAccessBatch,
   type PublicMatchAccess,
 } from '@/lib/public-match';
 
@@ -55,6 +55,7 @@ export async function GET() {
         team: { select: { id: true, name: true, abbreviation: true, logoUrl: true, primaryColor: true } },
       },
       orderBy: { team: { name: 'asc' } },
+      take: 100,
     });
     if (follows.length === 0) {
       return NextResponse.json([], { headers: { 'Cache-Control': 'private, no-store' } });
@@ -86,6 +87,7 @@ export async function GET() {
         },
         select: homepageMatchSelect,
         orderBy: { scheduledAt: 'asc' },
+        take: 48,
       }),
       prisma.match.findMany({
         where: {
@@ -97,25 +99,26 @@ export async function GET() {
         },
         select: homepageMatchSelect,
         orderBy: { scheduledAt: 'desc' },
+        take: 48,
       }),
     ]);
 
-    const [upcomingAccess, completedAccess] = await Promise.all([
-      Promise.all(upcoming.map(async (match) => ({
-        match,
-        access: await resolvePublicMatchAccess(match.id).catch(() => null),
-      }))),
-      Promise.all(completed.map(async (match) => ({
-        match,
-        access: await resolvePublicMatchAccess(match.id).catch(() => null),
-      }))),
+    const accessById = await resolvePublicMatchAccessBatch([
+      ...upcoming.map((match) => match.id),
+      ...completed.map((match) => match.id),
     ]);
-    const resolvedUpcoming = upcomingAccess.flatMap(({ match, access }) => (
+    const resolvedUpcoming = upcoming.flatMap((match) => {
+      const access = accessById.get(match.id);
+      return (
       access && hasResolvedMatchTeams(match) ? [{ match, access }] : []
-    ));
-    const resolvedCompleted = completedAccess.flatMap(({ match, access }) => (
+      );
+    });
+    const resolvedCompleted = completed.flatMap((match) => {
+      const access = accessById.get(match.id);
+      return (
       access && hasResolvedMatchTeams(match) ? [{ match, access }] : []
-    ));
+      );
+    });
     const items: MyTeamHubItem[] = follows.map((follow) => {
       const nextMatch = resolvedUpcoming.find(
         ({ match }) => match.homeTeamId === follow.teamId || match.awayTeamId === follow.teamId,

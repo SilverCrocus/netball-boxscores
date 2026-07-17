@@ -4,15 +4,15 @@ const {
   findFollowsMock,
   findMatchesMock,
   requireAuthMock,
-  resolvePublicMatchMock,
+  resolvePublicMatchBatchMock,
 } = vi.hoisted(() => ({
   findFollowsMock: vi.fn(),
   findMatchesMock: vi.fn(),
   requireAuthMock: vi.fn(),
-  resolvePublicMatchMock: vi.fn(),
+  resolvePublicMatchBatchMock: vi.fn(),
 }));
 vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchAccess: resolvePublicMatchMock,
+  resolvePublicMatchAccessBatch: resolvePublicMatchBatchMock,
   canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
 }));
 
@@ -51,11 +51,11 @@ describe('GET /api/user/home', () => {
     findMatchesMock.mockReset().mockImplementation(({ where }: { where: { status: string } }) =>
       Promise.resolve(where.status === 'COMPLETED' ? [match] : []),
     );
-    resolvePublicMatchMock.mockReset().mockResolvedValue({
+    resolvePublicMatchBatchMock.mockReset().mockResolvedValue(new Map([['match-1', {
       status: 'COMPLETED',
       scoreAvailable: true,
       features: { superShots: { available: true } },
-    });
+    }]]));
   });
 
   it('returns private followed-team fixtures and results', async () => {
@@ -93,11 +93,11 @@ describe('GET /api/user/home', () => {
         ],
       }] : []),
     );
-    resolvePublicMatchMock.mockResolvedValue({
+    resolvePublicMatchBatchMock.mockResolvedValue(new Map([['match-1', {
       status: 'COMPLETED',
       scoreAvailable: false,
       features: { superShots: { available: false } },
-    });
+    }]]));
 
     const response = await GET();
     const payload = await response.json();

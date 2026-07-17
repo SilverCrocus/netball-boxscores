@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke:production": "npx tsx scripts/production-smoke.ts",
+    "smoke:server-startup": "node scripts/smoke-server-startup.mjs",
     "guard:production-psql": "npx tsx scripts/lib/production-psql.ts",
     "guard:production-target": "npx tsx scripts/production-target-guard.ts",
     "production:glasgow": "npx tsx scripts/production-glasgow.ts",
@@ -62,5 +63,10 @@
     "typescript": "^5",
     "vite": "8.0.16",
     "vitest": "4.1.10"
+  },
+  "overrides": {
+    "cookie": "0.7.2",
+    "postcss": "8.5.17",
+    "uuid": "11.1.1"
   }
 }
