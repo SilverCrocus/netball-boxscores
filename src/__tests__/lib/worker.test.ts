@@ -768,7 +768,9 @@ describe('Worker', () => {
     const { prisma } = await import('@/lib/db');
     const { ingestFromChampionData } = await import('@/lib/ingestion');
     const processing = await import('@/lib/processing');
+    const broadcasting = await import('@/lib/broadcasting');
     const { pollChampionData } = await import('@/lib/worker');
+    const persistedRevision = new Date('2026-06-01T00:00:02Z');
 
     vi.mocked(ingestFromChampionData).mockResolvedValue({
       fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
@@ -785,6 +787,17 @@ describe('Worker', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: 'corrected-1' }] as never);
+    vi.mocked(processing.finalizeCompletedMatches).mockResolvedValue({
+      matches: [{
+        matchId: 'corrected-1',
+        homeScore: 58,
+        awayScore: 57,
+        finalQuarter: 4,
+        sourceUpdatedAt: persistedRevision,
+        standingsChanged: true,
+      }],
+      failedMatchIds: [],
+    });
 
     await pollChampionData();
 
@@ -805,6 +818,14 @@ describe('Worker', () => {
       ['corrected-1'],
       ['corrected-1'],
       new Map([[101, new Date('2026-06-01T00:00:00Z')]]),
+    );
+    expect(broadcasting.broadcastCompletion).toHaveBeenCalledOnce();
+    expect(broadcasting.broadcastCompletion).toHaveBeenCalledWith(
+      'corrected-1',
+      58,
+      57,
+      4,
+      persistedRevision,
     );
   });
 

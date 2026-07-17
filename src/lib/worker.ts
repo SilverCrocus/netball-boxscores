@@ -540,9 +540,11 @@ export async function pollChampionData(): Promise<void> {
       );
       broadcastedCompletions.add(final.matchId);
     }
-    for (const corrected of pendingCorrections) {
-      if (broadcastedCompletions.has(corrected.matchId)) continue;
-      const final = finalizedMap.get(corrected.matchId);
+    for (const correctionMatchId of correctionRetryIds) {
+      if (broadcastedCompletions.has(correctionMatchId)) continue;
+      const final = finalizedMap.get(correctionMatchId);
+      // Missing results are failed retries; a finalized row with no standings
+      // change is a stale/superseded retry. Neither may emit a replacement.
       if (!final || !final.standingsChanged) continue;
       await broadcastCompletion(
         final.matchId,

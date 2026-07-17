@@ -108,7 +108,8 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/db', () => ({
   prisma: { match: { findUnique: findUniqueMock } },
 }));
-vi.mock('@/lib/public-match', () => ({
+vi.mock('@/lib/public-match', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/public-match')>(),
   resolvePublicMatchForRequest: resolvePublicMatchMock,
 }));
 vi.mock('@/lib/win-probability', () => ({
@@ -184,7 +185,7 @@ describe('live match route safety', () => {
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it('renders a verified completed fixture with its historical roster and realtime disabled', async () => {
+  it('keeps a verified completed fixture subscribed for correction and reopen replay', async () => {
     findUniqueMock.mockResolvedValue(detailedMatch('COMPLETED'));
     resolvePublicMatchMock.mockResolvedValue(publicAccess('COMPLETED', liveCapabilities));
 
@@ -195,9 +196,44 @@ describe('live match route safety', () => {
 
     expect(screen.getByText('Shared Player')).toBeInTheDocument();
     expect(liveClientPropsMock).toHaveBeenLastCalledWith(expect.objectContaining({
-      realtimeEnabled: false,
+      match: expect.objectContaining({ status: 'COMPLETED' }),
+      realtimeEnabled: true,
     }));
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['PLAYER_BOX_SCORE', 'SCORE_FLOW', 'MATCH_EVENTS'])(
+    'enables completed-page canonical replay when %s is the public realtime detail',
+    async (detailCapability) => {
+      findUniqueMock.mockResolvedValue(detailedMatch('COMPLETED'));
+      resolvePublicMatchMock.mockResolvedValue(publicAccess('COMPLETED', [
+        'FINAL_SCORE',
+        detailCapability,
+      ]));
+
+      render(await LiveGamePage({
+        params: Promise.resolve({ matchId: 'glasgow-match-1' }),
+        searchParams: Promise.resolve({ edition: 'glasgow-2026' }),
+      }));
+
+      expect(liveClientPropsMock).toHaveBeenLastCalledWith(expect.objectContaining({
+        match: expect.objectContaining({ status: 'COMPLETED' }),
+        realtimeEnabled: true,
+      }));
+      expect(redirectMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses completed-page realtime when no public detail capability remains', async () => {
+    findUniqueMock.mockResolvedValue(detailedMatch('COMPLETED'));
+    resolvePublicMatchMock.mockResolvedValue(publicAccess('COMPLETED', ['FINAL_SCORE']));
+
+    await expect(LiveGamePage({
+      params: Promise.resolve({ matchId: 'glasgow-match-1' }),
+      searchParams: Promise.resolve({ edition: 'glasgow-2026' }),
+    })).rejects.toThrow('REDIRECT:/match/glasgow-match-1?edition=glasgow-2026');
+
+    expect(liveClientPropsMock).not.toHaveBeenCalled();
   });
 
   it('does not serialize roster stats, periods, or events without their capabilities', async () => {
