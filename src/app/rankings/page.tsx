@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getPublicCompetitions } from '@/lib/competitions';
+import { notFound } from 'next/navigation';
+import { listAnalyticsEditions } from '@/lib/analytics/repository';
 import { getMetricDefinition, metricCatalogue } from '@/lib/analytics';
 import type { MetricAggregation, MetricResult } from '@/lib/analytics';
 import { TEAM_POWER_METHODOLOGY } from '@/lib/rankings';
 import { getPlayerRankingSnapshot, getTeamPowerSnapshot } from '@/lib/rankings/service';
+import { analyticsFeaturesEnabled } from '@/lib/server-feature-flags';
 
 export const metadata: Metadata = {
   title: 'Player & Team Rankings',
@@ -53,8 +55,9 @@ function ordinal(value: number): string {
 }
 
 export default async function RankingsPage({ searchParams }: RankingsPageProps) {
+  if (!analyticsFeaturesEnabled()) notFound();
   const query = await searchParams;
-  const editions = await getPublicCompetitions();
+  const editions = await listAnalyticsEditions();
   const edition = editions.find((option) => option.id === query.edition || option.slug === query.edition) ?? editions[0] ?? null;
   const view = query.view === 'teams' ? 'teams' : 'players';
   const requestedMetric = getMetricDefinition(query.metric ?? 'centrepass_impact');
@@ -101,7 +104,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
         <input type="hidden" name="view" value={view} />
         <Filter label="Edition">
           <select name="edition" defaultValue={edition?.id} className="filter-control">
-            {editions.map((option) => <option key={option.id} value={option.id}>{option.series?.name ?? option.name} · {option.label ?? option.season}</option>)}
+            {editions.map((option) => <option key={option.id} value={option.id}>{option.series.name} · {option.label ?? option.season}</option>)}
           </select>
         </Filter>
         {view === 'players' && (
@@ -145,7 +148,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
       ) : (
         <>
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Ranking audit details">
-            <AuditCard label="Edition" value={`${edition.series?.name ?? edition.name} · ${edition.label ?? edition.season}`} />
+            <AuditCard label="Edition" value={`${edition.series.name} · ${edition.label ?? edition.season}`} />
             <AuditCard label="Population" value={`${snapshot.populationSize} ${view === 'teams' ? 'teams' : 'players'}`} />
             <AuditCard label="As of" value={dateLabel(snapshot.asOf)} />
             <AuditCard label="Movement basis" value="New snapshot · no prior comparison" />

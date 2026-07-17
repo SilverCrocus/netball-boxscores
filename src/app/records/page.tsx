@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { getMetricDefinition, metricCatalogue } from '@/lib/analytics';
 import type { AnalyticsEntityType, MetricAggregation } from '@/lib/analytics';
-import { getPublicCompetitions } from '@/lib/competitions';
+import { listAnalyticsEditions } from '@/lib/analytics/repository';
 import { getRecordSnapshot } from '@/lib/records/service';
 import type { RecordScope } from '@/lib/records';
 import { editionScopedHref, matchHref } from '@/lib/edition-links';
+import { analyticsFeaturesEnabled } from '@/lib/server-feature-flags';
 
 export const metadata: Metadata = {
   title: 'Netball Records',
@@ -35,10 +37,11 @@ function formatValue(value: number, unit: string): string {
 }
 
 export default async function RecordsPage({ searchParams }: RecordsPageProps) {
+  if (!analyticsFeaturesEnabled()) notFound();
   const query = await searchParams;
   const scope = scopeValue(query.scope);
   const entityType: AnalyticsEntityType = scope === 'TEAM' || query.entity === 'TEAM' ? 'TEAM' : 'PLAYER';
-  const editions = await getPublicCompetitions();
+  const editions = await listAnalyticsEditions();
   const edition = editions.find((option) => option.id === query.edition || option.slug === query.edition) ?? editions[0] ?? null;
   const availableMetrics = metricCatalogue.filter((definition) =>
     definition.entityTypes.includes(entityType) && definition.calculation.kind !== 'SERVICE',
@@ -74,7 +77,7 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
 
       <form method="get" className="grid gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
         <Filter label="Scope"><select name="scope" defaultValue={scope} className="filter-control">{SCOPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Filter>
-        <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series?.name ?? option.name} · {option.label ?? option.season}</option>)}</select></Filter>
+        <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series.name} · {option.label ?? option.season}</option>)}</select></Filter>
         {scope !== 'TEAM' && <Filter label="Subject"><select name="entity" defaultValue={entityType} className="filter-control"><option value="PLAYER">Players</option><option value="TEAM">Teams</option></select></Filter>}
         <Filter label="Metric"><select name="metric" defaultValue={metric?.id} className="filter-control">{availableMetrics.map((option) => <option key={option.id} value={option.id}>{option.displayName}</option>)}</select></Filter>
         <Filter label="Mode"><select name="aggregation" defaultValue={aggregation} className="filter-control">{metric?.allowedAggregations.map((option) => <option key={option} value={option}>{option.replaceAll('_', ' ').toLocaleLowerCase()}</option>)}</select></Filter>

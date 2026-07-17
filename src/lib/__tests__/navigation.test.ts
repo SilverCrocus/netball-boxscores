@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isResolvedNavigationActive } from '@/lib/navigation';
+import { getVisibleNavigationItems, isResolvedNavigationActive } from '@/lib/navigation';
 
 describe('isResolvedNavigationActive', () => {
   const editionBase = '/competitions/commonwealth-games-netball/glasgow-2026';
@@ -17,5 +17,13 @@ describe('isResolvedNavigationActive', () => {
 
   it('retains active state for legacy routes', () => {
     expect(isResolvedNavigationActive('/teams', '/teams', `${editionBase}/teams`)).toBe(true);
+  });
+
+  it('removes analytics and Ask destinations independently when their server switches are off', () => {
+    expect(getVisibleNavigationItems({ analyticsEnabled: false, askCentrePassEnabled: false }).map((item) => item.href)).toEqual([
+      '/', '/live', '/standings', '/teams',
+    ]);
+    expect(getVisibleNavigationItems({ analyticsEnabled: true, askCentrePassEnabled: false }).map((item) => item.href)).toContain('/rankings');
+    expect(getVisibleNavigationItems({ analyticsEnabled: true, askCentrePassEnabled: false }).map((item) => item.href)).not.toContain('/explore');
   });
 });

@@ -6,6 +6,7 @@ import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { getPublicCompetitions } from "@/lib/competitions";
 import { toEditionContexts } from "@/lib/edition-context";
 import { unstable_rethrow } from "next/navigation";
+import { resolveRuntimeFeatureState } from "@/lib/server-feature-flags";
 import "./globals.css";
 
 const lexend = Lexend({
@@ -67,6 +68,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const editions = await loadNavigationEditions();
+  const features = resolveRuntimeFeatureState();
 
   return (
     <html
@@ -90,7 +92,13 @@ export default async function RootLayout({
       <body className="font-body antialiased">
         <GoogleAnalytics />
         <Providers>
-          <AppShell editions={editions}>{children}</AppShell>
+          <AppShell
+            editions={editions}
+            analyticsEnabled={features.analyticsEnabled}
+            askCentrePassEnabled={features.askCentrePassEnabled}
+          >
+            {children}
+          </AppShell>
         </Providers>
       </body>
     </html>

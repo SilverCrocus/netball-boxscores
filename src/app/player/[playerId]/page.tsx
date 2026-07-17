@@ -10,6 +10,7 @@ import PlayerCharts from '@/components/player/PlayerCharts';
 import { PlayerGameLog } from '@/components/player/PlayerGameLog';
 import { PlayerAdvancedMetrics } from '@/components/player/PlayerAdvancedMetrics';
 import { getPlayerAnalyticsProfile } from '@/lib/player-analytics';
+import { analyticsFeaturesEnabled } from '@/lib/server-feature-flags';
 import { getPublicCompetitions, type CompetitionOption } from '@/lib/competitions';
 import { JsonLd, personJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import type { Metadata } from 'next';
@@ -304,7 +305,7 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
   const config = getPositionConfig(displayPosition);
   const statHighlightValues = computeStatHighlightValues(player, config);
 
-  const analytics = selectedCompetition
+  const analytics = analyticsFeaturesEnabled() && selectedCompetition
     ? await getPlayerAnalyticsProfile(playerId, selectedCompetition.id, displayPosition)
     : null;
   const superShotsByMatch = analytics?.superShotMatchIds.length

@@ -1,7 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { queryRawMock, workerHealthMock } = vi.hoisted(() => ({
+const {
+  queryRawMock,
+  analyticsQueryRawMock,
+  operationsQueryRawMock,
+  scopedConfigurationMock,
+  secretConfiguredMock,
+  workerHealthMock,
+} = vi.hoisted(() => ({
   queryRawMock: vi.fn(),
+  analyticsQueryRawMock: vi.fn(),
+  operationsQueryRawMock: vi.fn(),
+  scopedConfigurationMock: vi.fn(),
+  secretConfiguredMock: vi.fn(),
   workerHealthMock: vi.fn(),
 }));
 
@@ -13,12 +24,33 @@ vi.mock('@/lib/worker-health', () => ({
   getWorkerHealth: workerHealthMock,
 }));
 
+vi.mock('@/lib/scoped-database-clients', () => ({
+  getAnalyticsDatabase: () => ({ $queryRaw: analyticsQueryRawMock }),
+  getStatsOperationsDatabase: () => ({ $queryRaw: operationsQueryRawMock }),
+  scopedDatabaseConfiguration: scopedConfigurationMock,
+}));
+
+vi.mock('@/lib/stat-query/operations', () => ({
+  statsRateLimitSecretConfigured: secretConfiguredMock,
+}));
+
 describe('Readiness API', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('WORKER_ENABLED', 'true');
     vi.stubEnv('DATABASE_ENVIRONMENT', 'test');
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'false');
+    vi.stubEnv('ASK_CENTREPASS_ENABLED', 'false');
     queryRawMock.mockReset().mockResolvedValue([{ ready: 1 }]);
+    analyticsQueryRawMock.mockReset().mockResolvedValue([{ ready: 1 }]);
+    operationsQueryRawMock.mockReset().mockResolvedValue([{ ready: 1 }]);
+    scopedConfigurationMock.mockReset().mockReturnValue({
+      analyticsDatabaseUrlConfigured: false,
+      analyticsDatabaseUrlValid: false,
+      statsOperationsDatabaseUrlConfigured: false,
+      statsOperationsDatabaseUrlValid: false,
+    });
+    secretConfiguredMock.mockReset().mockReturnValue(false);
     workerHealthMock.mockReset().mockReturnValue({
       lastPollAt: '2026-07-12T00:00:00.000Z',
       lastPollStatus: 'success',
@@ -48,6 +80,8 @@ describe('Readiness API', () => {
       type: 'readiness',
       checks: {
         database: { ok: true },
+        analytics: { state: 'disabled', satisfiesReadiness: true },
+        statsOperations: { state: 'disabled', satisfiesReadiness: true },
         worker: {
           ok: true,
           satisfiesReadiness: true,
@@ -144,5 +178,84 @@ describe('Readiness API', () => {
       enabled: false,
       required: true,
     });
+  });
+
+  it('probes both scoped credentials when analytics and Ask CentrePass are enabled', async () => {
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'true');
+    vi.stubEnv('ASK_CENTREPASS_ENABLED', 'true');
+    scopedConfigurationMock.mockReturnValue({
+      analyticsDatabaseUrlConfigured: true,
+      analyticsDatabaseUrlValid: true,
+      statsOperationsDatabaseUrlConfigured: true,
+      statsOperationsDatabaseUrlValid: true,
+    });
+    secretConfiguredMock.mockReturnValue(true);
+    const { GET } = await import('@/app/api/readiness/route');
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(analyticsQueryRawMock).toHaveBeenCalledOnce();
+    expect(operationsQueryRawMock).toHaveBeenCalledOnce();
+    expect(data.checks.analytics).toMatchObject({ state: 'healthy', configured: true });
+    expect(data.checks.statsOperations).toMatchObject({
+      state: 'healthy',
+      configured: true,
+      rateLimitSecretConfigured: true,
+    });
+  });
+
+  it('fails readiness without constructing a scoped client when a configured URL is malformed', async () => {
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'true');
+    scopedConfigurationMock.mockReturnValue({
+      analyticsDatabaseUrlConfigured: true,
+      analyticsDatabaseUrlValid: false,
+      statsOperationsDatabaseUrlConfigured: false,
+      statsOperationsDatabaseUrlValid: false,
+    });
+    const { GET } = await import('@/app/api/readiness/route');
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(analyticsQueryRawMock).not.toHaveBeenCalled();
+    expect(data.checks.analytics).toMatchObject({
+      state: 'misconfigured',
+      configured: true,
+      connectionUrlValid: false,
+    });
+  });
+
+  it('fails readiness without constructing a scoped client when an enabled credential is missing', async () => {
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'true');
+    vi.stubEnv('ASK_CENTREPASS_ENABLED', 'false');
+    const { GET } = await import('@/app/api/readiness/route');
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(analyticsQueryRawMock).not.toHaveBeenCalled();
+    expect(data.checks.analytics).toMatchObject({
+      state: 'misconfigured',
+      enabled: true,
+      configured: false,
+    });
+  });
+
+  it('reports the Ask dependency misconfiguration without exposing secrets', async () => {
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'false');
+    vi.stubEnv('ASK_CENTREPASS_ENABLED', 'true');
+    const { GET } = await import('@/app/api/readiness/route');
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(data.checks.configuration).toMatchObject({ ok: false });
+    expect(JSON.stringify(data)).toContain('ASK_CENTREPASS_ENABLED requires ANALYTICS_FEATURES_ENABLED');
+    expect(JSON.stringify(data)).not.toContain('DATABASE_URL=');
   });
 });

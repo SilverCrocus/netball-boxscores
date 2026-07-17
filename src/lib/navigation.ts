@@ -1,4 +1,4 @@
-interface NavItem {
+export interface NavItem {
   href: string;
   label: string;
   icon: string;
@@ -35,3 +35,16 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/explore', label: 'Ask', icon: 'query_stats', sidebarLabel: 'Ask CentrePass' },
   { href: '/teams', label: 'Teams', icon: 'groups' },
 ];
+
+const ANALYTICS_HREFS = new Set(['/rankings', '/records', '/compare/players']);
+
+export function getVisibleNavigationItems(input: {
+  analyticsEnabled: boolean;
+  askCentrePassEnabled: boolean;
+}): NavItem[] {
+  return NAV_ITEMS.filter((item) => {
+    if (item.href === '/explore') return input.askCentrePassEnabled;
+    if (ANALYTICS_HREFS.has(item.href)) return input.analyticsEnabled;
+    return true;
+  });
+}

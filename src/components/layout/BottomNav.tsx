@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { NAV_ITEMS, isResolvedNavigationActive } from '@/lib/navigation';
+import { getVisibleNavigationItems, isResolvedNavigationActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
@@ -13,15 +13,24 @@ import {
   navigationEditionFromLocation,
 } from '@/lib/edition-links';
 
-export function BottomNav({ editions = [] }: { editions?: EditionContextValue[] }) {
+export function BottomNav({
+  editions = [],
+  analyticsEnabled = false,
+  askCentrePassEnabled = false,
+}: {
+  editions?: EditionContextValue[];
+  analyticsEnabled?: boolean;
+  askCentrePassEnabled?: boolean;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { hasLive, minutesUntilNext } = useLiveStatus();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const primaryItems = NAV_ITEMS.filter((item) => !['/teams', '/explore'].includes(item.href));
-  const moreItems = NAV_ITEMS.filter((item) => ['/explore', '/teams'].includes(item.href));
+  const navigationItems = getVisibleNavigationItems({ analyticsEnabled, askCentrePassEnabled });
+  const primaryItems = navigationItems.filter((item) => !['/teams', '/explore'].includes(item.href));
+  const moreItems = navigationItems.filter((item) => ['/explore', '/teams'].includes(item.href));
   const currentEdition = navigationEditionFromLocation(
     editions,
     pathname,
@@ -69,7 +78,7 @@ export function BottomNav({ editions = [] }: { editions?: EditionContextValue[] 
               <span aria-hidden="true" className="material-symbols-outlined">close</span>
             </button>
           </div>
-          <GlobalSearch onNavigate={closeMore} />
+          <GlobalSearch onNavigate={closeMore} askCentrePassEnabled={askCentrePassEnabled} />
           <div className="my-4 grid gap-2">
             {moreItems.map((item) => (
               <Link

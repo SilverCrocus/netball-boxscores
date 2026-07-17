@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import type { MetricAggregation, MetricResult } from '@/lib/analytics';
-import { getPublicCompetitions } from '@/lib/competitions';
+import { listAnalyticsEditions } from '@/lib/analytics/repository';
 import { getComparisonPlayers, getPlayerComparison } from '@/lib/comparison/service';
+import { analyticsFeaturesEnabled } from '@/lib/server-feature-flags';
 import { GroupedPlayerOptions } from './GroupedPlayerOptions';
 import { editionScopedHref, matchHref } from '@/lib/edition-links';
 
@@ -33,8 +35,9 @@ function percentile(value: number | null): string {
 }
 
 export default async function ComparePlayersPage({ searchParams }: ComparePageProps) {
+  if (!analyticsFeaturesEnabled()) notFound();
   const query = await searchParams;
-  const editions = await getPublicCompetitions();
+  const editions = await listAnalyticsEditions();
   const edition = editions.find((option) => option.id === query.edition || option.slug === query.edition) ?? editions[0] ?? null;
   const players = edition ? await getComparisonPlayers(edition.id) : [];
   const left = players.find((player) => player.id === query.left) ?? players[0];
@@ -59,7 +62,7 @@ export default async function ComparePlayersPage({ searchParams }: ComparePagePr
       </header>
 
       <form method="get" className="grid gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
-        <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series?.name ?? option.name} · {option.label ?? option.season}</option>)}</select></Filter>
+        <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series.name} · {option.label ?? option.season}</option>)}</select></Filter>
         <Filter label="Player one"><select name="left" defaultValue={left?.id} className="filter-control"><GroupedPlayerOptions players={players} /></select></Filter>
         <Filter label="Player two"><select name="right" defaultValue={right?.id} className="filter-control"><GroupedPlayerOptions players={players} /></select></Filter>
         <Filter label="Mode"><select name="mode" defaultValue={mode} className="filter-control">{MODES.map((option) => <option key={option} value={option}>{option.replaceAll('_', ' ').toLocaleLowerCase()}</option>)}</select></Filter>

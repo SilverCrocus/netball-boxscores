@@ -1,9 +1,10 @@
 import { calculateMetric, getMetricDefinition } from '@/lib/analytics';
+import { readOpponentMatchIds, readPlayerName } from '@/lib/analytics/repository';
 import { getPlayerComparison } from '@/lib/comparison/service';
-import { prisma } from '@/lib/db';
 import { getCompetitionPlayerFacts } from '@/lib/player-analytics';
 import { getPlayerRankingSnapshot } from '@/lib/rankings/service';
 import { getRecordSnapshot } from '@/lib/records/service';
+import { validateQuerySpec } from '@/lib/stat-query/policy';
 import type { QuerySpecV1 } from '@/lib/stat-query/types';
 
 export interface ExecutedStatQuery {
@@ -36,21 +37,16 @@ function orderByValue<T>(entries: readonly T[], valueFor: (entry: T) => number |
 async function executeLookup(spec: QuerySpecV1): Promise<ExecutedStatQuery> {
   const metric = spec.metrics[0];
   if (spec.subject === 'PLAYER') {
-    const [rawFacts, player, opponentMatches] = await Promise.all([
+    const [rawFacts, playerName, opponentMatchIds] = await Promise.all([
       getCompetitionPlayerFacts(spec.filters.editionId),
-      prisma.player.findUnique({ where: { id: spec.entityIds[0] }, select: { name: true } }),
-      spec.filters.opponentId ? prisma.match.findMany({
-        where: {
-          competitionId: spec.filters.editionId,
-          status: 'COMPLETED', resultQuality: { in: ['OFFICIAL_FINAL', 'CORRECTED'] }, isSimulation: false,
-          OR: [{ homeTeamId: spec.filters.opponentId }, { awayTeamId: spec.filters.opponentId }],
-        },
-        select: { id: true },
-      }) : Promise.resolve(null),
+      readPlayerName(spec.entityIds[0]),
+      spec.filters.opponentId
+        ? readOpponentMatchIds(spec.filters.editionId, spec.filters.opponentId)
+        : Promise.resolve(null),
     ]);
-    if (!player) throw new Error('Player not found');
-    const opponentMatchIds = opponentMatches ? new Set(opponentMatches.map((match) => match.id)) : null;
-    const facts = opponentMatchIds ? rawFacts.filter((fact) => opponentMatchIds.has(fact.matchId)) : rawFacts;
+    if (!playerName) throw new Error('Player not found');
+    const opponentMatches = opponentMatchIds ? new Set(opponentMatchIds) : null;
+    const facts = opponentMatches ? rawFacts.filter((fact) => opponentMatches.has(fact.matchId)) : rawFacts;
     const result = calculateMetric(metric.id, facts, {
       entityType: 'PLAYER', entityId: spec.entityIds[0], competitionId: spec.filters.editionId,
       ...(spec.filters.stageId ? { stageId: spec.filters.stageId } : {}),
@@ -60,8 +56,8 @@ async function executeLookup(spec: QuerySpecV1): Promise<ExecutedStatQuery> {
     }, metric.aggregation);
     const definition = getMetricDefinition(metric.id)!;
     return {
-      answer: `${player.name} ${result.aggregation === 'PER_GAME' ? 'averaged' : 'recorded'} ${numberLabel(result.value, result.unit)} ${definition.displayName.toLocaleLowerCase()}${aggregationLabel(result.aggregation)} across ${result.games} included ${result.games === 1 ? 'match' : 'matches'}.`,
-      result: { entity: player, metric: definition, value: result },
+      answer: `${playerName} ${result.aggregation === 'PER_GAME' ? 'averaged' : 'recorded'} ${numberLabel(result.value, result.unit)} ${definition.displayName.toLocaleLowerCase()}${aggregationLabel(result.aggregation)} across ${result.games} included ${result.games === 1 ? 'match' : 'matches'}.`,
+      result: { entity: { name: playerName }, metric: definition, value: result },
       asOf: result.asOf,
     };
   }
@@ -118,8 +114,9 @@ async function executeRecord(spec: QuerySpecV1): Promise<ExecutedStatQuery> {
 }
 
 export async function executeQuerySpec(spec: QuerySpecV1): Promise<ExecutedStatQuery> {
-  if (spec.intent === 'LOOKUP') return executeLookup(spec);
-  if (spec.intent === 'LEADERBOARD') return executeLeaderboard(spec);
-  if (spec.intent === 'COMPARISON') return executeComparison(spec);
-  return executeRecord(spec);
+  const validated = validateQuerySpec(spec);
+  if (validated.intent === 'LOOKUP') return executeLookup(validated);
+  if (validated.intent === 'LEADERBOARD') return executeLeaderboard(validated);
+  if (validated.intent === 'COMPARISON') return executeComparison(validated);
+  return executeRecord(validated);
 }

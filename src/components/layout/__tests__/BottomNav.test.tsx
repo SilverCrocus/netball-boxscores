@@ -44,7 +44,7 @@ describe('BottomNav', () => {
   });
 
   it('renders correct hrefs', () => {
-    render(<BottomNav />);
+    render(<BottomNav analyticsEnabled askCentrePassEnabled />);
     expect(screen.getByText('Fixtures').closest('a')).toHaveAttribute('href', '/');
     expect(screen.getByText('Standings').closest('a')).toHaveAttribute('href', '/standings');
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
@@ -90,5 +90,16 @@ describe('BottomNav', () => {
       'href',
       '/competitions/commonwealth-games/glasgow-2026/teams'
     );
+  });
+
+  it('hides analytics tabs and the Ask menu entry when disabled', () => {
+    render(<BottomNav analyticsEnabled={false} askCentrePassEnabled={false} />);
+
+    expect(screen.queryByText('Rankings')).not.toBeInTheDocument();
+    expect(screen.queryByText('Records')).not.toBeInTheDocument();
+    expect(screen.queryByText('Compare')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.queryByRole('link', { name: /^Ask CentrePass$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Browse teams/ })).toBeInTheDocument();
   });
 });

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { NAV_ITEMS, isResolvedNavigationActive } from '@/lib/navigation';
+import { getVisibleNavigationItems, isResolvedNavigationActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
@@ -14,7 +14,15 @@ import {
   navigationEditionFromLocation,
 } from '@/lib/edition-links';
 
-export function Sidebar({ editions = [] }: { editions?: EditionContextValue[] }) {
+export function Sidebar({
+  editions = [],
+  analyticsEnabled = false,
+  askCentrePassEnabled = false,
+}: {
+  editions?: EditionContextValue[];
+  analyticsEnabled?: boolean;
+  askCentrePassEnabled?: boolean;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { hasLive, minutesUntilNext } = useLiveStatus();
@@ -23,6 +31,7 @@ export function Sidebar({ editions = [] }: { editions?: EditionContextValue[] })
     pathname,
     searchParams.get('edition'),
   );
+  const navigationItems = getVisibleNavigationItems({ analyticsEnabled, askCentrePassEnabled });
 
   return (
     <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 overflow-y-auto bg-slate-900 py-8 z-40 shadow-xl">
@@ -41,7 +50,7 @@ export function Sidebar({ editions = [] }: { editions?: EditionContextValue[] })
         </span>
       </Link>
       <div className="mb-5 px-4">
-        <GlobalSearch dark />
+        <GlobalSearch dark askCentrePassEnabled={askCentrePassEnabled} />
       </div>
       {editions.length > 0 && (
         <div className="mb-5 px-4">
@@ -49,7 +58,7 @@ export function Sidebar({ editions = [] }: { editions?: EditionContextValue[] })
         </div>
       )}
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
+        {navigationItems.map((item) => {
           const href = editionAwareNavigationHref(currentEdition, item.href);
           const active = isResolvedNavigationActive(pathname, item.href, href);
           const isLiveItem = item.href === '/live';

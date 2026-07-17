@@ -1,7 +1,11 @@
-import { Prisma } from '@prisma/client';
 import type { AnalyticsCoverageState, AnalyticsEntityType, AnalyticsFact, AnalyticsRawField, MetricAggregation } from '@/lib/analytics';
-import { prisma } from '@/lib/db';
-import { getPublicCompetitions } from '@/lib/competitions';
+import {
+  listAnalyticsEditions,
+  readAnalyticsEntities,
+  readAnalyticsPlayerFacts,
+  readAnalyticsTeamFacts,
+  readFinalsStageIds,
+} from '@/lib/analytics/repository';
 import { calculateRecordSnapshot } from '@/lib/records/calculate';
 import type { RecordEntity, RecordScope } from '@/lib/records/types';
 
@@ -89,51 +93,30 @@ function toFact(row: FactRow, entityType: AnalyticsEntityType): AnalyticsFact {
 async function loadFacts(entityType: AnalyticsEntityType, competitionIds: string[]): Promise<AnalyticsFact[]> {
   if (competitionIds.length === 0) return [];
   const rows = entityType === 'PLAYER'
-    ? await prisma.$queryRaw<FactRow[]>(Prisma.sql`
-      SELECT
-        match_id, competition_id, competition_series_id, competition_kind,
-        stage_id, stage_group_id, scheduled_at, source_updated_at,
-        player_id AS entity_id, position,
-        player_box_score_coverage AS box_score_coverage, net_points_coverage,
-        minutes_played, goals, attempts, goal_assists, intercepts, deflections,
-        rebounds, penalties, feeds, centre_pass_receives, turnovers, gains,
-        pickups, net_points,
-        NULL::DOUBLE PRECISION AS goal_differential,
-        NULL::DOUBLE PRECISION AS turnover_differential,
-        NULL::DOUBLE PRECISION AS shooting_percentage_differential
-      FROM analytics.player_match_fact
-      WHERE competition_id IN (${Prisma.join(competitionIds)})
-    `)
-    : await prisma.$queryRaw<FactRow[]>(Prisma.sql`
-      SELECT
-        match_id, competition_id, competition_series_id, competition_kind,
-        stage_id, stage_group_id, scheduled_at, source_updated_at,
-        team_id AS entity_id, NULL::TEXT AS position,
-        team_box_score_coverage AS box_score_coverage, net_points_coverage,
-        0::DOUBLE PRECISION AS minutes_played,
-        goals, attempts, goal_assists, intercepts, deflections,
-        rebounds, penalties, feeds, centre_pass_receives, turnovers, gains,
-        pickups, net_points, goal_differential, turnover_differential,
-        shooting_percentage_differential
-      FROM analytics.team_match_fact
-      WHERE competition_id IN (${Prisma.join(competitionIds)})
-    `);
+    ? (await readAnalyticsPlayerFacts(competitionIds)).map((row): FactRow => ({
+      ...row,
+      entity_id: row.player_id,
+      box_score_coverage: row.player_box_score_coverage,
+      goal_differential: null,
+      turnover_differential: null,
+      shooting_percentage_differential: null,
+    }))
+    : (await readAnalyticsTeamFacts(competitionIds)).map((row): FactRow => ({
+      ...row,
+      entity_id: row.team_id,
+      position: null,
+      box_score_coverage: row.team_box_score_coverage,
+      minutes_played: 0,
+    }));
   return rows.map((row) => toFact(row, entityType));
 }
 
-async function loadEntities(entityType: AnalyticsEntityType, ids: string[]): Promise<RecordEntity[]> {
-  if (entityType === 'PLAYER') {
-    const players = await prisma.player.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, name: true, position: true, team: { select: { name: true } } },
-    });
-    return players.map((player) => ({ id: player.id, name: player.name, position: player.position, teamName: player.team.name }));
-  }
-  const teams = await prisma.team.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, name: true, slug: true },
-  });
-  return teams;
+async function loadEntities(
+  entityType: AnalyticsEntityType,
+  ids: string[],
+  competitionId?: string,
+): Promise<RecordEntity[]> {
+  return readAnalyticsEntities(entityType, ids, competitionId);
 }
 
 export interface RecordSnapshotQuery {
@@ -147,18 +130,19 @@ export interface RecordSnapshotQuery {
 
 export async function getRecordSnapshot(query: RecordSnapshotQuery) {
   const entityType: AnalyticsEntityType = query.scope === 'TEAM' ? 'TEAM' : query.entityType;
-  const editions = await getPublicCompetitions();
+  const editions = await listAnalyticsEditions();
   const selectedEdition = editions.find((edition) => edition.id === query.competitionId);
   const isCrossEdition = query.scope === 'CAREER' || query.scope === 'CENTREPASS_ERA';
   const competitionIds = isCrossEdition ? editions.map((edition) => edition.id) : selectedEdition ? [selectedEdition.id] : [];
   const facts = await loadFacts(entityType, competitionIds);
   const entityIds = [...new Set(facts.map((fact) => fact.entityId))];
-  const entities = await loadEntities(entityType, entityIds);
+  const entities = await loadEntities(
+    entityType,
+    entityIds,
+    competitionIds.length === 1 ? competitionIds[0] : undefined,
+  );
   const finalsStages = selectedEdition && query.scope === 'FINALS'
-    ? await prisma.stage.findMany({
-      where: { competitionId: selectedEdition.id, type: { in: ['FINALS', 'SEMI_FINALS', 'MEDAL_MATCHES'] } },
-      select: { id: true },
-    })
+    ? await readFinalsStageIds(selectedEdition.id)
     : [];
   const coverageStart = facts.reduce<Date | null>((earliest, fact) => !earliest || fact.scheduledAt < earliest ? fact.scheduledAt : earliest, null)
     ?? (selectedEdition
@@ -172,9 +156,9 @@ export async function getRecordSnapshot(query: RecordSnapshotQuery) {
     entityType,
     competitionId: isCrossEdition ? undefined : selectedEdition?.id,
     competitionLabel: selectedEdition
-      ? `${selectedEdition.series?.name ?? selectedEdition.name} · ${selectedEdition.label ?? selectedEdition.season}`
+      ? `${selectedEdition.series.name} · ${selectedEdition.label ?? selectedEdition.season}`
       : undefined,
-    finalsStageIds: finalsStages.map((stage) => stage.id),
+    finalsStageIds: finalsStages,
     coverageStart,
     limit: query.limit,
   });
