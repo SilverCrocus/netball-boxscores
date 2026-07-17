@@ -35,6 +35,13 @@ This is idempotent only while the edition is `DRAFT`. It refuses to modify a
 
 ## 3. Validate and record the exact foundation preview
 
+Before running the importer, follow the launch-day revalidation in
+`glasgow-2026-source-provenance.md`: compare the full official schedule and
+final squads with the checked-in bundle, and recheck every reused player-photo
+licence. Record who performed the check and when. The v1 source ledger is
+`REFERENCED`, not a set of immutable upstream-page captures, so an old preview
+receipt cannot replace this current-source check.
+
 First run the database-free validation:
 
 ```bash

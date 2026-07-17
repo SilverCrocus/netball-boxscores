@@ -18,6 +18,28 @@ compact manifest containing bundle/manifest checksums, bundle version, source
 count/IDs, generation time, and publication policy. The source snapshot retains
 the permitted normalized payload.
 
+### v1 evidence boundary
+
+The v1 manifest is a referenced-source ledger, not an immutable capture of the
+42 upstream webpages. Its entries are intentionally marked `REFERENCED`; they
+do not contain per-source response hashes or raw HTML/PDF snapshots. A matching
+CentrePass receipt therefore proves which normalized bundle and source ledger
+were imported, but it does not independently prove what every upstream page
+contained at collection time.
+
+Use the wording **referenced and manually revalidated sources** in release
+evidence. Do not describe v1 as a verified or reproducible source capture. On
+launch day, revalidate the complete official schedule, the final imported
+squads, and every reused player-photo licence against the URLs in the manifest.
+Record the revalidation time and operator alongside the dry-run/apply receipts.
+Any discrepancy blocks publication until a corrected, versioned bundle is
+generated and rehearsed again.
+
+A future bundle may strengthen this boundary with per-source HTTP status,
+content type, capture time, content SHA-256, and a permitted raw or normalized
+evidence artifact. Those fields must be added as a new manifest version rather
+than retroactively rewriting v1 evidence.
+
 Do not hand-edit only the generated JSON. Update
 `scripts/build-glasgow-2026-source-bundle.mjs`, regenerate both files, review the
 diff, and repeat checksum/tests. Preserve unknown squad positions as unavailable.
