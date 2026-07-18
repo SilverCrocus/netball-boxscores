@@ -21,7 +21,7 @@ the permitted normalized payload.
 ### v1 evidence boundary
 
 The v1 manifest is a referenced-source ledger, not an immutable capture of the
-42 upstream webpages. Its entries are intentionally marked `REFERENCED`; they
+44 non-photo upstream webpages. Its entries are intentionally marked `REFERENCED`; they
 do not contain per-source response hashes or raw HTML/PDF snapshots. A matching
 CentrePass receipt therefore proves which normalized bundle and source ledger
 were imported, but it does not independently prove what every upstream page
@@ -34,6 +34,15 @@ squads, and every reused player-photo licence against the URLs in the manifest.
 Record the revalidation time and operator alongside the dry-run/apply receipts.
 Any discrepancy blocks publication until a corrected, versioned bundle is
 generated and rehearsed again.
+
+The launch-day revalidation timestamp embedded in v1 is
+`2026-07-18T00:00:00.000Z`. Uganda's final 12-player identities are supported by
+the Swift Sports and Kawowo reports in the manifest. The earlier New Vision URL
+is retained only as historical evidence of the 15-player South Africa
+preparation squad and must not be described as the final Glasgow squad. Uganda
+remains unimported because the referenced sources do not establish one exact
+primary position for every player; the manifest records the final identities
+without inventing player or roster rows.
 
 A future bundle may strengthen this boundary with per-source HTTP status,
 content type, capture time, content SHA-256, and a permitted raw or normalized
