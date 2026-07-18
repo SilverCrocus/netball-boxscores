@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "hashAlgorithm": "sha256",
   "sourceProjectRef": "xpfdjkqrbvdasjpllxnc",
-  "sourceMigrationThrough": "20260717000000_secure_analytics_query_boundary",
+  "sourceMigrationThrough": "20260717010000_close_postgres17_maintain_acl",
   "securityProfiles": {
     "function-analytics-owner": {
       "kind": "function",
@@ -95,6 +95,12 @@
           {
             "grantor": "postgres",
             "grantee": "postgres",
+            "privilege": "MAINTAIN",
+            "grantable": false
+          },
+          {
+            "grantor": "postgres",
+            "grantee": "postgres",
             "privilege": "REFERENCES",
             "grantable": false
           },
@@ -152,6 +158,12 @@
           {
             "grantor": "postgres",
             "grantee": "postgres",
+            "privilege": "MAINTAIN",
+            "grantable": false
+          },
+          {
+            "grantor": "postgres",
+            "grantee": "postgres",
             "privilege": "REFERENCES",
             "grantable": false
           },
@@ -203,6 +215,12 @@
           {
             "grantor": "postgres",
             "grantee": "postgres",
+            "privilege": "MAINTAIN",
+            "grantable": false
+          },
+          {
+            "grantor": "postgres",
+            "grantee": "postgres",
             "privilege": "REFERENCES",
             "grantable": false
           },
@@ -249,6 +267,12 @@
             "grantor": "postgres",
             "grantee": "postgres",
             "privilege": "INSERT",
+            "grantable": false
+          },
+          {
+            "grantor": "postgres",
+            "grantee": "postgres",
+            "privilege": "MAINTAIN",
             "grantable": false
           },
           {
