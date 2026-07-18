@@ -27,6 +27,7 @@ import { recordPoll, setCurrentInterval } from '@/lib/worker-health';
 import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 import { resolvePublicMatchAccess } from '@/lib/public-match';
 import { runSerializableTransaction } from '@/lib/serializable-transaction';
+import { safeErrorMessage } from '@/lib/safe-logging';
 
 // ── Polling intervals ──
 
@@ -183,7 +184,10 @@ export async function pollChampionData(): Promise<void> {
         ingestedSources.push(currentObservation);
       } catch (error) {
         sourceFetchErrors++;
-        console.error(`[Worker] Competition ${competitionId} ingestion failed:`, error);
+        console.error(
+          `[Worker] Competition ${competitionId} ingestion failed:`,
+          safeErrorMessage(error),
+        );
       }
     }
 
@@ -565,7 +569,7 @@ export async function pollChampionData(): Promise<void> {
       matchesProcessed,
     );
   } catch (error) {
-    console.error('[Worker] Poll error:', error);
+    console.error('[Worker] Poll error:', safeErrorMessage(error));
     recordPoll('error', 0);
   }
 }
@@ -586,7 +590,10 @@ async function scheduleNextPoll(): Promise<void> {
       `[Worker] Next poll in ${interval / 1000}s (live: ${hasLive}, preMatch: ${hasPreMatch}, matchDay: ${state.isMatchDay})`,
     );
   } catch (error) {
-    console.error('[Worker] Failed to check live state, using fallback interval:', error);
+    console.error(
+      '[Worker] Failed to check live state, using fallback interval:',
+      safeErrorMessage(error),
+    );
   }
 
   setCurrentInterval(interval);

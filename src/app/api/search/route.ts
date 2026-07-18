@@ -7,7 +7,7 @@ import { getPublicCompetitions } from '@/lib/competitions';
 import { matchHref } from '@/lib/edition-links';
 import {
   canExposePublicMatchScore,
-  resolvePublicMatchAccess,
+  resolvePublicMatchAccessBatch,
 } from '@/lib/public-match';
 
 export const dynamic = 'force-dynamic';
@@ -86,10 +86,9 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const publicMatches = (await Promise.all(matches.map(async (match) => ({
-      match,
-      access: await resolvePublicMatchAccess(match.id).catch(() => null),
-    })))).flatMap(({ match, access }) => {
+    const accessById = await resolvePublicMatchAccessBatch(matches.map((match) => match.id));
+    const publicMatches = matches.flatMap((match) => {
+      const access = accessById.get(match.id);
       if (!access || !hasResolvedMatchTeams(match)) return [];
       return [{ match, access }];
     });

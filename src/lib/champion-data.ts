@@ -12,6 +12,7 @@ import type {
   CDRawScoreFlowEntry,
 } from "@/types/champion-data";
 import { pickStatFields, type StatValues } from "@/lib/stat-utils";
+import { fetchJsonWithinLimits } from '@/lib/bounded-fetch';
 
 type MatchStatus = "SCHEDULED" | "LIVE" | "COMPLETED";
 
@@ -19,17 +20,19 @@ const SIM_MODE = process.env.SIMULATION_MODE === 'true' && process.env.NODE_ENV 
 const SIM_BASE = `http://localhost:${process.env.PORT || 3000}/api/sim`;
 const CD_BASE =
   process.env.CHAMPION_DATA_BASE_URL || 'https://mc.championdata.com/data';
+const CHAMPION_DATA_TIMEOUT_MS = 10_000;
+const CHAMPION_DATA_MAX_BYTES = 5 * 1024 * 1024;
 
 async function fetchFromChampionData<T>(path: string): Promise<T> {
   const baseUrl = SIM_MODE ? SIM_BASE : CD_BASE;
   const url = `${baseUrl}${path}`;
-  const res = await fetch(url, { cache: 'no-store' });
-
-  if (!res.ok) {
-    throw new Error(`Champion Data API error: ${res.status} ${res.statusText}`);
-  }
-
-  return res.json() as Promise<T>;
+  return fetchJsonWithinLimits<T>({
+    url,
+    label: 'Champion Data API',
+    timeoutMs: CHAMPION_DATA_TIMEOUT_MS,
+    maxBytes: CHAMPION_DATA_MAX_BYTES,
+    init: { cache: 'no-store' },
+  });
 }
 
 /**

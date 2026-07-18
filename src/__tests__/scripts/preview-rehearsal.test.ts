@@ -9,6 +9,17 @@ import { matchesPlainBtreeIndex } from '../../../scripts/lib/preview-index-contr
 
 const PREVIEW_REF = 'xpfdjkqrbvdasjpllxnc';
 const PRODUCTION_REF = 'iqnhnlttvnvkwrqvnrna';
+const CHECKOUT_PIN = 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0';
+const SETUP_NODE_PIN = 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020';
+
+function expectMarkersInOrder(source: string, markers: string[]): void {
+  let previousIndex = -1;
+  for (const marker of markers) {
+    const index = source.indexOf(marker);
+    expect(index, `missing workflow marker: ${marker}`).toBeGreaterThan(previousIndex);
+    previousIndex = index;
+  }
+}
 
 function environment(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
   return {
@@ -88,6 +99,10 @@ describe('Glasgow preview workflow', () => {
 
   it('installs dependencies, deploys and verifies migrations, proves rollback, and never publishes', async () => {
     const workflow = await readFile(path.resolve('.github/workflows/ci.yml'), 'utf8');
+    const verify = workflow.slice(
+      workflow.indexOf('  verify:'),
+      workflow.indexOf('  glasgow-preview-rehearsal:'),
+    );
     const rehearsal = workflow.slice(workflow.indexOf('  glasgow-preview-rehearsal:'));
     const migrationRehearsal = await readFile(
       path.resolve('scripts/rehearse-complete-prisma-migrations.ts'),
@@ -114,13 +129,47 @@ describe('Glasgow preview workflow', () => {
     expect(workflow).toContain(
       "${{ !(github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview) }}",
     );
-    expect(rehearsal).toContain('npm ci');
+    expect(workflow.split(`uses: ${CHECKOUT_PIN}`)).toHaveLength(3);
+    expect(workflow.split(`uses: ${SETUP_NODE_PIN}`)).toHaveLength(3);
+    expect(workflow).not.toMatch(/actions\/(?:checkout|setup-node)@v\d+/);
+    for (const job of [verify, rehearsal]) {
+      expect(job).toContain('persist-credentials: false');
+      expect(job).toContain('fetch-depth: 0');
+    }
+    expectMarkersInOrder(verify, [
+      'run: npm ci',
+      'run: npx prisma generate',
+      'run: npm audit --omit=dev --audit-level=moderate',
+      'run: npm run check',
+      'run: npm run build',
+      'run: npm run smoke:server-startup',
+    ]);
     expect(rehearsal).toContain('name: centrepass-preview-rehearsal');
-    expect(rehearsal).toContain('npx tsx scripts/verify-preview-database-target.ts');
     expect(rehearsal).toContain('image: postgres:17');
-    expect(rehearsal).toContain('npx tsx scripts/verify-fresh-prisma-migration-target.ts');
-    expect(rehearsal).toContain('npx tsx scripts/verify-prisma-baseline-artifact.ts');
-    expect(rehearsal).toContain('npx tsx scripts/rehearse-complete-prisma-migrations.ts');
+    expectMarkersInOrder(rehearsal, [
+      'name: Install dependencies',
+      'name: Capture refs-only preview target evidence',
+      'name: Prove empty PostgreSQL 17 target and seed minimal Supabase roles',
+      'name: Verify immutable historical Prisma baseline',
+      'name: Rehearse historical baseline and complete retained migration chain',
+      'name: Verify complete fresh PostgreSQL 17 migration ledger',
+      'name: Verify and resolve Supabase remote-schema Prisma prefix',
+      'name: Deploy checked-in Prisma migrations',
+      'name: Verify exact checked-in migration ledger',
+      'name: Provision reviewed scoped preview roles without emitting credentials',
+      'name: Verify exact scoped preview role allowlists',
+      'name: Verify zero current and default Data API grants',
+      'name: Validate the immutable bundle offline',
+      'name: Normalize preview publication state to DRAFT',
+      'name: Prepare unpublished foundation',
+      'name: Build database-aware import plan',
+      'name: Record clean preview receipt',
+      'name: Prove controlled import failure rolls back canonical writes',
+      'name: Apply exact bundle to preview',
+      'name: Prove exact replay is idempotent',
+      'name: Reconcile exact DRAFT preview state',
+      'name: Exercise publication readiness without publishing',
+    ]);
     expect(rehearsal).not.toContain('prisma db execute');
     expect(migrationRehearsal).toContain('prisma/baselines/pre-20260602/baseline.sql');
     expect(migrationRehearsal).toContain('00000000000000_historical_baseline');
@@ -136,20 +185,6 @@ describe('Glasgow preview workflow', () => {
     expect(maintainMigration).toContain('REVOKE MAINTAIN ON ALL TABLES');
     expect(maintainMigration).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE postgres');
     expect(maintainMigration).not.toContain('supabase_admin');
-    expect(rehearsal).toContain('npx tsx scripts/verify-preview-prisma-baseline.ts --resolve');
-    expect(rehearsal).toContain('npx prisma migrate deploy');
-    expect(rehearsal).toContain('npx tsx scripts/verify-preview-migrations.ts');
-    expect(rehearsal).toContain('npx tsx scripts/provision-preview-scoped-roles.ts');
-    expect(rehearsal).toContain('npx tsx scripts/verify-preview-scoped-roles.ts');
-    expect(rehearsal).toContain('npx tsx scripts/verify-preview-data-api-acls.ts');
-    expect(rehearsal.indexOf('scripts/provision-preview-scoped-roles.ts')).toBeLessThan(
-      rehearsal.indexOf('scripts/verify-preview-scoped-roles.ts'),
-    );
-    expect(rehearsal.indexOf('scripts/verify-preview-scoped-roles.ts')).toBeLessThan(
-      rehearsal.indexOf('scripts/verify-preview-data-api-acls.ts'),
-    );
-    expect(rehearsal).toContain('npx tsx scripts/rehearse-glasgow-2026-rollback.ts');
-    expect(rehearsal).toContain('db:publish:edition -- commonwealth-games-netball glasgow-2026 --dry-run');
     expect(rehearsal).not.toMatch(/db:publish:edition[^\n]*--apply/);
   });
 });

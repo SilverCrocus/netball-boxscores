@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findMatchesMock, findPlayersMock, findTeamsMock, resolvePublicMatchMock } = vi.hoisted(() => ({
+const { findMatchesMock, findPlayersMock, findTeamsMock, resolvePublicMatchBatchMock } = vi.hoisted(() => ({
   findMatchesMock: vi.fn(),
   findPlayersMock: vi.fn(),
   findTeamsMock: vi.fn(),
-  resolvePublicMatchMock: vi.fn(),
+  resolvePublicMatchBatchMock: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -20,7 +20,7 @@ vi.mock('@/lib/competitions', () => ({
   getPublicCompetitions: vi.fn().mockResolvedValue([{ id: 'competition-2026' }]),
 }));
 vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchAccess: resolvePublicMatchMock,
+  resolvePublicMatchAccessBatch: resolvePublicMatchBatchMock,
   canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
 }));
 
@@ -31,9 +31,9 @@ describe('GET /api/search', () => {
     findPlayersMock.mockReset().mockResolvedValue([]);
     findTeamsMock.mockReset().mockResolvedValue([]);
     findMatchesMock.mockReset().mockResolvedValue([]);
-    resolvePublicMatchMock.mockReset().mockResolvedValue({
+    resolvePublicMatchBatchMock.mockReset().mockResolvedValue(new Map([['match-1', {
       id: 'match-1', status: 'COMPLETED', scoreAvailable: true,
-    });
+    }]]));
   });
 
   it('does not query the database below two characters', async () => {
@@ -100,9 +100,9 @@ describe('GET /api/search', () => {
         homeTeam: { name: 'Jamaica' }, awayTeam: { name: 'New Zealand' },
       },
     ]);
-    resolvePublicMatchMock.mockImplementation(async (id: string) => id === 'unpublished-stage'
-      ? null
-      : { id, status: 'COMPLETED', scoreAvailable: false });
+    resolvePublicMatchBatchMock.mockResolvedValue(new Map([['unverified-score', {
+      id: 'unverified-score', status: 'COMPLETED', scoreAvailable: false,
+    }]]));
 
     const response = await GET(new Request('https://centrepass.test/api/search?q=pool'));
     const payload = await response.json();

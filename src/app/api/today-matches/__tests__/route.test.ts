@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findManyMock, resolvePublicMatchMock } = vi.hoisted(() => ({
+const { findManyMock, resolvePublicMatchBatchMock } = vi.hoisted(() => ({
   findManyMock: vi.fn(),
-  resolvePublicMatchMock: vi.fn(),
+  resolvePublicMatchBatchMock: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -16,7 +16,7 @@ vi.mock('@/lib/time-zone', () => ({
   }),
 }));
 vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchAccess: resolvePublicMatchMock,
+  resolvePublicMatchAccessBatch: resolvePublicMatchBatchMock,
   canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
 }));
 
@@ -38,14 +38,14 @@ function match(id: string, overrides: Record<string, unknown> = {}) {
 describe('GET /api/today-matches', () => {
   beforeEach(() => {
     findManyMock.mockReset().mockResolvedValue([]);
-    resolvePublicMatchMock.mockReset();
+    resolvePublicMatchBatchMock.mockReset().mockResolvedValue(new Map());
   });
 
   it('filters every candidate through the full public resolver', async () => {
     findManyMock.mockResolvedValue([match('public'), match('private')]);
-    resolvePublicMatchMock.mockImplementation(async (id: string) => id === 'public'
-      ? { id, status: 'COMPLETED', scoreAvailable: true }
-      : null);
+    resolvePublicMatchBatchMock.mockResolvedValue(new Map([
+      ['public', { id: 'public', status: 'COMPLETED', scoreAvailable: true }],
+    ]));
 
     const response = await GET();
 
@@ -53,16 +53,14 @@ describe('GET /api/today-matches', () => {
     await expect(response.json()).resolves.toEqual([
       expect.objectContaining({ id: 'public', scoreAvailable: true }),
     ]);
-    expect(resolvePublicMatchMock).toHaveBeenCalledTimes(2);
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(['public', 'private']);
   });
 
   it('hides unsafe scores and non-live clock fields instead of returning zero-like data', async () => {
     findManyMock.mockResolvedValue([match('unverified')]);
-    resolvePublicMatchMock.mockResolvedValue({
-      id: 'unverified',
-      status: 'COMPLETED',
-      scoreAvailable: false,
-    });
+    resolvePublicMatchBatchMock.mockResolvedValue(new Map([['unverified', {
+      id: 'unverified', status: 'COMPLETED', scoreAvailable: false,
+    }]]));
 
     const response = await GET();
 
@@ -82,11 +80,9 @@ describe('GET /api/today-matches', () => {
     findManyMock.mockResolvedValue([match('live', {
       status: 'LIVE', currentQuarter: 2, currentTime: '312',
     })]);
-    resolvePublicMatchMock.mockResolvedValue({
-      id: 'live',
-      status: 'LIVE',
-      scoreAvailable: true,
-    });
+    resolvePublicMatchBatchMock.mockResolvedValue(new Map([['live', {
+      id: 'live', status: 'LIVE', scoreAvailable: true,
+    }]]));
 
     const response = await GET();
 
@@ -104,7 +100,7 @@ describe('GET /api/today-matches', () => {
 
   it('fails a candidate closed when access resolution errors', async () => {
     findManyMock.mockResolvedValue([match('lookup-error')]);
-    resolvePublicMatchMock.mockRejectedValue(new Error('lookup failed'));
+    resolvePublicMatchBatchMock.mockRejectedValue(new Error('lookup failed'));
 
     const response = await GET();
 

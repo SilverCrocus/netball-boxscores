@@ -17,12 +17,18 @@ export async function requireAuth(): Promise<AuthResult> {
   if (!session?.user?.id) {
     return {
       user: null,
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      error: NextResponse.json({ error: 'Unauthorized' }, {
+        status: 401,
+        headers: { 'Cache-Control': 'private, no-store' },
+      }),
     };
   }
   return { user: session.user as AuthenticatedUser, error: null };
 }
 
 export function badRequest(message: string): NextResponse {
-  return NextResponse.json({ error: message }, { status: 400 });
+  return NextResponse.json({ error: message }, {
+    status: 400,
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
 }
