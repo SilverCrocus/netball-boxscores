@@ -12,6 +12,7 @@ import {
   deriveHomeHeader,
   getCompletedMatchesPage,
   homepageMatchSelect,
+  isHomepageScoreAvailable,
   type ResolvedHomepageMatch,
 } from '@/lib/home-feed';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
@@ -23,14 +24,17 @@ import {
   isUpstreamPreviewMode,
   loadUpstreamCompletedMatches,
 } from '@/lib/upstream-preview';
+import { matchHref } from '@/lib/edition-links';
 
 export const dynamic = 'force-dynamic';
+const HOME_LIVE_MATCH_LIMIT = 16;
 
 export default async function HomePage() {
   let liveMatches: ResolvedHomepageMatch[] = [];
   let upcomingMatches: ResolvedHomepageMatch[] = [];
   let completedPage = { groups: [], nextCursor: null } as Awaited<ReturnType<typeof getCompletedMatchesPage>>;
   let season: number | null = null;
+  let editionId: string | null = null;
   let databaseUnavailable = false;
   let usingUpstreamPreview = false;
 
@@ -39,6 +43,7 @@ export default async function HomePage() {
     if (previewPage) {
       completedPage = previewPage;
       season = new Date().getFullYear();
+      editionId = 'upstream-preview';
       usingUpstreamPreview = true;
     } else {
       databaseUnavailable = true;
@@ -49,20 +54,40 @@ export default async function HomePage() {
 
       if (competition) {
         season = competition.season;
+        editionId = competition.id;
         const baseWhere = { ...excludeSimData, competitionId: competition.id };
         const [live, upcoming, history] = await Promise.all([
           timedQuery('home_live_matches', () => prisma.match.findMany({
-            where: { ...baseWhere, status: 'LIVE' },
+            where: {
+              ...baseWhere,
+              status: 'LIVE',
+              OR: [
+                { stageId: null },
+                { stage: { is: { isPublished: true } } },
+              ],
+            },
             select: homepageMatchSelect,
             orderBy: { scheduledAt: 'asc' },
+            take: HOME_LIVE_MATCH_LIMIT,
           })),
           timedQuery('home_upcoming_matches', () => prisma.match.findMany({
-            where: { ...baseWhere, status: 'SCHEDULED' },
+            where: {
+              ...baseWhere,
+              status: 'SCHEDULED',
+              OR: [
+                { stageId: null },
+                { stage: { is: { isPublished: true } } },
+              ],
+            },
             select: homepageMatchSelect,
             orderBy: { scheduledAt: 'asc' },
             take: 4,
           })),
-          timedQuery('home_completed_history', () => getCompletedMatchesPage(competition.id)),
+          timedQuery('home_completed_history', () => getCompletedMatchesPage(
+            competition.id,
+            undefined,
+            [competition],
+          )),
         ]);
         liveMatches = live.filter(hasResolvedMatchTeams);
         upcomingMatches = upcoming.filter(hasResolvedMatchTeams);
@@ -75,7 +100,10 @@ export default async function HomePage() {
 
   const featured = upcomingMatches[0];
   const header = deriveHomeHeader(season, liveMatches, upcomingMatches, completedPage.groups);
-  const hasMatches = liveMatches.length > 0 || upcomingMatches.length > 0 || completedPage.groups.length > 0;
+  const hasMatches = liveMatches.length > 0
+    || upcomingMatches.length > 0
+    || completedPage.groups.length > 0
+    || completedPage.nextCursor !== null;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -144,7 +172,11 @@ export default async function HomePage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {liveMatches.map((match) => (
-              <ScoreCard key={match.id} match={{ ...match, ...computeBreakdown(match) }} />
+              <ScoreCard key={match.id} match={{
+                ...match,
+                scoreAvailable: isHomepageScoreAvailable(match),
+                ...computeBreakdown(match),
+              }} />
             ))}
           </div>
         </section>
@@ -158,7 +190,7 @@ export default async function HomePage() {
           {/* Featured Match */}
           {featured && (
             <Link
-              href={`/match/${featured.id}`}
+              href={matchHref(featured.id, featured.competitionId)}
               prefetch={false}
               className="md:col-span-3 relative overflow-hidden bg-gradient-to-br from-primary via-primary-container to-primary rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center gap-6 shadow-2xl transition-all duration-300 hover:shadow-[0_0_40px_rgba(163,230,53,0.15)] hover:scale-[1.01]"
             >
@@ -231,7 +263,7 @@ export default async function HomePage() {
             {upcomingMatches.slice(featured ? 1 : 0, 4).map((match) => (
               <Link
                 key={match.id}
-                href={`/match/${match.id}`}
+                href={matchHref(match.id, match.competitionId)}
                 prefetch={false}
                 className="bg-surface-container rounded-xl p-4 group hover:bg-surface-container-high transition-all flex-1 flex flex-col justify-center"
               >
@@ -260,11 +292,12 @@ export default async function HomePage() {
 
       <MyTeams />
 
-      {season !== null && (
+      {season !== null && editionId !== null && (
         <HomeResults
           initialGroups={completedPage.groups}
           initialNextCursor={completedPage.nextCursor}
           season={season}
+          editionId={editionId}
         />
       )}
     </div>

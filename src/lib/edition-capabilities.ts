@@ -34,11 +34,15 @@ export function resolveCapability(
 }
 
 export interface EditionFeatureFlags {
+  finalScore: CapabilityResolution;
+  periodScores: CapabilityResolution;
+  teamBoxScore: CapabilityResolution;
   playerBoxScore: CapabilityResolution;
   netPoints: CapabilityResolution;
   matchEvents: CapabilityResolution;
   scoreFlow: CapabilityResolution;
   superShots: CapabilityResolution;
+  lineups: CapabilityResolution;
 }
 
 export function resolveEditionFeatures(
@@ -46,11 +50,15 @@ export function resolveEditionFeatures(
   matchCoverage: readonly CoverageRecord[] = []
 ): EditionFeatureFlags {
   return {
+    finalScore: resolveCapability('FINAL_SCORE', editionCoverage, matchCoverage),
+    periodScores: resolveCapability('PERIOD_SCORES', editionCoverage, matchCoverage),
+    teamBoxScore: resolveCapability('TEAM_BOX_SCORE', editionCoverage, matchCoverage),
     playerBoxScore: resolveCapability('PLAYER_BOX_SCORE', editionCoverage, matchCoverage),
     netPoints: resolveCapability('NET_POINTS', editionCoverage, matchCoverage),
     matchEvents: resolveCapability('MATCH_EVENTS', editionCoverage, matchCoverage),
     scoreFlow: resolveCapability('SCORE_FLOW', editionCoverage, matchCoverage),
     superShots: resolveCapability('SUPER_SHOTS', editionCoverage, matchCoverage),
+    lineups: resolveCapability('LINEUPS', editionCoverage, matchCoverage),
   };
 }
 

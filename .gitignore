@@ -40,6 +40,7 @@ yarn-error.log*
 # screenshots & temp files
 /screenshots
 /.playwright-mcp
+/live-page-working.png
 /.superpowers
 /supabase
 

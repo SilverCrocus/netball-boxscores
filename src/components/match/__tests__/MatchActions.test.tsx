@@ -15,11 +15,24 @@ describe('MatchActions', () => {
 
   it('sends signed-out users to sign in with a callback', () => {
     useSessionMock.mockReturnValue({ status: 'unauthenticated' });
-    render(<MatchActions matchId="match-1" status="SCHEDULED" />);
+    render(<MatchActions matchId="match-1" status="SCHEDULED" competitionId="ssn-2026" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Favourite' }));
 
-    expect(pushMock).toHaveBeenCalledWith('/auth/signin?callbackUrl=%2Fmatch%2Fmatch-1');
+    expect(pushMock).toHaveBeenCalledWith(
+      '/auth/signin?callbackUrl=%2Fmatch%2Fmatch-1%3Fedition%3Dssn-2026',
+    );
+  });
+
+  it('preserves the canonical edition in the sign-in callback', () => {
+    useSessionMock.mockReturnValue({ status: 'unauthenticated' });
+    render(<MatchActions matchId="match-1" status="SCHEDULED" competitionId="ssn-2026" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Favourite' }));
+
+    expect(pushMock).toHaveBeenCalledWith(
+      '/auth/signin?callbackUrl=%2Fmatch%2Fmatch-1%3Fedition%3Dssn-2026',
+    );
   });
 
   it('optimistically favourites a match and rolls back on failure', async () => {
@@ -29,7 +42,7 @@ describe('MatchActions', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: false });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MatchActions matchId="match-1" status="SCHEDULED" />);
+    render(<MatchActions matchId="match-1" status="SCHEDULED" competitionId="ssn-2026" />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
     fireEvent.click(screen.getByRole('button', { name: 'Favourite' }));

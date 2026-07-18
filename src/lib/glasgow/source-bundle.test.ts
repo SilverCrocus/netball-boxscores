@@ -1,21 +1,152 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { NormalizedCompetitionImport } from '@/lib/sources/types';
+import { loadGlasgowFoundationSourceEvidence } from '@/lib/glasgow/source-manifest';
 import nextConfig from '../../../next.config';
 
 const bundlePath = path.resolve('data/glasgow-2026/v1/bundle.json');
 const manifestPath = path.resolve('data/glasgow-2026/v1/source-manifest.json');
+const generatorPath = path.resolve('scripts/build-glasgow-2026-source-bundle.mjs');
+
+const expectedSourceIds = [
+  'glasgow-participants-pools',
+  'glasgow-match-schedule',
+  'world-netball-hub',
+  'glasgow-event-schedule-v15',
+  'glasgow-sec-venue',
+  'commonwealth-qualification-system',
+  'england-squad',
+  'england-positions',
+  'england-jayda-position',
+  'england-francesca-position',
+  'england-jess-position',
+  'england-sasha-position',
+  'england-eleanor-position',
+  'new-zealand-squad',
+  'new-zealand-positions',
+  'scotland-squad',
+  'wales-squad',
+  'wales-squad-list-image',
+  'australia-squad',
+  'australia-positions',
+  'south-africa-squad',
+  'south-africa-positions',
+  'south-africa-crinums-positions',
+  'northern-ireland-squad',
+  'northern-ireland-positions',
+  'northern-ireland-lisa-position',
+  'malawi-squad-hub',
+  'malawi-squad-post',
+  'malawi-positions',
+  'tonga-squad-hub',
+  'tonga-squad-post',
+  'jamaica-squad-hub',
+  'jamaica-squad-post',
+  'jamaica-squad-report',
+  'jamaica-position-guide',
+  'jamaica-new-player-positions',
+  'jamaica-rhea-position',
+  'jamaica-brie-position',
+  'jamaica-crystal-position',
+  'trinidad-tobago-squad-hub',
+  'trinidad-tobago-squad-post',
+  'uganda-provisional-squad',
+  'funmi-photo',
+  'olivia-photo',
+  'eleanor-photo',
+  'shamera-photo',
+] as const;
+
+const reviewedSourceClaims = {
+  'england-positions': {
+    url: 'https://londonpulsenetball.com/nsl-rd-1-match-report-london-pulse-vs-manchester-thunder/',
+    purpose: 'Halimat Adio, Funmi Fadoju, Imogen Allison, Amy Carter, Natalie Metcalf, Olivia Tchine and Lois Pearson positions',
+  },
+  'england-jayda-position': {
+    url: 'https://teamengland.org/news/jayda-pechov-completes-the-ultimate-comeback-at-glasgow-2026',
+    purpose: 'Jayda Pechová goal-keeper position',
+  },
+  'england-francesca-position': {
+    url: 'https://teamengland.org/team-england-athletes/francesca-williams',
+    purpose: 'Francesca Williams goal-defence position',
+  },
+  'england-jess-position': {
+    url: 'https://teamengland.org/team-england-athletes/jess-shaw',
+    purpose: 'Jess Shaw wing-attack position',
+  },
+  'england-sasha-position': {
+    url: 'https://teamengland.org/team-england-athletes/sasha-glasgow',
+    purpose: 'Sasha Glasgow goal-attack position',
+  },
+  'england-eleanor-position': {
+    url: 'https://www.manchesterthunder.co.uk/welcome-back-eleanor-cardwell/',
+    purpose: 'Eleanor Cardwell goal-shooter position',
+  },
+  'jamaica-new-player-positions': {
+    url: 'https://londonpulsenetball.com/academy-npl-season-complete-u17-u19-crowned-champions/',
+    purpose: 'Azara Wilmot goal-shooter position',
+  },
+  'jamaica-rhea-position': {
+    url: 'https://netballnz.co.nz/images/silver-ferns/documents/SFTJT-21-Media-Guide-web.pdf',
+    purpose: 'Rhea Dixon goal-attack position',
+  },
+} as const;
+
+const reviewedPlayerPositions = {
+  'ENG-halimat-adio': 'GK',
+  'ENG-funmi-fadoju': 'GD',
+  'ENG-imogen-allison': 'WD',
+  'ENG-amy-carter': 'C',
+  'ENG-natalie-metcalf': 'WA',
+  'ENG-olivia-tchine': 'GS',
+  'ENG-lois-pearson': 'GA',
+  'ENG-jayda-pechova': 'GK',
+  'ENG-francesca-williams': 'GD',
+  'ENG-jess-shaw': 'WA',
+  'ENG-sasha-glasgow': 'GA',
+  'ENG-eleanor-cardwell': 'GS',
+  'JAM-azara-wilmot': 'GS',
+  'JAM-rhea-dixon': 'GA',
+} as const;
 
 async function loadSourceBundle() {
   const bundleText = await readFile(bundlePath, 'utf8');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
     bundleFileSha256: string;
+    sources: Array<{
+      id: string;
+      url: string;
+      purpose: string;
+      retrievedAt: string;
+      fetchStatus: string;
+    }>;
     declarations: {
-      publicationStatusRequired: string;
+      publicationStatusPolicy: string;
       publicationBlockers: string[];
       matchCoverage: { unresolvedSlots: number; dependentSlots: number };
+      squadIdentityCoverage: {
+        finalSquads: number;
+        provisionalSquads: number;
+        importedCompleteSquads: number;
+      };
+      squadCoverage: Record<string, {
+        identity: string;
+        positions: string;
+        importedPlayers: number;
+      }>;
+      squadMembers: Record<string, {
+        status: string;
+        members: Array<string | { name: string; position: string; isCaptain: boolean }>;
+      }>;
+      photoCoverage: { verifiedReusablePhotos: number };
+      factualDataReuse: {
+        basis: string;
+        organiserApproval: string;
+      };
     };
   };
   return {
@@ -30,8 +161,42 @@ describe('Glasgow 2026 source bundle', () => {
     const { bundleText, manifest } = await loadSourceBundle();
 
     expect(createHash('sha256').update(bundleText).digest('hex')).toBe(manifest.bundleFileSha256);
-    expect(manifest.declarations.publicationStatusRequired).toBe('DRAFT');
+    expect(manifest.declarations.publicationStatusPolicy).toBe('DRAFT_ONLY');
     expect(manifest.declarations.publicationBlockers).toEqual([]);
+  });
+
+  it('derives publication expectations and compact receipt provenance from the audited sidecar', async () => {
+    const evidence = await loadGlasgowFoundationSourceEvidence(bundlePath);
+
+    expect(evidence.expectedImportChecksum).toMatch(/^[a-f0-9]{64}$/);
+    expect(evidence.receiptMetadata).toMatchObject({
+      importKind: 'GLASGOW_FOUNDATION',
+      sourceManifest: expect.objectContaining({
+        bundleVersion: 'v1',
+        publicationStatusPolicy: 'DRAFT_ONLY',
+        sourceCount: 46,
+      }),
+    });
+    expect(evidence.publicationExpectation).toMatchObject({
+      importChecksum: evidence.expectedImportChecksum,
+      teamExternalIds: expect.arrayContaining(['AUS', 'NZL']),
+      canonicalPlayers: expect.arrayContaining([
+        expect.objectContaining({ externalId: 'JAM-shamera-sterling-humphrey' }),
+      ]),
+    });
+    expect(evidence.publicationExpectation.teamExternalIds).toHaveLength(12);
+    expect(evidence.publicationExpectation.playerExternalIds).toHaveLength(96);
+    expect(evidence.publicationExpectation.matchExternalIds).toHaveLength(38);
+    expect(evidence.publicationExpectation.canonicalPlayers).toHaveLength(23);
+    expect(evidence.publicationExpectation.editionCoverage).toHaveLength(10);
+    expect(evidence.publicationExpectation.sources).toHaveLength(
+      evidence.publicationExpectation.sourceIds.length,
+    );
+    expect(evidence.publicationExpectation.sources.every((source) => (
+      source.url.startsWith('https://')
+      && !Number.isNaN(Date.parse(source.retrievedAt))
+      && source.fetchStatus === 'REFERENCED'
+    ))).toBe(true);
   });
 
   it('contains the complete tournament structure without inventing unresolved teams', async () => {
@@ -82,15 +247,45 @@ describe('Glasgow 2026 source bundle', () => {
     expect(bundle.matches.every((match) => match.venue === 'The Hydro')).toBe(true);
   });
 
-  it('imports only position-supported squads and complete photo provenance', async () => {
-    const { bundle } = await loadSourceBundle();
+  it('imports complete position-supported squads and retains audited evidence for every other team', async () => {
+    const { bundle, manifest } = await loadSourceBundle();
     const playerCounts = Object.groupBy(bundle.players, (player) => player.teamExternalId);
     const playersWithPhotos = bundle.players.filter((player) => player.photoUrl);
+    const canonicalPlayers = bundle.players.filter(
+      (player) => player.canonicalChampionDataPlayerId !== undefined,
+    );
 
-    expect(bundle.players).toHaveLength(48);
-    expect(bundle.rosters).toHaveLength(48);
-    expect(Object.keys(playerCounts).sort()).toEqual(['ENG', 'NZL', 'SCO', 'WAL']);
+    expect(bundle.players).toHaveLength(96);
+    expect(bundle.rosters).toHaveLength(96);
+    expect(Object.keys(playerCounts).sort()).toEqual([
+      'AUS', 'ENG', 'JAM', 'NIR', 'NZL', 'RSA', 'SCO', 'WAL',
+    ]);
     expect(Object.values(playerCounts).every((players) => players?.length === 12)).toBe(true);
+    expect(canonicalPlayers).toHaveLength(23);
+    expect(new Set(
+      canonicalPlayers.map((player) => player.canonicalChampionDataPlayerId),
+    ).size).toBe(canonicalPlayers.length);
+    expect(canonicalPlayers).toContainEqual(expect.objectContaining({
+      externalId: 'JAM-shamera-sterling-humphrey',
+      canonicalChampionDataPlayerId: 80830,
+    }));
+    expect(manifest.declarations.squadIdentityCoverage).toEqual({
+      finalSquads: 11,
+      provisionalSquads: 1,
+      importedCompleteSquads: 8,
+    });
+    expect(manifest.declarations.squadCoverage.UGA).toMatchObject({
+      identity: 'PROVISIONAL',
+      importedPlayers: 0,
+    });
+    expect(manifest.declarations.squadMembers.MWI).toMatchObject({ status: 'FINAL' });
+    expect(manifest.declarations.squadMembers.MWI.members).toHaveLength(12);
+    expect(manifest.declarations.squadMembers.TON.members).toHaveLength(12);
+    expect(manifest.declarations.squadMembers.TTO.members).toHaveLength(12);
+    expect(manifest.declarations.squadMembers.UGA).toMatchObject({ status: 'PROVISIONAL' });
+    expect(manifest.declarations.squadMembers.UGA.members).toHaveLength(15);
+    expect(bundle.players.some((player) => player.teamExternalId === 'UGA')).toBe(false);
+    expect(bundle.players.some((player) => player.name === 'Sophilet Banda')).toBe(false);
     expect(bundle.players).toContainEqual(expect.objectContaining({
       externalId: 'WAL-phillipa-yarranton',
       name: 'Phillipa Yarranton',
@@ -99,11 +294,31 @@ describe('Glasgow 2026 source bundle', () => {
     expect(bundle.rosters).toContainEqual(expect.objectContaining({
       playerExternalId: 'WAL-phillipa-yarranton',
     }));
-    expect(playersWithPhotos).toHaveLength(3);
+    expect(bundle.players).toContainEqual(expect.objectContaining({
+      externalId: 'NIR-lauren-walshe',
+      name: 'Lauren Walshe',
+      position: 'GK',
+    }));
+    expect(bundle.rosters).toContainEqual(expect.objectContaining({
+      playerExternalId: 'NIR-michelle-magee',
+      isCaptain: true,
+    }));
+    expect(bundle.rosters).toContainEqual(expect.objectContaining({
+      playerExternalId: 'JAM-shamera-sterling-humphrey',
+      isCaptain: true,
+    }));
+    expect(Object.fromEntries(
+      bundle.players
+        .filter((player) => player.externalId in reviewedPlayerPositions)
+        .map((player) => [player.externalId, player.position]),
+    )).toEqual(reviewedPlayerPositions);
+    expect(playersWithPhotos).toHaveLength(4);
+    expect(playersWithPhotos).toHaveLength(manifest.declarations.photoCoverage.verifiedReusablePhotos);
     expect(playersWithPhotos.map((player) => player.photoUrl).sort()).toEqual([
       'https://upload.wikimedia.org/wikipedia/commons/3/34/England_Netball_player_Funmi_Fadoju.jpg',
       'https://upload.wikimedia.org/wikipedia/commons/4/4b/Thunderbirds_shooter_Eleanor_Cardwell.jpg',
       'https://upload.wikimedia.org/wikipedia/commons/6/6d/England_Netball_player_Olivia_Tchine.jpg',
+      'https://upload.wikimedia.org/wikipedia/commons/d/d4/Thunderbirds_defender_Shamera_Sterling.jpg',
     ]);
     expect(playersWithPhotos.every((player) => (
       player.photoSourceUrl
@@ -132,5 +347,63 @@ describe('Glasgow 2026 source bundle', () => {
         && photoUrl.hostname === 'upload.wikimedia.org'
         && photoUrl.pathname.startsWith('/wikipedia/commons/');
     })).toBe(true);
+  });
+
+  it('keeps a complete, deterministic provenance ledger for squads and photos', async () => {
+    const { bundle, manifest } = await loadSourceBundle();
+    const sourceIds = manifest.sources.map((source) => source.id);
+    const photoSources = new Set(
+      bundle.players.flatMap((player) => player.photoSourceUrl ? [player.photoSourceUrl] : [])
+    );
+
+    expect(new Set(sourceIds).size).toBe(sourceIds.length);
+    expect(manifest.sources).toHaveLength(46);
+    expect(sourceIds).toEqual(expectedSourceIds);
+    expect(manifest.sources.every((source) => (
+      source.url.startsWith('https://')
+      && source.purpose.length > 0
+      && source.fetchStatus === 'REFERENCED'
+      && !Number.isNaN(Date.parse(source.retrievedAt))
+    ))).toBe(true);
+    expect(manifest.sources.some((source) => source.fetchStatus === 'VERIFIED')).toBe(false);
+    expect(manifest.declarations.factualDataReuse).toEqual({
+      basis: 'PUBLIC_FACTUAL_DATA_USER_ASSERTED',
+      organiserApproval: 'NOT_CLAIMED',
+    });
+    expect(Object.fromEntries(
+      manifest.sources
+        .filter((source) => source.id in reviewedSourceClaims)
+        .map((source) => [source.id, { url: source.url, purpose: source.purpose }]),
+    )).toEqual(reviewedSourceClaims);
+    expect(manifest.sources.map((source) => source.url)).not.toEqual(expect.arrayContaining([
+      'https://www.englandnetball.co.uk/vitality-roses/current-squad/',
+      'https://www.englandnetball.co.uk/news/vitality-roses-squad-confirmed-for-jamaica-series/',
+      'https://www.englandnetball.co.uk/news/athletes-selected-for-roses-academy-2023-24/',
+      'https://jamaica-star.com/article/sports/20231020/england-born-dixon-hopes-add-sunshine-girls%E2%80%99-style',
+    ]));
+    expect(new Set(
+      manifest.sources
+        .filter((source) => source.id.endsWith('-photo'))
+        .map((source) => source.url)
+    )).toEqual(photoSources);
+  });
+
+  it('reproduces both checked-in artifacts byte-for-byte from the generator', async () => {
+    const generatedRoot = await mkdtemp(path.join(tmpdir(), 'centrepass-glasgow-source-bundle-'));
+
+    try {
+      execFileSync(process.execPath, [generatorPath], {
+        cwd: generatedRoot,
+        stdio: 'pipe',
+      });
+
+      const generatedDirectory = path.join(generatedRoot, 'data/glasgow-2026/v1');
+      await expect(readFile(path.join(generatedDirectory, 'bundle.json'), 'utf8'))
+        .resolves.toBe(await readFile(bundlePath, 'utf8'));
+      await expect(readFile(path.join(generatedDirectory, 'source-manifest.json'), 'utf8'))
+        .resolves.toBe(await readFile(manifestPath, 'utf8'));
+    } finally {
+      await rm(generatedRoot, { recursive: true, force: true });
+    }
   });
 });

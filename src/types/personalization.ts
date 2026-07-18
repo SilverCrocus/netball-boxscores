@@ -3,10 +3,12 @@ import type { MatchStatus } from '@prisma/client';
 
 export interface PersonalizedMatchCard {
   id: string;
+  competitionId: string;
   status: MatchStatus;
+  scoreAvailable: boolean;
   scheduledAt: string;
-  homeScore: number;
-  awayScore: number;
+  homeScore: number | null;
+  awayScore: number | null;
   venue: string;
   round: number | null;
   roundLabel: string | null;

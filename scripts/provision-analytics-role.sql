@@ -3,20 +3,24 @@
 \if :{?analytics_password}
 \else
   \echo 'analytics_password is required. Pass it with --set=analytics_password=...'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'analytics_password is required'; END $$;
 \endif
 
 -- This script is intentionally operational rather than a Prisma migration:
 -- credentials must be created and rotated outside source-controlled DDL.
+-- Supabase's managed postgres login is CREATEROLE but not a true superuser, so
+-- it cannot explicitly toggle SUPERUSER, REPLICATION, or BYPASSRLS attributes.
+-- New roles inherit their safe PostgreSQL defaults and the checks below fail
+-- closed if any elevated attribute is ever present.
 SELECT format(
-  'CREATE ROLE centrepass_analytics LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+  'CREATE ROLE centrepass_analytics LOGIN NOINHERIT NOCREATEDB NOCREATEROLE PASSWORD %L',
   :'analytics_password'
 )
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'centrepass_analytics')
 \gexec
 
 SELECT format(
-  'ALTER ROLE centrepass_analytics LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+  'ALTER ROLE centrepass_analytics LOGIN NOINHERIT NOCREATEDB NOCREATEROLE PASSWORD %L',
   :'analytics_password'
 )
 \gexec
@@ -24,8 +28,43 @@ SELECT format(
 SELECT format('GRANT CONNECT ON DATABASE %I TO centrepass_analytics', current_database())
 \gexec
 
+SELECT
+  role.rolcanlogin
+  AND NOT role.rolsuper
+  AND NOT role.rolinherit
+  AND NOT role.rolcreaterole
+  AND NOT role.rolcreatedb
+  AND NOT role.rolreplication
+  AND NOT role.rolbypassrls AS role_attributes_ok
+FROM pg_roles role
+WHERE role.rolname = 'centrepass_analytics'
+\gset
+
+\if :role_attributes_ok
+  \echo 'Verified: centrepass_analytics has the required restricted role attributes.'
+\else
+  \echo 'FAILED: centrepass_analytics has elevated or unexpected role attributes.'
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics has elevated or unexpected role attributes'; END $$;
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_auth_members membership
+  JOIN pg_roles member ON member.oid = membership.member
+  WHERE member.rolname = 'centrepass_analytics'
+) AS no_role_memberships
+\gset
+
+\if :no_role_memberships
+  \echo 'Verified: centrepass_analytics has no SET ROLE path through role membership.'
+\else
+  \echo 'FAILED: centrepass_analytics is a member of another role.'
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics is a member of another role'; END $$;
+\endif
+
 GRANT USAGE ON SCHEMA analytics TO centrepass_analytics;
 REVOKE ALL ON SCHEMA public FROM centrepass_analytics;
+REVOKE CREATE ON SCHEMA analytics FROM centrepass_analytics;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM centrepass_analytics;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM centrepass_analytics;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM centrepass_analytics;
@@ -33,15 +72,36 @@ REVOKE ALL ON ALL TABLES IN SCHEMA analytics FROM centrepass_analytics;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA analytics FROM centrepass_analytics;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA analytics FROM centrepass_analytics;
 
--- Grant reviewed views only. Base tables, telemetry, and the invalidation queue
--- remain inaccessible to this query role.
-SELECT format('GRANT SELECT ON %I.%I TO centrepass_analytics', n.nspname, c.relname)
-FROM pg_class c
-JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'analytics'
-  AND c.relkind IN ('v', 'm')
-ORDER BY c.relname
-\gexec
+SELECT
+  NOT has_schema_privilege('centrepass_analytics', 'public', 'CREATE')
+  AND NOT has_schema_privilege('centrepass_analytics', 'analytics', 'CREATE')
+  AS no_schema_create
+\gset
+
+\if :no_schema_create
+  \echo 'Verified: centrepass_analytics cannot create objects in application schemas.'
+\else
+  \echo 'FAILED: centrepass_analytics inherited schema CREATE privileges.'
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics inherited schema CREATE privileges'; END $$;
+\endif
+
+-- Explicit allowlist: adding a new analytics view does not grant it to the
+-- public query application by accident. Keep this list in lockstep with the
+-- repository queries and the static role-contract test.
+GRANT SELECT ON analytics.competition_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.player_match_read TO centrepass_analytics;
+GRANT SELECT ON analytics.team_match_read TO centrepass_analytics;
+GRANT SELECT ON analytics.player_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.team_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.player_alias_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.team_alias_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.stage_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.stage_group_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.player_edition_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.team_edition_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.team_power_match TO centrepass_analytics;
+GRANT SELECT ON analytics.opponent_match_directory TO centrepass_analytics;
+GRANT SELECT ON analytics.cache_revision_read TO centrepass_analytics;
 
 SELECT format(
   'ALTER ROLE centrepass_analytics IN DATABASE %I SET default_transaction_read_only = on',
@@ -69,6 +129,13 @@ SELECT NOT EXISTS (
     AND n.nspname NOT LIKE 'pg_toast%'
     AND n.nspname NOT LIKE 'pg_temp%'
     AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+    -- Supabase grants PUBLIC read access to these provider-owned observability
+    -- views. Without pg_read_all_stats membership they expose no other role's
+    -- query text, and PostgreSQL has no per-role deny that overrides PUBLIC.
+    AND NOT (
+      n.nspname = 'extensions'
+      AND c.relname IN ('pg_stat_statements', 'pg_stat_statements_info')
+    )
     AND has_table_privilege(
       'centrepass_analytics',
       format('%I.%I', n.nspname, c.relname),
@@ -81,14 +148,25 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics cannot SELECT outside analytics.'
 \else
   \echo 'FAILED: centrepass_analytics inherited SELECT outside analytics.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics inherited SELECT outside analytics'; END $$;
 \endif
 
 SELECT NOT EXISTS (
   SELECT 1
-  FROM information_schema.role_table_grants
-  WHERE grantee = 'centrepass_analytics'
-    AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER', 'REFERENCES')
+  FROM pg_class relation
+  JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+    AND namespace.nspname NOT LIKE 'pg_toast%'
+    AND namespace.nspname NOT LIKE 'pg_temp%'
+    AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND (
+      has_table_privilege('centrepass_analytics', relation.oid, 'INSERT')
+      OR has_table_privilege('centrepass_analytics', relation.oid, 'UPDATE')
+      OR has_table_privilege('centrepass_analytics', relation.oid, 'DELETE')
+      OR has_table_privilege('centrepass_analytics', relation.oid, 'TRUNCATE')
+      OR has_table_privilege('centrepass_analytics', relation.oid, 'TRIGGER')
+      OR has_table_privilege('centrepass_analytics', relation.oid, 'REFERENCES')
+    )
 ) AS no_write_grants
 \gset
 
@@ -96,7 +174,82 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics has no table write grants.'
 \else
   \echo 'FAILED: centrepass_analytics has a table write grant.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics has a table write grant'; END $$;
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_class relation
+  JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+    AND namespace.nspname NOT LIKE 'pg_toast%'
+    AND namespace.nspname NOT LIKE 'pg_temp%'
+    AND relation.relkind = 'S'
+    AND (
+      has_sequence_privilege('centrepass_analytics', relation.oid, 'USAGE')
+      OR has_sequence_privilege('centrepass_analytics', relation.oid, 'SELECT')
+      OR has_sequence_privilege('centrepass_analytics', relation.oid, 'UPDATE')
+    )
+) AS no_sequence_privileges
+\gset
+
+\if :no_sequence_privileges
+  \echo 'Verified: centrepass_analytics has no sequence privileges.'
+\else
+  \echo 'FAILED: centrepass_analytics can access a sequence.'
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics can access a sequence'; END $$;
+\endif
+
+WITH allowed(schema_name, relation_name) AS (
+  VALUES
+    ('analytics', 'competition_directory'),
+    ('analytics', 'player_match_read'),
+    ('analytics', 'team_match_read'),
+    ('analytics', 'player_directory'),
+    ('analytics', 'team_directory'),
+    ('analytics', 'player_alias_directory'),
+    ('analytics', 'team_alias_directory'),
+    ('analytics', 'stage_directory'),
+    ('analytics', 'stage_group_directory'),
+    ('analytics', 'player_edition_directory'),
+    ('analytics', 'team_edition_directory'),
+    ('analytics', 'team_power_match'),
+    ('analytics', 'opponent_match_directory'),
+    ('analytics', 'cache_revision_read')
+)
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_class relation
+  JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname = 'analytics'
+    AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND has_table_privilege(
+      'centrepass_analytics',
+      format('%I.%I', namespace.nspname, relation.relname),
+      'SELECT'
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM allowed
+      WHERE allowed.schema_name = namespace.nspname
+        AND allowed.relation_name = relation.relname
+    )
+) AND NOT EXISTS (
+  SELECT 1
+  FROM allowed
+  WHERE NOT has_table_privilege(
+    'centrepass_analytics',
+    format('%I.%I', allowed.schema_name, allowed.relation_name),
+    'SELECT'
+  )
+) AS exact_view_allowlist_ok
+\gset
+
+\if :exact_view_allowlist_ok
+  \echo 'Verified: centrepass_analytics SELECT privileges exactly match the reviewed allowlist.'
+\else
+  \echo 'FAILED: centrepass_analytics SELECT privileges differ from the reviewed allowlist.'
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics SELECT privileges differ from the reviewed allowlist'; END $$;
 \endif
 
 SELECT NOT EXISTS (
@@ -114,5 +267,21 @@ SELECT NOT EXISTS (
   \echo 'Verified: centrepass_analytics cannot execute external security-definer functions.'
 \else
   \echo 'FAILED: centrepass_analytics can execute a security-definer function outside analytics.'
-  \quit
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics can execute a security-definer function outside analytics'; END $$;
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_proc routine
+  JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+  WHERE namespace.nspname IN ('public', 'analytics')
+    AND has_function_privilege('centrepass_analytics', routine.oid, 'EXECUTE')
+) AS no_application_function_execution
+\gset
+
+\if :no_application_function_execution
+  \echo 'Verified: centrepass_analytics cannot execute application functions.'
+\else
+  \echo 'FAILED: centrepass_analytics can execute a public or analytics function.'
+  DO $$ BEGIN RAISE EXCEPTION 'centrepass_analytics can execute a public or analytics function'; END $$;
 \endif

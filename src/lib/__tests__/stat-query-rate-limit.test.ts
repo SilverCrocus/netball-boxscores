@@ -1,15 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  executeRaw: vi.fn(),
   queryRaw: vi.fn(),
-  transaction: vi.fn(),
 }));
 
-vi.mock('@/lib/db', () => ({
-  prisma: {
-    $transaction: mocks.transaction,
-  },
+vi.mock('@/lib/scoped-database-clients', () => ({
+  getStatsOperationsDatabase: () => ({ $queryRaw: mocks.queryRaw }),
 }));
 
 import { checkDurableRateLimit } from '@/lib/stat-query/operations';
@@ -17,34 +13,38 @@ import { checkDurableRateLimit } from '@/lib/stat-query/operations';
 describe('checkDurableRateLimit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.transaction.mockImplementation(async (callback) => callback({
-      $executeRaw: mocks.executeRaw,
-      $queryRaw: mocks.queryRaw,
-    }));
   });
 
   it('atomically reserves the final available request', async () => {
-    mocks.queryRaw
-      .mockResolvedValueOnce([{ locked: true }])
-      .mockResolvedValueOnce([{ count: BigInt(29) }]);
-    mocks.executeRaw.mockResolvedValueOnce(1);
+    mocks.queryRaw.mockResolvedValueOnce([{
+      allowed: true,
+      remaining: 0,
+      retry_after_seconds: 12,
+    }]);
 
     await expect(checkDurableRateLimit('client-key')).resolves.toEqual({
       allowed: true,
       remaining: 0,
+      retryAfterSeconds: 12,
     });
-    expect(mocks.executeRaw).toHaveBeenCalledOnce();
   });
 
   it('rejects a request once the rolling limit is exhausted', async () => {
-    mocks.queryRaw
-      .mockResolvedValueOnce([{ locked: true }])
-      .mockResolvedValueOnce([{ count: BigInt(30) }]);
+    mocks.queryRaw.mockResolvedValueOnce([{
+      allowed: false,
+      remaining: 0,
+      retry_after_seconds: 59,
+    }]);
 
     await expect(checkDurableRateLimit('client-key')).resolves.toEqual({
       allowed: false,
       remaining: 0,
+      retryAfterSeconds: 59,
     });
-    expect(mocks.executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the operations function returns no decision', async () => {
+    mocks.queryRaw.mockResolvedValueOnce([]);
+    await expect(checkDurableRateLimit('client-key')).rejects.toThrow('RATE_LIMIT_DECISION_MISSING');
   });
 });

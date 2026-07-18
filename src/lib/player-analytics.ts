@@ -1,44 +1,17 @@
-import { Prisma } from '@prisma/client';
 import { calculateMetric, getMetricDefinition } from '@/lib/analytics';
 import type {
-  AnalyticsCoverageState,
   AnalyticsFact,
   AnalyticsRawField,
   MetricAggregation,
   MetricResult,
 } from '@/lib/analytics';
-import { prisma } from '@/lib/db';
+import {
+  readAnalyticsPlayerFacts,
+  type AnalyticsPlayerFactRow,
+} from '@/lib/analytics/repository';
 import { calculateCentrePassImpact, type CentrePassImpactResult } from '@/lib/player-impact';
 
-export interface PlayerFactRow {
-  match_id: string;
-  competition_id: string;
-  competition_series_id: string;
-  competition_kind: 'LEAGUE' | 'TOURNAMENT';
-  stage_id: string | null;
-  stage_group_id: string | null;
-  scheduled_at: Date;
-  source_updated_at: Date | null;
-  player_id: string;
-  position: string;
-  player_box_score_coverage: AnalyticsCoverageState;
-  net_points_coverage: AnalyticsCoverageState;
-  super_shots_coverage: AnalyticsCoverageState;
-  minutes_played: number;
-  goals: number;
-  attempts: number;
-  goal_assists: number;
-  intercepts: number;
-  deflections: number;
-  rebounds: number;
-  penalties: number;
-  feeds: number;
-  centre_pass_receives: number;
-  turnovers: number;
-  gains: number;
-  pickups: number;
-  net_points: number;
-}
+export type PlayerFactRow = AnalyticsPlayerFactRow;
 
 export interface DisplayMetric {
   displayName: string;
@@ -101,38 +74,7 @@ export function toPlayerAnalyticsFact(row: PlayerFactRow): AnalyticsFact {
 }
 
 export async function getCompetitionPlayerFacts(competitionId: string): Promise<AnalyticsFact[]> {
-  const rows = await prisma.$queryRaw<PlayerFactRow[]>(Prisma.sql`
-    SELECT
-      match_id,
-      competition_id,
-      competition_series_id,
-      competition_kind,
-      stage_id,
-      stage_group_id,
-      scheduled_at,
-      source_updated_at,
-      player_id,
-      position,
-      player_box_score_coverage,
-      net_points_coverage,
-      super_shots_coverage,
-      minutes_played,
-      goals,
-      attempts,
-      goal_assists,
-      intercepts,
-      deflections,
-      rebounds,
-      penalties,
-      feeds,
-      centre_pass_receives,
-      turnovers,
-      gains,
-      pickups,
-      net_points
-    FROM analytics.player_match_fact
-    WHERE competition_id = ${competitionId}
-  `);
+  const rows = await readAnalyticsPlayerFacts([competitionId]);
   return rows.map(toPlayerAnalyticsFact);
 }
 

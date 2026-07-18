@@ -6,6 +6,7 @@ import { TeamBadge } from '@/components/ui/TeamBadge';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import type { MatchTimelineEntry } from '@/types/match-timeline';
 import type { TeamInfoWithId } from '@/types/team';
+import { editionScopedHref } from '@/lib/edition-links';
 
 export type PlayByPlayEntry = MatchTimelineEntry;
 
@@ -24,6 +25,7 @@ interface MatchPlayByPlayProps {
   entries: PlayByPlayEntry[];
   homeTeam: TeamInfoWithId;
   awayTeam: TeamInfoWithId;
+  competitionId?: string | null;
 }
 
 function formatTime(seconds: number): string {
@@ -32,7 +34,7 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlayProps) {
+export function MatchPlayByPlay({ entries, homeTeam, awayTeam, competitionId }: MatchPlayByPlayProps) {
   const [chronological, setChronological] = useState(false);
 
   const sorted = chronological ? entries : [...entries].reverse();
@@ -116,7 +118,7 @@ export function MatchPlayByPlay({ entries, homeTeam, awayTeam }: MatchPlayByPlay
                     {entry.playerName && entry.playerId ? (
                       <Link
                         prefetch={false}
-                        href={`/player/${entry.playerId}`}
+                        href={editionScopedHref(`/player/${entry.playerId}`, competitionId)}
                         className="text-on-surface underline decoration-on-surface/20 underline-offset-2 hover:decoration-primary-container hover:text-primary-container"
                       >
                         {entry.playerName}

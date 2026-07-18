@@ -4,10 +4,17 @@ vi.mock('@/lib/db', () => ({
   prisma: {
     userTeam: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
     },
+    team: { findMany: vi.fn().mockResolvedValue([{ id: 'team-1' }]) },
   },
+}));
+
+vi.mock('@/lib/competitions', () => ({
+  getPublicCompetitions: vi.fn().mockResolvedValue([{ id: 'competition-1' }]),
 }));
 
 vi.mock('@/lib/auth', () => ({

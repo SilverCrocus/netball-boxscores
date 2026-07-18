@@ -4,6 +4,11 @@ import { formatMatchStage } from '@/lib/match-label';
 import type { SearchResponse } from '@/types/search';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { getPublicCompetitions } from '@/lib/competitions';
+import { matchHref } from '@/lib/edition-links';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchAccessBatch,
+} from '@/lib/public-match';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +68,7 @@ export async function GET(request: Request) {
         },
         select: {
           id: true,
+          competitionId: true,
           homeTeamId: true,
           awayTeamId: true,
           round: true,
@@ -80,6 +86,13 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    const accessById = await resolvePublicMatchAccessBatch(matches.map((match) => match.id));
+    const publicMatches = matches.flatMap((match) => {
+      const access = accessById.get(match.id);
+      if (!access || !hasResolvedMatchTeams(match)) return [];
+      return [{ match, access }];
+    });
+
     return NextResponse.json({
       players: players.map((player) => ({
         id: player.id,
@@ -95,14 +108,14 @@ export async function GET(request: Request) {
         meta: team.abbreviation,
         href: `/team/${team.slug}`,
       })),
-      matches: matches.filter(hasResolvedMatchTeams).map((match) => ({
+      matches: publicMatches.map(({ match, access }) => ({
         id: match.id,
         kind: 'match' as const,
         label: `${match.homeTeam.name} v ${match.awayTeam.name}`,
-        meta: match.status === 'COMPLETED'
+        meta: canExposePublicMatchScore(access)
           ? `${match.homeScore}-${match.awayScore} · ${formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name)}`
           : formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name),
-        href: match.status === 'LIVE' ? `/match/${match.id}/live` : `/match/${match.id}`,
+        href: matchHref(match.id, match.competitionId, access.status === 'LIVE' ? 'live' : ''),
       })),
     } satisfies SearchResponse);
   } catch {

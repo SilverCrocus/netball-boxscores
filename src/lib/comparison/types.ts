@@ -51,4 +51,3 @@ export interface PlayerComparisonSnapshot {
   coverage: { left: AnalyticsCoverageState; right: AnalyticsCoverageState };
   asOf: string | null;
 }
-

@@ -3,17 +3,44 @@ import { executeQuerySpec } from '@/lib/stat-query/executor';
 import { loadParserContext } from '@/lib/stat-query/context';
 import { analyticsRevision, cacheKey, checkDurableRateLimit, getCachedResult, rateLimitKey, setCachedResult, withStatQueryTimeout, writeQueryTelemetry } from '@/lib/stat-query/operations';
 import { parseStatQuestion } from '@/lib/stat-query/parser';
-import { STAT_QUERY_LIMITS } from '@/lib/stat-query/policy';
-import type { StatQueryResponse } from '@/lib/stat-query/types';
+import { inputPolicyError, STAT_QUERY_LIMITS } from '@/lib/stat-query/policy';
+import { askCentrePassEnabled } from '@/lib/server-feature-flags';
+import type { ParseResult } from '@/lib/stat-query/types';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const MAX_BODY_BYTES = 1_024;
+const RESPONSE_HEADERS = {
+  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff',
+} as const;
+
+function jsonResponse(payload: unknown, status = 200, headers?: Record<string, string>): NextResponse {
+  return NextResponse.json(payload, { status, headers: { ...RESPONSE_HEADERS, ...headers } });
+}
+
+function errorResponse(
+  code: string,
+  message: string,
+  status: number,
+  retryable = false,
+  headers?: Record<string, string>,
+): NextResponse {
+  return jsonResponse({ error: { code, message, retryable } }, status, headers);
+}
+
 function clientIdentifier(request: Request): string {
-  return request.headers.get('cf-connecting-ip')
+  // Render's trusted proxy chain preserves the original client as the first
+  // X-Forwarded-For value and appends infrastructure hops to its right.
+  const forwardedChain = request.headers.get('x-forwarded-for')
+    ?.split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const candidate = forwardedChain?.[0]
     ?? request.headers.get('x-real-ip')
-    ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     ?? 'unknown';
+  return candidate.trim().slice(0, 128) || 'unknown';
 }
 
 function resultCount(result: unknown): number {
@@ -24,29 +51,132 @@ function resultCount(result: unknown): number {
   return value.value || value.entry ? 1 : 0;
 }
 
-export async function POST(request: Request): Promise<NextResponse<StatQueryResponse | { error: { code: string; message: string; retryable: boolean } }>> {
+async function readBodyWithinLimit(request: Request): Promise<string | NextResponse> {
+  if (!request.body) return '';
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let byteCount = 0;
+  let rawBody = '';
+
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) {
+        rawBody += decoder.decode();
+        return rawBody;
+      }
+
+      byteCount += chunk.value.byteLength;
+      if (byteCount > MAX_BODY_BYTES) {
+        try {
+          await reader.cancel('request body exceeds the configured limit');
+        } catch {
+          // The response remains a deterministic 413 even when the producer
+          // has already closed or rejects stream cancellation.
+        }
+        return errorResponse(
+          'BODY_TOO_LARGE',
+          `Request bodies are limited to ${MAX_BODY_BYTES} bytes.`,
+          413,
+        );
+      }
+
+      rawBody += decoder.decode(chunk.value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function readQuestion(request: Request): Promise<{ question: string } | NextResponse> {
+  const origin = request.headers.get('origin');
+  if (origin && origin !== new URL(request.url).origin) {
+    return errorResponse('CROSS_ORIGIN_REQUEST', 'Cross-origin statistical queries are not allowed.', 403);
+  }
+  const contentType = request.headers.get('content-type')
+    ?.split(';')[0]
+    ?.trim()
+    .toLocaleLowerCase() ?? '';
+  if (contentType !== 'application/json') {
+    return errorResponse('UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json.', 415);
+  }
+  const declaredLength = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return errorResponse('BODY_TOO_LARGE', `Request bodies are limited to ${MAX_BODY_BYTES} bytes.`, 413);
+  }
+  const rawBody = await readBodyWithinLimit(request);
+  if (rawBody instanceof NextResponse) return rawBody;
+  let body: unknown;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    return errorResponse('INVALID_JSON', 'Request body must contain valid JSON.', 400);
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return errorResponse('INVALID_BODY', 'Request body must be an object.', 400);
+  }
+  const keys = Object.keys(body);
+  if (keys.length !== 1 || keys[0] !== 'question') {
+    return errorResponse('INVALID_BODY', 'Request body must contain only question.', 400);
+  }
+  const question = (body as { question?: unknown }).question;
+  if (typeof question !== 'string') {
+    return errorResponse('INVALID_BODY', 'question must be a string.', 400);
+  }
+  return { question: question.replace(/\s+/g, ' ').trim() };
+}
+
+async function writeTelemetryWithoutFailingRequest(
+  input: Parameters<typeof writeQueryTelemetry>[0],
+): Promise<void> {
+  try {
+    await writeQueryTelemetry(input);
+  } catch {
+    console.warn('[Ask CentrePass] telemetry write failed');
+  }
+}
+
+export async function POST(request: Request): Promise<NextResponse> {
+  if (!askCentrePassEnabled()) {
+    return errorResponse('FEATURE_DISABLED', 'Ask CentrePass is not available.', 404);
+  }
   const started = performance.now();
   let question = '';
-  let keyHash = '';
+  let parseResult: ParseResult | null = null;
   try {
-    const body = await request.json() as { question?: unknown };
-    if (typeof body.question !== 'string') return NextResponse.json({ error: { code: 'INVALID_BODY', message: 'question must be a string', retryable: false } }, { status: 400 });
+    const body = await readQuestion(request);
+    if (body instanceof NextResponse) return body;
     question = body.question;
-    keyHash = rateLimitKey(clientIdentifier(request));
+    const policyError = inputPolicyError(question);
+    if (policyError) {
+      return errorResponse('UNSUPPORTED_QUESTION', policyError, 400);
+    }
+    const keyHash = rateLimitKey(clientIdentifier(request));
     const rate = await checkDurableRateLimit(keyHash);
-    if (!rate.allowed) return NextResponse.json({ error: { code: 'RATE_LIMITED', message: 'Too many statistical queries. Try again shortly.', retryable: true } }, { status: 429, headers: { 'Retry-After': '60' } });
+    const rateHeaders = { 'X-RateLimit-Remaining': String(rate.remaining) };
+    if (!rate.allowed) {
+      return errorResponse(
+        'RATE_LIMITED',
+        'Too many statistical queries. Try again shortly.',
+        429,
+        true,
+        { ...rateHeaders, 'Retry-After': String(rate.retryAfterSeconds) },
+      );
+    }
 
     const context = await loadParserContext();
     const parsed = parseStatQuestion(question, context);
+    parseResult = parsed;
     if (parsed.status === 'NEEDS_CLARIFICATION') {
       const latencyMs = Math.round(performance.now() - started);
-      await writeQueryTelemetry({ question, parseResult: parsed, resultStatus: parsed.status, resultCount: 0, latencyMs });
-      return NextResponse.json({ status: parsed.status, question, clarification: { reason: parsed.reason, question: parsed.question, options: parsed.options }, audit: { parserVersion: parsed.parserVersion, latencyMs, cache: 'MISS' } });
+      await writeTelemetryWithoutFailingRequest({ question, parseResult: parsed, resultStatus: parsed.status, resultCount: 0, latencyMs });
+      return jsonResponse({ status: parsed.status, question, clarification: { reason: parsed.reason, question: parsed.question, options: parsed.options }, audit: { parserVersion: parsed.parserVersion, latencyMs, cache: 'MISS' } }, 200, rateHeaders);
     }
     if (parsed.status === 'UNSUPPORTED') {
       const latencyMs = Math.round(performance.now() - started);
-      await writeQueryTelemetry({ question, parseResult: parsed, resultStatus: parsed.status, resultCount: 0, latencyMs, errorCode: parsed.code });
-      return NextResponse.json({ status: parsed.status, question, error: { code: parsed.code, message: parsed.message, retryable: false }, audit: { parserVersion: parsed.parserVersion, latencyMs, cache: 'MISS' } }, { status: 400 });
+      await writeTelemetryWithoutFailingRequest({ question, parseResult: parsed, resultStatus: parsed.status, resultCount: 0, latencyMs, errorCode: parsed.code });
+      return jsonResponse({ status: parsed.status, question, error: { code: parsed.code, message: parsed.message, retryable: false }, audit: { parserVersion: parsed.parserVersion, latencyMs, cache: 'MISS' } }, 400, rateHeaders);
     }
 
     const revision = await analyticsRevision();
@@ -55,14 +185,29 @@ export async function POST(request: Request): Promise<NextResponse<StatQueryResp
     const executed = cached ?? await withStatQueryTimeout(executeQuerySpec(parsed.spec), STAT_QUERY_LIMITS.timeoutMs);
     if (!cached) setCachedResult(key, executed);
     const latencyMs = Math.round(performance.now() - started);
-    await writeQueryTelemetry({ question, parseResult: parsed, resultStatus: 'READY', resultCount: resultCount(executed.result), latencyMs });
-    return NextResponse.json({
+    await writeTelemetryWithoutFailingRequest({ question, parseResult: parsed, resultStatus: 'READY', resultCount: resultCount(executed.result), latencyMs });
+    return jsonResponse({
       status: 'READY', question, interpretation: parsed.interpretation, spec: parsed.spec,
       answer: executed.answer, result: executed.result,
       audit: { parserVersion: parsed.parserVersion, latencyMs, cache: cached ? 'HIT' : 'MISS', asOf: executed.asOf },
-    });
+    }, 200, rateHeaders);
   } catch (error) {
     const timeout = error instanceof Error && error.message === 'STAT_QUERY_TIMEOUT';
-    return NextResponse.json({ error: { code: timeout ? 'QUERY_TIMEOUT' : 'QUERY_UNAVAILABLE', message: timeout ? 'The statistical query took too long.' : 'Statistical search is temporarily unavailable.', retryable: true } }, { status: timeout ? 504 : 503 });
+    if (parseResult) {
+      await writeTelemetryWithoutFailingRequest({
+        question,
+        parseResult,
+        resultStatus: timeout ? 'QUERY_TIMEOUT' : 'QUERY_UNAVAILABLE',
+        resultCount: 0,
+        latencyMs: Math.round(performance.now() - started),
+        errorCode: timeout ? 'QUERY_TIMEOUT' : 'QUERY_UNAVAILABLE',
+      });
+    }
+    return errorResponse(
+      timeout ? 'QUERY_TIMEOUT' : 'QUERY_UNAVAILABLE',
+      timeout ? 'The statistical query took too long.' : 'Statistical search is temporarily unavailable.',
+      timeout ? 504 : 503,
+      true,
+    );
   }
 }

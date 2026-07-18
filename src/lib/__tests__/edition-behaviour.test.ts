@@ -25,6 +25,26 @@ describe('edition capability gates', () => {
       available: false,
     });
   });
+
+  it('fails every public match surface closed when coverage is unavailable', () => {
+    const features = resolveEditionFeatures([
+      { capability: 'FINAL_SCORE', state: 'UNAVAILABLE' },
+      { capability: 'PERIOD_SCORES', state: 'UNAVAILABLE' },
+      { capability: 'TEAM_BOX_SCORE', state: 'UNAVAILABLE' },
+      { capability: 'PLAYER_BOX_SCORE', state: 'UNAVAILABLE' },
+      { capability: 'SCORE_FLOW', state: 'UNAVAILABLE' },
+      { capability: 'MATCH_EVENTS', state: 'UNAVAILABLE' },
+      { capability: 'LINEUPS', state: 'UNAVAILABLE' },
+    ]);
+
+    expect(features.finalScore.available).toBe(false);
+    expect(features.periodScores.available).toBe(false);
+    expect(features.teamBoxScore.available).toBe(false);
+    expect(features.playerBoxScore.available).toBe(false);
+    expect(features.scoreFlow.available).toBe(false);
+    expect(features.matchEvents.available).toBe(false);
+    expect(features.lineups.available).toBe(false);
+  });
 });
 
 describe('provider-neutral match projections', () => {

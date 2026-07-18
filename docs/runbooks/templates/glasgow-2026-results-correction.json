@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "edition": "glasgow-2026",
+  "sourceKey": "glasgow-2026-public-data",
+  "retrievedAt": "<ISO-8601-CENTREPASS-RETRIEVAL-TIME>",
+  "sourceManifest": {
+    "schemaVersion": 1,
+    "version": "<UNIQUE-CORRECTED-SOURCE-VERSION>",
+    "checksum": "<64-CHARACTER-SHA256-OF-CAPTURED-SOURCE-EVIDENCE>",
+    "sources": [
+      {
+        "id": "<STABLE-SOURCE-ID>",
+        "url": "<HTTPS-SOURCE-URL>",
+        "retrievedAt": "<ISO-8601-SOURCE-RETRIEVAL-TIME>",
+        "purpose": "official corrected final score and complete period scores"
+      }
+    ]
+  },
+  "correction": {
+    "reason": "<CONCISE-OFFICIAL-CORRECTION-REASON>",
+    "correctsImportChecksum": "<LATEST-SUCCESSFUL-APPLIED-GLASGOW-RESULTS-CHECKSUM>"
+  },
+  "results": [
+    {
+      "matchExternalId": "<EXISTING-SOURCE-MATCH-ID>",
+      "sideAExternalId": "<SIDE-A-TEAM-EXTERNAL-ID>",
+      "sideBExternalId": "<SIDE-B-TEAM-EXTERNAL-ID>",
+      "status": "COMPLETED",
+      "resultQuality": "CORRECTED",
+      "sideAScore": "<NON-NEGATIVE-INTEGER>",
+      "sideBScore": "<NON-NEGATIVE-INTEGER>",
+      "sourceUpdatedAt": "<ISO-8601-SOURCE-UPDATED-TIME>",
+      "periods": [
+        { "period": 1, "sideAScore": "<NON-NEGATIVE-INTEGER>", "sideBScore": "<NON-NEGATIVE-INTEGER>" },
+        { "period": 2, "sideAScore": "<NON-NEGATIVE-INTEGER>", "sideBScore": "<NON-NEGATIVE-INTEGER>" },
+        { "period": 3, "sideAScore": "<NON-NEGATIVE-INTEGER>", "sideBScore": "<NON-NEGATIVE-INTEGER>" },
+        { "period": 4, "sideAScore": "<NON-NEGATIVE-INTEGER>", "sideBScore": "<NON-NEGATIVE-INTEGER>" }
+      ]
+    }
+  ]
+}

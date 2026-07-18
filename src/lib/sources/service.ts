@@ -1,3 +1,4 @@
+import type { PublicationStatus } from '@prisma/client';
 import type { CompetitionSourceAdapter } from '@/lib/sources/adapter';
 import { planCompetitionImport } from '@/lib/sources/planner';
 import type { ImportPlanningContext, ImportPreview, NormalizedCompetitionImport } from '@/lib/sources/types';
@@ -8,6 +9,7 @@ export interface ImportExecutionReceipt {
   inserted: number;
   updated: number;
   skipped: number;
+  publicationStatus?: PublicationStatus;
 }
 
 export interface CompetitionImportWriter {

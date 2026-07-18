@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import type { MetricAggregation, MetricResult } from '@/lib/analytics';
-import { getPublicCompetitions } from '@/lib/competitions';
+import { listAnalyticsEditions } from '@/lib/analytics/repository';
 import { getComparisonPlayers, getPlayerComparison } from '@/lib/comparison/service';
+import { analyticsFeaturesEnabled } from '@/lib/server-feature-flags';
 import { GroupedPlayerOptions } from './GroupedPlayerOptions';
+import { editionScopedHref, matchHref } from '@/lib/edition-links';
 
 export const metadata: Metadata = {
   title: 'Compare Netball Players',
@@ -32,8 +35,9 @@ function percentile(value: number | null): string {
 }
 
 export default async function ComparePlayersPage({ searchParams }: ComparePageProps) {
+  if (!analyticsFeaturesEnabled()) notFound();
   const query = await searchParams;
-  const editions = await getPublicCompetitions();
+  const editions = await listAnalyticsEditions();
   const edition = editions.find((option) => option.id === query.edition || option.slug === query.edition) ?? editions[0] ?? null;
   const players = edition ? await getComparisonPlayers(edition.id) : [];
   const left = players.find((player) => player.id === query.left) ?? players[0];
@@ -58,7 +62,7 @@ export default async function ComparePlayersPage({ searchParams }: ComparePagePr
       </header>
 
       <form method="get" className="grid gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
-        <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series?.name ?? option.name} · {option.label ?? option.season}</option>)}</select></Filter>
+        <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series.name} · {option.label ?? option.season}</option>)}</select></Filter>
         <Filter label="Player one"><select name="left" defaultValue={left?.id} className="filter-control"><GroupedPlayerOptions players={players} /></select></Filter>
         <Filter label="Player two"><select name="right" defaultValue={right?.id} className="filter-control"><GroupedPlayerOptions players={players} /></select></Filter>
         <Filter label="Mode"><select name="mode" defaultValue={mode} className="filter-control">{MODES.map((option) => <option key={option} value={option}>{option.replaceAll('_', ' ').toLocaleLowerCase()}</option>)}</select></Filter>
@@ -72,9 +76,9 @@ export default async function ComparePlayersPage({ searchParams }: ComparePagePr
         <>
           {comparison.warnings.map((warning) => <p key={warning} role="note" className="rounded-xl border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">{warning}</p>)}
           <section className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl bg-surface-container-lowest p-5 shadow-sm sm:gap-8 sm:p-8">
-            <PlayerHeader player={comparison.leftPlayer} align="left" />
+            <PlayerHeader player={comparison.leftPlayer} competitionId={comparison.request.leftCompetitionId} align="left" />
             <p className="font-label text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant">vs</p>
-            <PlayerHeader player={comparison.rightPlayer} align="right" />
+            <PlayerHeader player={comparison.rightPlayer} competitionId={comparison.request.rightCompetitionId} align="right" />
           </section>
 
           {comparison.crossPosition && <p className="rounded-xl bg-secondary-container px-4 py-3 text-center text-sm font-bold text-on-secondary-container">Different positions: position percentiles lead each comparison; raw totals are secondary.</p>}
@@ -104,8 +108,8 @@ export default async function ComparePlayersPage({ searchParams }: ComparePagePr
 
 function Filter({ label, children }: { label: string; children: React.ReactNode }) { return <label className="grid gap-1 font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant">{label}{children}</label>; }
 
-function PlayerHeader({ player, align }: { player: { id: string; name: string; position: string; teamName: string }; align: 'left' | 'right' }) {
-  return <div className={align === 'right' ? 'text-right' : ''}><Link href={`/player/${player.id}`} className="font-headline text-lg font-black text-primary hover:text-secondary sm:text-2xl">{player.name}</Link><p className="mt-1 text-xs text-on-surface-variant sm:text-sm">{player.position} · {player.teamName}</p></div>;
+function PlayerHeader({ player, competitionId, align }: { player: { id: string; name: string; position: string; teamName: string }; competitionId: string; align: 'left' | 'right' }) {
+  return <div className={align === 'right' ? 'text-right' : ''}><Link href={editionScopedHref(`/player/${player.id}`, competitionId)} className="font-headline text-lg font-black text-primary hover:text-secondary sm:text-2xl">{player.name}</Link><p className="mt-1 text-xs text-on-surface-variant sm:text-sm">{player.position} · {player.teamName}</p></div>;
 }
 
 function MetricValue({ side, leadWithPercentile, align }: { side: { result: MetricResult; positionPercentile: number | null }; leadWithPercentile: boolean; align: 'left' | 'right' }) {
@@ -113,5 +117,5 @@ function MetricValue({ side, leadWithPercentile, align }: { side: { result: Metr
 }
 
 function IncludedMatches({ label, result }: { label: string; result: MetricResult }) {
-  return <div><p className="font-bold text-primary">{label}</p><p>{result.games} games · {result.minutes.toFixed(0)} minutes · {result.coverage.toLocaleLowerCase()}</p><div className="mt-1 flex flex-wrap gap-x-2 gap-y-1">{result.includedMatchIds.map((matchId, index) => <Link key={matchId} href={`/match/${matchId}`} className="font-mono text-secondary underline">Game {index + 1}</Link>)}</div></div>;
+  return <div><p className="font-bold text-primary">{label}</p><p>{result.games} games · {result.minutes.toFixed(0)} minutes · {result.coverage.toLocaleLowerCase()}</p><div className="mt-1 flex flex-wrap gap-x-2 gap-y-1">{result.includedMatchIds.map((matchId, index) => <Link key={matchId} href={matchHref(matchId, result.context.competitionId)} className="font-mono text-secondary underline">Game {index + 1}</Link>)}</div></div>;
 }

@@ -2,13 +2,16 @@
 
 import { signIn } from 'next-auth/react';
 import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import {
+  navigateAfterSignIn,
+  safeSignInCallbackUrl,
+} from '@/lib/sign-in-navigation';
 
 function SignInForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const callbackUrl = safeSignInCallbackUrl(searchParams.get('callbackUrl'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +34,7 @@ function SignInForm() {
       if (result?.error) {
         setError('Invalid email or password');
       } else if (result?.url) {
-        router.push(result.url);
+        navigateAfterSignIn(result.url);
       }
     } catch {
       setError('Sign in is temporarily unavailable. Please try again.');

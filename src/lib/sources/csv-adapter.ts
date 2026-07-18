@@ -82,6 +82,9 @@ export class CsvCompetitionAdapter implements CompetitionSourceAdapter<Competiti
     const players = parseCsv(bundle.players).map((row): NormalizedPlayerInput => ({
       externalId: row.externalId,
       teamExternalId: row.teamExternalId,
+      canonicalChampionDataPlayerId: row.canonicalChampionDataPlayerId
+        ? Number(row.canonicalChampionDataPlayerId)
+        : undefined,
       name: row.name,
       position: row.position as NormalizedPlayerInput['position'],
       photoUrl: optional(row.photoUrl),

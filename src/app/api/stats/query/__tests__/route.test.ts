@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   loadContext: vi.fn(), parse: vi.fn(), execute: vi.fn(), revision: vi.fn(),
@@ -37,13 +37,28 @@ describe('POST /api/stats/query', () => {
   beforeEach(() => {
     Object.values(mocks).forEach((mock) => mock.mockReset());
     mocks.rateKey.mockReturnValue('hashed-client');
-    mocks.rate.mockResolvedValue({ allowed: true, remaining: 29 });
+    mocks.rate.mockResolvedValue({ allowed: true, remaining: 29, retryAfterSeconds: 42 });
     mocks.loadContext.mockResolvedValue({ entities: [], editions: [], defaultEditionId: 'edition-1' });
     mocks.revision.mockResolvedValue('revision-1');
     mocks.cacheKey.mockReturnValue('cache-key');
     mocks.cached.mockReturnValue(null);
     mocks.timeout.mockImplementation((operation: Promise<unknown>) => operation);
     mocks.telemetry.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('fails closed before reading the body when the Ask kill switch is off', async () => {
+    vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'false');
+    vi.stubEnv('ASK_CENTREPASS_ENABLED', 'false');
+
+    const response = await POST(request({ question: 'Grace Nweke goals' }));
+
+    expect(response.status).toBe(404);
+    expect(mocks.rate).not.toHaveBeenCalled();
+    expect(response.headers.get('cache-control')).toBe('no-store');
   });
 
   it('validates the body before querying', async () => {
@@ -53,11 +68,102 @@ describe('POST /api/stats/query', () => {
   });
 
   it('uses the durable rate-limit decision', async () => {
-    mocks.rate.mockResolvedValue({ allowed: false, remaining: 0 });
+    mocks.rate.mockResolvedValue({ allowed: false, remaining: 0, retryAfterSeconds: 42 });
     const response = await POST(request({ question: 'Grace Nweke goals' }));
     expect(response.status).toBe(429);
-    expect(response.headers.get('retry-after')).toBe('60');
+    expect(response.headers.get('retry-after')).toBe('42');
+    expect(response.headers.get('x-ratelimit-remaining')).toBe('0');
     expect(mocks.parse).not.toHaveBeenCalled();
+  });
+
+  it('uses the left-most client address from Render multi-hop forwarding', async () => {
+    mocks.rate.mockResolvedValue({ allowed: false, remaining: 0, retryAfterSeconds: 42 });
+    const forwardedRequest = new Request('https://centrepass.test/api/stats/query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10, 10.0.0.3, 10.0.0.4',
+      },
+      body: JSON.stringify({ question: 'Grace Nweke goals' }),
+    });
+
+    const response = await POST(forwardedRequest);
+
+    expect(response.status).toBe(429);
+    expect(mocks.rateKey).toHaveBeenCalledWith('203.0.113.10');
+  });
+
+  it('rejects non-JSON, cross-origin, oversized, and extra-property bodies before database work', async () => {
+    const nonJson = new Request('https://centrepass.test/api/stats/query', {
+      method: 'POST', headers: { 'content-type': 'text/plain' }, body: 'hello',
+    });
+    expect((await POST(nonJson)).status).toBe(415);
+
+    const crossOrigin = new Request('https://centrepass.test/api/stats/query', {
+      method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://attacker.test' }, body: '{"question":"goals"}',
+    });
+    expect((await POST(crossOrigin)).status).toBe(403);
+
+    const spoofedForwardedOrigin = new Request('https://centrepass.test/api/stats/query', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'https://attacker.test',
+        'x-forwarded-host': 'attacker.test',
+        'x-forwarded-proto': 'https',
+      },
+      body: '{"question":"goals"}',
+    });
+    expect((await POST(spoofedForwardedOrigin)).status).toBe(403);
+
+    const oversized = new Request('https://centrepass.test/api/stats/query', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: 'a'.repeat(1_100) }),
+    });
+    expect((await POST(oversized)).status).toBe(413);
+
+    expect((await POST(request({ question: 'Grace goals', sql: 'select *' }))).status).toBe(400);
+    expect(mocks.rate).not.toHaveBeenCalled();
+  });
+
+  it('cancels a chunked request as soon as the streamed byte limit is exceeded', async () => {
+    const encoder = new TextEncoder();
+    const cancel = vi.fn();
+    let pullCount = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pullCount += 1;
+        if (pullCount === 1) {
+          controller.enqueue(encoder.encode('a'.repeat(800)));
+        } else if (pullCount === 2) {
+          controller.enqueue(encoder.encode('b'.repeat(400)));
+        } else {
+          controller.close();
+        }
+      },
+      cancel,
+    }, { highWaterMark: 0 });
+    const chunkedRequest = new Request('https://centrepass.test/api/stats/query', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+
+    const response = await POST(chunkedRequest);
+
+    expect(response.status).toBe(413);
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(mocks.rate).not.toHaveBeenCalled();
+  });
+
+  it('rejects policy violations before consuming a durable rate-limit slot', async () => {
+    const response = await POST(request({ question: 'drop the public matches table' }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'UNSUPPORTED_QUESTION' },
+    });
+    expect(mocks.rate).not.toHaveBeenCalled();
   });
 
   it('returns clarification without executing a query', async () => {
@@ -80,5 +186,37 @@ describe('POST /api/stats/query', () => {
     });
     expect(mocks.setCached).toHaveBeenCalled();
     expect(mocks.telemetry).toHaveBeenCalledWith(expect.objectContaining({ question: 'Grace goals average' }));
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+  });
+
+  it('does not fail a successful answer when privacy telemetry is unavailable', async () => {
+    mocks.parse.mockReturnValue({ status: 'READY', spec, interpretation: 'lookup: Grace · Goals', parserVersion: 'centrepass-rules.v1' });
+    mocks.execute.mockResolvedValue({ answer: 'Grace recorded 50 goals.', result: { value: 50 }, asOf: '2026-07-04T09:30:00.000Z' });
+    mocks.telemetry.mockRejectedValue(new Error('operations unavailable'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const response = await POST(request({ question: 'Grace goals total' }));
+
+    expect(response.status).toBe(200);
+    expect(warn).toHaveBeenCalledWith('[Ask CentrePass] telemetry write failed');
+    warn.mockRestore();
+  });
+
+  it('returns a retryable timeout and records only bounded telemetry', async () => {
+    mocks.parse.mockReturnValue({ status: 'READY', spec, interpretation: 'lookup: Grace · Goals', parserVersion: 'centrepass-rules.v1' });
+    mocks.timeout.mockRejectedValue(new Error('STAT_QUERY_TIMEOUT'));
+
+    const response = await POST(request({ question: 'Grace goals total' }));
+
+    expect(response.status).toBe(504);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'QUERY_TIMEOUT', retryable: true },
+    });
+    expect(mocks.telemetry).toHaveBeenCalledWith(expect.objectContaining({
+      resultStatus: 'QUERY_TIMEOUT',
+      resultCount: 0,
+      errorCode: 'QUERY_TIMEOUT',
+    }));
   });
 });

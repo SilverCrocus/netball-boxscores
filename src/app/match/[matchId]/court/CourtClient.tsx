@@ -3,25 +3,60 @@
 import { useMatchSocket } from '@/hooks/useMatchSocket';
 import { NetballCourt } from '@/components/match/NetballCourt';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
-import type { Match, Team, Player, PlayerMatchStats } from '@prisma/client';
+import type { MatchStatus, Position } from '@prisma/client';
+import type { StatsUpdatePayload } from '@/types/socket';
 
-type FullMatch = Match & {
-  homeTeam: Team & { players: (Player & { matchStats: PlayerMatchStats[] })[] };
-  awayTeam: Team & { players: (Player & { matchStats: PlayerMatchStats[] })[] };
-};
-
-interface CourtClientProps {
-  match: FullMatch;
+export interface CourtPlayerDto {
+  id: string;
+  name: string;
+  position: Position;
+  teamId: string;
+  matchStats: Array<{ turnovers: number }>;
 }
 
-export function CourtClient({ match }: CourtClientProps) {
-  const { score, matchStatus } = useMatchSocket(match.id);
+export interface CourtMatchDto {
+  id: string;
+  status: MatchStatus;
+  homeScore: number;
+  awayScore: number;
+  currentQuarter: number | null;
+  currentTime: string | null;
+  homeTeam: { name: string; players: CourtPlayerDto[] };
+  awayTeam: { name: string; players: CourtPlayerDto[] };
+}
+
+interface CourtClientProps {
+  match: CourtMatchDto;
+  realtimeEnabled?: boolean;
+}
+
+const VALID_POSITIONS = new Set(['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']);
+
+function livePosition(
+  player: CourtPlayerDto,
+  stats: StatsUpdatePayload | null,
+): CourtPlayerDto {
+  const position = stats?.playerStats.find((item) => item.playerId === player.id)?.currentPosition;
+  return position && VALID_POSITIONS.has(position)
+    ? { ...player, position: position as Position }
+    : player;
+}
+
+export function CourtClient({ match, realtimeEnabled = false }: CourtClientProps) {
+  const { score, playerStats, matchStatus } = useMatchSocket(match.id, realtimeEnabled);
 
   const homeScore = score?.homeScore ?? match.homeScore;
   const awayScore = score?.awayScore ?? match.awayScore;
-  const isLive = matchStatus?.status === 'LIVE' || match.status === 'LIVE';
+  const effectiveStatus = matchStatus?.status ?? match.status;
+  const isLive = effectiveStatus === 'LIVE';
   const quarter = score?.currentQuarter ?? match.currentQuarter;
   const time = score?.currentTime ?? match.currentTime;
+  const homePlayers = match.homeTeam.players.map((player) => livePosition(player, playerStats));
+  const awayPlayers = match.awayTeam.players.map((player) => livePosition(player, playerStats));
+  const turnovers = (players: typeof match.homeTeam.players) => players.reduce((sum, player) => {
+    const liveStats = playerStats?.playerStats.find((item) => item.playerId === player.id);
+    return sum + (liveStats?.turnovers ?? player.matchStats[0]?.turnovers ?? 0);
+  }, 0);
 
   return (
     <section className="pt-24 px-4 md:px-8 max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-12 gap-8 mb-12">
@@ -45,8 +80,8 @@ export function CourtClient({ match }: CourtClientProps) {
       {/* Court */}
       <div className="xl:col-span-8">
         <NetballCourt
-          homePlayers={match.homeTeam.players}
-          awayPlayers={match.awayTeam.players}
+          homePlayers={homePlayers}
+          awayPlayers={awayPlayers}
         />
       </div>
 
@@ -88,17 +123,11 @@ export function CourtClient({ match }: CourtClientProps) {
         {/* Key stats bento */}
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: 'Goals', home: match.homeScore, away: match.awayScore },
+            { label: 'Goals', home: homeScore, away: awayScore },
             {
               label: 'Turnovers',
-              home: match.homeTeam.players.reduce(
-                (sum, p) => sum + (p.matchStats[0]?.turnovers ?? 0),
-                0
-              ),
-              away: match.awayTeam.players.reduce(
-                (sum, p) => sum + (p.matchStats[0]?.turnovers ?? 0),
-                0
-              ),
+              home: turnovers(match.homeTeam.players),
+              away: turnovers(match.awayTeam.players),
             },
           ].map((stat) => (
             <div

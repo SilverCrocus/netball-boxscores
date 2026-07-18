@@ -1,30 +1,50 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-auth';
 import { excludeSimData, prisma } from '@/lib/db';
-import { resolveCompetition } from '@/lib/competitions';
-import { computeBreakdown, homepageMatchSelect, type ResolvedHomepageMatch } from '@/lib/home-feed';
+import { getPublicCompetitions, resolveCompetition } from '@/lib/competitions';
+import {
+  homepageMatchSelect,
+  publicHomepageMatchState,
+  type ResolvedHomepageMatch,
+} from '@/lib/home-feed';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import type { MyTeamHubItem, PersonalizedMatchCard } from '@/types/personalization';
+import {
+  resolvePublicMatchAccessBatch,
+  type PublicMatchAccess,
+} from '@/lib/public-match';
+import {
+  MAX_PUBLIC_TEAM_BATCH,
+  publicTeamWhere,
+  resolvePublicTeamIds,
+} from '@/lib/public-team';
 
 export const dynamic = 'force-dynamic';
 
-function toCard(match: ResolvedHomepageMatch): PersonalizedMatchCard {
+function toCard(
+  match: ResolvedHomepageMatch,
+  access: PublicMatchAccess,
+): PersonalizedMatchCard {
+  const publicState = publicHomepageMatchState(match, access);
   return {
     id: match.id,
-    status: match.status,
+    competitionId: match.competitionId,
+    status: publicState.status,
+    scoreAvailable: publicState.scoreAvailable,
     scheduledAt: match.scheduledAt.toISOString(),
-    homeScore: match.homeScore,
-    awayScore: match.awayScore,
+    homeScore: publicState.homeScore,
+    awayScore: publicState.awayScore,
     venue: match.venue,
     round: match.round,
     roundLabel: match.roundLabel,
     stageName: match.stage?.name ?? null,
     finalCode: match.finalCode,
-    currentQuarter: match.currentQuarter,
-    currentTime: match.currentTime,
+    currentQuarter: publicState.currentQuarter,
+    currentTime: publicState.currentTime,
     homeTeam: { id: match.homeTeamId, ...match.homeTeam },
     awayTeam: { id: match.awayTeamId, ...match.awayTeam },
-    ...computeBreakdown(match),
+    homeBreakdown: publicState.homeBreakdown,
+    awayBreakdown: publicState.awayBreakdown,
   };
 }
 
@@ -33,14 +53,25 @@ export async function GET() {
   if (auth.error) return auth.error;
 
   try {
-    const follows = await prisma.userTeam.findMany({
-      where: { userId: auth.user.id },
+    const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+    const candidateFollows = await prisma.userTeam.findMany({
+      where: {
+        userId: auth.user.id,
+        team: { is: publicTeamWhere(publicEditionIds) },
+      },
       select: {
         teamId: true,
         team: { select: { id: true, name: true, abbreviation: true, logoUrl: true, primaryColor: true } },
       },
       orderBy: { team: { name: 'asc' } },
+      take: MAX_PUBLIC_TEAM_BATCH,
     });
+    const boundedFollows = candidateFollows.slice(0, MAX_PUBLIC_TEAM_BATCH);
+    const allowedTeamIds = await resolvePublicTeamIds(
+      boundedFollows.map((follow) => follow.teamId),
+      publicEditionIds,
+    );
+    const follows = boundedFollows.filter((follow) => allowedTeamIds.has(follow.teamId));
     if (follows.length === 0) {
       return NextResponse.json([], { headers: { 'Cache-Control': 'private, no-store' } });
     }
@@ -54,6 +85,12 @@ export async function GET() {
     const teamMatchFilter = {
       OR: [{ homeTeamId: { in: teamIds } }, { awayTeamId: { in: teamIds } }],
     };
+    const publicStageFilter = {
+      OR: [
+        { stageId: null },
+        { stage: { is: { isPublished: true } } },
+      ],
+    };
     const [upcoming, completed] = await Promise.all([
       prisma.match.findMany({
         where: {
@@ -61,36 +98,53 @@ export async function GET() {
           competitionId: competition.id,
           status: 'SCHEDULED',
           scheduledAt: { gte: new Date() },
-          ...teamMatchFilter,
+          AND: [teamMatchFilter, publicStageFilter],
         },
         select: homepageMatchSelect,
         orderBy: { scheduledAt: 'asc' },
+        take: 48,
       }),
       prisma.match.findMany({
         where: {
           ...excludeSimData,
           competitionId: competition.id,
           status: 'COMPLETED',
-          ...teamMatchFilter,
+          resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
+          AND: [teamMatchFilter, publicStageFilter],
         },
         select: homepageMatchSelect,
         orderBy: { scheduledAt: 'desc' },
+        take: 48,
       }),
     ]);
 
-    const resolvedUpcoming = upcoming.filter(hasResolvedMatchTeams);
-    const resolvedCompleted = completed.filter(hasResolvedMatchTeams);
+    const accessById = await resolvePublicMatchAccessBatch([
+      ...upcoming.map((match) => match.id),
+      ...completed.map((match) => match.id),
+    ]);
+    const resolvedUpcoming = upcoming.flatMap((match) => {
+      const access = accessById.get(match.id);
+      return (
+      access && hasResolvedMatchTeams(match) ? [{ match, access }] : []
+      );
+    });
+    const resolvedCompleted = completed.flatMap((match) => {
+      const access = accessById.get(match.id);
+      return (
+      access && hasResolvedMatchTeams(match) ? [{ match, access }] : []
+      );
+    });
     const items: MyTeamHubItem[] = follows.map((follow) => {
       const nextMatch = resolvedUpcoming.find(
-        (match) => match.homeTeamId === follow.teamId || match.awayTeamId === follow.teamId,
+        ({ match }) => match.homeTeamId === follow.teamId || match.awayTeamId === follow.teamId,
       );
       const latestResult = resolvedCompleted.find(
-        (match) => match.homeTeamId === follow.teamId || match.awayTeamId === follow.teamId,
+        ({ match }) => match.homeTeamId === follow.teamId || match.awayTeamId === follow.teamId,
       );
       return {
         team: follow.team,
-        nextMatch: nextMatch ? toCard(nextMatch) : null,
-        latestResult: latestResult ? toCard(latestResult) : null,
+        nextMatch: nextMatch ? toCard(nextMatch.match, nextMatch.access) : null,
+        latestResult: latestResult ? toCard(latestResult.match, latestResult.access) : null,
       };
     });
 

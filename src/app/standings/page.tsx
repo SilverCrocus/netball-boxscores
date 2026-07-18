@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import type { Metadata } from 'next';
 import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
-import { resolveCompetition } from '@/lib/competitions';
+import { resolveCompetitionById, resolveLegacyLeagueCompetition } from '@/lib/competitions';
 import { getStandingsForCompetition } from '@/lib/cached-queries';
 import { timedQuery } from '@/lib/server-timing';
 
@@ -27,12 +27,14 @@ const DOTTED_UNDERLINE = {
 } as const;
 
 interface StandingsPageProps {
-  searchParams: Promise<{ season?: string }>;
+  searchParams: Promise<{ edition?: string; season?: string }>;
 }
 
 export async function generateMetadata({ searchParams }: StandingsPageProps): Promise<Metadata> {
-  const { season } = await searchParams;
-  const { competition } = await resolveCompetition(season);
+  const { edition, season } = await searchParams;
+  const { competition } = edition
+    ? await resolveCompetitionById(edition)
+    : await resolveLegacyLeagueCompetition(season);
   const year = competition?.season ?? new Date().getFullYear();
   return {
     title: `${year} SSN Standings`,
@@ -41,11 +43,16 @@ export async function generateMetadata({ searchParams }: StandingsPageProps): Pr
 }
 
 export default async function StandingsPage({ searchParams }: StandingsPageProps) {
-  const { season } = await searchParams;
-  const { competition, competitions } = await resolveCompetition(season);
+  const { edition, season } = await searchParams;
+  const { competition, competitions } = edition
+    ? await resolveCompetitionById(edition)
+    : await resolveLegacyLeagueCompetition(season);
   const standings = competition
     ? await timedQuery('standings', () => getStandingsForCompetition(competition.id))
     : [];
+  const teamEditionQuery = competition
+    ? `?edition=${encodeURIComponent(competition.id)}`
+    : '';
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -70,12 +77,14 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
             <label className="grid gap-1 font-label text-xs font-bold uppercase tracking-wider text-on-surface-variant">
               Season
               <select
-                name="season"
-                defaultValue={competition.season}
+                name="edition"
+                defaultValue={competition.id}
                 className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 font-body text-sm font-semibold text-on-surface"
               >
                 {competitions.map((option) => (
-                  <option key={option.id} value={option.season}>{option.season}</option>
+                  <option key={option.id} value={option.id}>
+                    {option.label ?? option.season}
+                  </option>
                 ))}
               </select>
             </label>
@@ -139,7 +148,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
                       </span>
                     </td>
                     <td className="py-6 px-6">
-                      <Link prefetch={false} href={`/team/${s.team.slug}`} className="flex items-center gap-4">
+                      <Link prefetch={false} href={`/team/${s.team.slug}${teamEditionQuery}`} className="flex items-center gap-4">
                         <TeamBadge team={s.team} size={48} variant="home" className="shadow-inner" />
                         <div className="font-headline font-bold text-primary text-lg leading-tight">
                           {s.team.name}
@@ -170,7 +179,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           {standings.map((standing) => (
             <Link
               key={standing.id}
-              href={`/team/${standing.team.slug}?season=${competition?.season ?? ''}`}
+              href={`/team/${standing.team.slug}${teamEditionQuery}`}
               prefetch={false}
               className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-5"
             >

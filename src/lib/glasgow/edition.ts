@@ -42,6 +42,49 @@ export const GLASGOW_2026_FOUNDATION = {
   },
 } as const;
 
+export interface Glasgow2026FoundationReference {
+  editionId: string;
+  sourceSystemId: string;
+  editionSourceId: string;
+}
+
+/**
+ * Resolve the already-provisioned import foundation without writing. Database
+ * previews use this path so a missing foundation is reported rather than
+ * silently created by what should be a read-only command.
+ */
+export async function resolveGlasgow2026Foundation(
+  prisma: PrismaClient,
+): Promise<Glasgow2026FoundationReference> {
+  const editionSource = await prisma.editionSource.findFirst({
+    where: {
+      externalId: GLASGOW_2026_FOUNDATION.source.externalId,
+      sourceSystem: { key: GLASGOW_2026_FOUNDATION.source.key },
+      competition: {
+        slug: GLASGOW_2026_FOUNDATION.edition.slug,
+        series: { slug: GLASGOW_2026_FOUNDATION.series.slug },
+      },
+    },
+    select: {
+      id: true,
+      competitionId: true,
+      sourceSystemId: true,
+    },
+  });
+
+  if (!editionSource) {
+    throw new Error(
+      'Glasgow 2026 import foundation is missing; run npm run db:prepare:glasgow first, or use --offline-preview for a database-free preview',
+    );
+  }
+
+  return {
+    editionId: editionSource.competitionId,
+    sourceSystemId: editionSource.sourceSystemId,
+    editionSourceId: editionSource.id,
+  };
+}
+
 export async function upsertGlasgow2026Foundation(prisma: PrismaClient) {
   return prisma.$transaction(async (transaction) => {
     const series = await transaction.competitionSeries.upsert({
@@ -79,12 +122,19 @@ export async function upsertGlasgow2026Foundation(prisma: PrismaClient) {
         publicationStatus: 'DRAFT',
       },
     });
+    if (edition.publicationStatus !== 'DRAFT') {
+      throw new Error(
+        `Glasgow 2026 foundation preparation requires DRAFT edition status; found ${edition.publicationStatus}`,
+      );
+    }
 
     const stages = new Map<string, string>();
     for (const stageInput of GLASGOW_2026_FOUNDATION.stages) {
       const stage = await transaction.stage.upsert({
         where: { competitionId_slug: { competitionId: edition.id, slug: stageInput.slug } },
-        update: { ...stageInput, isPublished: false },
+        // Publication remains an explicit later gate. A foundation replay is
+        // permitted only while the parent edition is DRAFT.
+        update: stageInput,
         create: { ...stageInput, competitionId: edition.id, isPublished: false },
       });
       stages.set(stage.slug, stage.id);
@@ -107,7 +157,8 @@ export async function upsertGlasgow2026Foundation(prisma: PrismaClient) {
         kind: 'PUBLIC_PAGE',
         rawPayloadStorageAllowed: true,
         config: {
-          factualDataReuse: 'APPROVED_BY_SITE_OWNER',
+          factualDataReuse: 'PUBLIC_FACTUAL_DATA_USER_ASSERTED',
+          organiserApproval: 'NOT_CLAIMED',
           playerPhotos: 'SOURCED_AND_ATTRIBUTED_ONLY',
         },
       },
@@ -117,7 +168,8 @@ export async function upsertGlasgow2026Foundation(prisma: PrismaClient) {
         kind: 'PUBLIC_PAGE',
         rawPayloadStorageAllowed: true,
         config: {
-          factualDataReuse: 'APPROVED_BY_SITE_OWNER',
+          factualDataReuse: 'PUBLIC_FACTUAL_DATA_USER_ASSERTED',
+          organiserApproval: 'NOT_CLAIMED',
           playerPhotos: 'SOURCED_AND_ATTRIBUTED_ONLY',
         },
       },

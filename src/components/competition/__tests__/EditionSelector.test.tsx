@@ -4,9 +4,10 @@ import { EditionSelector } from '@/components/competition/EditionSelector';
 import type { EditionContextValue } from '@/lib/edition-context';
 
 const push = vi.fn();
+let pathname = '/competitions/suncorp-super-netball/2026/teams';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/competitions/suncorp-super-netball/2026/teams',
+  usePathname: () => pathname,
   useRouter: () => ({ push }),
 }));
 
@@ -30,7 +31,10 @@ const editions: EditionContextValue[] = [
 ];
 
 describe('EditionSelector', () => {
-  beforeEach(() => push.mockClear());
+  beforeEach(() => {
+    push.mockClear();
+    pathname = '/competitions/suncorp-super-netball/2026/teams';
+  });
 
   it.each(['desktop', 'mobile'] as const)(
     'preserves the current section on %s',
@@ -48,4 +52,24 @@ describe('EditionSelector', () => {
       );
     }
   );
+
+  it('preserves a supported legacy section', () => {
+    pathname = '/standings';
+    render(<EditionSelector current={editions[0]} editions={editions} />);
+
+    fireEvent.change(screen.getByLabelText('Competition edition'), {
+      target: { value: 'glasgow' },
+    });
+
+    expect(push).toHaveBeenCalledWith(
+      '/competitions/commonwealth-games/glasgow-2026/standings'
+    );
+  });
+
+  it('shows an explicit unselected state for an unknown edition', () => {
+    render(<EditionSelector current={null} editions={editions} />);
+
+    expect(screen.getByLabelText('Competition edition')).toHaveValue('');
+    expect(screen.getByRole('option', { name: 'Select competition' })).toBeDisabled();
+  });
 });

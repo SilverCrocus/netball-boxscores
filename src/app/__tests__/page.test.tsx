@@ -19,9 +19,28 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccessBatch: vi.fn().mockImplementation(async (matchIds: string[]) => new Map(
+    matchIds.map((matchId) => [matchId, {
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+      sourceUpdatedAt: new Date('2026-07-25T09:00:01.000Z'),
+      scoreAvailable: true,
+      features: { superShots: { available: true } },
+    }]),
+  )),
+  canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
+}));
+
+const PUBLIC_COVERAGE = [
+  { capability: 'FINAL_SCORE', state: 'AVAILABLE' },
+  { capability: 'SUPER_SHOTS', state: 'AVAILABLE' },
+] as const;
+
 const MATCHES = [
   {
           id: '1',
+          competitionId: 'competition-2026',
           status: 'LIVE',
           homeScore: 42,
           awayScore: 38,
@@ -38,6 +57,7 @@ const MATCHES = [
         },
         {
           id: '2',
+          competitionId: 'competition-2026',
           status: 'SCHEDULED',
           homeScore: 0,
           awayScore: 0,
@@ -54,6 +74,7 @@ const MATCHES = [
         },
         {
           id: '5',
+          competitionId: 'competition-2026',
           status: 'SCHEDULED',
           homeScore: 0,
           awayScore: 0,
@@ -70,6 +91,7 @@ const MATCHES = [
         },
         {
           id: '3',
+          competitionId: 'competition-2026',
           status: 'COMPLETED',
           homeScore: 64,
           awayScore: 58,
@@ -89,6 +111,7 @@ const MATCHES = [
         },
         {
           id: '4',
+          competitionId: 'competition-2026',
           status: 'COMPLETED',
           homeScore: 71,
           awayScore: 65,
@@ -103,7 +126,16 @@ const MATCHES = [
           awayTeam: { name: 'Lightning', abbreviation: 'LIG', logoUrl: null },
           teamStats: [],
         },
-] as const;
+].map((match) => ({
+  resultQuality: match.status === 'COMPLETED' ? 'OFFICIAL_FINAL' : 'UNKNOWN',
+  roundLabel: null,
+  finalCode: null,
+  stage: null,
+  competition: { dataCoverage: PUBLIC_COVERAGE },
+  dataCoverage: [],
+  sourceUpdatedAt: new Date('2026-07-25T09:00:01.000Z'),
+  ...match,
+}));
 
 describe('HomePage', () => {
   beforeEach(() => {
@@ -116,13 +148,24 @@ describe('HomePage', () => {
       slug: '2026',
       publicationStatus: 'PUBLISHED',
       series: { id: 'ssn', slug: 'ssn', name: 'Suncorp Super Netball', kind: 'LEAGUE' },
+      ruleset: null,
+      dataCoverage: PUBLIC_COVERAGE,
       _count: { entries: 8, matches: MATCHES.length },
+      stages: [],
+      matches: [],
+      importRuns: [],
       seasonStart: new Date('2026-03-01T00:00:00Z'),
       seasonEnd: new Date('2026-07-31T00:00:00Z'),
     }]);
-    findMatchesMock.mockReset().mockImplementation(({ where }: { where: { status: string } }) =>
-      Promise.resolve(MATCHES.filter((match) => match.status === where.status)),
-    );
+    findMatchesMock.mockReset().mockImplementation(({ where }: {
+      where: { status?: string; id?: { in: string[] } };
+    }) => Promise.resolve(
+      where.status
+        ? MATCHES.filter((match) => match.status === where.status)
+        : where.id?.in
+          ? MATCHES.filter((match) => where.id?.in.includes(match.id))
+          : [],
+    ));
   });
 
   afterEach(() => {
@@ -196,9 +239,16 @@ describe('HomePage', () => {
       finalCode: null,
       scheduledAt: new Date('2026-06-14T06:00:00Z'),
     };
-    findMatchesMock.mockImplementation(({ where }: { where: { status: string } }) =>
-      Promise.resolve(where.status === 'COMPLETED' ? [grandFinal, round14] : []),
-    );
+    const finalsMatches = [grandFinal, round14];
+    findMatchesMock.mockImplementation(({ where }: {
+      where: { status?: string; id?: { in: string[] } };
+    }) => Promise.resolve(
+      where.status === 'COMPLETED'
+        ? finalsMatches
+        : where.id?.in
+          ? finalsMatches.filter((match) => where.id?.in.includes(match.id))
+          : [],
+    ));
 
     render(await HomePage());
 
@@ -228,15 +278,37 @@ describe('HomePage', () => {
     const scheduledQuery = findMatchesMock.mock.calls.find(
       ([query]) => query.where.status === 'SCHEDULED',
     )?.[0];
+    const liveQuery = findMatchesMock.mock.calls.find(
+      ([query]) => query.where.status === 'LIVE',
+    )?.[0];
     const completedQuery = findMatchesMock.mock.calls.find(
       ([query]) => query.where.status === 'COMPLETED',
     )?.[0];
+    const hydratedResultsQuery = findMatchesMock.mock.calls.find(
+      ([query]) => query.where.id?.in,
+    )?.[0];
 
     expect(scheduledQuery.take).toBe(4);
-    expect(completedQuery.take).toBe(9);
+    expect(liveQuery.take).toBe(16);
+    expect(liveQuery.where.OR).toEqual([
+      { stageId: null },
+      { stage: { is: { isPublished: true } } },
+    ]);
+    expect(scheduledQuery.where.OR).toEqual([
+      { stageId: null },
+      { stage: { is: { isPublished: true } } },
+    ]);
+    expect(completedQuery.take).toBe(73);
     expect(completedQuery.where.competitionId).toBe('competition-2026');
+    expect(completedQuery.where.AND).toEqual(expect.arrayContaining([{
+      OR: [
+        { stageId: null },
+        { stage: { is: { isPublished: true } } },
+      ],
+    }]));
     expect(completedQuery.select.scoreFlow).toBeUndefined();
-    expect(completedQuery.select.teamStats).toBeDefined();
+    expect(completedQuery.select.teamStats).toBeUndefined();
+    expect(hydratedResultsQuery.select.teamStats).toBeDefined();
   });
 
   it('renders a true empty state when the latest season has no matches', async () => {
@@ -268,6 +340,7 @@ describe('HomePage', () => {
           matches: [{
             id: 'hosted-grand-final',
             status: 'COMPLETED',
+            scoreAvailable: true,
             scheduledAt: '2026-07-04T09:30:00.000Z',
             homeScore: 61,
             awayScore: 40,

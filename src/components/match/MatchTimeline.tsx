@@ -12,11 +12,12 @@ import {
 
 interface MatchTimelineProps {
   awayTeam: TeamInfoWithId;
+  competitionId?: string | null;
   homeTeam: TeamInfoWithId;
   matchId: string;
 }
 
-export function MatchTimeline({ awayTeam, homeTeam, matchId }: MatchTimelineProps) {
+export function MatchTimeline({ awayTeam, competitionId, homeTeam, matchId }: MatchTimelineProps) {
   const [entries, setEntries] = useState<MatchTimelineEntry[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [eventType, setEventType] = useState<'' | MatchTimelineEventType>('');
@@ -152,7 +153,12 @@ export function MatchTimeline({ awayTeam, homeTeam, matchId }: MatchTimelineProp
         </p>
       )}
       {entries.length > 0 && (
-        <MatchPlayByPlay entries={[...entries].reverse()} homeTeam={homeTeam} awayTeam={awayTeam} />
+        <MatchPlayByPlay
+          entries={[...entries].reverse()}
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          competitionId={competitionId}
+        />
       )}
       {nextCursor && (
         <div className="flex justify-center">

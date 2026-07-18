@@ -6,6 +6,7 @@ import { TeamBadge } from '@/components/ui/TeamBadge';
 import type { TeamInfoWithId } from '@/types/team';
 import Link from 'next/link';
 import { formatMatchDateTime } from '@/lib/format';
+import { matchHref } from '@/lib/edition-links';
 
 interface TeamFollow {
   teamId: string;
@@ -16,6 +17,7 @@ interface MatchResource {
   matchId: string;
   match: {
     id: string;
+    competitionId: string;
     status: 'SCHEDULED' | 'LIVE' | 'COMPLETED';
     scheduledAt: string;
     homeScore: number;
@@ -128,7 +130,7 @@ export default function SettingsPage() {
       )}
       {items.map((item) => (
         <div key={item.matchId} className="flex items-center justify-between gap-4 rounded-xl border border-outline-variant/20 p-4">
-          <Link prefetch={false} href={`/match/${item.match.id}`} className="min-w-0">
+          <Link prefetch={false} href={matchHref(item.match.id, item.match.competitionId)} className="min-w-0">
             <p className="font-headline text-sm font-bold text-primary">
               {item.match.homeTeam.name} v {item.match.awayTeam.name}
             </p>

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { EditionContextProvider } from '@/components/competition/EditionContext';
-import { EditionSelector } from '@/components/competition/EditionSelector';
 import { resolveEdition } from '@/lib/competitions';
 import { toEditionContext, toEditionContexts } from '@/lib/edition-context';
 
@@ -37,7 +36,7 @@ export default async function EditionLayout({ children, params }: EditionLayoutP
   return (
     <EditionContextProvider value={{ current, editions: options }}>
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-low p-4 sm:flex-row sm:items-end sm:justify-between md:p-6">
+        <header className="mb-6 rounded-2xl border border-outline-variant bg-surface-container-low p-4 md:p-6">
           <div>
             <p className="font-label text-xs font-bold uppercase tracking-[0.18em] text-secondary">
               {current.competitionName}
@@ -46,7 +45,6 @@ export default async function EditionLayout({ children, params }: EditionLayoutP
               {current.editionLabel}
             </h1>
           </div>
-          <EditionSelector current={current} editions={options} />
         </header>
         {children}
       </div>

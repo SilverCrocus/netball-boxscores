@@ -1,19 +1,14 @@
-import { Prisma } from '@prisma/client';
-import type { AnalyticsCoverageState, AnalyticsFact, AnalyticsRawField } from '@/lib/analytics';
-import { prisma } from '@/lib/db';
+import type { AnalyticsFact, AnalyticsRawField } from '@/lib/analytics';
+import {
+  readAnalyticsPlayerFacts,
+  readAnalyticsPlayers,
+  readComparisonPlayers,
+  type AnalyticsPlayerFactRow,
+} from '@/lib/analytics/repository';
 import { calculatePlayerComparison } from '@/lib/comparison/calculate';
 import type { PlayerComparisonRequest } from '@/lib/comparison/types';
 
-interface PlayerFactRow {
-  match_id: string; competition_id: string; competition_series_id: string;
-  competition_kind: 'LEAGUE' | 'TOURNAMENT'; stage_id: string | null; stage_group_id: string | null;
-  scheduled_at: Date; source_updated_at: Date | null; player_id: string; position: string;
-  player_box_score_coverage: AnalyticsCoverageState; net_points_coverage: AnalyticsCoverageState;
-  minutes_played: number; goals: number; attempts: number; goal_assists: number;
-  intercepts: number; deflections: number; rebounds: number; penalties: number;
-  feeds: number; centre_pass_receives: number; turnovers: number; gains: number;
-  pickups: number; net_points: number;
-}
+type PlayerFactRow = AnalyticsPlayerFactRow;
 
 const fields: Array<[keyof PlayerFactRow, AnalyticsRawField]> = [
   ['minutes_played', 'minutesPlayed'], ['goals', 'goals'], ['attempts', 'attempts'],
@@ -38,35 +33,20 @@ function toFact(row: PlayerFactRow): AnalyticsFact {
 
 export async function getPlayerComparison(request: PlayerComparisonRequest) {
   const competitionIds = [...new Set([request.leftCompetitionId, request.rightCompetitionId])];
-  const rows = await prisma.$queryRaw<PlayerFactRow[]>(Prisma.sql`
-    SELECT match_id, competition_id, competition_series_id, competition_kind,
-      stage_id, stage_group_id, scheduled_at, source_updated_at, player_id, position,
-      player_box_score_coverage, net_points_coverage, minutes_played, goals, attempts,
-      goal_assists, intercepts, deflections, rebounds, penalties, feeds,
-      centre_pass_receives, turnovers, gains, pickups, net_points
-    FROM analytics.player_match_fact
-    WHERE competition_id IN (${Prisma.join(competitionIds)})
-  `);
+  const rows = await readAnalyticsPlayerFacts(competitionIds);
   const facts = rows.map(toFact);
   const playerIds = [...new Set(facts.map((fact) => fact.entityId))];
-  const players = await prisma.player.findMany({
-    where: { id: { in: playerIds } },
-    select: { id: true, name: true, position: true, team: { select: { name: true } } },
-  });
+  const players = request.leftCompetitionId === request.rightCompetitionId
+    ? await readAnalyticsPlayers(playerIds, request.leftCompetitionId)
+    : (await Promise.all([
+      readAnalyticsPlayers([request.leftPlayerId], request.leftCompetitionId),
+      readAnalyticsPlayers([request.rightPlayerId], request.rightCompetitionId),
+    ])).flat();
   return calculatePlayerComparison(facts, players.map((player) => ({
-    id: player.id, name: player.name, position: player.position, teamName: player.team.name,
+    id: player.id, name: player.name, position: player.position, teamName: player.teamName,
   })), request);
 }
 
 export async function getComparisonPlayers(competitionId: string) {
-  const playerIds = await prisma.playerMatchStats.findMany({
-    where: { match: { competitionId, status: 'COMPLETED', resultQuality: { in: ['OFFICIAL_FINAL', 'CORRECTED'] }, isSimulation: false } },
-    distinct: ['playerId'], select: { playerId: true },
-  });
-  return prisma.player.findMany({
-    where: { id: { in: playerIds.map((item) => item.playerId) } },
-    select: { id: true, name: true, position: true, team: { select: { name: true } } },
-    orderBy: [{ name: 'asc' }],
-  });
+  return readComparisonPlayers(competitionId);
 }
-

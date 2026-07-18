@@ -2,7 +2,7 @@ export interface ComparisonPlayerOption {
   id: string;
   name: string;
   position: string;
-  team: { name: string };
+  teamName: string;
 }
 
 interface GroupedPlayerOptionsProps {
@@ -13,7 +13,7 @@ export function groupPlayersByTeam(players: ComparisonPlayerOption[]) {
   const groups = new Map<string, ComparisonPlayerOption[]>();
 
   for (const player of players) {
-    const teamName = player.team.name.trim() || 'Unassigned';
+    const teamName = player.teamName.trim() || 'Unassigned';
     const teamPlayers = groups.get(teamName) ?? [];
     teamPlayers.push(player);
     groups.set(teamName, teamPlayers);

@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/db';
-import { getPublicCompetitions } from '@/lib/competitions';
+import { resolvePublicMatchForRequest } from '@/lib/public-match';
 
 export default async function PublicMatchLayout({
   children,
@@ -9,17 +8,8 @@ export default async function PublicMatchLayout({
   children: React.ReactNode;
   params: Promise<{ matchId: string }>;
 }) {
-  const [{ matchId }, editions] = await Promise.all([
-    params,
-    getPublicCompetitions(),
-  ]);
-  const match = await prisma.match.findFirst({
-    where: {
-      id: matchId,
-      competitionId: { in: editions.map((edition) => edition.id) },
-    },
-    select: { id: true },
-  });
+  const { matchId } = await params;
+  const match = await resolvePublicMatchForRequest(matchId);
 
   if (!match) notFound();
   return children;

@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { GroupedPlayerOptions, groupPlayersByTeam } from '../GroupedPlayerOptions';
 
 const players = [
-  { id: 'swift-2', name: 'Zoe Swift', position: 'C', team: { name: 'NSW Swifts' } },
-  { id: 'vixen-1', name: 'Maya Vixen', position: 'GD', team: { name: 'Melbourne Vixens' } },
-  { id: 'swift-1', name: 'Amy Swift', position: 'GA', team: { name: 'NSW Swifts' } },
+  { id: 'swift-2', name: 'Zoe Swift', position: 'C', teamName: 'NSW Swifts' },
+  { id: 'vixen-1', name: 'Maya Vixen', position: 'GD', teamName: 'Melbourne Vixens' },
+  { id: 'swift-1', name: 'Amy Swift', position: 'GA', teamName: 'NSW Swifts' },
 ];
 
 describe('GroupedPlayerOptions', () => {

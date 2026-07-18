@@ -1,9 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Sidebar } from '../Sidebar';
+import type { EditionContextValue } from '@/lib/edition-context';
+
+const glasgow: EditionContextValue = {
+  id: 'glasgow',
+  competitionSlug: 'commonwealth-games',
+  competitionName: 'Commonwealth Games',
+  editionSlug: 'glasgow-2026',
+  editionLabel: 'Glasgow 2026',
+  sourceTimezone: 'Europe/London',
+};
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }));
 
@@ -30,7 +41,7 @@ describe('Sidebar', () => {
   });
 
   it('renders navigation links', () => {
-    render(<Sidebar />);
+    render(<Sidebar analyticsEnabled askCentrePassEnabled />);
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('Live')).toBeInTheDocument();
     expect(screen.getByText('Standings')).toBeInTheDocument();
@@ -40,7 +51,7 @@ describe('Sidebar', () => {
   });
 
   it('renders correct hrefs', () => {
-    render(<Sidebar />);
+    render(<Sidebar analyticsEnabled askCentrePassEnabled />);
     expect(screen.getByText('Home').closest('a')).toHaveAttribute('href', '/');
     expect(screen.getByText('Standings').closest('a')).toHaveAttribute('href', '/standings');
     expect(screen.getByText('Ask CentrePass').closest('a')).toHaveAttribute('href', '/explore');
@@ -53,5 +64,32 @@ describe('Sidebar', () => {
     expect(screen.getByText('sensors')).toHaveClass('material-symbols-outlined');
     expect(screen.getByText('leaderboard')).toHaveClass('material-symbols-outlined');
     expect(screen.getByText('groups')).toHaveClass('material-symbols-outlined');
+  });
+
+  it('scopes supported links to the selected edition', () => {
+    render(<Sidebar editions={[glasgow]} />);
+
+    expect(screen.getByText('Home').closest('a')).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026'
+    );
+    expect(screen.getByText('Standings').closest('a')).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026/standings'
+    );
+    expect(screen.getByText('Teams').closest('a')).toHaveAttribute(
+      'href',
+      '/competitions/commonwealth-games/glasgow-2026/teams'
+    );
+  });
+
+  it('hides every analytics entry point when the server switches are off', () => {
+    render(<Sidebar analyticsEnabled={false} askCentrePassEnabled={false} />);
+
+    expect(screen.queryByText('Rankings')).not.toBeInTheDocument();
+    expect(screen.queryByText('Records')).not.toBeInTheDocument();
+    expect(screen.queryByText('Compare')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ask CentrePass')).not.toBeInTheDocument();
+    expect(screen.getByText('Teams')).toBeInTheDocument();
   });
 });

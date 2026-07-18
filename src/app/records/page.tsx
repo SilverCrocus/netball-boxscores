@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { getMetricDefinition, metricCatalogue } from '@/lib/analytics';
 import type { AnalyticsEntityType, MetricAggregation } from '@/lib/analytics';
-import { getPublicCompetitions } from '@/lib/competitions';
+import { listAnalyticsEditions } from '@/lib/analytics/repository';
 import { getRecordSnapshot } from '@/lib/records/service';
 import type { RecordScope } from '@/lib/records';
+import { editionScopedHref, matchHref } from '@/lib/edition-links';
+import { analyticsFeaturesEnabled } from '@/lib/server-feature-flags';
 
 export const metadata: Metadata = {
   title: 'Netball Records',
@@ -34,10 +37,11 @@ function formatValue(value: number, unit: string): string {
 }
 
 export default async function RecordsPage({ searchParams }: RecordsPageProps) {
+  if (!analyticsFeaturesEnabled()) notFound();
   const query = await searchParams;
   const scope = scopeValue(query.scope);
   const entityType: AnalyticsEntityType = scope === 'TEAM' || query.entity === 'TEAM' ? 'TEAM' : 'PLAYER';
-  const editions = await getPublicCompetitions();
+  const editions = await listAnalyticsEditions();
   const edition = editions.find((option) => option.id === query.edition || option.slug === query.edition) ?? editions[0] ?? null;
   const availableMetrics = metricCatalogue.filter((definition) =>
     definition.entityTypes.includes(entityType) && definition.calculation.kind !== 'SERVICE',
@@ -73,7 +77,7 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
 
       <form method="get" className="grid gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
         <Filter label="Scope"><select name="scope" defaultValue={scope} className="filter-control">{SCOPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Filter>
-        <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series?.name ?? option.name} · {option.label ?? option.season}</option>)}</select></Filter>
+        <Filter label="Edition"><select name="edition" defaultValue={edition?.id} className="filter-control">{editions.map((option) => <option key={option.id} value={option.id}>{option.series.name} · {option.label ?? option.season}</option>)}</select></Filter>
         {scope !== 'TEAM' && <Filter label="Subject"><select name="entity" defaultValue={entityType} className="filter-control"><option value="PLAYER">Players</option><option value="TEAM">Teams</option></select></Filter>}
         <Filter label="Metric"><select name="metric" defaultValue={metric?.id} className="filter-control">{availableMetrics.map((option) => <option key={option.id} value={option.id}>{option.displayName}</option>)}</select></Filter>
         <Filter label="Mode"><select name="aggregation" defaultValue={aggregation} className="filter-control">{metric?.allowedAggregations.map((option) => <option key={option} value={option}>{option.replaceAll('_', ' ').toLocaleLowerCase()}</option>)}</select></Filter>
@@ -102,7 +106,7 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
                 <article key={`${entry.entity.id}-${entry.supportingMatchId ?? 'aggregate'}`} className="grid grid-cols-[3rem_1fr_auto] items-center gap-3 px-4 py-5 sm:grid-cols-[4rem_1fr_9rem_10rem] sm:px-6">
                   <p className="font-headline text-2xl font-black text-primary">{String(index + 1).padStart(2, '0')}</p>
                   <div className="min-w-0">
-                    <Link href={entry.entityType === 'PLAYER' ? `/player/${entry.entity.id}` : `/team/${entry.entity.slug}`} className="font-headline text-lg font-bold text-primary hover:text-secondary">{entry.entity.name}</Link>
+                    <Link href={editionScopedHref(entry.entityType === 'PLAYER' ? `/player/${entry.entity.id}` : `/team/${entry.entity.slug}`, entry.supportingCompetitionId ?? edition?.id)} className="font-headline text-lg font-bold text-primary hover:text-secondary">{entry.entity.name}</Link>
                     <p className="truncate text-xs text-on-surface-variant">{entry.entity.position ? `${entry.entity.position} · ` : ''}{entry.entity.teamName ?? entry.coverageLabel}</p>
                     <p className="mt-1 text-xs text-on-surface-variant sm:hidden">{entry.games} games · {entry.minutes.toFixed(0)} min · {entry.status.toLocaleLowerCase()}</p>
                   </div>
@@ -110,7 +114,7 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
                   <div className="hidden text-right text-xs text-on-surface-variant sm:block">
                     <p>{entry.games} games · {entry.minutes.toFixed(0)} min</p>
                     <p>{new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' }).format(new Date(entry.achievedAt))}</p>
-                    {entry.supportingMatchId && <Link href={`/match/${entry.supportingMatchId}`} className="font-bold text-secondary">Supporting match</Link>}
+                    {entry.supportingMatchId && entry.supportingCompetitionId && <Link href={matchHref(entry.supportingMatchId, entry.supportingCompetitionId)} className="font-bold text-secondary">Supporting match</Link>}
                     <p className="font-mono">{entry.status.toLocaleLowerCase()}</p>
                   </div>
                 </article>

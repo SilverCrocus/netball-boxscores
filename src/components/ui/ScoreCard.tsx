@@ -5,6 +5,7 @@ import { formatMatchDate, formatMatchTime, formatGameClock, formatMatchDateTime 
 import type { TeamInfo } from '@/types/team';
 import { formatMatchStage } from '@/lib/match-label';
 import type { MatchStatus } from '@prisma/client';
+import { matchHref as canonicalMatchHref } from '@/lib/edition-links';
 
 interface ScoreBreakdown {
   goals: number;
@@ -13,12 +14,14 @@ interface ScoreBreakdown {
 
 interface ScoreCardMatch {
   id: string;
+  competitionId?: string;
   href?: string;
   homeTeam: TeamInfo;
   awayTeam: TeamInfo;
-  homeScore: number;
-  awayScore: number;
+  homeScore: number | null;
+  awayScore: number | null;
   status: MatchStatus;
+  scoreAvailable: boolean;
   currentQuarter?: number | null;
   currentTime?: string | null;
   round?: number | null;
@@ -36,12 +39,23 @@ interface ScoreCardProps {
   showFinalBadge?: boolean;
 }
 
+function scoreCardHref(match: ScoreCardMatch, isLive: boolean): string {
+  if (match.href) return match.href;
+  if (!match.competitionId) {
+    throw new Error(`ScoreCard match ${match.id} is missing its canonical edition`);
+  }
+  return canonicalMatchHref(match.id, match.competitionId, isLive ? 'live' : '');
+}
+
 export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
-  const isLive = match.status === 'LIVE';
-  const isCompleted = match.status === 'COMPLETED';
-  const matchHref = match.href ?? (isLive ? `/match/${match.id}/live` : `/match/${match.id}`);
-  const homeWon = isCompleted && match.homeScore > match.awayScore;
-  const awayWon = isCompleted && match.awayScore > match.homeScore;
+  const isLive = match.status === 'LIVE' && match.scoreAvailable;
+  const isCompletedStatus = match.status === 'COMPLETED';
+  const isCompleted = isCompletedStatus && match.scoreAvailable;
+  const matchHref = scoreCardHref(match, isLive);
+  const homeScore = match.homeScore ?? 0;
+  const awayScore = match.awayScore ?? 0;
+  const homeWon = isCompleted && homeScore > awayScore;
+  const awayWon = isCompleted && awayScore > homeScore;
   const hasStageContext = match.round != null
     || Boolean(match.finalCode || match.roundLabel || match.stageName);
   const stageLabel = hasStageContext
@@ -68,7 +82,12 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             Final
           </span>
         )}
-        {isCompleted && !showFinalBadge && match.scheduledAt && (
+        {isCompletedStatus && !isCompleted && showFinalBadge && (
+          <span className="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full text-[10px] font-bold font-label tracking-widest uppercase">
+            Result pending
+          </span>
+        )}
+        {isCompletedStatus && !showFinalBadge && match.scheduledAt && (
           <span className="text-[10px] font-bold text-on-surface-variant uppercase font-label">
             {formatMatchDateTime(match.scheduledAt)}
           </span>
@@ -91,9 +110,10 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             </span>
           </div>
 
+          {isLive || isCompleted ? (
           <div className="flex items-center gap-1 text-3xl font-black font-headline tracking-tighter sm:gap-3 sm:text-4xl">
             <div className="flex flex-col items-center">
-              <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{match.homeScore}</span>
+              <span className={homeWon ? 'text-secondary' : awayWon ? 'text-slate-400' : 'text-primary'}>{homeScore}</span>
               {match.homeBreakdown && match.homeBreakdown.superShots > 0 && (
                 <span className="font-label text-[10px] text-on-surface-variant/60 font-medium mt-[-2px]">
                   ({match.homeBreakdown.goals}.{match.homeBreakdown.superShots})
@@ -102,7 +122,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             </div>
             <span className="text-outline-variant text-2xl">-</span>
             <div className="flex flex-col items-center">
-              <span className={awayWon ? 'text-secondary' : homeWon ? 'text-slate-400' : 'text-primary'}>{match.awayScore}</span>
+              <span className={awayWon ? 'text-secondary' : homeWon ? 'text-slate-400' : 'text-primary'}>{awayScore}</span>
               {match.awayBreakdown && match.awayBreakdown.superShots > 0 && (
                 <span className="font-label text-[10px] text-on-surface-variant/60 font-medium mt-[-2px]">
                   ({match.awayBreakdown.goals}.{match.awayBreakdown.superShots})
@@ -110,6 +130,11 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
               )}
             </div>
           </div>
+          ) : (
+            <span className="font-headline text-2xl font-black italic tracking-tight text-outline-variant sm:text-3xl">
+              VS
+            </span>
+          )}
 
           <div className="flex min-w-0 flex-col items-center text-center">
             <TeamBadge team={match.awayTeam} size={48} variant="away" className="mb-2" />
@@ -129,7 +154,7 @@ export function ScoreCard({ match, showFinalBadge = true }: ScoreCardProps) {
             {match.venue && ` \u2022 ${match.venue}`}
           </span>
           <span className="text-secondary font-bold text-xs flex items-center gap-1 group-hover:gap-2 transition-all">
-            {isLive ? 'See Live Stats' : 'View Stats'}
+            {isLive ? 'See Live Stats' : isCompleted ? 'View Stats' : 'Match details'}
             <span aria-hidden="true" className="material-symbols-outlined text-sm">chevron_right</span>
           </span>
         </div>

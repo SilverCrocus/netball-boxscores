@@ -2,24 +2,46 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { NAV_ITEMS, isActive } from '@/lib/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { getVisibleNavigationItems, isResolvedNavigationActive } from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
+import { GlobalEditionSelector } from '@/components/competition/GlobalEditionSelector';
+import type { EditionContextValue } from '@/lib/edition-context';
+import {
+  editionAwareNavigationHref,
+  navigationEditionFromLocation,
+} from '@/lib/edition-links';
 
-export function Sidebar() {
+export function Sidebar({
+  editions = [],
+  analyticsEnabled = false,
+  askCentrePassEnabled = false,
+}: {
+  editions?: EditionContextValue[];
+  analyticsEnabled?: boolean;
+  askCentrePassEnabled?: boolean;
+}) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { hasLive, minutesUntilNext } = useLiveStatus();
+  const currentEdition = navigationEditionFromLocation(
+    editions,
+    pathname,
+    searchParams.get('edition'),
+  );
+  const navigationItems = getVisibleNavigationItems({ analyticsEnabled, askCentrePassEnabled });
 
   return (
-    <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 bg-slate-900 py-8 z-40 shadow-xl">
+    <aside className="hidden lg:flex flex-col h-full w-[264px] fixed left-0 top-0 overflow-y-auto bg-slate-900 py-8 z-40 shadow-xl">
       <Link href="/" className="px-6 mb-8 flex items-center gap-3">
         <Image
           src="/netball-cleaned-white.png"
           alt=""
           width={500}
           height={453}
+          priority
           className="h-8 w-auto"
           style={{ width: 'auto' }}
         />
@@ -28,16 +50,22 @@ export function Sidebar() {
         </span>
       </Link>
       <div className="mb-5 px-4">
-        <GlobalSearch dark />
+        <GlobalSearch dark askCentrePassEnabled={askCentrePassEnabled} />
       </div>
+      {editions.length > 0 && (
+        <div className="mb-5 px-4">
+          <GlobalEditionSelector editions={editions} appearance="dark" />
+        </div>
+      )}
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
-          const active = isActive(pathname, item.href);
+        {navigationItems.map((item) => {
+          const href = editionAwareNavigationHref(currentEdition, item.href);
+          const active = isResolvedNavigationActive(pathname, item.href, href);
           const isLiveItem = item.href === '/live';
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={href}
               className={`flex items-center gap-4 py-3 pl-4 border-l-4 transition-all font-headline font-medium text-sm ${
                 active
                   ? 'text-lime-400 border-lime-400 bg-slate-800/30'
