@@ -11,6 +11,22 @@ import nextConfig from '../../../next.config';
 const bundlePath = path.resolve('data/glasgow-2026/v1/bundle.json');
 const manifestPath = path.resolve('data/glasgow-2026/v1/source-manifest.json');
 const generatorPath = path.resolve('scripts/build-glasgow-2026-source-bundle.mjs');
+const expectedRevalidatedAt = '2026-07-18T00:00:00.000Z';
+
+const expectedUgandaFinalSquad = [
+  'Mary Nuba',
+  'Rachel Nanyonga',
+  'Shadiah Nassanga',
+  'Alice Isoto',
+  'Margaret Bagala',
+  'Mercy Batamuliza',
+  'Joan Ryekoboth',
+  'Lilian Achola',
+  'Gloria Ayaa',
+  'Hanisha Muhameed',
+  'Nasimu Mutesi',
+  'Shafie Nalwanja',
+] as const;
 
 const expectedSourceIds = [
   'glasgow-participants-pools',
@@ -55,6 +71,8 @@ const expectedSourceIds = [
   'trinidad-tobago-squad-hub',
   'trinidad-tobago-squad-post',
   'uganda-provisional-squad',
+  'uganda-final-squad-swift-sports',
+  'uganda-final-squad-kawowo',
   'funmi-photo',
   'olivia-photo',
   'eleanor-photo',
@@ -94,6 +112,18 @@ const reviewedSourceClaims = {
     url: 'https://netballnz.co.nz/images/silver-ferns/documents/SFTJT-21-Media-Guide-web.pdf',
     purpose: 'Rhea Dixon goal-attack position',
   },
+  'uganda-provisional-squad': {
+    url: 'https://www.newvision.co.ug/category/sports/she-cranes-unveil-commonwealth-squad-line-up-NV_236303_062026',
+    purpose: 'Historical Uganda 15-player South Africa preparation squad; superseded for the final Glasgow 2026 selection',
+  },
+  'uganda-final-squad-swift-sports': {
+    url: 'https://swiftsportsug.com/2026/07/16/nabbanja-flags-off-team-uganda-for-glasgow-commonwealth-games/',
+    purpose: 'Uganda final 12 Glasgow 2026 squad identities and flag-off confirmation',
+  },
+  'uganda-final-squad-kawowo': {
+    url: 'https://kawowo.com/2026/07/17/2026-commonwealth-games-who-is-on-team-uganda/',
+    purpose: 'Uganda final 12 Glasgow 2026 squad identity cross-check and available player-position evidence',
+  },
 } as const;
 
 const reviewedPlayerPositions = {
@@ -116,6 +146,7 @@ const reviewedPlayerPositions = {
 async function loadSourceBundle() {
   const bundleText = await readFile(bundlePath, 'utf8');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
+    generatedAt: string;
     bundleFileSha256: string;
     sources: Array<{
       id: string;
@@ -174,7 +205,7 @@ describe('Glasgow 2026 source bundle', () => {
       sourceManifest: expect.objectContaining({
         bundleVersion: 'v1',
         publicationStatusPolicy: 'DRAFT_ONLY',
-        sourceCount: 46,
+        sourceCount: 48,
       }),
     });
     expect(evidence.publicationExpectation).toMatchObject({
@@ -270,21 +301,23 @@ describe('Glasgow 2026 source bundle', () => {
       canonicalChampionDataPlayerId: 80830,
     }));
     expect(manifest.declarations.squadIdentityCoverage).toEqual({
-      finalSquads: 11,
-      provisionalSquads: 1,
+      finalSquads: 12,
+      provisionalSquads: 0,
       importedCompleteSquads: 8,
     });
     expect(manifest.declarations.squadCoverage.UGA).toMatchObject({
-      identity: 'PROVISIONAL',
+      identity: 'VERIFIED',
+      positions: 'PARTIAL',
       importedPlayers: 0,
     });
     expect(manifest.declarations.squadMembers.MWI).toMatchObject({ status: 'FINAL' });
     expect(manifest.declarations.squadMembers.MWI.members).toHaveLength(12);
     expect(manifest.declarations.squadMembers.TON.members).toHaveLength(12);
     expect(manifest.declarations.squadMembers.TTO.members).toHaveLength(12);
-    expect(manifest.declarations.squadMembers.UGA).toMatchObject({ status: 'PROVISIONAL' });
-    expect(manifest.declarations.squadMembers.UGA.members).toHaveLength(15);
+    expect(manifest.declarations.squadMembers.UGA).toMatchObject({ status: 'FINAL' });
+    expect(manifest.declarations.squadMembers.UGA.members).toEqual(expectedUgandaFinalSquad);
     expect(bundle.players.some((player) => player.teamExternalId === 'UGA')).toBe(false);
+    expect(bundle.rosters.some((roster) => roster.teamExternalId === 'UGA')).toBe(false);
     expect(bundle.players.some((player) => player.name === 'Sophilet Banda')).toBe(false);
     expect(bundle.players).toContainEqual(expect.objectContaining({
       externalId: 'WAL-phillipa-yarranton',
@@ -357,13 +390,15 @@ describe('Glasgow 2026 source bundle', () => {
     );
 
     expect(new Set(sourceIds).size).toBe(sourceIds.length);
-    expect(manifest.sources).toHaveLength(46);
+    expect(manifest.generatedAt).toBe(expectedRevalidatedAt);
+    expect(bundle.context.retrievedAt).toBe(expectedRevalidatedAt);
+    expect(manifest.sources).toHaveLength(48);
     expect(sourceIds).toEqual(expectedSourceIds);
     expect(manifest.sources.every((source) => (
       source.url.startsWith('https://')
       && source.purpose.length > 0
       && source.fetchStatus === 'REFERENCED'
-      && !Number.isNaN(Date.parse(source.retrievedAt))
+      && source.retrievedAt === expectedRevalidatedAt
     ))).toBe(true);
     expect(manifest.sources.some((source) => source.fetchStatus === 'VERIFIED')).toBe(false);
     expect(manifest.declarations.factualDataReuse).toEqual({
@@ -386,6 +421,8 @@ describe('Glasgow 2026 source bundle', () => {
         .filter((source) => source.id.endsWith('-photo'))
         .map((source) => source.url)
     )).toEqual(photoSources);
+    expect(manifest.sources.filter((source) => source.id.endsWith('-photo'))).toHaveLength(4);
+    expect(manifest.sources.filter((source) => !source.id.endsWith('-photo'))).toHaveLength(44);
   });
 
   it('reproduces both checked-in artifacts byte-for-byte from the generator', async () => {

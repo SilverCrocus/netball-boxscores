@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const retrievedAt = '2026-07-17T13:45:48.000Z';
+const retrievedAt = '2026-07-18T00:00:00.000Z';
 const outputDirectory = path.resolve('data/glasgow-2026/v1');
 
 const teamRows = [
@@ -247,14 +247,13 @@ const unimportedSquadEvidence = {
     note: 'Final 12 identities are verified. Exact primary positions were not available for every player in the fetched source set.',
   },
   UGA: {
-    status: 'PROVISIONAL',
+    status: 'FINAL',
     members: [
-      'Mary Cholhok', 'Shadiah Nassanga', 'Rachael Nanyonga', 'Alice Isoto',
-      'Margaret Baagala', 'Lillian Achola', 'Joan Ryekoboth', 'Mercy Batamuliza',
-      'Hindu Namutebi', 'Shaffie Nalwanja', 'Stella Nanfuka', 'Mutesi Nassim',
-      'Gloria Aya', 'Christine Nakitto', 'Haniisha Muhameed',
+      'Mary Nuba', 'Rachel Nanyonga', 'Shadiah Nassanga', 'Alice Isoto',
+      'Margaret Bagala', 'Mercy Batamuliza', 'Joan Ryekoboth', 'Lilian Achola',
+      'Gloria Ayaa', 'Hanisha Muhameed', 'Nasimu Mutesi', 'Shafie Nalwanja',
     ],
-    note: 'This is the published 15-player preparation squad, not a final registered 12. No Uganda players are imported until a final squad is published.',
+    note: 'Final 12 identities are verified. Exact primary positions are not supported for every player, so the roster is retained as evidence and no Uganda players are imported with invented positions.',
   },
 };
 
@@ -409,7 +408,9 @@ const sources = [
   ['jamaica-crystal-position', 'https://www.jamaicaobserver.com/2024/08/15/crystal-plummers-netball-future-shines-bright/', 'Crystal Plummer positions'],
   ['trinidad-tobago-squad-hub', 'https://netball.sport/events-and-results/commonwealth-games/trinidadtobago/', 'Trinidad and Tobago final squad announcement embed'],
   ['trinidad-tobago-squad-post', 'https://www.facebook.com/TTOCommonwealthGamesAssociation/posts/1682294542859642', 'TTO Commonwealth Games Association final delegation graphic'],
-  ['uganda-provisional-squad', 'https://www.newvision.co.ug/category/sports/she-cranes-unveil-commonwealth-squad-line-up-NV_236303_062026', 'Uganda 15-player preparation squad; not a final 12'],
+  ['uganda-provisional-squad', 'https://www.newvision.co.ug/category/sports/she-cranes-unveil-commonwealth-squad-line-up-NV_236303_062026', 'Historical Uganda 15-player South Africa preparation squad; superseded for the final Glasgow 2026 selection'],
+  ['uganda-final-squad-swift-sports', 'https://swiftsportsug.com/2026/07/16/nabbanja-flags-off-team-uganda-for-glasgow-commonwealth-games/', 'Uganda final 12 Glasgow 2026 squad identities and flag-off confirmation'],
+  ['uganda-final-squad-kawowo', 'https://kawowo.com/2026/07/17/2026-commonwealth-games-who-is-on-team-uganda/', 'Uganda final 12 Glasgow 2026 squad identity cross-check and available player-position evidence'],
   ['funmi-photo', 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg', 'Funmi Fadoju reusable photo and licence'],
   ['olivia-photo', 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Olivia_Tchine.jpg', 'Olivia Tchine reusable photo and licence'],
   ['eleanor-photo', 'https://commons.wikimedia.org/wiki/File:Thunderbirds_shooter_Eleanor_Cardwell.jpg', 'Eleanor Cardwell reusable photo and licence'],
@@ -434,7 +435,7 @@ const squadCoverage = {
   NZL: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
   JAM: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
   WAL: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
-  UGA: { identity: 'PROVISIONAL', positions: 'PARTIAL', importedPlayers: 0, note: 'Published list contains 15 preparation-squad players, not a final registered 12.' },
+  UGA: { identity: 'VERIFIED', positions: 'PARTIAL', importedPlayers: 0, note: 'Final 12 identities retained in squadMembers; exact primary position is not supported for every member.' },
   SCO: { identity: 'VERIFIED', positions: 'VERIFIED', importedPlayers: 12 },
   TTO: { identity: 'VERIFIED', positions: 'PARTIAL', importedPlayers: 0, note: 'Final 12 identities retained in squadMembers; exact primary position is not supported for every member.' },
 };
@@ -455,7 +456,7 @@ const manifest = {
     venue: 'The Hydro',
     matchCoverage: { total: 38, poolStage: 30, classification: 4, semiFinals: 2, medalMatches: 2, unresolvedSlots: 12, dependentSlots: 4 },
     squadPositionConvention: 'A database primary position is recorded only when a fetched source directly supports that player-position fact; no unsupported position is inferred for import completeness.',
-    squadIdentityCoverage: { finalSquads: 11, provisionalSquads: 1, importedCompleteSquads: 8 },
+    squadIdentityCoverage: { finalSquads: 12, provisionalSquads: 0, importedCompleteSquads: 8 },
     squadCoverage,
     squadMembers,
     photoCoverage: { verifiedReusablePhotos: 4, license: 'CC BY-SA 4.0', allOtherPlayers: 'UNAVAILABLE' },
