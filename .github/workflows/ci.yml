@@ -178,6 +178,9 @@ jobs:
       - name: Verify exact scoped preview role allowlists
         run: npx tsx scripts/verify-preview-scoped-roles.ts
 
+      - name: Prove Ask telemetry increments once and rolls back cleanly
+        run: npx tsx scripts/verify-preview-stat-query-telemetry.ts
+
       - name: Verify zero current and default Data API grants
         run: npx tsx scripts/verify-preview-data-api-acls.ts
 
