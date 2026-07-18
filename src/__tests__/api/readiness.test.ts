@@ -35,12 +35,21 @@ vi.mock('@/lib/stat-query/operations', () => ({
 }));
 
 describe('Readiness API', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('WORKER_ENABLED', 'true');
     vi.stubEnv('DATABASE_ENVIRONMENT', 'test');
     vi.stubEnv('ANALYTICS_FEATURES_ENABLED', 'false');
     vi.stubEnv('ASK_CENTREPASS_ENABLED', 'false');
+    vi.stubEnv('DATABASE_URL', 'postgresql://postgres@localhost:5432/centrepass');
+    vi.stubEnv(
+      'ANALYTICS_DATABASE_URL',
+      'postgresql://centrepass_analytics@localhost:5432/centrepass',
+    );
+    vi.stubEnv(
+      'STATS_OPERATIONS_DATABASE_URL',
+      'postgresql://centrepass_stats_operations@localhost:5432/centrepass',
+    );
     queryRawMock.mockReset().mockResolvedValue([{ ready: 1 }]);
     analyticsQueryRawMock.mockReset().mockResolvedValue([{
       identity_ok: true,
@@ -84,6 +93,10 @@ describe('Readiness API', () => {
       uptimeMs: 60_000,
       isHealthy: true,
     });
+    const { invalidateScopedDatabaseBoundaryCache } = await import(
+      '@/lib/scoped-database-boundary'
+    );
+    invalidateScopedDatabaseBoundaryCache();
   });
 
   afterEach(() => {

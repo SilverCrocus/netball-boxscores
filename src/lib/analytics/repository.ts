@@ -1,6 +1,6 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
-import { getAnalyticsDatabase } from '@/lib/scoped-database-clients';
+import { getVerifiedAnalyticsDatabase } from '@/lib/scoped-database-boundary';
 import type { AnalyticsCoverageState, AnalyticsEntityType } from '@/lib/analytics/types';
 
 export interface AnalyticsEdition {
@@ -110,7 +110,7 @@ export interface AnalyticsTeamDirectoryEntry {
 }
 
 export async function listAnalyticsEditions(): Promise<AnalyticsEdition[]> {
-  const rows = await getAnalyticsDatabase().$queryRaw<AnalyticsEditionRow[]>(Prisma.sql`
+  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<AnalyticsEditionRow[]>(Prisma.sql`
     SELECT
       competition_id, season, competition_name, competition_slug,
       competition_label, season_start, season_end, source_timezone,
@@ -140,7 +140,7 @@ export async function readAnalyticsPlayerFacts(
   competitionIds: readonly string[],
 ): Promise<AnalyticsPlayerFactRow[]> {
   if (competitionIds.length === 0) return [];
-  return getAnalyticsDatabase().$queryRaw<AnalyticsPlayerFactRow[]>(Prisma.sql`
+  return (await getVerifiedAnalyticsDatabase()).$queryRaw<AnalyticsPlayerFactRow[]>(Prisma.sql`
     SELECT
       match_id, competition_id, competition_series_id, competition_kind,
       stage_id, stage_group_id, scheduled_at, source_updated_at,
@@ -157,7 +157,7 @@ export async function readAnalyticsTeamFacts(
   competitionIds: readonly string[],
 ): Promise<AnalyticsTeamFactRow[]> {
   if (competitionIds.length === 0) return [];
-  return getAnalyticsDatabase().$queryRaw<AnalyticsTeamFactRow[]>(Prisma.sql`
+  return (await getVerifiedAnalyticsDatabase()).$queryRaw<AnalyticsTeamFactRow[]>(Prisma.sql`
     SELECT
       match_id, competition_id, competition_series_id, competition_kind,
       stage_id, stage_group_id, scheduled_at, source_updated_at,
@@ -183,13 +183,13 @@ export async function readAnalyticsPlayers(
     team_name: string;
   };
   const rows = competitionId
-    ? await getAnalyticsDatabase().$queryRaw<PlayerRow[]>(Prisma.sql`
+    ? await (await getVerifiedAnalyticsDatabase()).$queryRaw<PlayerRow[]>(Prisma.sql`
         SELECT player_id, player_name, position, team_name
         FROM analytics.player_edition_directory
         WHERE competition_id = ${competitionId}
           AND player_id IN (${Prisma.join(playerIds)})
       `)
-    : await getAnalyticsDatabase().$queryRaw<PlayerRow[]>(Prisma.sql`
+    : await (await getVerifiedAnalyticsDatabase()).$queryRaw<PlayerRow[]>(Prisma.sql`
         SELECT player_id, player_name, position, team_name
         FROM analytics.player_directory
         WHERE player_id IN (${Prisma.join(playerIds)})
@@ -201,7 +201,7 @@ export async function readAnalyticsTeams(
   teamIds: readonly string[],
 ): Promise<AnalyticsTeamDirectoryEntry[]> {
   if (teamIds.length === 0) return [];
-  const rows = await getAnalyticsDatabase().$queryRaw<Array<{
+  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<Array<{
     team_id: string;
     team_name: string;
     team_slug: string;
@@ -222,7 +222,7 @@ export async function readAnalyticsTeams(
 export async function readComparisonPlayers(
   competitionId: string,
 ): Promise<AnalyticsPlayerDirectoryEntry[]> {
-  const rows = await getAnalyticsDatabase().$queryRaw<Array<{
+  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<Array<{
     player_id: string;
     player_name: string;
     position: string;
@@ -243,7 +243,7 @@ export async function readComparisonPlayers(
 }
 
 export async function readFinalsStageIds(competitionId: string): Promise<string[]> {
-  const rows = await getAnalyticsDatabase().$queryRaw<Array<{ stage_id: string }>>(Prisma.sql`
+  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<Array<{ stage_id: string }>>(Prisma.sql`
     SELECT stage_id
     FROM analytics.stage_directory
     WHERE competition_id = ${competitionId}
@@ -268,7 +268,7 @@ export interface AnalyticsTeamPowerMatchRow {
 }
 
 export async function readTeamPowerMatches(competitionId: string): Promise<AnalyticsTeamPowerMatchRow[]> {
-  return getAnalyticsDatabase().$queryRaw<AnalyticsTeamPowerMatchRow[]>(Prisma.sql`
+  return (await getVerifiedAnalyticsDatabase()).$queryRaw<AnalyticsTeamPowerMatchRow[]>(Prisma.sql`
     SELECT
       match_id, competition_id, competition_series_id, competition_kind,
       scheduled_at, source_updated_at, neutral_venue, home_team_id,
@@ -280,7 +280,7 @@ export async function readTeamPowerMatches(competitionId: string): Promise<Analy
 }
 
 export async function readEditionTeams(competitionId: string): Promise<AnalyticsTeamDirectoryEntry[]> {
-  const rows = await getAnalyticsDatabase().$queryRaw<Array<{
+  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<Array<{
     team_id: string;
     team_name: string;
     team_slug: string;
@@ -300,7 +300,7 @@ export async function readEditionTeams(competitionId: string): Promise<Analytics
 }
 
 export async function readPlayerName(playerId: string): Promise<string | null> {
-  const rows = await getAnalyticsDatabase().$queryRaw<Array<{ player_name: string }>>(Prisma.sql`
+  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<Array<{ player_name: string }>>(Prisma.sql`
     SELECT player_name
     FROM analytics.player_directory
     WHERE player_id = ${playerId}
@@ -313,7 +313,7 @@ export async function readOpponentMatchIds(
   competitionId: string,
   opponentTeamId: string,
 ): Promise<string[]> {
-  const rows = await getAnalyticsDatabase().$queryRaw<Array<{ match_id: string }>>(Prisma.sql`
+  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<Array<{ match_id: string }>>(Prisma.sql`
     SELECT match_id
     FROM analytics.opponent_match_directory
     WHERE competition_id = ${competitionId}
@@ -324,7 +324,7 @@ export async function readOpponentMatchIds(
 }
 
 export async function readAnalyticsRevision(): Promise<{ revision: bigint; invalidatedAt: Date | null }> {
-  const rows = await getAnalyticsDatabase().$queryRaw<Array<{ revision: bigint; invalidated_at: Date | null }>>(Prisma.sql`
+  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<Array<{ revision: bigint; invalidated_at: Date | null }>>(Prisma.sql`
     SELECT revision, invalidated_at
     FROM analytics.cache_revision_read
   `);
@@ -339,7 +339,7 @@ export interface ParserDirectoryRows {
 }
 
 export async function readParserDirectory(): Promise<ParserDirectoryRows> {
-  const database = getAnalyticsDatabase();
+  const database = await getVerifiedAnalyticsDatabase();
   const [players, playerAliases, teams, teamAliases, stages, groups] = await Promise.all([
     database.$queryRaw<Array<{ player_id: string; player_name: string; position: string }>>(Prisma.sql`
       SELECT player_id, player_name, position FROM analytics.player_directory ORDER BY player_name, player_id

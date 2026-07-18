@@ -4,8 +4,8 @@ const mocks = vi.hoisted(() => ({
   queryRaw: vi.fn(),
 }));
 
-vi.mock('@/lib/scoped-database-clients', () => ({
-  getStatsOperationsDatabase: () => ({ $queryRaw: mocks.queryRaw }),
+vi.mock('@/lib/scoped-database-boundary', () => ({
+  getVerifiedStatsOperationsDatabase: async () => ({ $queryRaw: mocks.queryRaw }),
 }));
 
 import { checkDurableRateLimit } from '@/lib/stat-query/operations';

@@ -4,8 +4,13 @@ const mocks = vi.hoisted(() => ({
   loadContext: vi.fn(), parse: vi.fn(), execute: vi.fn(), revision: vi.fn(),
   cacheKey: vi.fn(), rate: vi.fn(), cached: vi.fn(), rateKey: vi.fn(),
   setCached: vi.fn(), timeout: vi.fn(), telemetry: vi.fn(),
+  analyticsBoundary: vi.fn(), operationsBoundary: vi.fn(),
 }));
 
+vi.mock('@/lib/scoped-database-boundary', () => ({
+  assertAnalyticsDatabaseBoundary: mocks.analyticsBoundary,
+  assertStatsOperationsDatabaseBoundary: mocks.operationsBoundary,
+}));
 vi.mock('@/lib/stat-query/context', () => ({ loadParserContext: mocks.loadContext }));
 vi.mock('@/lib/stat-query/parser', () => ({ parseStatQuestion: mocks.parse }));
 vi.mock('@/lib/stat-query/executor', () => ({ executeQuerySpec: mocks.execute }));
@@ -44,6 +49,8 @@ describe('POST /api/stats/query', () => {
     mocks.cached.mockReturnValue(null);
     mocks.timeout.mockImplementation((operation: Promise<unknown>) => operation);
     mocks.telemetry.mockResolvedValue(undefined);
+    mocks.analyticsBoundary.mockResolvedValue(undefined);
+    mocks.operationsBoundary.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -65,6 +72,20 @@ describe('POST /api/stats/query', () => {
     const response = await POST(request({ question: 42 }));
     expect(response.status).toBe(400);
     expect(mocks.rate).not.toHaveBeenCalled();
+    expect(mocks.analyticsBoundary).not.toHaveBeenCalled();
+  });
+
+  it('fails closed before rate limiting or analytics work when a scoped boundary is unavailable', async () => {
+    mocks.operationsBoundary.mockRejectedValue(new Error('wrong scoped role'));
+
+    const response = await POST(request({ question: 'Grace Nweke goals' }));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'QUERY_UNAVAILABLE', retryable: true },
+    });
+    expect(mocks.rate).not.toHaveBeenCalled();
+    expect(mocks.loadContext).not.toHaveBeenCalled();
   });
 
   it('uses the durable rate-limit decision', async () => {
