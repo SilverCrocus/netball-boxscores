@@ -4,6 +4,7 @@ import { readAnalyticsRevision } from '@/lib/analytics/repository';
 import { getStatsOperationsDatabase } from '@/lib/scoped-database-clients';
 import { askCentrePassEnabled } from '@/lib/server-feature-flags';
 import { normalizeStatQuestion } from '@/lib/stat-query/normalize';
+import { persistQueryTelemetry } from '@/lib/stat-query/telemetry';
 import type { ParseResult, QuerySpecV1 } from '@/lib/stat-query/types';
 
 const CACHE_TTL_MS = 60_000;
@@ -106,17 +107,8 @@ export async function writeQueryTelemetry(input: {
   latencyMs: number;
   errorCode?: string;
 }): Promise<void> {
-  const querySpec = input.parseResult.status === 'READY' ? input.parseResult.spec : null;
-  const payload = querySpec ? JSON.stringify(querySpec) : null;
-  await getStatsOperationsDatabase().$queryRaw(Prisma.sql`
-    SELECT analytics.write_stat_query_telemetry(
-      ${questionHash(input.question)},
-      ${payload}::JSONB,
-      ${input.parseResult.parserVersion},
-      ${input.resultStatus},
-      ${input.resultCount},
-      ${input.latencyMs},
-      ${input.errorCode ?? null}
-    )
-  `);
+  await persistQueryTelemetry(getStatsOperationsDatabase(), {
+    ...input,
+    questionHash: questionHash(input.question),
+  });
 }
