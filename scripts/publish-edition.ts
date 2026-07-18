@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { publishEdition } from '@/lib/edition-publication';
 import { loadGlasgowFoundationSourceEvidence } from '@/lib/glasgow/source-manifest';
+import { assertGlasgowDatabaseActionAllowed } from './lib/glasgow-production-guard';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -17,8 +18,13 @@ async function main() {
   const confirmationToken = confirmationIndex >= 0 ? args[confirmationIndex + 1] : undefined;
   if (apply && !confirmationToken) throw new Error('--apply requires --confirm <token> from --dry-run');
 
-  const glasgowExpectation = competitionSlug === 'commonwealth-games-netball'
-    && editionSlug === 'glasgow-2026'
+  const isGlasgow = competitionSlug === 'commonwealth-games-netball'
+    && editionSlug === 'glasgow-2026';
+  if (isGlasgow) {
+    await assertGlasgowDatabaseActionAllowed(apply ? 'publish-apply' : 'publish-dry-run');
+  }
+
+  const glasgowExpectation = isGlasgow
     ? (await loadGlasgowFoundationSourceEvidence(
       'data/glasgow-2026/v1/bundle.json',
     )).publicationExpectation

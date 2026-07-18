@@ -1,8 +1,15 @@
 import { access, chmod, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { validateProtectedLibpqEnvironment } from '../../../scripts/lib/production-psql';
+import {
+  assertGlasgowDatabaseActionAllowed,
+  GLASGOW_GUARD_ENVIRONMENT,
+  GLASGOW_PRODUCTION_GUARD,
+  type GlasgowDatabaseAction,
+} from '../../../scripts/lib/glasgow-production-guard';
 import {
   executeGuardedGlasgowAction,
   parseGuardedGlasgowArguments,
@@ -40,6 +47,7 @@ const OPERATIONS_PARAMETERS = `${TRANSACTION_PARAMETERS}&connection_limit=2&pool
 function validProductionEnvironment(): NodeJS.ProcessEnv {
   return {
     NODE_ENV: 'test',
+    DATABASE_ENVIRONMENT: 'production',
     EXPECTED_PRODUCTION_PROJECT_REF: PRODUCTION_REF,
     REJECTED_PREVIEW_PROJECT_REF: PREVIEW_REF,
     DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres${TRANSACTION_PARAMETERS}`,
@@ -107,6 +115,27 @@ function assertGuardedRunbookPublicationCommands(markdown: string, label: string
     }
     if (evidenceIndex > publishIndex) {
       throw new Error(`${label} publication --evidence-file must precede the publish action`);
+    }
+  }
+}
+
+function assertNoDirectGlasgowDatabaseCommands(markdown: string, label: string): void {
+  for (const command of fencedBashLogicalCommands(markdown)) {
+    const tokens = shellTokens(command);
+    for (const script of [
+      'db:prepare:glasgow',
+      'db:import:glasgow:results',
+      'db:publish:edition',
+      'db:unpublish:edition',
+    ]) {
+      if (scriptInvocationIndex(tokens, script) >= 0) {
+        throw new Error(`${label} contains direct production-capable command ${script}`);
+      }
+    }
+
+    const foundationImport = scriptInvocationIndex(tokens, 'db:import:glasgow');
+    if (foundationImport >= 0 && !tokens.includes('--offline-preview')) {
+      throw new Error(`${label} contains a direct database-aware Glasgow foundation import`);
     }
   }
 }
@@ -390,6 +419,13 @@ describe('production operation guards', () => {
       action: 'publish-dry-run',
       arguments: ['commonwealth-games-netball', 'glasgow-2026', '--dry-run'],
     });
+    expect(parseGuardedGlasgowArguments([
+      '--evidence-file', evidence, 'unpublish', '--confirm-unpublish',
+    ])).toMatchObject({
+      action: 'unpublish-apply',
+      script: 'unpublish-edition.ts',
+      arguments: ['commonwealth-games-netball', 'glasgow-2026', '--confirm-unpublish'],
+    });
     expect(() => parseGuardedGlasgowArguments([
       '--evidence-file', evidence, 'foundation', 'other.json', '--apply',
     ])).toThrow('Usage:');
@@ -406,16 +442,98 @@ describe('production operation guards', () => {
     const rollback = await readFile(path.join(runbooksDirectory, 'glasgow-2026-rollback.md'), 'utf8');
 
     expect(rollback).not.toMatch(/^\s*npm run db:publish:edition\b/m);
-    expect(rollback.match(/npm run production:glasgow --/g)).toHaveLength(2);
-    expect(rollback.match(/--evidence-file /g)).toHaveLength(2);
+    expect(rollback).not.toMatch(/^\s*npm run db:unpublish:edition\b/m);
+    expect(rollback.match(/npm run production:glasgow --/g)).toHaveLength(3);
+    expect(rollback.match(/--evidence-file /g)).toHaveLength(3);
     expect(rollback).toContain('chmod 700 "$RELEASE_EVIDENCE_DIR/glasgow/targets"');
+    expect(rollback).toContain('emergency-unpublish.json');
     expect(rollback).toContain('rollback-publication-dry-run.json');
     expect(rollback).toContain('rollback-publication-apply.json');
 
     for (const runbook of runbooks) {
       const body = await readFile(path.join(runbooksDirectory, runbook), 'utf8');
       expect(() => assertGuardedRunbookPublicationCommands(body, runbook)).not.toThrow();
+      expect(() => assertNoDirectGlasgowDatabaseCommands(body, runbook)).not.toThrow();
     }
+  });
+
+  it.each<GlasgowDatabaseAction>([
+    'prepare',
+    'foundation-preview',
+    'foundation-record-preview',
+    'foundation-apply',
+    'results-preview',
+    'results-record-preview',
+    'results-apply',
+    'publish-dry-run',
+    'publish-apply',
+    'unpublish-apply',
+  ])('rejects a direct production bypass for %s', async (action) => {
+    await expect(assertGlasgowDatabaseActionAllowed(action, validProductionEnvironment()))
+      .rejects.toThrow('must run through npm run production:glasgow');
+  });
+
+  it.each([
+    ['prepare', 'prepare-glasgow-2026.ts', []],
+    ['foundation import', 'import-glasgow-2026.ts', ['data/glasgow-2026/v1/bundle.json', '--apply']],
+    ['results import', 'import-glasgow-2026-results.ts', ['/private/missing-results.json', '--record-preview']],
+    ['publication', 'publish-edition.ts', ['commonwealth-games-netball', 'glasgow-2026', '--dry-run']],
+    ['emergency unpublish', 'unpublish-edition.ts', ['commonwealth-games-netball', 'glasgow-2026', '--confirm-unpublish']],
+  ])('blocks the direct %s script before any production database access', (_label, script, args) => {
+    const environment = {
+      ...process.env,
+      ...validProductionEnvironment(),
+    };
+    for (const name of Object.values(GLASGOW_GUARD_ENVIRONMENT)) delete environment[name];
+
+    const result = spawnSync(process.execPath, [
+      '--import',
+      'tsx',
+      path.resolve('scripts', script),
+      ...args,
+    ], {
+      cwd: path.resolve('.'),
+      encoding: 'utf8',
+      env: environment,
+      shell: false,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'Glasgow production database actions must run through npm run production:glasgow',
+    );
+    expect(result.stderr).not.toContain('P1001');
+  });
+
+  it('preserves explicit preview and development database workflows', async () => {
+    await expect(assertGlasgowDatabaseActionAllowed('foundation-apply', {
+      NODE_ENV: 'test',
+      DATABASE_ENVIRONMENT: 'staging',
+      DATABASE_URL: `postgresql://postgres.${PREVIEW_REF}:secret@${POOLER}:6543/postgres`,
+      DIRECT_URL: `postgresql://postgres:secret@db.${PREVIEW_REF}.supabase.co:5432/postgres`,
+    })).resolves.toBe('non-production');
+
+    await expect(assertGlasgowDatabaseActionAllowed('prepare', {
+      NODE_ENV: 'development',
+      DATABASE_ENVIRONMENT: 'local',
+      DATABASE_URL: 'postgresql://postgres:secret@127.0.0.1:5432/centrepass',
+    })).resolves.toBe('non-production');
+  });
+
+  it('detects a production Supabase route even when the environment is mislabeled', async () => {
+    await expect(assertGlasgowDatabaseActionAllowed('prepare', {
+      NODE_ENV: 'test',
+      DATABASE_ENVIRONMENT: 'staging',
+      DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@${POOLER}:6543/postgres`,
+    })).rejects.toThrow('must run through npm run production:glasgow');
+  });
+
+  it('rejects a forged wrapper marker without its private evidence capability', async () => {
+    await expect(assertGlasgowDatabaseActionAllowed('prepare', {
+      ...validProductionEnvironment(),
+      [GLASGOW_GUARD_ENVIRONMENT.guard]: GLASGOW_PRODUCTION_GUARD,
+      [GLASGOW_GUARD_ENVIRONMENT.action]: 'prepare',
+    })).rejects.toThrow('CENTREPASS_GLASGOW_PRODUCTION_EVIDENCE_FILE');
   });
 
   it('rejects evidence flags attached to the wrong logical publication command', () => {
@@ -487,6 +605,34 @@ describe('production operation guards', () => {
       });
       expect(evidence).not.toContain('secret');
       expect(evidence).not.toContain(POOLER);
+
+      const guardedEnvironment = options.env;
+      expect(evidence).not.toContain(
+        guardedEnvironment[GLASGOW_GUARD_ENVIRONMENT.nonce],
+      );
+      await expect(assertGlasgowDatabaseActionAllowed(
+        'foundation-preview',
+        guardedEnvironment,
+        { parentPid: () => process.pid },
+      )).resolves.toBe('guarded-production');
+      await expect(assertGlasgowDatabaseActionAllowed(
+        'prepare',
+        guardedEnvironment,
+        { parentPid: () => process.pid },
+      )).rejects.toThrow('action does not match');
+      await expect(assertGlasgowDatabaseActionAllowed(
+        'foundation-preview',
+        guardedEnvironment,
+        { parentPid: () => process.pid + 1 },
+      )).rejects.toThrow('not started by the guarded wrapper');
+      await expect(assertGlasgowDatabaseActionAllowed(
+        'foundation-preview',
+        {
+          ...guardedEnvironment,
+          [GLASGOW_GUARD_ENVIRONMENT.nonce]: 'f'.repeat(64),
+        },
+        { parentPid: () => process.pid },
+      )).rejects.toThrow('nonce does not match');
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

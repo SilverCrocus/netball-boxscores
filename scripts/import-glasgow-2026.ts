@@ -11,6 +11,7 @@ import {
   recordPrismaImportPreview,
 } from '@/lib/sources/prisma-writer';
 import { CompetitionImportService } from '@/lib/sources/service';
+import { assertGlasgowDatabaseActionAllowed } from './lib/glasgow-production-guard';
 
 function usage(): never {
   throw new Error(
@@ -28,6 +29,14 @@ async function main() {
   if (apply && recordPreview) throw new Error('--record-preview cannot be combined with --apply');
   if (offlinePreview && recordPreview) {
     throw new Error('--offline-preview cannot be combined with --record-preview');
+  }
+
+  if (!offlinePreview) {
+    await assertGlasgowDatabaseActionAllowed(
+      recordPreview
+        ? 'foundation-record-preview'
+        : apply ? 'foundation-apply' : 'foundation-preview',
+    );
   }
 
   const bundlePath = path.resolve(sourceFile);

@@ -89,8 +89,8 @@ The edition must already be `PUBLISHED`. Apply re-runs the same validation in a
 serializable transaction and requires the exact recorded-preview token. It
 resolves only existing mapped matches and mapped participants.
 Do not invoke `db:import:glasgow:results` directly in production; it is a
-development entrypoint and does not itself establish the adjacent target
-evidence boundary.
+development entrypoint and fails closed there unless it is the action-bound
+child of `production:glasgow` with fresh target evidence.
 
 The transaction atomically updates:
 

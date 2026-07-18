@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { unpublishEdition } from '@/lib/edition-publication';
+import { assertGlasgowDatabaseActionAllowed } from './lib/glasgow-production-guard';
 
 async function main() {
   const [competitionSlug, editionSlug, confirmation] = process.argv.slice(2);
@@ -7,6 +8,10 @@ async function main() {
     throw new Error(
       'Usage: npm run db:unpublish:edition -- <competition-slug> <edition-slug> --confirm-unpublish',
     );
+  }
+
+  if (competitionSlug === 'commonwealth-games-netball' && editionSlug === 'glasgow-2026') {
+    await assertGlasgowDatabaseActionAllowed('unpublish-apply');
   }
 
   const result = await unpublishEdition(prisma, { competitionSlug, editionSlug });
