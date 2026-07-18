@@ -24,6 +24,7 @@ import {
   parseProductionMigrationLedger,
 } from '../../../scripts/verify-production-migrations';
 import {
+  CATALOG_SQL,
   catalogDefinitionChecksum,
   catalogObjectChecksum,
   catalogSecurityStateChecksum,
@@ -703,6 +704,78 @@ describe('production operation guards', () => {
       checksum: CHECKSUM_A,
       status: 'applied',
     }]);
+  });
+
+  it('builds schema-qualified type-only function identities without argument-name drift', () => {
+    expect(CATALOG_SQL).toContain("format('%I.%I(%s)', n.nspname, p.proname");
+    expect(CATALOG_SQL).toContain(
+      "string_agg(format_type(arg.type_oid, NULL), ',' ORDER BY arg.ordinality)",
+    );
+    expect(CATALOG_SQL).toContain(
+      'unnest(p.proargtypes::oid[]) WITH ORDINALITY AS arg(type_oid, ordinality)',
+    );
+    expect(CATALOG_SQL).not.toContain('pg_get_function_identity_arguments');
+  });
+
+  it('pins the checked-in catalog inventory, provenance, function identities, and PostgreSQL 17 ACLs', async () => {
+    const manifest = validateManifest(JSON.parse(await readFile(
+      path.resolve('scripts/manifests/production-catalog.json'),
+      'utf8',
+    )) as unknown);
+
+    expect(manifest.sourceProjectRef).toBe(PREVIEW_REF);
+    expect(manifest.sourceMigrationThrough).toBe('20260717010000_close_postgres17_maintain_acl');
+    expect(manifest.objects).toHaveLength(43);
+    expect(Object.fromEntries(['function', 'trigger', 'view'].map((kind) => [
+      kind,
+      manifest.objects.filter((object) => object.kind === kind).length,
+    ]))).toEqual({ function: 6, trigger: 12, view: 25 });
+    expect(manifest.objects
+      .filter((object) => object.kind === 'function')
+      .map((object) => object.identity)).toEqual([
+      'analytics.queue_match_invalidation()',
+      'analytics.reserve_stat_query_rate_limit(text)',
+      'analytics.write_stat_query_telemetry(text,jsonb,text,text,integer,integer,text)',
+      'public.cp_prepare_legacy_match_write()',
+      'public.cp_sync_legacy_match_foundation()',
+      'public.cp_validate_competition_topology()',
+    ]);
+
+    const relationOwnerPrivileges = [
+      'DELETE',
+      'INSERT',
+      'MAINTAIN',
+      'REFERENCES',
+      'SELECT',
+      'TRIGGER',
+      'TRUNCATE',
+      'UPDATE',
+    ];
+    expect(Object.keys(manifest.securityProfiles)).toEqual([
+      'function-analytics-owner',
+      'function-operations',
+      'function-public-invoker',
+      'trigger-owner',
+      'view-analytics-reader',
+      'view-owner',
+      'view-owner-security-barrier',
+    ]);
+    for (const profileName of [
+      'trigger-owner',
+      'view-analytics-reader',
+      'view-owner',
+      'view-owner-security-barrier',
+    ]) {
+      const profile = manifest.securityProfiles[profileName]!;
+      const acl = profile.state.acl as Array<{ grantee: string; privilege: string }>;
+      const privileges = acl
+        .filter((entry) => entry.grantee === 'postgres')
+        .map((entry) => entry.privilege);
+      expect(privileges, profileName).toEqual(relationOwnerPrivileges);
+      expect(acl
+        .filter((entry) => entry.privilege === 'MAINTAIN')
+        .map((entry) => entry.grantee), profileName).toEqual(['postgres']);
+    }
   });
 
   it('fails catalog verification for missing, unexpected, or changed security-critical state', () => {

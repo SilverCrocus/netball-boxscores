@@ -56,7 +56,7 @@ export interface CatalogComparison {
   duplicates: string[];
 }
 
-const CATALOG_SQL = String.raw`
+export const CATALOG_SQL = String.raw`
 WITH objects AS (
   SELECT
     CASE c.relkind WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized_view' END AS kind,
@@ -84,7 +84,10 @@ WITH objects AS (
   UNION ALL
   SELECT
     'function',
-    format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)),
+    format('%I.%I(%s)', n.nspname, p.proname, COALESCE((
+      SELECT string_agg(format_type(arg.type_oid, NULL), ',' ORDER BY arg.ordinality)
+      FROM unnest(p.proargtypes::oid[]) WITH ORDINALITY AS arg(type_oid, ordinality)
+    ), '')),
     pg_get_functiondef(p.oid),
     jsonb_build_object(
       'owner', pg_get_userbyid(p.proowner),
