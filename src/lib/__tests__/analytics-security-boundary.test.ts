@@ -8,6 +8,7 @@ const analyticsRole = read('scripts/provision-analytics-role.sql');
 const operationsRole = read('scripts/provision-stats-operations-role.sql');
 const queryPlanChecks = read('scripts/check-analytics-query-plans.sql');
 const readinessRoute = read('src/app/api/readiness/route.ts');
+const runtimeBoundary = read('src/lib/scoped-database-boundary.ts');
 
 const ANALYTICS_VIEW_ALLOWLIST = [
   'competition_directory',
@@ -194,18 +195,25 @@ describe('secure analytics query boundary', () => {
   });
 
   it('makes readiness prove both scoped role contracts instead of connection liveness', () => {
-    expect(readinessRoute).toContain("CURRENT_USER = 'centrepass_analytics'");
-    expect(readinessRoute).toContain("CURRENT_USER = 'centrepass_stats_operations'");
-    expect(readinessRoute).toContain("current_setting('default_transaction_read_only', true) = 'on'");
-    expect(readinessRoute.match(/current_setting\('statement_timeout'\)/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(readinessRoute.match(/statementTimeoutOk/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(readinessRoute).not.toContain('pg_catalog.extract(');
-    expect(readinessRoute.match(/pg_stat_statements_info/g)?.length).toBeGreaterThanOrEqual(2);
-    expect(readinessRoute.match(/role_attributes_ok/g)?.length).toBeGreaterThanOrEqual(2);
-    expect(readinessRoute.match(/no_role_memberships/g)?.length).toBeGreaterThanOrEqual(2);
-    expect(readinessRoute.match(/no_sequence_privileges/g)?.length).toBeGreaterThanOrEqual(2);
-    expect(readinessRoute).toContain('no_function_privileges');
-    expect(readinessRoute).toContain('exact_function_surface_ok');
+    expect(readinessRoute).toContain('probeAnalyticsDatabaseBoundary');
+    expect(readinessRoute).toContain('probeStatsOperationsDatabaseBoundary');
+    expect(runtimeBoundary).toContain("CURRENT_USER = 'centrepass_analytics'");
+    expect(runtimeBoundary).toContain("CURRENT_USER = 'centrepass_stats_operations'");
+    expect(runtimeBoundary).toContain("current_setting('default_transaction_read_only', true) = 'on'");
+    expect(runtimeBoundary.match(/current_setting\('statement_timeout'\)/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(runtimeBoundary.match(/statementTimeoutOk/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(runtimeBoundary).not.toContain('pg_catalog.extract(');
+    expect(runtimeBoundary.match(/pg_stat_statements_info/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(runtimeBoundary.match(/role_attributes_ok/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(runtimeBoundary.match(/no_role_memberships/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(runtimeBoundary.match(/no_sequence_privileges/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(runtimeBoundary).toContain('no_function_privileges');
+    expect(runtimeBoundary).toContain('exact_function_surface_ok');
+    expect(runtimeBoundary.match(/relation\.oid, 'MAINTAIN'/g)).toHaveLength(2);
+    expect(runtimeBoundary.match(/OR routine\.prosecdef/g)).toHaveLength(2);
+    expect(runtimeBoundary.match(
+      /has_schema_privilege\(CURRENT_USER, namespace\.oid, 'CREATE'\)/g,
+    )).toHaveLength(2);
   });
 
   it('keeps every public analytics service off the general Prisma client', () => {
@@ -220,8 +228,8 @@ describe('secure analytics query boundary', () => {
     ]) {
       expect(read(path), path).not.toContain("from '@/lib/db'");
     }
-    expect(read('src/lib/analytics/repository.ts')).toContain('getAnalyticsDatabase');
-    expect(read('src/lib/stat-query/operations.ts')).toContain('getStatsOperationsDatabase');
+    expect(read('src/lib/analytics/repository.ts')).toContain('getVerifiedAnalyticsDatabase');
+    expect(read('src/lib/stat-query/operations.ts')).toContain('getVerifiedStatsOperationsDatabase');
     const scopedClients = read('src/lib/scoped-database-clients.ts');
     expect(scopedClients).toContain("url.searchParams.set('pgbouncer', 'true')");
     expect(scopedClients).toContain("url.searchParams.set('pool_timeout', '5')");

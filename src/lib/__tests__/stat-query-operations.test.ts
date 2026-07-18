@@ -5,8 +5,8 @@ const databaseMocks = vi.hoisted(() => ({
   queryRaw: vi.fn(),
 }));
 
-vi.mock('@/lib/scoped-database-clients', () => ({
-  getStatsOperationsDatabase: () => ({
+vi.mock('@/lib/scoped-database-boundary', () => ({
+  getVerifiedStatsOperationsDatabase: async () => ({
     $executeRaw: databaseMocks.executeRaw,
     $queryRaw: databaseMocks.queryRaw,
   }),

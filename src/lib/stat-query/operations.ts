@@ -1,7 +1,7 @@
 import { createHash, createHmac } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { readAnalyticsRevision } from '@/lib/analytics/repository';
-import { getStatsOperationsDatabase } from '@/lib/scoped-database-clients';
+import { getVerifiedStatsOperationsDatabase } from '@/lib/scoped-database-boundary';
 import { askCentrePassEnabled } from '@/lib/server-feature-flags';
 import { normalizeStatQuestion } from '@/lib/stat-query/normalize';
 import { persistQueryTelemetry } from '@/lib/stat-query/telemetry';
@@ -47,7 +47,7 @@ export async function checkDurableRateLimit(keyHash: string): Promise<{
   remaining: number;
   retryAfterSeconds: number;
 }> {
-  const rows = await getStatsOperationsDatabase().$queryRaw<Array<{
+  const rows = await (await getVerifiedStatsOperationsDatabase()).$queryRaw<Array<{
     allowed: boolean;
     remaining: number;
     retry_after_seconds: number;
@@ -107,7 +107,7 @@ export async function writeQueryTelemetry(input: {
   latencyMs: number;
   errorCode?: string;
 }): Promise<void> {
-  await persistQueryTelemetry(getStatsOperationsDatabase(), {
+  await persistQueryTelemetry(await getVerifiedStatsOperationsDatabase(), {
     ...input,
     questionHash: questionHash(input.question),
   });

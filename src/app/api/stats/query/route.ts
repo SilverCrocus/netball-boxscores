@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import {
+  assertAnalyticsDatabaseBoundary,
+  assertStatsOperationsDatabaseBoundary,
+} from '@/lib/scoped-database-boundary';
 import { executeQuerySpec } from '@/lib/stat-query/executor';
 import { loadParserContext } from '@/lib/stat-query/context';
 import { analyticsRevision, cacheKey, checkDurableRateLimit, getCachedResult, rateLimitKey, setCachedResult, withStatQueryTimeout, writeQueryTelemetry } from '@/lib/stat-query/operations';
@@ -152,6 +156,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (policyError) {
       return errorResponse('UNSUPPORTED_QUESTION', policyError, 400);
     }
+    await Promise.all([
+      assertAnalyticsDatabaseBoundary(),
+      assertStatsOperationsDatabaseBoundary(),
+    ]);
     const keyHash = rateLimitKey(clientIdentifier(request));
     const rate = await checkDurableRateLimit(keyHash);
     const rateHeaders = { 'X-RateLimit-Remaining': String(rate.remaining) };
