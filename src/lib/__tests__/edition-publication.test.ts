@@ -25,6 +25,12 @@ const expectation: GlasgowPublicationExpectation = {
   bundleFileSha256: 'bundle-file-sha',
   manifestFileSha256: 'manifest-file-sha',
   sourceIds: ['source-one'],
+  sources: [{
+    id: 'source-one',
+    url: 'https://example.com/source-one',
+    retrievedAt: '2026-07-17T00:00:00.000Z',
+    fetchStatus: 'REFERENCED',
+  }],
   teamExternalIds: Array.from({ length: 12 }, (_, index) => `team-${index + 1}`),
   playerExternalIds: Array.from({ length: 96 }, (_, index) => `player-${index + 1}`),
   matchExternalIds: Array.from({ length: 38 }, (_, index) => `match-${index + 1}`),

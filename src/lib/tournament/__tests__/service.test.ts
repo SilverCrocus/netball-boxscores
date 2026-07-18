@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
   findMany: vi.fn(),
-  resolvePublicMatchAccess: vi.fn(),
+  resolvePublicMatchAccessBatch: vi.fn(),
   canExposePublicMatchScore: vi.fn(),
 }));
 
@@ -17,7 +17,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchAccess: mocks.resolvePublicMatchAccess,
+  resolvePublicMatchAccessBatch: mocks.resolvePublicMatchAccessBatch,
   canExposePublicMatchScore: mocks.canExposePublicMatchScore,
 }));
 
@@ -54,10 +54,29 @@ function group(pool: 'a' | 'b') {
   };
 }
 
+function bracketMatch(id: string) {
+  return {
+    id,
+    round: null,
+    roundLabel: 'Finals fixture',
+    finalCode: null,
+    scheduledAt: new Date('2026-08-01T08:00:00.000Z'),
+    venue: 'The Hydro',
+    status: 'COMPLETED',
+    homeScore: 61,
+    awayScore: 60,
+    homeTeam: { id: 'aus', name: 'Australia', abbreviation: 'AUS', logoUrl: null },
+    awayTeam: { id: 'jam', name: 'Jamaica', abbreviation: 'JAM', logoUrl: null },
+    slots: [],
+  };
+}
+
 describe('tournament data service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.resolvePublicMatchAccess.mockResolvedValue({ scoreAvailable: true });
+    mocks.resolvePublicMatchAccessBatch.mockImplementation(async (ids: string[]) => new Map(
+      ids.map((id) => [id, { scoreAvailable: true }]),
+    ));
     mocks.canExposePublicMatchScore.mockImplementation(
       (access: { scoreAvailable: boolean }) => access.scoreAvailable,
     );
@@ -244,15 +263,19 @@ describe('tournament data service', () => {
       }],
     }]);
 
-    const stages = await getTournamentBracket('glasgow-2026');
+    const edition = { id: 'glasgow-2026' } as never;
+    const stages = await getTournamentBracket('glasgow-2026', edition);
 
-    expect(mocks.resolvePublicMatchAccess).toHaveBeenCalledWith('semi-final-unverified');
+    expect(mocks.resolvePublicMatchAccessBatch).toHaveBeenCalledWith(
+      ['semi-final-unverified'],
+      [edition],
+    );
     expect(stages[0].matches[0].sideA.score).toBeNull();
     expect(stages[0].matches[0].sideB.score).toBeNull();
   });
 
   it('omits bracket matches denied by the shared public policy', async () => {
-    mocks.resolvePublicMatchAccess.mockResolvedValue(null);
+    mocks.resolvePublicMatchAccessBatch.mockResolvedValue(new Map());
     mocks.findMany.mockResolvedValue([{
       id: 'medals',
       slug: 'medals',
@@ -278,6 +301,112 @@ describe('tournament data service', () => {
     const stages = await getTournamentBracket('glasgow-2026');
 
     expect(stages[0].matches).toEqual([]);
+  });
+
+  it('batches a multi-stage bracket once while preserving per-match access filtering', async () => {
+    const edition = { id: 'glasgow-2026' } as never;
+    mocks.findMany.mockResolvedValue([
+      {
+        id: 'classification',
+        slug: 'classification',
+        name: 'Classification Matches',
+        type: 'CLASSIFICATION',
+        sequence: 2,
+        matches: [bracketMatch('classification-allowed')],
+      },
+      {
+        id: 'semi-finals',
+        slug: 'semi-finals',
+        name: 'Semi-finals',
+        type: 'SEMI_FINALS',
+        sequence: 3,
+        matches: [bracketMatch('semi-final-denied')],
+      },
+      {
+        id: 'medals',
+        slug: 'medal-matches',
+        name: 'Medal Matches',
+        type: 'MEDAL_MATCHES',
+        sequence: 4,
+        matches: [bracketMatch('medal-score-blocked')],
+      },
+    ]);
+    mocks.resolvePublicMatchAccessBatch.mockResolvedValue(new Map([
+      ['classification-allowed', { scoreAvailable: true }],
+      ['medal-score-blocked', { scoreAvailable: false }],
+    ]));
+
+    const stages = await getTournamentBracket('glasgow-2026', edition);
+
+    expect(mocks.findMany).toHaveBeenCalledOnce();
+    expect(mocks.resolvePublicMatchAccessBatch).toHaveBeenCalledOnce();
+    expect(mocks.resolvePublicMatchAccessBatch).toHaveBeenCalledWith([
+      'classification-allowed',
+      'semi-final-denied',
+      'medal-score-blocked',
+    ], [edition]);
+    expect(stages.map((stage) => stage.matches.map((match) => match.id))).toEqual([
+      ['classification-allowed'],
+      [],
+      ['medal-score-blocked'],
+    ]);
+    expect(stages[0].matches[0].sideA.score).toBe(61);
+    expect(stages[2].matches[0].sideA.score).toBeNull();
+  });
+
+  it('propagates bracket access infrastructure failures instead of returning empty stages', async () => {
+    mocks.findMany.mockResolvedValue([{
+      id: 'semi-finals',
+      slug: 'semi-finals',
+      name: 'Semi-finals',
+      type: 'SEMI_FINALS',
+      sequence: 3,
+      matches: [bracketMatch('semi-final')],
+    }]);
+    mocks.resolvePublicMatchAccessBatch.mockRejectedValue(new Error('access database unavailable'));
+
+    await expect(getTournamentBracket('glasgow-2026'))
+      .rejects.toThrow('access database unavailable');
+    expect(mocks.findMany).toHaveBeenCalledOnce();
+    expect(mocks.resolvePublicMatchAccessBatch).toHaveBeenCalledOnce();
+  });
+
+  it('returns flattened empty bracket stages without invoking the batch resolver', async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: 'classification',
+        slug: 'classification',
+        name: 'Classification Matches',
+        type: 'CLASSIFICATION',
+        sequence: 2,
+        matches: [],
+      },
+      {
+        id: 'medals',
+        slug: 'medal-matches',
+        name: 'Medal Matches',
+        type: 'MEDAL_MATCHES',
+        sequence: 4,
+        matches: [],
+      },
+    ]);
+
+    const stages = await getTournamentBracket('glasgow-2026');
+
+    expect(stages.map((stage) => stage.matches)).toEqual([[], []]);
+    expect(mocks.findMany).toHaveBeenCalledOnce();
+    expect(mocks.resolvePublicMatchAccessBatch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mismatched loaded edition before querying bracket stages', async () => {
+    const wrongEdition = { id: 'other-edition' } as never;
+
+    await expect(getTournamentBracket('glasgow-2026', wrongEdition))
+      .rejects.toThrow(
+        'Loaded edition other-edition does not match competition glasgow-2026',
+      );
+    expect(mocks.findMany).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicMatchAccessBatch).not.toHaveBeenCalled();
   });
 
   it('loads only the published classification, semi-final and medal stages', async () => {

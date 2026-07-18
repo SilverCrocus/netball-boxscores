@@ -99,6 +99,11 @@ placeholder credentials only.
   reconnects re-resolve public access instead of retaining publication access.
   Real launcher smoke coverage holds active Socket.IO clients through both
   production SIGTERM and development SIGINT shutdown.
+- The guarded Glasgow preview rehearsal now has a preview-specific,
+  non-cancelling concurrency group, a protected environment declaration, full
+  checkout history, and PostgreSQL 17 baseline/migration/role/ACL/rollback
+  stages. Workflow regression assertions preserve these controls alongside the
+  immutable action pins and production build/launcher parity checks.
 
 ## Remaining risks and ownership
 
@@ -106,11 +111,6 @@ placeholder credentials only.
   `codex/wave1-integration` on the audit date. Repository administrators should
   require the `Check and build` job and review before integration. This is an
   external governance change and was not mutated by this lane.
-- The Task D-owned Glasgow preview job has no protected GitHub environment and
-  shares the workflow-level cancel-in-progress concurrency group. Concurrent or
-  superseding manual rehearsals therefore need a Task D decision about a
-  preview-specific non-cancelling concurrency key and environment approval.
-  Database rehearsal commands and guards were not edited here.
 - The CSP still permits inline scripts for current Next compatibility. A nonce-
   based strict CSP needs a separate rendering/cache change and browser coverage.
 - Processing paths outside this lane still log raw caught errors. Worker error

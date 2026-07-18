@@ -18,8 +18,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: >-
+    ${{ github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview
+      && format('preview-rehearsal-{0}', inputs.expected_preview_project_ref)
+      || format('ci-{0}-{1}', github.workflow, github.event.pull_request.number || github.ref) }}
+  cancel-in-progress: >-
+    ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview) }}
 
 jobs:
   verify:
@@ -42,6 +46,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -79,6 +84,20 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: centrepass-preview-rehearsal
+    services:
+      migration-rehearsal-postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: ${{ secrets.SUPABASE_PREVIEW_DATABASE_URL }}
       DIRECT_URL: ${{ secrets.SUPABASE_PREVIEW_DATABASE_URL }}
@@ -93,6 +112,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Verify preview-only database target
         shell: bash
@@ -121,6 +141,46 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Capture refs-only preview target evidence
+        run: npx tsx scripts/verify-preview-database-target.ts
+
+      - name: Prove empty PostgreSQL 17 target and seed minimal Supabase roles
+        env: &fresh-migration-env
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          DIRECT_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          FRESH_MIGRATION_REHEARSAL: "true"
+        run: npx tsx scripts/verify-fresh-prisma-migration-target.ts
+
+      - name: Verify immutable historical Prisma baseline
+        env: *fresh-migration-env
+        run: npx tsx scripts/verify-prisma-baseline-artifact.ts
+
+      - name: Rehearse historical baseline and complete retained migration chain
+        env: *fresh-migration-env
+        run: npx tsx scripts/rehearse-complete-prisma-migrations.ts
+
+      - name: Verify complete fresh PostgreSQL 17 migration ledger
+        env: *fresh-migration-env
+        run: npx tsx scripts/verify-preview-migrations.ts
+
+      - name: Verify and resolve Supabase remote-schema Prisma prefix
+        run: npx tsx scripts/verify-preview-prisma-baseline.ts --resolve
+
+      - name: Deploy checked-in Prisma migrations
+        run: npx prisma migrate deploy
+
+      - name: Verify exact checked-in migration ledger
+        run: npx tsx scripts/verify-preview-migrations.ts
+
+      - name: Provision reviewed scoped preview roles without emitting credentials
+        run: npx tsx scripts/provision-preview-scoped-roles.ts
+
+      - name: Verify exact scoped preview role allowlists
+        run: npx tsx scripts/verify-preview-scoped-roles.ts
+
+      - name: Verify zero current and default Data API grants
+        run: npx tsx scripts/verify-preview-data-api-acls.ts
+
       - name: Validate the immutable bundle offline
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
 
@@ -135,6 +195,9 @@ jobs:
 
       - name: Record clean preview receipt
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --record-preview
+
+      - name: Prove controlled import failure rolls back canonical writes
+        run: npx tsx scripts/rehearse-glasgow-2026-rollback.ts
 
       - name: Apply exact bundle to preview
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --apply

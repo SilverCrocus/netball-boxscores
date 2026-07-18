@@ -37,6 +37,12 @@ export interface GlasgowPublicationExpectation {
   bundleFileSha256: string;
   manifestFileSha256: string;
   sourceIds: string[];
+  sources: Array<{
+    id: string;
+    url: string;
+    retrievedAt: string;
+    fetchStatus: string;
+  }>;
   teamExternalIds: string[];
   playerExternalIds: string[];
   matchExternalIds: string[];
@@ -172,6 +178,14 @@ export async function loadGlasgowFoundationSourceEvidence(
       bundleFileSha256: manifest.bundleFileSha256,
       manifestFileSha256,
       sourceIds,
+      sources: manifest.sources
+        .map((source) => ({
+          id: source.id,
+          url: source.url,
+          retrievedAt: source.retrievedAt,
+          fetchStatus: source.fetchStatus,
+        }))
+        .toSorted((left, right) => left.id.localeCompare(right.id)),
       teamExternalIds: bundle.teams.map((team) => team.externalId).toSorted(),
       playerExternalIds: bundle.players.map((player) => player.externalId).toSorted(),
       matchExternalIds: bundle.matches.map((match) => match.externalId).toSorted(),
