@@ -1,10 +1,12 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import {
+  APPLICATION_RELATION_KINDS_SQL,
   DATA_API_DEFAULT_ACL_GRANTEES,
   type DefaultAclPrivilegeRow,
   defaultAclInspectionQuery,
   verifyDefaultAclBoundary,
+  verifyNoCurrentDataApiGrants,
 } from './lib/preview-default-acl-contract';
 import { verifyPreviewDatabaseTarget } from './lib/preview-database-target';
 
@@ -33,7 +35,7 @@ async function main() {
           )) privilege
           LEFT JOIN pg_roles grantee ON grantee.oid = privilege.grantee
           WHERE namespace.nspname IN ('public', 'analytics')
-            AND object.relkind IN ('r', 'p', 'v', 'm', 'S')
+            AND object.relkind IN (${APPLICATION_RELATION_KINDS_SQL})
             AND (privilege.grantee = 0 OR grantee.rolname IN ('anon', 'authenticated', 'service_role'))
         )::bigint AS "relationGrants",
         (SELECT COUNT(*) FROM pg_proc function
@@ -49,7 +51,8 @@ async function main() {
           JOIN pg_namespace namespace ON namespace.oid = object.relnamespace
           JOIN pg_roles owner ON owner.oid = object.relowner
           WHERE namespace.nspname IN ('public', 'analytics')
-            AND object.relkind IN ('r', 'p', 'v', 'm', 'S') AND owner.rolname <> 'postgres'
+            AND object.relkind IN (${APPLICATION_RELATION_KINDS_SQL})
+            AND owner.rolname <> 'postgres'
         )::bigint AS "nonPostgresRelations",
         (SELECT COUNT(*) FROM pg_proc function
           JOIN pg_namespace namespace ON namespace.oid = function.pronamespace
@@ -60,10 +63,7 @@ async function main() {
   ]);
   const state = counts[0];
   invariant(state, 'ACL count query returned no row');
-  invariant(state.relationGrants === BigInt(0),
-    `found ${state.relationGrants} effective current relation or sequence grants`);
-  invariant(state.functionGrants === BigInt(0),
-    `found ${state.functionGrants} effective current function grants`);
+  verifyNoCurrentDataApiGrants(state);
   invariant(state.nonPostgresRelations === BigInt(0),
     `found ${state.nonPostgresRelations} application relations not owned by postgres`);
   invariant(state.nonPostgresFunctions === BigInt(0),

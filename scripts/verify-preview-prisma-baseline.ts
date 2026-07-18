@@ -8,6 +8,7 @@ import {
   matchesPlainBtreeIndex,
 } from './lib/preview-index-contract';
 import {
+  APPLICATION_RELATION_KINDS_SQL,
   type DefaultAclPrivilegeRow,
   defaultAclInspectionQuery,
   verifyDefaultAclBoundary,
@@ -226,7 +227,7 @@ async function verifyPublicSchemaHardening() {
           JOIN pg_namespace namespace ON namespace.oid = object.relnamespace
           JOIN pg_roles owner ON owner.oid = object.relowner
           WHERE namespace.nspname IN ('public', 'analytics')
-            AND object.relkind IN ('r', 'p', 'v', 'm', 'S')
+            AND object.relkind IN (${APPLICATION_RELATION_KINDS_SQL})
             AND owner.rolname = 'supabase_admin') +
          (SELECT COUNT(*) FROM pg_proc function
           JOIN pg_namespace namespace ON namespace.oid = function.pronamespace
