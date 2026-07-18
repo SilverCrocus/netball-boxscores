@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { BottomNav } from '../BottomNav';
 import type { EditionContextValue } from '@/lib/edition-context';
 
@@ -12,8 +12,10 @@ const glasgow: EditionContextValue = {
   sourceTimezone: 'Europe/London',
 };
 
+let currentPathname = '/';
+
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/',
+  usePathname: () => currentPathname,
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }));
@@ -30,6 +32,11 @@ vi.mock('next/link', () => ({
 }));
 
 describe('BottomNav', () => {
+  beforeEach(() => {
+    currentPathname = '/';
+    document.body.style.overflow = '';
+  });
+
   it('renders as nav element', () => {
     render(<BottomNav />);
     expect(screen.getByRole('navigation')).toBeInTheDocument();
@@ -71,6 +78,128 @@ describe('BottomNav', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(moreButton).toHaveFocus();
+  });
+
+  it('locks background scrolling and traps keyboard focus inside the More dialog', () => {
+    render(<BottomNav />);
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'More' });
+    const closeButton = within(dialog).getByRole('button', { name: 'Close more menu' });
+    const lastControl = within(dialog).getByRole('link', { name: 'Sign In' });
+    expect(document.body).toHaveStyle({ overflow: 'hidden' });
+    expect(closeButton).toHaveFocus();
+
+    lastControl.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(lastControl).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('blocks background pointer and focus interaction while the More dialog is open', () => {
+    const backgroundClick = vi.fn();
+    render(
+      <div>
+        <main onClick={backgroundClick}><a href="/standings">Background standings</a></main>
+        <BottomNav />
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'More' });
+    const closeButton = within(dialog).getByRole('button', { name: 'Close more menu' });
+    const backgroundLink = screen.getByRole('link', { name: 'Background standings', hidden: true });
+    const backgroundMain = backgroundLink.closest('main');
+    const backgroundNav = screen.getByRole('navigation', { hidden: true });
+    expect(backgroundMain).toHaveAttribute('inert');
+    expect(backgroundMain).toHaveAttribute('aria-hidden', 'true');
+    expect(backgroundNav).toHaveAttribute('inert');
+    const modalLayer = screen.getByTestId('mobile-more-modal-layer');
+    expect(modalLayer).not.toHaveAttribute('inert');
+
+    fireEvent.click(modalLayer);
+    expect(backgroundClick).not.toHaveBeenCalled();
+
+    backgroundLink.focus();
+    fireEvent.focusIn(backgroundLink);
+    expect(closeButton).toHaveFocus();
+  });
+
+  it('closes on a route change and releases scroll and background state', async () => {
+    const { rerender } = render(
+      <div>
+        <main>Page content</main>
+        <BottomNav />
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(document.body).toHaveStyle({ overflow: 'hidden' });
+
+    currentPathname = '/standings';
+    rerender(
+      <div>
+        <main>Page content</main>
+        <BottomNav />
+      </div>
+    );
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(document.body.style.overflow).toBe('');
+    expect(screen.getByRole('main')).not.toHaveAttribute('inert');
+    expect(screen.getByRole('navigation')).not.toHaveAttribute('inert');
+  });
+
+  it('releases scroll and background state when unmounted while open', () => {
+    const { unmount } = render(
+      <div>
+        <main>Page content</main>
+        <BottomNav />
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    const main = screen.getByRole('main', { hidden: true });
+    expect(main).toHaveAttribute('inert');
+
+    unmount();
+
+    expect(document.body.style.overflow).toBe('');
+    expect(main).not.toHaveAttribute('inert');
+    expect(main).not.toHaveAttribute('aria-hidden');
+  });
+
+  it('includes dynamically added controls in the focus boundary', () => {
+    render(<BottomNav />);
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    const dialog = screen.getByRole('dialog', { name: 'More' });
+    const closeButton = within(dialog).getByRole('button', { name: 'Close more menu' });
+    const dynamicButton = document.createElement('button');
+    dynamicButton.textContent = 'Dynamic action';
+    dialog.append(dynamicButton);
+
+    dynamicButton.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+
+    expect(closeButton).toHaveFocus();
+  });
+
+  it('constrains the dialog to a short landscape viewport with a reachable sticky close control', () => {
+    render(<BottomNav />);
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    const dialog = screen.getByRole('dialog', { name: 'More' });
+    const headingRow = screen.getByRole('heading', { name: 'More' }).parentElement;
+
+    expect(dialog).toHaveStyle({
+      bottom: 'calc(5.5rem + env(safe-area-inset-bottom))',
+      maxHeight: 'calc(100dvh - 6.5rem - env(safe-area-inset-bottom))',
+      overscrollBehavior: 'contain',
+    });
+    expect(dialog).toHaveClass('overflow-y-auto');
+    expect(headingRow).toHaveClass('sticky', 'top-0');
   });
 
   it('scopes fixtures, standings, and teams to the selected edition', () => {
