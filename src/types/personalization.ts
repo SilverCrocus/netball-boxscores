@@ -1,13 +1,18 @@
 import type { TeamInfoWithId } from '@/types/team';
+import type { MatchStatus } from '@prisma/client';
 
 export interface PersonalizedMatchCard {
   id: string;
-  status: 'SCHEDULED' | 'LIVE' | 'COMPLETED';
+  competitionId: string;
+  status: MatchStatus;
+  scoreAvailable: boolean;
   scheduledAt: string;
-  homeScore: number;
-  awayScore: number;
+  homeScore: number | null;
+  awayScore: number | null;
   venue: string;
-  round: number;
+  round: number | null;
+  roundLabel: string | null;
+  stageName: string | null;
   finalCode: string | null;
   currentQuarter: number | null;
   currentTime: string | null;

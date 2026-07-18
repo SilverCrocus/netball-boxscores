@@ -16,7 +16,7 @@ async function backfillScoreFlow(matchId: string) {
     where: { id: matchId },
     include: { homeTeam: true, awayTeam: true },
   });
-  if (!match) {
+  if (!match || !match.homeTeam || !match.awayTeam || !match.homeTeamId || !match.awayTeamId) {
     console.error(`Match ${matchId} not found`);
     process.exit(1);
   }

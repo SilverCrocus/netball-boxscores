@@ -7,15 +7,16 @@ interface CompetitionInfo {
   id: string;
   season: number;
   name: string;
+  slug: string | null;
+  label: string | null;
 }
 
 interface PlayerSeasonStatsProps {
   matchStats: PlayerMatchStats[];
   positionConfig: PositionConfig;
   totalSuperShots?: number;
-  impactTotal?: number;
   competitions?: CompetitionInfo[];
-  selectedSeason?: number;
+  selectedCompetitionId?: string;
   playerId?: string;
 }
 
@@ -137,9 +138,8 @@ export default function PlayerSeasonStats({
   matchStats,
   positionConfig,
   totalSuperShots,
-  impactTotal,
   competitions,
-  selectedSeason,
+  selectedCompetitionId,
   playerId,
 }: PlayerSeasonStatsProps) {
   if (matchStats.length === 0) {
@@ -150,7 +150,7 @@ export default function PlayerSeasonStats({
             Season Stats
           </h2>
           {competitions && competitions.length > 1 && playerId && (
-            <SeasonSelector competitions={competitions} selectedSeason={selectedSeason} playerId={playerId} />
+            <EditionSelector competitions={competitions} selectedCompetitionId={selectedCompetitionId} playerId={playerId} />
           )}
         </div>
         <p className="text-on-surface-variant font-body">
@@ -170,7 +170,7 @@ export default function PlayerSeasonStats({
         </h2>
         <div className="flex items-center gap-3">
           {competitions && competitions.length > 1 && playerId && (
-            <SeasonSelector competitions={competitions} selectedSeason={selectedSeason} playerId={playerId} />
+            <EditionSelector competitions={competitions} selectedCompetitionId={selectedCompetitionId} playerId={playerId} />
           )}
           <div className="px-3 py-1 bg-surface-container-high rounded text-xs font-bold uppercase tracking-widest">
             {gamesPlayed} {gamesPlayed === 1 ? 'Game' : 'Games'}
@@ -236,36 +236,26 @@ export default function PlayerSeasonStats({
               </p>
             </div>
           )}
-          {impactTotal != null && (
-            <div className="bg-surface-container-low rounded-lg p-3 border border-secondary/20">
-              <p className="font-label text-xs text-on-surface-variant uppercase tracking-wider mb-1" title="Goals + Assists + Intercepts + Deflections + Rebounds - Turnovers - Penalties">
-                Impact
-              </p>
-              <p className="font-headline text-xl font-bold text-secondary">
-                {(impactTotal / gamesPlayed).toFixed(1)}
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 }
 
-function SeasonSelector({ competitions, selectedSeason, playerId }: { competitions: CompetitionInfo[]; selectedSeason?: number; playerId: string }) {
+function EditionSelector({ competitions, selectedCompetitionId, playerId }: { competitions: CompetitionInfo[]; selectedCompetitionId?: string; playerId: string }) {
   return (
     <div className="flex gap-1">
       {competitions.map((c) => (
         <Link
           key={c.id}
-          href={`/player/${playerId}?season=${c.season}`}
+          href={`/player/${playerId}?edition=${encodeURIComponent(c.id)}`}
           className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${
-            c.season === selectedSeason
+            c.id === selectedCompetitionId
               ? 'bg-primary-container text-white'
               : 'bg-surface-container-high text-on-surface-variant hover:text-primary-container'
           }`}
         >
-          {c.season}
+          {c.label ?? c.season}
         </Link>
       ))}
     </div>

@@ -1,18 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findEventsMock, findMatchMock, findScoresMock } = vi.hoisted(() => ({
+const { findEventsMock, findScoresMock, resolvePublicMatchMock } = vi.hoisted(() => ({
   findEventsMock: vi.fn(),
-  findMatchMock: vi.fn(),
   findScoresMock: vi.fn(),
+  resolvePublicMatchMock: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    match: { findUnique: findMatchMock },
     matchEvent: { findMany: findEventsMock },
     scoreFlow: { findMany: findScoresMock },
   },
 }));
+
+vi.mock('@/lib/public-match', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/public-match')>();
+  return { ...actual, resolvePublicMatchAccess: resolvePublicMatchMock };
+});
+
+import { resolveEditionFeatures } from '@/lib/edition-capabilities';
 
 import {
   decodeTimelineCursor,
@@ -22,7 +28,19 @@ import {
 
 describe('match timeline loader', () => {
   beforeEach(() => {
-    findMatchMock.mockReset().mockResolvedValue({ id: 'match-1' });
+    resolvePublicMatchMock.mockReset().mockResolvedValue({
+      id: 'match-1',
+      competitionId: 'edition-1',
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+      scheduledAt: new Date('2026-07-04T09:30:00Z'),
+      homeTeamId: 'home',
+      awayTeamId: 'away',
+      features: resolveEditionFeatures([
+        { capability: 'SCORE_FLOW', state: 'AVAILABLE' },
+        { capability: 'MATCH_EVENTS', state: 'AVAILABLE' },
+      ]),
+    });
     findScoresMock.mockReset().mockResolvedValue([]);
     findEventsMock.mockReset().mockResolvedValue([]);
   });
@@ -80,8 +98,40 @@ describe('match timeline loader', () => {
   it('rejects invalid cursors and unknown matches', async () => {
     await expect(loadMatchTimeline('match-1', { cursor: 'invalid' })).rejects.toThrow('INVALID_CURSOR');
 
-    findMatchMock.mockResolvedValue(null);
+    resolvePublicMatchMock.mockResolvedValue(null);
     await expect(loadMatchTimeline('missing')).rejects.toThrow('MATCH_NOT_FOUND');
+  });
+
+  it('does not query timeline rows when public capabilities are unavailable', async () => {
+    resolvePublicMatchMock.mockResolvedValue({
+      id: 'match-1',
+      competitionId: 'edition-1',
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+      scheduledAt: new Date('2026-07-04T09:30:00Z'),
+      homeTeamId: 'home',
+      awayTeamId: 'away',
+      features: resolveEditionFeatures([]),
+    });
+
+    await expect(loadMatchTimeline('match-1')).resolves.toEqual({
+      entries: [],
+      nextCursor: null,
+    });
+    expect(findScoresMock).not.toHaveBeenCalled();
+    expect(findEventsMock).not.toHaveBeenCalled();
+  });
+
+  it('does not query rows for a scheduled match even if coverage is configured', async () => {
+    const access = await resolvePublicMatchMock();
+    resolvePublicMatchMock.mockResolvedValue({ ...access, status: 'SCHEDULED' });
+
+    await expect(loadMatchTimeline('match-1')).resolves.toEqual({
+      entries: [],
+      nextCursor: null,
+    });
+    expect(findScoresMock).not.toHaveBeenCalled();
+    expect(findEventsMock).not.toHaveBeenCalled();
   });
 
   it('round-trips timeline cursors', () => {

@@ -4,10 +4,20 @@ const FINALS_LABELS: Record<string, string> = {
   GRAND: 'Grand Final',
 };
 
-export function formatMatchStage(round: number, finalCode?: string | null): string {
+export function formatMatchStage(
+  round?: number | null,
+  finalCode?: string | null,
+  roundLabel?: string | null,
+  stageName?: string | null,
+): string {
+  const explicitLabel = roundLabel?.trim();
+  if (explicitLabel) return explicitLabel;
+
   if (finalCode) {
     return FINALS_LABELS[finalCode.toUpperCase()] ?? finalCode;
   }
 
-  return `Round ${round}`;
+  if (round !== null && round !== undefined) return `Round ${round}`;
+
+  return stageName?.trim() || 'Match';
 }

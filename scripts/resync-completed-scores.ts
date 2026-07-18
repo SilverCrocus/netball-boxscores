@@ -30,6 +30,7 @@ async function main() {
 
   let fixed = 0;
   for (const m of matches) {
+    if (!m.homeTeam || !m.awayTeam) continue;
     const fx = fixtureMap.get(m.championDataMatchId!);
     if (!fx || fx.matchStatus.toLowerCase() !== 'complete') continue;
 

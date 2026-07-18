@@ -178,19 +178,83 @@ describe('ingestFromChampionData', () => {
     expect(result.matchDetails.has(600)).toBe(true);
   });
 
-  it('cleans up PollLog entries older than 7 days', async () => {
+  it('expires only terminal PollLog entries and retains unresolved correction intent', async () => {
     mockFetchFixture.mockResolvedValue([]);
     mockMatchFindMany.mockResolvedValue([]);
     mockPollLogCreate.mockResolvedValue({ id: 'log-1' } as any);
 
     await ingestFromChampionData(12949);
 
-    expect(mockPollLogDeleteMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          polledAt: expect.objectContaining({ lt: expect.any(Date) }),
-        }),
+    expect(mockPollLogDeleteMany).toHaveBeenCalledWith({
+      where: {
+        polledAt: { lt: expect.any(Date) },
+        status: {
+          in: ['success', 'processed', 'superseded', 'validation_error'],
+        },
+      },
+    });
+    expect(mockPollLogDeleteMany).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: { in: expect.arrayContaining(['pending', 'fetch_error', 'revision_mismatch']) },
       }),
-    );
+    }));
+  });
+
+  it('orders overlapping detail observations by request start even when the older response finishes last', async () => {
+    vi.useFakeTimers();
+    try {
+      const deferred = <T,>() => {
+        let resolve!: (value: T | PromiseLike<T>) => void;
+        const promise = new Promise<T>((fulfil) => { resolve = fulfil; });
+        return { promise, resolve };
+      };
+      const firstStarted = deferred<void>();
+      const secondStarted = deferred<void>();
+      const firstResponse = deferred<Record<string, unknown>>();
+      const secondResponse = deferred<Record<string, unknown>>();
+      mockFetchFixture
+        .mockResolvedValueOnce([{ matchId: 701, matchStatus: 'playing' }] as any)
+        .mockResolvedValueOnce([{ matchId: 702, matchStatus: 'playing' }] as any);
+      mockMatchFindMany.mockResolvedValue([]);
+      mockPollLogCreate.mockImplementation((async ({ data }: any) => ({
+        id: data.cdMatchId ? `detail-${data.cdMatchId}` : `fixture-${new Date(data.polledAt).toISOString()}`,
+      })) as never);
+      mockFetchMatchStats.mockImplementation(async (_competitionId, matchId) => {
+        if (matchId === 701) {
+          firstStarted.resolve(undefined);
+          return firstResponse.promise as any;
+        }
+        secondStarted.resolve(undefined);
+        return secondResponse.promise as any;
+      });
+
+      vi.setSystemTime(new Date('2026-07-25T09:00:01.000Z'));
+      const olderRequest = ingestFromChampionData(12949);
+      await firstStarted.promise;
+
+      vi.setSystemTime(new Date('2026-07-25T09:00:02.000Z'));
+      const newerRequest = ingestFromChampionData(12949);
+      await secondStarted.promise;
+      secondResponse.resolve({ matchInfo: { matchId: 702 } });
+      await newerRequest;
+
+      vi.setSystemTime(new Date('2026-07-25T09:00:03.000Z'));
+      firstResponse.resolve({ matchInfo: { matchId: 701 } });
+      await olderRequest;
+
+      const detailLogs = mockPollLogCreate.mock.calls
+        .map(([query]) => query.data)
+        .filter((data) => data.endpoint === 'match-detail');
+      const olderLog = detailLogs.find((data) => data.cdMatchId === 701);
+      const newerLog = detailLogs.find((data) => data.cdMatchId === 702);
+      expect(olderLog).toBeDefined();
+      expect(new Date(olderLog!.polledAt as string | Date).toISOString())
+        .toBe('2026-07-25T09:00:01.000Z');
+      expect(newerLog).toBeDefined();
+      expect(new Date(newerLog!.polledAt as string | Date).toISOString())
+        .toBe('2026-07-25T09:00:02.000Z');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

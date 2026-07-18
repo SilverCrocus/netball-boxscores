@@ -10,16 +10,110 @@ datasource db {
 
 // ───── Competition & Teams ─────
 
+enum CompetitionKind {
+  LEAGUE
+  TOURNAMENT
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum StageType {
+  REGULAR_SEASON
+  FINALS
+  POOL
+  CLASSIFICATION
+  SEMI_FINALS
+  MEDAL_MATCHES
+  OTHER
+}
+
+enum EditionEntryStatus {
+  ACTIVE
+  WITHDRAWN
+  DISQUALIFIED
+}
+
+enum RosterMembershipStatus {
+  ACTIVE
+  REPLACED
+  WITHDRAWN
+}
+
+enum MatchSide {
+  A
+  B
+}
+
+enum MatchSlotSourceType {
+  TEAM
+  GROUP_RANK
+  MATCH_WINNER
+  MATCH_LOSER
+  UNRESOLVED
+}
+
+model CompetitionSeries {
+  id            String          @id @default(cuid())
+  slug          String          @unique
+  name          String
+  kind          CompetitionKind @default(LEAGUE)
+  governingBody String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  editions      Competition[]
+}
+
+model Ruleset {
+  id                      String        @id @default(cuid())
+  slug                    String        @unique
+  name                    String
+  periodCount             Int           @default(4)
+  regulationPeriodMinutes Int           @default(15)
+  extraTimePolicy         String?
+  scoringModel            String        @default("STANDARD")
+  standingsStrategyKey    String        @default("STANDARD")
+  superShotsEnabled       Boolean       @default(false)
+  config                  Json?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  editions                Competition[]
+}
+
 model Competition {
-  id             String     @id @default(cuid())
-  name           String
-  season         Int
-  championDataId Int        @unique
-  seasonStart    DateTime?
-  seasonEnd      DateTime?
-  teams          Team[]
-  matches        Match[]
-  standings      Standing[]
+  id                String                @id @default(cuid())
+  name              String
+  season            Int
+  championDataId    Int?                  @unique
+  seasonStart       DateTime?
+  seasonEnd         DateTime?
+  seriesId          String?
+  series            CompetitionSeries?    @relation(fields: [seriesId], references: [id])
+  slug              String?
+  label             String?
+  sourceTimezone    String                @default("Australia/Sydney")
+  rulesetId         String?
+  ruleset           Ruleset?              @relation(fields: [rulesetId], references: [id])
+  publicationStatus PublicationStatus     @default(DRAFT)
+  publishedAt       DateTime?
+  teams             Team[]
+  matches           Match[]
+  standings         Standing[]
+  stages            Stage[]
+  entries           EditionEntry[]
+  editionSources    EditionSource[]
+  importRuns        ImportRun[]
+  sourceMappings    SourceEntityMapping[]
+  sourceSnapshots   SourceSnapshot[]
+  dataCoverage      DataCoverage[]
+
+  @@unique([seriesId, slug])
+  @@index([seriesId])
+  @@index([rulesetId])
+  @@index([publicationStatus, seasonStart])
 }
 
 model Team {
@@ -42,6 +136,8 @@ model Team {
   scoredFlows        ScoreFlow[]      @relation("ScoringTeam")
   matchEvents        MatchEvent[]     @relation("EventTeam")
   teamMatchStats     TeamMatchStats[]
+  editionEntries     EditionEntry[]
+  aliases            TeamAlias[]
 
   @@index([competitionId])
 }
@@ -68,6 +164,131 @@ model Standing {
   @@index([teamId])
 }
 
+model Stage {
+  id            String          @id @default(cuid())
+  competitionId String
+  competition   Competition     @relation(fields: [competitionId], references: [id])
+  slug          String
+  name          String
+  type          StageType
+  sequence      Int             @default(0)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isPublished   Boolean         @default(false)
+  groups        StageGroup[]
+  matches       Match[]
+  standings     StageStanding[]
+
+  @@unique([competitionId, slug])
+  @@index([competitionId, sequence])
+}
+
+model StageGroup {
+  id             String          @id @default(cuid())
+  stageId        String
+  stage          Stage           @relation(fields: [stageId], references: [id])
+  slug           String
+  name           String
+  sequence       Int             @default(0)
+  primaryEntries EditionEntry[]  @relation("EntryPrimaryGroup")
+  matches        Match[]
+  standings      StageStanding[]
+  sourceSlots    MatchSlot[]
+
+  @@unique([stageId, slug])
+  @@index([stageId, sequence])
+}
+
+model EditionEntry {
+  id             String             @id @default(cuid())
+  competitionId  String
+  competition    Competition        @relation(fields: [competitionId], references: [id])
+  teamId         String
+  team           Team               @relation(fields: [teamId], references: [id])
+  primaryGroupId String?
+  primaryGroup   StageGroup?        @relation("EntryPrimaryGroup", fields: [primaryGroupId], references: [id])
+  status         EditionEntryStatus @default(ACTIVE)
+  seed           Int?
+  displayName    String?
+  enteredAt      DateTime?
+  withdrawnAt    DateTime?
+  roster         RosterMembership[]
+  slots          MatchSlot[]
+  standings      StageStanding[]
+
+  @@unique([competitionId, teamId])
+  @@index([competitionId, status])
+  @@index([teamId])
+  @@index([primaryGroupId])
+}
+
+model RosterMembership {
+  id                 String                 @id @default(cuid())
+  editionEntryId     String
+  editionEntry       EditionEntry           @relation(fields: [editionEntryId], references: [id])
+  playerId           String
+  player             Player                 @relation(fields: [playerId], references: [id])
+  status             RosterMembershipStatus @default(ACTIVE)
+  validFrom          DateTime               @default(now())
+  validTo            DateTime?
+  designatedPosition Position?
+  bib                String?
+  isCaptain          Boolean                @default(false)
+  notes              String?
+
+  @@unique([editionEntryId, playerId, validFrom])
+  @@index([editionEntryId, status])
+  @@index([playerId])
+}
+
+model MatchSlot {
+  id              String              @id @default(cuid())
+  matchId         String
+  match           Match               @relation("MatchSlots", fields: [matchId], references: [id], onDelete: Cascade)
+  side            MatchSide
+  sourceType      MatchSlotSourceType
+  resolvedEntryId String?
+  resolvedEntry   EditionEntry?       @relation(fields: [resolvedEntryId], references: [id], onDelete: Restrict)
+  sourceGroupId   String?
+  sourceGroup     StageGroup?         @relation(fields: [sourceGroupId], references: [id], onDelete: Restrict)
+  sourceRank      Int?
+  sourceMatchId   String?
+  sourceMatch     Match?              @relation("MatchSlotSourceMatch", fields: [sourceMatchId], references: [id], onDelete: Restrict)
+  sourceLabel     String?
+  resolvedAt      DateTime?
+
+  @@unique([matchId, side])
+  @@index([resolvedEntryId])
+  @@index([sourceGroupId])
+  @@index([sourceMatchId])
+}
+
+model StageStanding {
+  id             String       @id @default(cuid())
+  stageId        String
+  stage          Stage        @relation(fields: [stageId], references: [id])
+  stageGroupId   String?
+  stageGroup     StageGroup?  @relation(fields: [stageGroupId], references: [id], onDelete: Restrict)
+  editionEntryId String
+  editionEntry   EditionEntry @relation(fields: [editionEntryId], references: [id])
+  rank           Int
+  played         Int          @default(0)
+  wins           Int          @default(0)
+  losses         Int          @default(0)
+  draws          Int          @default(0)
+  goalsFor       Int          @default(0)
+  goalsAgainst   Int          @default(0)
+  goalPercentage Float        @default(0)
+  points         Int          @default(0)
+  tiebreakData   Json?
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([stageId, stageGroupId, editionEntryId])
+  @@index([stageId, rank])
+  @@index([stageGroupId, rank])
+  @@index([editionEntryId])
+}
+
 // ───── Players ─────
 
 enum Position {
@@ -85,6 +306,10 @@ model Player {
   name                 String
   position             Position
   photoUrl             String?
+  photoSourceUrl       String?
+  photoCredit          String?
+  photoLicense         String?
+  photoVerifiedAt      DateTime?          @db.Timestamptz(3)
   championDataPlayerId Int?               @unique
   nationality          String?
   dateOfBirth          DateTime?
@@ -97,6 +322,8 @@ model Player {
   matchStats           PlayerMatchStats[]
   scoredFlows          ScoreFlow[]
   matchEvents          MatchEvent[]
+  rosterMemberships    RosterMembership[]
+  aliases              PlayerAlias[]
 
   @@index([teamId, name])
 }
@@ -107,28 +334,50 @@ enum MatchStatus {
   SCHEDULED
   LIVE
   COMPLETED
+  DELAYED
+  POSTPONED
+  CANCELLED
+  ABANDONED
+}
+
+enum ResultQualityStatus {
+  UNKNOWN
+  PROVISIONAL
+  UNOFFICIAL_FINAL
+  OFFICIAL_FINAL
+  CORRECTED
 }
 
 model Match {
-  id                  String             @id @default(cuid())
+  id                  String              @id @default(cuid())
   competitionId       String
-  competition         Competition        @relation(fields: [competitionId], references: [id])
-  homeTeamId          String
-  homeTeam            Team               @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeamId          String
-  awayTeam            Team               @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  round               Int
+  competition         Competition         @relation(fields: [competitionId], references: [id])
+  homeTeamId          String?
+  homeTeam            Team?               @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId          String?
+  awayTeam            Team?               @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  round               Int?
+  roundLabel          String?
   venue               String
+  neutralVenue        Boolean             @default(false)
+  isSimulation        Boolean             @default(false)
   scheduledAt         DateTime
-  status              MatchStatus        @default(SCHEDULED)
-  homeScore           Int                @default(0)
-  awayScore           Int                @default(0)
+  status              MatchStatus         @default(SCHEDULED)
+  homeScore           Int                 @default(0)
+  awayScore           Int                 @default(0)
   currentQuarter      Int?
   currentTime         String?
   sourceCompetitionId Int?
+  sourceRetrievedAt   DateTime?
+  sourceUpdatedAt     DateTime?
+  resultQuality       ResultQualityStatus @default(UNKNOWN)
   finalCode           String?
-  updatedAt           DateTime           @updatedAt
-  championDataMatchId Int?               @unique
+  updatedAt           DateTime            @updatedAt
+  championDataMatchId Int?                @unique
+  stageId             String?
+  stage               Stage?              @relation(fields: [stageId], references: [id])
+  stageGroupId        String?
+  stageGroup          StageGroup?         @relation(fields: [stageGroupId], references: [id])
   quarters            MatchQuarter[]
   playerStats         PlayerMatchStats[]
   teamStats           TeamMatchStats[]
@@ -136,10 +385,17 @@ model Match {
   matchEvents         MatchEvent[]
   reminders           UserReminder[]
   favorites           UserFavorite[]
+  slots               MatchSlot[]         @relation("MatchSlots")
+  dependentSlots      MatchSlot[]         @relation("MatchSlotSourceMatch")
+  dataCoverage        DataCoverage[]
 
   @@index([competitionId, status, scheduledAt])
   @@index([homeTeamId, scheduledAt])
   @@index([awayTeamId, scheduledAt])
+  @@index([stageId, scheduledAt])
+  @@index([stageGroupId, scheduledAt])
+  @@index([isSimulation, scheduledAt])
+  @@index([competitionId, resultQuality, scheduledAt])
 }
 
 model MatchQuarter {
@@ -286,6 +542,313 @@ model PollLog {
 
   @@index([polledAt])
   @@index([cdMatchId, polledAt])
+}
+
+// ───── Sources, Imports & Coverage ─────
+
+enum SourceSystemKind {
+  OFFICIAL_FEED
+  PUBLIC_PAGE
+  MANUAL
+  OTHER
+}
+
+enum SourceEntityType {
+  COMPETITION_SERIES
+  COMPETITION_EDITION
+  RULESET
+  STAGE
+  GROUP
+  TEAM
+  PLAYER
+  MATCH
+  VENUE
+}
+
+enum ImportTrigger {
+  MANUAL
+  SCHEDULED
+  REPLAY
+}
+
+enum ImportStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  ROLLED_BACK
+}
+
+enum ImportIssueSeverity {
+  INFO
+  WARNING
+  ERROR
+}
+
+enum ImportIssueStatus {
+  OPEN
+  RESOLVED
+  IGNORED
+}
+
+enum ImportMutationOperation {
+  INSERT
+  UPDATE
+  DELETE
+}
+
+// Import mutations identify the concrete canonical table that changed. This is
+// deliberately broader than SourceEntityType, which describes provider-facing
+// identities and is not a durable rollback/audit discriminator.
+enum ImportMutationTarget {
+  COMPETITION_SERIES
+  COMPETITION_EDITION
+  RULESET
+  STAGE
+  STAGE_GROUP
+  EDITION_ENTRY
+  ROSTER_MEMBERSHIP
+  MATCH_SLOT
+  STAGE_STANDING
+  TEAM
+  PLAYER
+  MATCH
+  MATCH_QUARTER
+  PLAYER_MATCH_STATS
+  TEAM_MATCH_STATS
+  SCORE_FLOW
+  MATCH_EVENT
+  SOURCE_SYSTEM
+  EDITION_SOURCE
+  SOURCE_ENTITY_MAPPING
+  SOURCE_SNAPSHOT
+  DATA_COVERAGE
+  PLAYER_ALIAS
+  TEAM_ALIAS
+}
+
+enum DataCapability {
+  FINAL_SCORE
+  PERIOD_SCORES
+  TEAM_BOX_SCORE
+  PLAYER_BOX_SCORE
+  SCORE_FLOW
+  MATCH_EVENTS
+  SUBSTITUTIONS
+  NET_POINTS
+  SUPER_SHOTS
+  LINEUPS
+}
+
+enum CoverageState {
+  AVAILABLE
+  PARTIAL
+  PROVISIONAL
+  UNAVAILABLE
+}
+
+model SourceSystem {
+  id                       String                @id @default(cuid())
+  key                      String                @unique
+  name                     String
+  kind                     SourceSystemKind
+  baseUrl                  String?
+  active                   Boolean               @default(true)
+  rawPayloadStorageAllowed Boolean               @default(false)
+  config                   Json?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  editionSources           EditionSource[]
+  mappings                 SourceEntityMapping[]
+  importRuns               ImportRun[]
+  snapshots                SourceSnapshot[]
+  coverage                 DataCoverage[]
+  playerAliases            PlayerAlias[]
+  teamAliases              TeamAlias[]
+}
+
+model EditionSource {
+  id             String       @id @default(cuid())
+  competitionId  String
+  competition    Competition  @relation(fields: [competitionId], references: [id])
+  sourceSystemId String
+  sourceSystem   SourceSystem @relation(fields: [sourceSystemId], references: [id])
+  externalId     String
+  enabled        Boolean      @default(true)
+  priority       Int          @default(0)
+  config         Json?
+  lastSyncedAt   DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  importRuns     ImportRun[]
+
+  @@unique([competitionId, sourceSystemId, externalId])
+  @@index([competitionId, enabled])
+  @@index([sourceSystemId, enabled])
+}
+
+model SourceEntityMapping {
+  id               String           @id @default(cuid())
+  sourceSystemId   String
+  sourceSystem     SourceSystem     @relation(fields: [sourceSystemId], references: [id])
+  competitionId    String?
+  competition      Competition?     @relation(fields: [competitionId], references: [id])
+  entityType       SourceEntityType
+  externalId       String
+  internalEntityId String
+  metadata         Json?
+  verifiedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([competitionId, entityType])
+  @@index([sourceSystemId, competitionId, entityType, internalEntityId])
+}
+
+model ImportRun {
+  id              String           @id @default(cuid())
+  sourceSystemId  String
+  sourceSystem    SourceSystem     @relation(fields: [sourceSystemId], references: [id])
+  competitionId   String?
+  competition     Competition?     @relation(fields: [competitionId], references: [id])
+  editionSourceId String?
+  editionSource   EditionSource?   @relation(fields: [editionSourceId], references: [id])
+  trigger         ImportTrigger
+  status          ImportStatus     @default(PENDING)
+  dryRun          Boolean          @default(true)
+  startedAt       DateTime         @default(now())
+  completedAt     DateTime?
+  retrievedAt     DateTime?
+  checksum        String?
+  insertedCount   Int              @default(0)
+  updatedCount    Int              @default(0)
+  skippedCount    Int              @default(0)
+  issueCount      Int              @default(0)
+  errorMessage    String?
+  metadata        Json?
+  issues          ImportIssue[]
+  mutations       ImportMutation[]
+  snapshots       SourceSnapshot[]
+
+  @@index([sourceSystemId, startedAt])
+  @@index([competitionId, startedAt])
+  @@index([editionSourceId, startedAt])
+  @@index([status, startedAt])
+}
+
+model ImportIssue {
+  id          String              @id @default(cuid())
+  importRunId String
+  importRun   ImportRun           @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  severity    ImportIssueSeverity
+  status      ImportIssueStatus   @default(OPEN)
+  code        String
+  entityType  SourceEntityType?
+  externalId  String?
+  fieldPath   String?
+  message     String
+  details     Json?
+  createdAt   DateTime            @default(now())
+  resolvedAt  DateTime?
+
+  @@index([importRunId, severity])
+  @@index([status, createdAt])
+}
+
+model ImportMutation {
+  id          String                  @id @default(cuid())
+  importRunId String
+  importRun   ImportRun               @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  sequence    Int
+  operation   ImportMutationOperation
+  target      ImportMutationTarget
+  entityId    String
+  beforeData  Json?
+  afterData   Json?
+  reversible  Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  revertedAt  DateTime?
+
+  @@unique([importRunId, sequence])
+  @@index([target, entityId])
+}
+
+model SourceSnapshot {
+  id              String            @id @default(cuid())
+  dedupeKey       String            @unique
+  sourceSystemId  String
+  sourceSystem    SourceSystem      @relation(fields: [sourceSystemId], references: [id])
+  importRunId     String?
+  importRun       ImportRun?        @relation(fields: [importRunId], references: [id], onDelete: SetNull)
+  competitionId   String?
+  competition     Competition?      @relation(fields: [competitionId], references: [id])
+  entityType      SourceEntityType?
+  externalId      String?
+  sourceUrl       String?
+  retrievedAt     DateTime          @default(now())
+  sourceUpdatedAt DateTime?
+  checksum        String
+  rawPayload      Json?
+  metadata        Json?
+
+  @@index([sourceSystemId, retrievedAt])
+  @@index([importRunId])
+  @@index([competitionId, entityType, retrievedAt])
+  @@index([sourceSystemId, entityType, externalId])
+}
+
+model DataCoverage {
+  id             String         @id @default(cuid())
+  competitionId  String
+  competition    Competition    @relation(fields: [competitionId], references: [id])
+  matchId        String?
+  match          Match?         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sourceSystemId String?
+  sourceSystem   SourceSystem?  @relation(fields: [sourceSystemId], references: [id])
+  capability     DataCapability
+  state          CoverageState
+  observedAt     DateTime       @default(now())
+  notes          String?
+  details        Json?
+
+  @@index([competitionId, capability, state])
+  @@index([matchId, capability])
+  @@index([sourceSystemId])
+}
+
+model PlayerAlias {
+  id              String        @id @default(cuid())
+  playerId        String
+  player          Player        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  sourceSystemId  String?
+  sourceSystem    SourceSystem? @relation(fields: [sourceSystemId], references: [id])
+  alias           String
+  normalizedAlias String
+  locale          String?
+  isPrimary       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+
+  @@unique([playerId, normalizedAlias])
+  @@index([normalizedAlias])
+  @@index([sourceSystemId])
+}
+
+model TeamAlias {
+  id              String        @id @default(cuid())
+  teamId          String
+  team            Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sourceSystemId  String?
+  sourceSystem    SourceSystem? @relation(fields: [sourceSystemId], references: [id])
+  alias           String
+  normalizedAlias String
+  locale          String?
+  isPrimary       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+
+  @@unique([teamId, normalizedAlias])
+  @@index([normalizedAlias])
+  @@index([sourceSystemId])
 }
 
 // ───── Auth (NextAuth.js + Prisma Adapter) ─────

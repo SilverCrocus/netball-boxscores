@@ -1,16 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SimMatch } from '@/lib/simulation/types';
+
+const prismaMocks = vi.hoisted(() => ({
+  competitionFindFirst: vi.fn(),
+  teamFindMany: vi.fn(),
+  playerFindMany: vi.fn(),
+  matchCreate: vi.fn(),
+  matchDelete: vi.fn(),
+  matchDeleteMany: vi.fn(),
+  matchFindMany: vi.fn(),
+  matchQuarterDeleteMany: vi.fn(),
+  playerMatchStatsDeleteMany: vi.fn(),
+  scoreFlowDeleteMany: vi.fn(),
+  userFavoriteDeleteMany: vi.fn(),
+  userReminderDeleteMany: vi.fn(),
+}));
 
 // Mock prisma for DB setup
 vi.mock('@/lib/db', () => ({
   prisma: {
-    team: { findMany: vi.fn() },
-    player: { findMany: vi.fn() },
-    match: { create: vi.fn(), delete: vi.fn(), findMany: vi.fn() },
-    competition: { findFirst: vi.fn() },
-    matchQuarter: { deleteMany: vi.fn() },
-    playerMatchStats: { deleteMany: vi.fn() },
-    scoreFlow: { deleteMany: vi.fn() },
+    team: { findMany: prismaMocks.teamFindMany },
+    player: { findMany: prismaMocks.playerFindMany },
+    match: {
+      create: prismaMocks.matchCreate,
+      delete: prismaMocks.matchDelete,
+      deleteMany: prismaMocks.matchDeleteMany,
+      findMany: prismaMocks.matchFindMany,
+    },
+    competition: { findFirst: prismaMocks.competitionFindFirst },
+    matchQuarter: { deleteMany: prismaMocks.matchQuarterDeleteMany },
+    playerMatchStats: { deleteMany: prismaMocks.playerMatchStatsDeleteMany },
+    scoreFlow: { deleteMany: prismaMocks.scoreFlowDeleteMany },
+    userFavorite: { deleteMany: prismaMocks.userFavoriteDeleteMany },
+    userReminder: { deleteMany: prismaMocks.userReminderDeleteMany },
   },
 }));
 
@@ -20,11 +42,98 @@ import {
   advanceState,
   generateGoals,
   resetBreakTicks,
+  cleanupOrphanedSimData,
+  setupSimMatches,
+  teardownSimMatches,
 } from '@/lib/simulation/engine';
 
 describe('simulation engine', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('DATABASE_ENVIRONMENT', 'test');
     resetBreakTicks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  describe('database safety', () => {
+    it('blocks orphan cleanup on staging before querying Prisma', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('DATABASE_ENVIRONMENT', 'staging');
+      vi.stubEnv('ALLOW_SHARED_PRODUCTION_DB_WRITES', 'true');
+
+      await expect(cleanupOrphanedSimData()).rejects.toThrow(
+        'Simulation database access blocked',
+      );
+      expect(prismaMocks.matchFindMany).not.toHaveBeenCalled();
+    });
+
+    it('blocks setup on production data before querying Prisma', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('DATABASE_ENVIRONMENT', 'production');
+      vi.stubEnv('ALLOW_SHARED_PRODUCTION_DB_WRITES', 'true');
+
+      await expect(setupSimMatches(1)).rejects.toThrow(
+        'Simulation database access blocked',
+      );
+      expect(prismaMocks.competitionFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('blocks teardown in a production process before deleting rows', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('DATABASE_ENVIRONMENT', 'local');
+
+      await expect(teardownSimMatches([])).rejects.toThrow(
+        'Simulation database access blocked',
+      );
+      expect(prismaMocks.scoreFlowDeleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('simulation persistence', () => {
+    it('creates simulation matches with an explicit domain flag', async () => {
+      prismaMocks.competitionFindFirst.mockResolvedValue({ id: 'competition-1' });
+      prismaMocks.teamFindMany.mockResolvedValue([
+        {
+          id: 'team-a',
+          name: 'Team A',
+          abbreviation: 'A',
+          championDataTeamId: 100,
+          players: [],
+        },
+        {
+          id: 'team-b',
+          name: 'Team B',
+          abbreviation: 'B',
+          championDataTeamId: 200,
+          players: [],
+        },
+      ]);
+      prismaMocks.matchCreate.mockResolvedValue({ id: 'simulation-match' });
+
+      await setupSimMatches(1);
+
+      expect(prismaMocks.matchCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          isSimulation: true,
+          round: 99,
+        }),
+      });
+    });
+
+    it('cleans up only explicitly flagged simulation matches', async () => {
+      prismaMocks.matchFindMany.mockResolvedValue([]);
+
+      await expect(cleanupOrphanedSimData()).resolves.toBe(0);
+
+      expect(prismaMocks.matchFindMany).toHaveBeenCalledWith({
+        where: { isSimulation: true },
+        select: { id: true },
+      });
+    });
   });
 
   describe('createSimState', () => {

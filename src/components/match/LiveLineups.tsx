@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { PlayerStatRow } from '@/types/stats';
 import type { TeamInfo } from '@/types/team';
+import { editionScopedHref } from '@/lib/edition-links';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 
 interface TeamWithPlayers extends TeamInfo {
   players: PlayerStatRow[];
@@ -13,6 +15,7 @@ interface LiveLineupsProps {
   homeTeam: TeamWithPlayers;
   awayTeam: TeamWithPlayers;
   superShotsByPlayer?: Map<string, number>;
+  competitionId?: string | null;
 }
 
 const POSITION_ORDER: Record<string, number> = {
@@ -132,10 +135,12 @@ function TeamTable({
   team,
   variant,
   superShotsByPlayer,
+  competitionId,
 }: {
   team: TeamWithPlayers;
   variant: 'home' | 'away';
   superShotsByPlayer?: Map<string, number>;
+  competitionId?: string | null;
 }) {
   const [sort, setSort] = useState<SortState>({
     column: 'player',
@@ -194,7 +199,7 @@ function TeamTable({
               {player.position}
             </span>
             <Link
-              href={`/player/${player.id}`}
+              href={editionScopedHref(`/player/${player.id}`, competitionId)}
               className="font-body text-[13px] font-semibold text-on-surface hover:text-secondary hover:underline"
             >
               {player.name}
@@ -235,11 +240,12 @@ function TeamTable({
       <div
         className={`flex items-center gap-2 px-4 py-2.5 font-label text-[10px] font-black uppercase tracking-[1.5px] border-b-2 ${headerBorder} ${headerText} ${headerBg} ${headerAlign}`}
       >
-        <div
-          className={`w-[22px] h-[22px] rounded-full ${posClass} flex items-center justify-center text-[8px] font-bold`}
-        >
-          {team.abbreviation.slice(0, 2)}
-        </div>
+        <TeamBadge
+          team={team}
+          size={22}
+          variant={variant}
+          className="shrink-0 rounded-full"
+        />
         {team.name}
       </div>
 
@@ -309,7 +315,7 @@ function TeamTable({
   );
 }
 
-export function LiveLineups({ homeTeam, awayTeam, superShotsByPlayer }: LiveLineupsProps) {
+export function LiveLineups({ homeTeam, awayTeam, superShotsByPlayer, competitionId }: LiveLineupsProps) {
   const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
 
   return (
@@ -349,18 +355,18 @@ export function LiveLineups({ homeTeam, awayTeam, superShotsByPlayer }: LiveLine
 
       {/* Desktop: side-by-side */}
       <div className="hidden md:grid md:grid-cols-2">
-        <TeamTable team={homeTeam} variant="home" superShotsByPlayer={superShotsByPlayer} />
+        <TeamTable team={homeTeam} variant="home" superShotsByPlayer={superShotsByPlayer} competitionId={competitionId} />
         <div className="border-l border-outline-variant">
-          <TeamTable team={awayTeam} variant="away" superShotsByPlayer={superShotsByPlayer} />
+          <TeamTable team={awayTeam} variant="away" superShotsByPlayer={superShotsByPlayer} competitionId={competitionId} />
         </div>
       </div>
 
       {/* Mobile: single team */}
       <div className="md:hidden">
         {selectedTeam === 'home' ? (
-          <TeamTable team={homeTeam} variant="home" superShotsByPlayer={superShotsByPlayer} />
+          <TeamTable team={homeTeam} variant="home" superShotsByPlayer={superShotsByPlayer} competitionId={competitionId} />
         ) : (
-          <TeamTable team={awayTeam} variant="away" superShotsByPlayer={superShotsByPlayer} />
+          <TeamTable team={awayTeam} variant="away" superShotsByPlayer={superShotsByPlayer} competitionId={competitionId} />
         )}
       </div>
     </div>

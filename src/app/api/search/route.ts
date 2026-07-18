@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { prisma, excludeSimData } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
 import type { SearchResponse } from '@/types/search';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
+import { getPublicCompetitions } from '@/lib/competitions';
+import { matchHref } from '@/lib/edition-links';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchAccessBatch,
+} from '@/lib/public-match';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,18 +25,31 @@ export async function GET(request: Request) {
   }
 
   try {
+    const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
     const [players, teams, matches] = await Promise.all([
       prisma.player.findMany({
-        where: { name: { contains: query, mode: 'insensitive' } },
+        where: {
+          name: { contains: query, mode: 'insensitive' },
+          OR: [
+            { team: { competitionId: { in: publicEditionIds } } },
+            { rosterMemberships: { some: { editionEntry: { competitionId: { in: publicEditionIds } } } } },
+          ],
+        },
         select: { id: true, name: true, position: true, team: { select: { name: true } } },
         orderBy: { name: 'asc' },
         take: 5,
       }),
       prisma.team.findMany({
         where: {
-          OR: [
-            { name: { contains: query, mode: 'insensitive' } },
-            { abbreviation: { contains: query, mode: 'insensitive' } },
+          AND: [
+            { OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { abbreviation: { contains: query, mode: 'insensitive' } },
+            ] },
+            { OR: [
+              { competitionId: { in: publicEditionIds } },
+              { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
+            ] },
           ],
         },
         select: { id: true, name: true, slug: true, abbreviation: true },
@@ -39,6 +59,7 @@ export async function GET(request: Request) {
       prisma.match.findMany({
         where: {
           ...excludeSimData,
+          competitionId: { in: publicEditionIds },
           OR: [
             { homeTeam: { name: { contains: query, mode: 'insensitive' } } },
             { awayTeam: { name: { contains: query, mode: 'insensitive' } } },
@@ -47,8 +68,13 @@ export async function GET(request: Request) {
         },
         select: {
           id: true,
+          competitionId: true,
+          homeTeamId: true,
+          awayTeamId: true,
           round: true,
+          roundLabel: true,
           finalCode: true,
+          stage: { select: { name: true } },
           status: true,
           homeScore: true,
           awayScore: true,
@@ -59,6 +85,13 @@ export async function GET(request: Request) {
         take: 5,
       }),
     ]);
+
+    const accessById = await resolvePublicMatchAccessBatch(matches.map((match) => match.id));
+    const publicMatches = matches.flatMap((match) => {
+      const access = accessById.get(match.id);
+      if (!access || !hasResolvedMatchTeams(match)) return [];
+      return [{ match, access }];
+    });
 
     return NextResponse.json({
       players: players.map((player) => ({
@@ -75,14 +108,14 @@ export async function GET(request: Request) {
         meta: team.abbreviation,
         href: `/team/${team.slug}`,
       })),
-      matches: matches.map((match) => ({
+      matches: publicMatches.map(({ match, access }) => ({
         id: match.id,
         kind: 'match' as const,
         label: `${match.homeTeam.name} v ${match.awayTeam.name}`,
-        meta: match.status === 'COMPLETED'
-          ? `${match.homeScore}-${match.awayScore} · ${formatMatchStage(match.round, match.finalCode)}`
-          : formatMatchStage(match.round, match.finalCode),
-        href: match.status === 'LIVE' ? `/match/${match.id}/live` : `/match/${match.id}`,
+        meta: canExposePublicMatchScore(access)
+          ? `${match.homeScore}-${match.awayScore} · ${formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name)}`
+          : formatMatchStage(match.round, match.finalCode, match.roundLabel, match.stage?.name),
+        href: matchHref(match.id, match.competitionId, access.status === 'LIVE' ? 'live' : ''),
       })),
     } satisfies SearchResponse);
   } catch {

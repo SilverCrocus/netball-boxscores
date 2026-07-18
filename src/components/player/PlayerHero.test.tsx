@@ -23,6 +23,9 @@ describe('PlayerHero', () => {
           name: 'Alexandria Verylongsurname-Williams',
           position: 'GS',
           photoUrl: null,
+          photoSourceUrl: null,
+          photoCredit: null,
+          photoLicense: null,
           nationality: 'Australia',
           dateOfBirth: null,
           height: null,
@@ -30,6 +33,7 @@ describe('PlayerHero', () => {
           team: {
             name: 'Manchester Thunder Netball Club',
             slug: 'manchester-thunder',
+            abbreviation: 'MTH',
             logoUrl: null,
             primaryColor: '#a3e635',
           },
@@ -46,5 +50,75 @@ describe('PlayerHero', () => {
       'snap-start',
       'min-w-[8.5rem]',
     );
+  });
+
+  it('shows reusable-photo credit, source, and licence links on the player profile', () => {
+    render(
+      <PlayerHero
+        player={{
+          name: 'Funmi Fadoju',
+          position: 'GD',
+          photoUrl: 'https://upload.wikimedia.org/example.jpg',
+          photoSourceUrl: 'https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg',
+          photoCredit: 'Amy Martin Photography',
+          photoLicense: 'CC BY-SA 4.0',
+          nationality: 'England',
+          dateOfBirth: null,
+          height: null,
+          teamId: 'team-1',
+          team: {
+            name: 'England',
+            slug: 'england-glasgow-2026',
+            abbreviation: 'ENG',
+            logoUrl: null,
+            primaryColor: '#ef4444',
+          },
+        }}
+        positionConfig={positionConfig}
+        statHighlightValues={[0, 0, 0]}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Amy Martin Photography' })).toHaveAttribute(
+      'href',
+      'https://commons.wikimedia.org/wiki/File:England_Netball_player_Funmi_Fadoju.jpg',
+    );
+    expect(screen.getByRole('link', { name: 'CC BY-SA 4.0' })).toHaveAttribute(
+      'href',
+      'https://creativecommons.org/licenses/by-sa/4.0/',
+    );
+    expect(screen.getByText(/cropped for display/)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'England flag' })).toBeInTheDocument();
+  });
+
+  it('renders unavailable highlights without manufacturing zero values', () => {
+    render(
+      <PlayerHero
+        player={{
+          name: 'Example Player',
+          position: 'GS',
+          photoUrl: null,
+          photoSourceUrl: null,
+          photoCredit: null,
+          photoLicense: null,
+          nationality: null,
+          dateOfBirth: null,
+          height: null,
+          teamId: 'team-1',
+          team: {
+            name: 'Example Team',
+            slug: 'example-team',
+            abbreviation: 'EXA',
+            logoUrl: null,
+            primaryColor: null,
+          },
+        }}
+        positionConfig={positionConfig}
+        statHighlightValues={[null, null, null]}
+      />,
+    );
+
+    expect(screen.getByLabelText('Goals Scored unavailable')).toHaveTextContent('—');
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
   });
 });

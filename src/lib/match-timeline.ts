@@ -5,6 +5,11 @@ import type {
   MatchTimelineEventType,
   MatchTimelineResponse,
 } from '@/types/match-timeline';
+import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
+import {
+  isPublicMatchLiveOrFinal,
+  resolvePublicMatchAccess,
+} from '@/lib/public-match';
 
 export const MATCH_TIMELINE_PAGE_SIZE = 75;
 
@@ -66,8 +71,14 @@ export async function loadMatchTimeline(
   const cursor = filters.cursor ? decodeTimelineCursor(filters.cursor) : null;
   if (filters.cursor && !cursor) throw new Error('INVALID_CURSOR');
 
-  const match = await prisma.match.findUnique({ where: { id: matchId }, select: { id: true } });
-  if (!match) throw new Error('MATCH_NOT_FOUND');
+  const access = await resolvePublicMatchAccess(matchId);
+  if (!access) throw new Error('MATCH_NOT_FOUND');
+
+  const scoreFlowAvailable = access.features.scoreFlow.available;
+  const matchEventsAvailable = access.features.matchEvents.available;
+  if (!isPublicMatchLiveOrFinal(access) || (!scoreFlowAvailable && !matchEventsAvailable)) {
+    return { entries: [], nextCursor: null };
+  }
 
   const limit = Math.min(Math.max(filters.limit ?? MATCH_TIMELINE_PAGE_SIZE, 1), MATCH_TIMELINE_PAGE_SIZE);
   const olderThanCursor = cursor
@@ -93,7 +104,7 @@ export async function loadMatchTimeline(
   } satisfies Prisma.MatchEventWhereInput;
 
   const [scores, events] = await Promise.all([
-    filters.eventType && filters.eventType !== 'goal'
+    !scoreFlowAvailable || (filters.eventType && filters.eventType !== 'goal')
       ? Promise.resolve([])
       : prisma.scoreFlow.findMany({
           where: scoreWhere,
@@ -105,12 +116,21 @@ export async function loadMatchTimeline(
             homeScore: true,
             awayScore: true,
             scorePoints: true,
-            scorerPlayer: { select: { id: true, name: true, photoUrl: true } },
+            scorerPlayer: {
+              select: {
+                id: true,
+                name: true,
+                photoUrl: true,
+                photoSourceUrl: true,
+                photoCredit: true,
+                photoLicense: true,
+              },
+            },
           },
           orderBy: [{ period: 'desc' }, { periodSeconds: 'desc' }, { id: 'desc' }],
           take: limit + 1,
         }),
-    filters.eventType === 'goal'
+    !matchEventsAvailable || filters.eventType === 'goal'
       ? Promise.resolve([])
       : prisma.matchEvent.findMany({
           where: eventWhere,
@@ -120,7 +140,16 @@ export async function loadMatchTimeline(
             periodSeconds: true,
             type: true,
             teamId: true,
-            player: { select: { id: true, name: true, photoUrl: true } },
+            player: {
+              select: {
+                id: true,
+                name: true,
+                photoUrl: true,
+                photoSourceUrl: true,
+                photoCredit: true,
+                photoLicense: true,
+              },
+            },
           },
           orderBy: [{ period: 'desc' }, { periodSeconds: 'desc' }, { id: 'desc' }],
           take: limit + 1,
@@ -140,7 +169,9 @@ export async function loadMatchTimeline(
       scorePoints: score.scorePoints,
       playerId: score.scorerPlayer?.id,
       playerName: score.scorerPlayer?.name,
-      playerPhotoUrl: score.scorerPlayer?.photoUrl,
+      playerPhotoUrl: score.scorerPlayer
+        ? secondaryPlayerPhotoUrl(score.scorerPlayer)
+        : null,
     })),
     ...events.map((event) => ({
       id: event.id,
@@ -151,7 +182,7 @@ export async function loadMatchTimeline(
       teamId: event.teamId,
       playerId: event.player.id,
       playerName: event.player.name,
-      playerPhotoUrl: event.player.photoUrl,
+      playerPhotoUrl: secondaryPlayerPhotoUrl(event.player),
     })),
   ]
     .filter((entry) => !cursor || compareNewest(cursorFor(entry), cursor) > 0)

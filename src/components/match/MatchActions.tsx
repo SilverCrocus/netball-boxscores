@@ -3,17 +3,20 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import type { MatchStatus } from '@prisma/client';
+import { matchHref } from '@/lib/edition-links';
 
 interface MatchActionsProps {
   matchId: string;
-  status: 'SCHEDULED' | 'LIVE' | 'COMPLETED';
+  status: MatchStatus;
+  competitionId: string;
 }
 
 interface UserMatchResource {
   matchId: string;
 }
 
-export function MatchActions({ matchId, status }: MatchActionsProps) {
+export function MatchActions({ matchId, status, competitionId }: MatchActionsProps) {
   const { status: sessionStatus } = useSession();
   const router = useRouter();
   const [favorite, setFavorite] = useState(false);
@@ -58,7 +61,8 @@ export function MatchActions({ matchId, status }: MatchActionsProps) {
     update: (value: boolean) => void,
   ) {
     if (sessionStatus !== 'authenticated') {
-      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(`/match/${matchId}`)}`);
+      const callbackUrl = matchHref(matchId, competitionId);
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
       return;
     }
 

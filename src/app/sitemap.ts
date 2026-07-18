@@ -1,18 +1,42 @@
 import type { MetadataRoute } from 'next';
 import { prisma, excludeSimData } from '@/lib/db';
+import { getPublicCompetitions } from '@/lib/competitions';
+import { matchHref } from '@/lib/edition-links';
+
+// Render applies Prisma migrations after the build step. Defer this database
+// read until runtime so an additive schema deploy can build against the previous
+// release's database shape and then start only after pre-deploy migrations.
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const baseUrl = 'https://centrepass.io';
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
 
   // Fetch all indexable entities
   const [teams, matches, players] = await Promise.all([
-    prisma.team.findMany({ select: { slug: true } }),
-    prisma.match.findMany({
-      where: excludeSimData,
-      select: { id: true, scheduledAt: true },
+    prisma.team.findMany({
+      where: {
+        OR: [
+          { competitionId: { in: publicEditionIds } },
+          { editionEntries: { some: { competitionId: { in: publicEditionIds } } } },
+        ],
+      },
+      select: { slug: true },
     }),
-    prisma.player.findMany({ select: { id: true } }),
+    prisma.match.findMany({
+      where: { ...excludeSimData, competitionId: { in: publicEditionIds } },
+      select: { id: true, competitionId: true, scheduledAt: true },
+    }),
+    prisma.player.findMany({
+      where: {
+        OR: [
+          { team: { competitionId: { in: publicEditionIds } } },
+          { rosterMemberships: { some: { editionEntry: { competitionId: { in: publicEditionIds } } } } },
+        ],
+      },
+      select: { id: true },
+    }),
   ]);
 
   // Static pages
@@ -47,7 +71,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Match pages (box score only — /live and /court are noindexed)
   const matchPages: MetadataRoute.Sitemap = matches.map((match) => ({
-    url: `${baseUrl}/match/${match.id}`,
+    url: `${baseUrl}${matchHref(match.id, match.competitionId)}`,
     lastModified: match.scheduledAt,
     changeFrequency: 'weekly' as const,
     priority: 0.8,

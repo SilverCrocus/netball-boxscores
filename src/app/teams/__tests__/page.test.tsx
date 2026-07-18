@@ -4,6 +4,19 @@ import TeamsPage from '../page';
 
 vi.mock('@/lib/db', () => ({
   prisma: {
+    competition: {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: 'competition-2026',
+          season: 2026,
+          name: 'Suncorp Super Netball',
+          slug: '2026',
+          publicationStatus: 'PUBLISHED',
+          series: { id: 'ssn', slug: 'ssn', name: 'Suncorp Super Netball', kind: 'LEAGUE' },
+          _count: { entries: 8, matches: 56 },
+        },
+      ]),
+    },
     team: {
       findMany: vi.fn().mockResolvedValue([
         { id: '1', name: 'Melbourne Vixens', slug: 'melbourne-vixens', abbreviation: 'VIX', logoUrl: null, primaryColor: '#FF0090' },

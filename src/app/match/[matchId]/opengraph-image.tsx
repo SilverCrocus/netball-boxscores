@@ -3,6 +3,11 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { prisma } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
+import {
+  canExposePublicMatchScore,
+  resolvePublicMatchAccess,
+} from '@/lib/public-match';
 
 export const runtime = 'nodejs';
 export const alt = 'Match Score';
@@ -15,11 +20,15 @@ export default async function MatchOgImage({
   params: Promise<{ matchId: string }>;
 }) {
   const { matchId } = await params;
-  const match = await prisma.match.findUnique({
+  const [match, publicAccess] = await Promise.all([prisma.match.findUnique({
     where: { id: matchId },
     select: {
+      homeTeamId: true,
+      awayTeamId: true,
       round: true,
+      roundLabel: true,
       finalCode: true,
+      stage: { select: { name: true } },
       venue: true,
       status: true,
       homeScore: true,
@@ -27,7 +36,8 @@ export default async function MatchOgImage({
       homeTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
       awayTeam: { select: { name: true, abbreviation: true, logoUrl: true } },
     },
-  });
+  }), resolvePublicMatchAccess(matchId)]);
+  const resolvedMatch = match && publicAccess && hasResolvedMatchTeams(match) ? match : null;
 
   const lexendBold = await readFile(
     join(process.cwd(), 'src/assets/fonts/Lexend-Bold.ttf'),
@@ -36,9 +46,9 @@ export default async function MatchOgImage({
     join(process.cwd(), 'src/assets/fonts/Manrope-Regular.ttf'),
   );
 
-  const isCompleted = match?.status === 'COMPLETED';
-  const homeName = match?.homeTeam.abbreviation ?? 'HOME';
-  const awayName = match?.awayTeam.abbreviation ?? 'AWAY';
+  const showScore = publicAccess ? canExposePublicMatchScore(publicAccess) : false;
+  const homeName = resolvedMatch?.homeTeam.abbreviation ?? 'HOME';
+  const awayName = resolvedMatch?.awayTeam.abbreviation ?? 'AWAY';
 
   return new ImageResponse(
     (
@@ -57,17 +67,24 @@ export default async function MatchOgImage({
       >
         {/* Round label */}
         <div style={{ display: 'flex', fontSize: 24, color: '#94A3B8' }}>
-          {match ? formatMatchStage(match.round, match.finalCode) : 'Match'}
+          {resolvedMatch
+            ? formatMatchStage(
+                resolvedMatch.round,
+                resolvedMatch.finalCode,
+                resolvedMatch.roundLabel,
+                resolvedMatch.stage?.name,
+              )
+            : 'Match'}
         </div>
 
         {/* Score row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 48 }}>
           {/* Home team */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            {match?.homeTeam.logoUrl ? (
+            {resolvedMatch?.homeTeam.logoUrl ? (
               <img
-                src={match.homeTeam.logoUrl}
-                alt={match.homeTeam.name}
+                src={resolvedMatch.homeTeam.logoUrl}
+                alt={resolvedMatch.homeTeam.name}
                 width={80}
                 height={80}
                 style={{ objectFit: 'contain' }}
@@ -84,15 +101,15 @@ export default async function MatchOgImage({
 
           {/* Score or VS */}
           <div style={{ display: 'flex', fontSize: 64, color: '#FFFFFF', fontFamily: 'Lexend', fontWeight: 700 }}>
-            {isCompleted ? `${match?.homeScore} - ${match?.awayScore}` : 'vs'}
+            {showScore ? `${resolvedMatch?.homeScore} - ${resolvedMatch?.awayScore}` : 'vs'}
           </div>
 
           {/* Away team */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            {match?.awayTeam.logoUrl ? (
+            {resolvedMatch?.awayTeam.logoUrl ? (
               <img
-                src={match.awayTeam.logoUrl}
-                alt={match.awayTeam.name}
+                src={resolvedMatch.awayTeam.logoUrl}
+                alt={resolvedMatch.awayTeam.name}
                 width={80}
                 height={80}
                 style={{ objectFit: 'contain' }}
@@ -110,7 +127,7 @@ export default async function MatchOgImage({
 
         {/* Venue */}
         <div style={{ display: 'flex', fontSize: 20, color: '#64748B' }}>
-          {match?.venue ?? ''}
+          {resolvedMatch?.venue ?? ''}
         </div>
 
         {/* Branding */}

@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Position } from '@prisma/client';
 import type { PositionConfig } from './position-config';
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
+import { TeamBadge } from '@/components/ui/TeamBadge';
 import { computeAge, formatHeight } from '@/lib/format';
 
 interface PlayerHeroProps {
@@ -10,25 +10,34 @@ interface PlayerHeroProps {
     name: string;
     position: Position;
     photoUrl: string | null;
+    photoSourceUrl: string | null;
+    photoCredit: string | null;
+    photoLicense: string | null;
     nationality: string | null;
     dateOfBirth: Date | null;
     height: string | null;
     team: {
       name: string;
       slug: string;
+      abbreviation: string;
       logoUrl: string | null;
       primaryColor: string | null;
     };
     teamId: string;
   };
   positionConfig: PositionConfig;
-  statHighlightValues: (number | string)[];
+  statHighlightValues: (number | string | null)[];
+  editionId?: string;
 }
 
-export function PlayerHero({ player, positionConfig, statHighlightValues }: PlayerHeroProps) {
+export function PlayerHero({ player, positionConfig, statHighlightValues, editionId }: PlayerHeroProps) {
   const [firstName, ...restName] = player.name.split(' ');
   const lastName = restName.join(' ');
   const teamColor = player.team.primaryColor || '#a3e635';
+  const photoLicenseUrl = player.photoLicense === 'CC BY-SA 4.0'
+    ? 'https://creativecommons.org/licenses/by-sa/4.0/'
+    : null;
+  const teamHref = `/team/${player.team.slug}${editionId ? `?edition=${encodeURIComponent(editionId)}` : ''}`;
 
   return (
     <section className="kinetic-gradient relative overflow-hidden rounded-xl p-4 text-white shadow-2xl sm:p-8 md:p-12">
@@ -40,7 +49,7 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
       {/* Back link */}
       <div className="mb-6 min-w-0 sm:mb-8">
         <Link
-          href={`/team/${player.team.slug}`}
+          href={teamHref}
           className="inline-flex max-w-full items-center gap-2 text-sm font-label text-slate-300 transition-colors hover:text-white"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
@@ -52,18 +61,45 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
         {/* Left: photo + name + bio info */}
         <div className="flex min-w-0 flex-1 flex-col items-start gap-6 md:flex-row md:items-end md:gap-8">
           {/* Player photo */}
-          <div
-            className="w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden bg-white/10 backdrop-blur-xl border-4 flex-shrink-0 shadow-inner"
-            style={{ borderColor: teamColor }}
-          >
-            <PlayerAvatar
-              decorative
-              name={player.name}
-              photoUrl={player.photoUrl}
-              size={176}
-              className="!h-full !w-full !rounded-none"
-            />
-          </div>
+          <figure className="w-32 flex-shrink-0 md:w-44">
+            <div
+              className="h-32 w-32 overflow-hidden rounded-full border-4 bg-white/10 shadow-inner backdrop-blur-xl md:h-44 md:w-44"
+              style={{ borderColor: teamColor }}
+            >
+              <PlayerAvatar
+                decorative
+                name={player.name}
+                photoUrl={player.photoUrl}
+                size={176}
+                className="!h-full !w-full !rounded-none"
+              />
+            </div>
+            {player.photoUrl && player.photoSourceUrl && player.photoCredit && player.photoLicense && (
+              <figcaption className="mt-3 text-center font-label text-[10px] leading-4 text-slate-300">
+                Photo:{' '}
+                <a
+                  href={player.photoSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline decoration-slate-500 underline-offset-2 hover:text-white"
+                >
+                  {player.photoCredit}
+                </a>
+                {' · '}
+                {photoLicenseUrl ? (
+                  <a
+                    href={photoLicenseUrl}
+                    target="_blank"
+                    rel="license noopener noreferrer"
+                    className="underline decoration-slate-500 underline-offset-2 hover:text-white"
+                  >
+                    {player.photoLicense}
+                  </a>
+                ) : player.photoLicense}
+                {' · cropped for display'}
+              </figcaption>
+            )}
+          </figure>
 
           <div className="min-w-0 flex-1">
             {/* Position badge */}
@@ -100,17 +136,14 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
                   <span>{formatHeight(player.height)}</span>
                 </>
               )}
-              {player.team.logoUrl && (
-                <Image
-                  src={player.team.logoUrl}
-                  alt={player.team.name}
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 shrink-0 object-contain"
-                />
-              )}
+              <TeamBadge
+                team={player.team}
+                size={32}
+                variant="away"
+                className="h-8 w-8 shrink-0 rounded-full"
+              />
               <Link
-                href={`/team/${player.team.slug}`}
+                href={teamHref}
                 className="hover:opacity-80 transition-colors font-bold"
                 style={{ color: teamColor }}
               >
@@ -135,7 +168,9 @@ export function PlayerHero({ player, positionConfig, statHighlightValues }: Play
                 {highlight.label}
               </p>
               <p className="font-headline text-3xl md:text-4xl font-black text-white italic">
-                {highlight.format === 'percentage'
+                {statHighlightValues[i] === null ? (
+                  <span aria-label={`${highlight.label} unavailable`}>—</span>
+                ) : highlight.format === 'percentage'
                   ? `${statHighlightValues[i]}%`
                   : statHighlightValues[i]}
               </p>

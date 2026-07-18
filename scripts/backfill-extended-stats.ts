@@ -88,7 +88,7 @@ async function main() {
       // Upsert TeamMatchStats
       const teamStats = ms.teamStats?.team as Array<Record<string, number>> | undefined;
       let teamWritten = 0;
-      if (teamStats) {
+      if (teamStats && match.homeTeam && match.awayTeam) {
         for (const ts of teamStats) {
           const isHome = ts.squadId === match.homeTeam.championDataTeamId;
           const teamId = isHome ? match.homeTeam.id : match.awayTeam.id;

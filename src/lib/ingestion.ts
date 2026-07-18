@@ -5,6 +5,7 @@ import type { CDFixtureMatch, CDMatchStatsResponse } from '@/types/champion-data
 
 export interface IngestedData {
   fixture: CDFixtureMatch[];
+  fixtureObservationAt: Date;
   matchDetails: Map<number, CDMatchStatsResponse>;
   pollLogIds: string[];
   matchPollLogIds: Map<number, string>;
@@ -19,19 +20,25 @@ export async function ingestFromChampionData(
   const matchDetails = new Map<number, CDMatchStatsResponse>();
   let detailFetchErrors = 0;
 
-  // Cleanup old PollLog entries (7-day retention)
+  // Cleanup only terminal PollLog entries. Pending/fetch-error/revision-mismatch
+  // rows are durable retry intent and must survive the ordinary retention age.
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   await prisma.pollLog.deleteMany({
-    where: { polledAt: { lt: sevenDaysAgo } },
+    where: {
+      polledAt: { lt: sevenDaysAgo },
+      status: { in: ['success', 'processed', 'superseded', 'validation_error'] },
+    },
   });
 
   // Fetch fixture
   let fixture: CDFixtureMatch[];
+  const fixtureObservationAt = new Date();
   try {
     fixture = await fetchFixture(competitionId);
     const log = await prisma.pollLog.create({
       data: {
         competitionId,
+        polledAt: fixtureObservationAt,
         endpoint: 'fixture',
         rawResponse: fixture as unknown as Prisma.InputJsonValue,
         status: 'success',
@@ -42,6 +49,7 @@ export async function ingestFromChampionData(
     await prisma.pollLog.create({
       data: {
         competitionId,
+        polledAt: fixtureObservationAt,
         endpoint: 'fixture',
         rawResponse: {},
         status: 'fetch_error',
@@ -82,12 +90,17 @@ export async function ingestFromChampionData(
     );
     if (!isPlaying && !needsCompletedBackfill) continue;
 
+    // The ordering token is request start, not response completion. Otherwise
+    // an older slow request can finish last and masquerade as a newer source
+    // observation across worker processes.
+    const detailObservationAt = new Date();
     try {
       const detail = await fetchMatchStats(competitionId, matchData.matchId);
       matchDetails.set(matchData.matchId, detail);
       const log = await prisma.pollLog.create({
         data: {
           competitionId,
+          polledAt: detailObservationAt,
           cdMatchId: matchData.matchId,
           endpoint: 'match-detail',
           rawResponse: detail as unknown as Prisma.InputJsonValue,
@@ -101,6 +114,7 @@ export async function ingestFromChampionData(
       await prisma.pollLog.create({
         data: {
           competitionId,
+          polledAt: detailObservationAt,
           cdMatchId: matchData.matchId,
           endpoint: 'match-detail',
           rawResponse: {},
@@ -111,5 +125,12 @@ export async function ingestFromChampionData(
     }
   }
 
-  return { fixture, matchDetails, pollLogIds, matchPollLogIds, detailFetchErrors };
+  return {
+    fixture,
+    fixtureObservationAt,
+    matchDetails,
+    pollLogIds,
+    matchPollLogIds,
+    detailFetchErrors,
+  };
 }

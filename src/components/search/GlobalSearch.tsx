@@ -8,6 +8,7 @@ import type { SearchResponse, SearchResult } from '@/types/search';
 interface GlobalSearchProps {
   dark?: boolean;
   onNavigate?: () => void;
+  askCentrePassEnabled?: boolean;
 }
 
 const EMPTY_RESULTS: SearchResponse = { players: [], teams: [], matches: [] };
@@ -24,7 +25,7 @@ function Highlight({ label, query }: { label: string; query: string }) {
   );
 }
 
-export function GlobalSearch({ dark = false, onNavigate }: GlobalSearchProps) {
+export function GlobalSearch({ dark = false, onNavigate, askCentrePassEnabled = false }: GlobalSearchProps) {
   const router = useRouter();
   const listboxId = useId();
   const [query, setQuery] = useState('');
@@ -129,6 +130,16 @@ export function GlobalSearch({ dark = false, onNavigate }: GlobalSearchProps) {
           className={`min-h-11 w-full rounded-xl border py-2 pl-10 pr-3 font-body text-sm outline-none focus:ring-2 ${inputClasses}`}
         />
       </div>
+      {askCentrePassEnabled && (
+        <Link
+          href="/explore"
+          onClick={onNavigate}
+          className={`mt-2 flex min-h-9 items-center gap-2 rounded-lg px-2 font-label text-xs font-bold ${dark ? 'text-lime-300 hover:bg-slate-800' : 'text-secondary hover:bg-surface-container-low'}`}
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-base">query_stats</span>
+          Ask CentrePass about statistics
+        </Link>
+      )}
 
       {showPanel && (
         <div

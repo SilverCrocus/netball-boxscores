@@ -1,0 +1,215 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_glasgow_preview:
+        description: Run the DRAFT-only Glasgow import rehearsal after verification
+        required: false
+        default: false
+        type: boolean
+      expected_preview_project_ref:
+        description: Supabase preview project ref required by the target guard
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >-
+    ${{ github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview
+      && format('preview-rehearsal-{0}', inputs.expected_preview_project_ref)
+      || format('ci-{0}-{1}', github.workflow, github.event.pull_request.number || github.ref) }}
+  cancel-in-progress: >-
+    ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview) }}
+
+jobs:
+  verify:
+    name: Check and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/centrepass?schema=public
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/centrepass?schema=public
+      ANALYTICS_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/centrepass?schema=analytics
+      STATS_OPERATIONS_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/centrepass?schema=public
+      STATS_RATE_LIMIT_SECRET: integration-test-rate-limit-key-32-characters
+      ANALYTICS_FEATURES_ENABLED: "false"
+      ASK_CENTREPASS_ENABLED: "false"
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: integration-test-nextauth-key-32-characters
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Run lint, typecheck, and tests
+        run: npm run check
+        env:
+          ANALYTICS_FEATURES_ENABLED: "true"
+          ASK_CENTREPASS_ENABLED: "true"
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Smoke custom production server
+        run: npm run smoke:server-startup
+
+  glasgow-preview-rehearsal:
+    name: Glasgow DRAFT preview rehearsal
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      && inputs.run_glasgow_preview
+      && github.ref_name != github.event.repository.default_branch
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: centrepass-preview-rehearsal
+    services:
+      migration-rehearsal-postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: ${{ secrets.SUPABASE_PREVIEW_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.SUPABASE_PREVIEW_DATABASE_URL }}
+      DATABASE_ENVIRONMENT: staging
+      WORKER_ENABLED: "false"
+      ALLOW_SHARED_PRODUCTION_DB_WRITES: "false"
+      EXPECTED_PREVIEW_PROJECT_REF: ${{ inputs.expected_preview_project_ref }}
+      PRODUCTION_PROJECT_REF: ${{ vars.SUPABASE_PRODUCTION_PROJECT_REF }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify preview-only database target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DATABASE_URL"
+          test -n "$EXPECTED_PREVIEW_PROJECT_REF"
+          test -n "$PRODUCTION_PROJECT_REF"
+          [[ "$EXPECTED_PREVIEW_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]]
+          [[ "$PRODUCTION_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]]
+          test "$EXPECTED_PREVIEW_PROJECT_REF" != "$PRODUCTION_PROJECT_REF"
+          case "$DATABASE_URL" in
+            *"$EXPECTED_PREVIEW_PROJECT_REF"*) ;;
+            *) echo "Database URL does not match the requested preview ref" >&2; exit 72 ;;
+          esac
+          case "$DATABASE_URL" in
+            *"$PRODUCTION_PROJECT_REF"*) echo "Production database target rejected" >&2; exit 73 ;;
+          esac
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Capture refs-only preview target evidence
+        run: npx tsx scripts/verify-preview-database-target.ts
+
+      - name: Prove empty PostgreSQL 17 target and seed minimal Supabase roles
+        env: &fresh-migration-env
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          DIRECT_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          FRESH_MIGRATION_REHEARSAL: "true"
+        run: npx tsx scripts/verify-fresh-prisma-migration-target.ts
+
+      - name: Verify immutable historical Prisma baseline
+        env: *fresh-migration-env
+        run: npx tsx scripts/verify-prisma-baseline-artifact.ts
+
+      - name: Rehearse historical baseline and complete retained migration chain
+        env: *fresh-migration-env
+        run: npx tsx scripts/rehearse-complete-prisma-migrations.ts
+
+      - name: Verify complete fresh PostgreSQL 17 migration ledger
+        env: *fresh-migration-env
+        run: npx tsx scripts/verify-preview-migrations.ts
+
+      - name: Verify and resolve Supabase remote-schema Prisma prefix
+        run: npx tsx scripts/verify-preview-prisma-baseline.ts --resolve
+
+      - name: Deploy checked-in Prisma migrations
+        run: npx prisma migrate deploy
+
+      - name: Verify exact checked-in migration ledger
+        run: npx tsx scripts/verify-preview-migrations.ts
+
+      - name: Provision reviewed scoped preview roles without emitting credentials
+        run: npx tsx scripts/provision-preview-scoped-roles.ts
+
+      - name: Verify exact scoped preview role allowlists
+        run: npx tsx scripts/verify-preview-scoped-roles.ts
+
+      - name: Prove Ask telemetry increments once and rolls back cleanly
+        run: npx tsx scripts/verify-preview-stat-query-telemetry.ts
+
+      - name: Verify zero current and default Data API grants
+        run: npx tsx scripts/verify-preview-data-api-acls.ts
+
+      - name: Validate the immutable bundle offline
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
+
+      - name: Normalize preview publication state to DRAFT
+        run: npm run db:reset:glasgow-preview
+
+      - name: Prepare unpublished foundation
+        run: npm run db:prepare:glasgow
+
+      - name: Build database-aware import plan
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json
+
+      - name: Record clean preview receipt
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --record-preview
+
+      - name: Prove controlled import failure rolls back canonical writes
+        run: npx tsx scripts/rehearse-glasgow-2026-rollback.ts
+
+      - name: Apply exact bundle to preview
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --apply
+
+      - name: Prove exact replay is idempotent
+        run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --apply
+
+      - name: Reconcile exact DRAFT preview state
+        run: npm run db:verify:glasgow-preview
+
+      - name: Exercise publication readiness without publishing
+        run: npm run db:publish:edition -- commonwealth-games-netball glasgow-2026 --dry-run

@@ -3,6 +3,7 @@
 import { useRef, useEffect, Fragment } from 'react';
 import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
+import { editionScopedHref } from '@/lib/edition-links';
 
 export interface FeedEntry {
   time: string;
@@ -30,9 +31,10 @@ const EVENT_STYLES: Record<string, { label: string; textColor: string; linkColor
 
 interface LivePlayByPlayProps {
   entries: FeedEntry[];
+  competitionId?: string | null;
 }
 
-export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
+export function LivePlayByPlay({ entries, competitionId }: LivePlayByPlayProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to top (newest) when new entries arrive
@@ -96,7 +98,7 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
                     <p className="font-body text-sm font-semibold text-white mt-0.5 leading-snug">
                       {entry.scorerName && entry.scorerPlayerId ? (
                         <Link
-                          href={`/player/${entry.scorerPlayerId}`}
+                          href={editionScopedHref(`/player/${entry.scorerPlayerId}`, competitionId)}
                           className="text-white underline decoration-white/25 underline-offset-2 hover:decoration-lime-400 hover:text-lime-400"
                         >
                           {entry.scorerName}
@@ -115,7 +117,7 @@ export function LivePlayByPlay({ entries }: LivePlayByPlayProps) {
                     <p className="font-body text-sm font-semibold text-white mt-0.5 leading-snug">
                       {entry.playerName && entry.playerId ? (
                         <Link
-                          href={`/player/${entry.playerId}`}
+                          href={editionScopedHref(`/player/${entry.playerId}`, competitionId)}
                           className={`underline underline-offset-2 ${EVENT_STYLES[entry.eventType]?.linkColor ?? 'text-cyan-300 decoration-cyan-300/25 hover:decoration-cyan-400 hover:text-cyan-400'}`}
                         >
                           {entry.playerName}

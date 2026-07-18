@@ -1,7 +1,7 @@
 /**
  * Cleanup orphaned simulation data from the database.
  *
- * Simulation matches are identified by round = 99 and/or championDataMatchId >= 99001.
+ * Simulation matches are identified by the explicit Match.isSimulation flag.
  * This script deletes those matches and all their child records.
  *
  * Usage: npx tsx scripts/cleanup-sim-data.ts
@@ -11,10 +11,10 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Find simulation matches — identified by round 99 (the sim sentinel value)
-  // Note: Do NOT use championDataMatchId >= 99001 — real CD IDs (e.g. 129490101) are also > 99001
+  // Never infer simulations from provider IDs or round numbers: both can overlap
+  // with legitimate competition data.
   const simMatches = await prisma.match.findMany({
-    where: { round: 99 },
+    where: { isSimulation: true },
     select: {
       id: true,
       round: true,
@@ -34,6 +34,7 @@ async function main() {
 
   console.log(`Found ${simMatches.length} simulation match(es):\n`);
   for (const m of simMatches) {
+    if (!m.homeTeam || !m.awayTeam) continue;
     console.log(
       `  - ${m.homeTeam.name} vs ${m.awayTeam.name} ` +
       `(${m.homeScore}-${m.awayScore}, ${m.status}, ` +

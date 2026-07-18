@@ -2,6 +2,8 @@ import { ImageResponse } from 'next/og';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { prisma } from '@/lib/db';
+import { getPublicCompetitions } from '@/lib/competitions';
+import { secondaryPlayerPhotoUrl } from '@/lib/player-photo';
 
 export const runtime = 'nodejs';
 export const alt = 'Player Profile';
@@ -14,12 +16,22 @@ export default async function PlayerOgImage({
   params: Promise<{ playerId: string }>;
 }) {
   const { playerId } = await params;
-  const player = await prisma.player.findUnique({
-    where: { id: playerId },
+  const publicEditionIds = (await getPublicCompetitions()).map((edition) => edition.id);
+  const player = await prisma.player.findFirst({
+    where: {
+      id: playerId,
+      OR: [
+        { team: { competitionId: { in: publicEditionIds } } },
+        { rosterMemberships: { some: { editionEntry: { competitionId: { in: publicEditionIds } } } } },
+      ],
+    },
     select: {
       name: true,
       position: true,
       photoUrl: true,
+      photoSourceUrl: true,
+      photoCredit: true,
+      photoLicense: true,
       team: { select: { name: true, abbreviation: true, logoUrl: true } },
     },
   });
@@ -30,6 +42,7 @@ export default async function PlayerOgImage({
   const manropeRegular = await readFile(
     join(process.cwd(), 'src/assets/fonts/Manrope-Regular.ttf'),
   );
+  const playerPhotoUrl = player ? secondaryPlayerPhotoUrl(player) : null;
 
   return new ImageResponse(
     (
@@ -47,10 +60,10 @@ export default async function PlayerOgImage({
       >
         {/* Player photo */}
         <div style={{ display: 'flex', flexShrink: 0 }}>
-          {player?.photoUrl ? (
+          {playerPhotoUrl ? (
             <img
-              src={player.photoUrl}
-              alt={player.name}
+              src={playerPhotoUrl}
+              alt={player?.name ?? 'Player'}
               width={200}
               height={200}
               style={{ objectFit: 'cover', borderRadius: 100 }}

@@ -23,10 +23,10 @@ describe('Auth Configuration', () => {
     vi.clearAllMocks();
   });
 
-  it('should export authOptions with credentials and google providers', async () => {
+  it('does not register a partially configured Google provider', async () => {
     const { authOptions } = await import('@/lib/auth');
     expect(authOptions).toBeDefined();
-    expect(authOptions.providers).toHaveLength(2);
+    expect(authOptions.providers.map((provider: any) => provider.id)).toEqual(['credentials']);
   });
 
   it('should have session strategy set to jwt', async () => {

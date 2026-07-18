@@ -44,7 +44,7 @@ describe('SettingsPage', () => {
       const resource = {
         matchId: 'match-1',
         match: {
-          id: 'match-1', status: 'SCHEDULED', scheduledAt: '2026-07-20T04:00:00Z',
+          id: 'match-1', competitionId: 'competition-2026', status: 'SCHEDULED', scheduledAt: '2026-07-20T04:00:00Z',
           homeScore: 0, awayScore: 0,
           homeTeam: { name: 'Vipers' }, awayTeam: { name: 'Stars' },
         },

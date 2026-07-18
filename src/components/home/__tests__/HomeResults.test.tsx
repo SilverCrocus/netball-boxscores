@@ -11,11 +11,14 @@ function result(id: string, round: number): HomeResultCard {
   return {
     id,
     status: 'COMPLETED',
+    scoreAvailable: true,
     scheduledAt: '2026-06-01T04:00:00.000Z',
     homeScore: 62,
     awayScore: 58,
     venue: 'Arena',
     round,
+    roundLabel: null,
+    stageName: null,
     finalCode: null,
     homeTeam: { name: 'Vipers', abbreviation: 'VIP', logoUrl: null },
     awayTeam: { name: 'Stars', abbreviation: 'STA', logoUrl: null },
@@ -42,6 +45,7 @@ describe('HomeResults', () => {
         initialGroups={[{ label: 'Round 10', matches: [result('latest-match', 10)] }]}
         initialNextCursor="cursor-1"
         season={2026}
+        editionId="ssn-2026"
       />,
     );
 
@@ -50,7 +54,7 @@ describe('HomeResults', () => {
     expect(await screen.findByText('earlier-match')).toBeInTheDocument();
     expect(screen.getByText('latest-match')).toBeInTheDocument();
     expect(screen.getByText('1 earlier result added.')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/matches?season=2026&cursor=cursor-1');
+    expect(fetchMock).toHaveBeenCalledWith('/api/matches?edition=ssn-2026&season=2026&cursor=cursor-1');
     await waitFor(() => expect(screen.queryByRole('button')).not.toBeInTheDocument());
   });
 
@@ -61,6 +65,7 @@ describe('HomeResults', () => {
         initialGroups={[{ label: 'Round 10', matches: [result('latest-match', 10)] }]}
         initialNextCursor="cursor-1"
         season={2026}
+        editionId="ssn-2026"
       />,
     );
 
@@ -68,5 +73,32 @@ describe('HomeResults', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Network unavailable');
     expect(screen.getByRole('button', { name: 'Try earlier results again' })).toBeEnabled();
+  });
+
+  it('keeps a continuation reachable when a bounded scan returns no visible groups', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        groups: [{ label: 'Round 1', matches: [result('older-public-match', 1)] }],
+        nextCursor: null,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <HomeResults
+        initialGroups={[]}
+        initialNextCursor="denied-scan-cursor"
+        season={2026}
+        editionId="ssn-2026"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'View previous rounds' }));
+
+    expect(await screen.findByText('older-public-match')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/matches?edition=ssn-2026&season=2026&cursor=denied-scan-cursor',
+    );
   });
 });

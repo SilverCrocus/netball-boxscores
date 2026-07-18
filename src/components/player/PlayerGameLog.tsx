@@ -6,16 +6,20 @@ import type { PlayerMatchStats } from '@prisma/client';
 import type { TeamInfoWithId } from '@/types/team';
 import type { StatValues } from '@/lib/stat-utils';
 import type { PositionConfig } from './position-config';
+import { hasResolvedMatchTeams, type ResolvedMatchTeams } from '@/lib/edition-match';
+import { matchHref } from '@/lib/edition-links';
 
 interface MatchWithTeams {
   id: string;
+  competitionId: string;
   scheduledAt: Date;
   homeScore: number;
   awayScore: number;
-  homeTeamId: string;
-  awayTeamId: string;
-  homeTeam: TeamInfoWithId;
-  awayTeam: TeamInfoWithId;
+  round: number | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeTeam: TeamInfoWithId | null;
+  awayTeam: TeamInfoWithId | null;
 }
 
 interface MatchStat extends StatValues {
@@ -36,7 +40,12 @@ function formatStatValue(stat: MatchStat, statField: string): string {
 }
 
 export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLogProps) {
-  if (matchStats.length === 0) {
+  const resolvedStats = matchStats.filter(
+    (stat): stat is MatchStat & { match: ResolvedMatchTeams<MatchWithTeams> } =>
+      hasResolvedMatchTeams(stat.match)
+  );
+
+  if (resolvedStats.length === 0) {
     return (
       <div className="bg-surface-container-lowest rounded-2xl p-8 shadow-sm text-center">
         <span className="material-symbols-outlined text-4xl text-outline-variant mb-2 block">
@@ -73,7 +82,7 @@ export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLo
             </tr>
           </thead>
           <tbody className="font-label text-sm">
-            {matchStats.map((stat, index) => {
+            {resolvedStats.map((stat, index) => {
               const { match } = stat;
               const isHome = match.homeTeamId === playerTeamId;
               const opponent = isHome ? match.awayTeam : match.homeTeam;
@@ -96,18 +105,18 @@ export function PlayerGameLog({ matchStats, config, playerTeamId }: PlayerGameLo
                   }`}
                 >
                   <td className="px-8 py-5 text-on-surface font-semibold">
-                    <Link href={`/match/${match.id}`} className="hover:text-secondary transition-colors">
+                    <Link href={matchHref(match.id, match.competitionId)} className="hover:text-secondary transition-colors">
                       {formatShortDate(match.scheduledAt)}
                     </Link>
                   </td>
                   <td className="px-8 py-5">
-                    <Link href={`/match/${match.id}`} className="flex items-center gap-2 hover:text-secondary transition-colors">
+                    <Link href={matchHref(match.id, match.competitionId)} className="flex items-center gap-2 hover:text-secondary transition-colors">
                       <TeamBadge team={opponent} size={24} />
                       <span className="font-bold">{opponent.name}</span>
                     </Link>
                   </td>
                   <td className="px-8 py-5">
-                    <Link href={`/match/${match.id}`}>
+                    <Link href={matchHref(match.id, match.competitionId)}>
                       <span className={`px-2 py-0.5 rounded font-black ${resultBg}`}>
                         {resultLabel} {playerScore}-{opponentScore}
                       </span>

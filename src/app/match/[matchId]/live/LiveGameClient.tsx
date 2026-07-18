@@ -18,7 +18,7 @@ import {
   type FeedEntry,
 } from '@/components/match/LivePlayByPlay';
 import type { StatsUpdatePayload, ScoreFlowAddPayload } from '@/types/socket';
-import { pickStatFields, computeShootingPct } from '@/lib/stat-utils';
+import { emptyStats, pickStatFields, computeShootingPct } from '@/lib/stat-utils';
 import { calculateWinProbability, type PreMatchPrior } from '@/lib/win-probability';
 import type { PlayerStatRow } from '@/types/stats';
 import type { QuarterData } from '@/types/match';
@@ -29,6 +29,7 @@ interface TeamData extends TeamInfoWithId {
 }
 
 interface MatchEventData {
+  eventId: string;
   type: string;
   period: number;
   periodSeconds: number;
@@ -42,7 +43,10 @@ interface MatchEventData {
 
 interface MatchData {
   id: string;
-  round: number;
+  competitionId: string;
+  round: number | null;
+  roundLabel?: string | null;
+  stageName?: string | null;
   finalCode?: string | null;
   venue: string;
   status: string;
@@ -60,7 +64,27 @@ interface MatchData {
 
 interface LiveGameClientProps {
   match: MatchData;
+  capabilities?: LiveCapabilities;
+  realtimeEnabled?: boolean;
 }
+
+interface LiveCapabilities {
+  lineups: boolean;
+  matchEvents: boolean;
+  periodScores: boolean;
+  playerBoxScore: boolean;
+  scoreFlow: boolean;
+  superShots: boolean;
+}
+
+const DEFAULT_CAPABILITIES: LiveCapabilities = {
+  lineups: true,
+  matchEvents: true,
+  periodScores: true,
+  playerBoxScore: true,
+  scoreFlow: true,
+  superShots: true,
+};
 
 // ─── Helpers ───
 
@@ -75,15 +99,17 @@ const VALID_POSITIONS = new Set(['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']);
 function mergePlayerStats(
   players: PlayerStatRow[],
   socketStats: StatsUpdatePayload | null,
+  hasCanonicalSnapshot: boolean,
 ): PlayerStatRow[] {
-  if (!socketStats) return players;
+  if (!socketStats && !hasCanonicalSnapshot) return players;
   return players.map((player) => {
-    const update = socketStats.playerStats.find(
+    const update = socketStats?.playerStats.find(
       (s) => s.playerId === player.id,
     );
-    if (!update) return player;
+    if (!update) return { ...player, ...emptyStats() };
     return {
       ...player,
+      ...emptyStats(),
       ...pickStatFields(update),
       // Only apply live position if it's a valid standard netball position.
       // CD can send empty/non-standard codes for benched players — keeping
@@ -143,10 +169,21 @@ const sumStat = (players: PlayerStatRow[], key: keyof PlayerStatRow) =>
 
 // ─── Component ───
 
-export function LiveGameClient({ match }: LiveGameClientProps) {
-  const { score, playerStats, matchStatus, scoreFlow, statEvents } = useMatchSocket(
-    match.id,
-  );
+export function LiveGameClient({
+  match,
+  capabilities = DEFAULT_CAPABILITIES,
+  realtimeEnabled = false,
+}: LiveGameClientProps) {
+  const {
+    score,
+    playerStats,
+    matchStatus,
+    scoreFlow,
+    statEvents,
+    hasPlayerStatsSnapshot,
+    hasScoreFlowSnapshot,
+    hasStatEventsSnapshot,
+  } = useMatchSocket(match.id, realtimeEnabled);
 
   // ── Live scores ──
   const homeScore = score?.homeScore ?? match.homeScore;
@@ -156,17 +193,30 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
   const isLive = matchStatus?.status === 'COMPLETED' ? false : (matchStatus?.status === 'LIVE' || match.status === 'LIVE');
 
   // ── Merge socket stats into player data ──
-  const homePlayers = mergePlayerStats(match.homeTeam.players, playerStats);
-  const awayPlayers = mergePlayerStats(match.awayTeam.players, playerStats);
+  const homePlayers = mergePlayerStats(
+    match.homeTeam.players,
+    playerStats,
+    hasPlayerStatsSnapshot,
+  );
+  const awayPlayers = mergePlayerStats(
+    match.awayTeam.players,
+    playerStats,
+    hasPlayerStatsSnapshot,
+  );
 
   // ── Merge initial + socket score flow, deduplicating ──
   const allScoreFlow = useMemo(() => {
+    if (hasScoreFlowSnapshot) return scoreFlow;
     const initial = match.initialScoreFlow ?? [];
     return mergeScoreFlows(initial, scoreFlow);
-  }, [match.initialScoreFlow, scoreFlow]);
+  }, [hasScoreFlowSnapshot, match.initialScoreFlow, scoreFlow]);
 
   // ── Derive quarter scores from score flow (updates live as new goals arrive) ──
-  const quarters = buildLiveQuarters(allScoreFlow, homeScore, awayScore, quarter);
+  const quarters = capabilities.periodScores
+    ? (allScoreFlow.length > 0
+        ? buildLiveQuarters(allScoreFlow, homeScore, awayScore, quarter)
+        : match.quarters)
+    : [];
 
   // ── Build enriched feed entries ──
   // Server-provided scorer info (from DB / socket) is used when available.
@@ -193,7 +243,9 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       }
     }
 
-    const initialCount = (match.initialScoreFlow ?? []).length;
+    const initialCount = hasScoreFlowSnapshot
+      ? 0
+      : (match.initialScoreFlow ?? []).length;
     let homeIdx = 0;
     let awayIdx = 0;
 
@@ -240,26 +292,29 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
     });
 
     // Build stat event entries from persisted DB events + new socket events
-    const allEvents = [
-      ...(match.initialMatchEvents ?? []),
-      ...statEvents.map((e) => ({
-        type: e.type,
-        period: e.quarter ?? 1,
-        periodSeconds: parseInt(e.time, 10) || 0,
-        playerId: e.playerId,
-        playerName: e.playerName,
-        teamId: e.teamId ?? '',
-        teamName: e.teamName ?? '',
-        teamAbbreviation: e.teamAbbreviation ?? '',
-        teamLogoUrl: e.teamLogoUrl ?? null,
-      })),
-    ];
+    const socketEvents = statEvents.map((e) => ({
+            eventId: e.eventId,
+            type: e.type,
+            period: e.quarter ?? 1,
+            periodSeconds: parseInt(e.time, 10) || 0,
+            playerId: e.playerId,
+            playerName: e.playerName,
+            teamId: e.teamId ?? '',
+            teamName: e.teamName ?? '',
+            teamAbbreviation: e.teamAbbreviation ?? '',
+            teamLogoUrl: e.teamLogoUrl ?? null,
+          }));
+    const allEvents = capabilities.matchEvents
+      ? (hasStatEventsSnapshot
+          ? socketEvents
+          : [...(match.initialMatchEvents ?? []), ...socketEvents])
+      : [];
 
     // Deduplicate by unique key
     const seen = new Set<string>();
     const statEventEntries: FeedEntry[] = [];
     for (const e of allEvents) {
-      const key = `${e.type}-${e.playerId}-${e.period}-${e.periodSeconds}`;
+      const key = e.eventId;
       if (seen.has(key)) continue;
       seen.add(key);
 
@@ -288,7 +343,7 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       return aSeconds - bSeconds;
     });
     return combined;
-  }, [allScoreFlow, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, match.initialMatchEvents, statEvents]);
+  }, [allScoreFlow, capabilities.matchEvents, hasScoreFlowSnapshot, hasStatEventsSnapshot, homePlayers, awayPlayers, match.homeTeam, match.awayTeam, match.initialScoreFlow, match.initialMatchEvents, statEvents]);
 
   // ── Score breakdown (goals vs super shots) ──
   const { homeBreakdown, awayBreakdown } = useMemo(() => {
@@ -305,20 +360,25 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
       }
     }
     return {
-      homeBreakdown: { goals: homeGoals, superShots: homeSuperShots },
-      awayBreakdown: { goals: awayGoals, superShots: awaySuperShots },
+      homeBreakdown: capabilities.superShots
+        ? { goals: homeGoals, superShots: homeSuperShots }
+        : null,
+      awayBreakdown: capabilities.superShots
+        ? { goals: awayGoals, superShots: awaySuperShots }
+        : null,
     };
-  }, [allScoreFlow, match.homeTeam.id]);
+  }, [allScoreFlow, capabilities.superShots, match.homeTeam.id]);
 
   const superShotsByPlayer = useMemo(() => {
     const map = new Map<string, number>();
+    if (!capabilities.superShots) return map;
     for (const flow of allScoreFlow) {
       if (flow.scorePoints === 2 && flow.scorerPlayerId) {
         map.set(flow.scorerPlayerId, (map.get(flow.scorerPlayerId) || 0) + 1);
       }
     }
     return map;
-  }, [allScoreFlow]);
+  }, [allScoreFlow, capabilities.superShots]);
 
   // ── Comparison stats (6 stats) ──
   const homeGoals = sumStat(homePlayers, 'goals');
@@ -394,6 +454,8 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         awayScore={awayScore}
         round={match.round}
         finalCode={match.finalCode}
+        roundLabel={match.roundLabel}
+        stageName={match.stageName}
         venue={match.venue}
         currentQuarter={quarter}
         currentTime={time}
@@ -405,14 +467,14 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         awayBreakdown={awayBreakdown}
       />
 
-      <ScoreProgressChart
+      {capabilities.scoreFlow && <ScoreProgressChart
         scoreFlow={allScoreFlow}
         homeTeam={match.homeTeam}
         awayTeam={match.awayTeam}
         currentQuarter={quarter}
-      />
+      />}
 
-      {isLive && winProbability && (
+      {capabilities.scoreFlow && isLive && winProbability && (
         <WinProbabilityBar
           probability={winProbability}
           homeTeam={match.homeTeam}
@@ -420,20 +482,21 @@ export function LiveGameClient({ match }: LiveGameClientProps) {
         />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {(capabilities.lineups || capabilities.playerBoxScore || capabilities.scoreFlow || capabilities.matchEvents) && <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <LiveLineups
+          {capabilities.lineups && <LiveLineups
             homeTeam={{ ...match.homeTeam, players: homePlayers }}
             awayTeam={{ ...match.awayTeam, players: awayPlayers }}
             superShotsByPlayer={superShotsByPlayer}
-          />
-          <MatchStatsComparison stats={comparisonStats} />
+            competitionId={match.competitionId}
+          />}
+          {capabilities.playerBoxScore && <MatchStatsComparison stats={comparisonStats} />}
         </div>
 
-        <div className="lg:col-span-1">
-          <LivePlayByPlay entries={feedEntries} />
-        </div>
-      </div>
+        {(capabilities.scoreFlow || capabilities.matchEvents) && <div className="lg:col-span-1">
+          <LivePlayByPlay entries={feedEntries} competitionId={match.competitionId} />
+        </div>}
+      </div>}
     </section>
   );
 }

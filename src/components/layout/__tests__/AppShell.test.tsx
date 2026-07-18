@@ -1,9 +1,20 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { AppShell } from '../AppShell';
+import type { EditionContextValue } from '@/lib/edition-context';
+
+const editions: EditionContextValue[] = [{
+  id: 'glasgow',
+  competitionSlug: 'commonwealth-games',
+  competitionName: 'Commonwealth Games',
+  editionSlug: 'glasgow-2026',
+  editionLabel: 'Glasgow 2026',
+  sourceTimezone: 'Europe/London',
+}];
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }));
 
@@ -37,6 +48,12 @@ describe('AppShell', () => {
     render(<AppShell><div>Content</div></AppShell>);
     const navElements = screen.getAllByRole('navigation');
     expect(navElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders competition selection on desktop and mobile surfaces', () => {
+    render(<AppShell editions={editions}><div>Content</div></AppShell>);
+
+    expect(screen.getAllByLabelText('Competition edition')).toHaveLength(2);
   });
 
   it('renders CentrePass branding', () => {

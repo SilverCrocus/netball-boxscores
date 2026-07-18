@@ -1,16 +1,34 @@
 import { NextResponse } from 'next/server';
-import { resolveCompetition } from '@/lib/competitions';
+import {
+  resolveCompetition,
+  resolveCompetitionById,
+  resolveLegacyLeagueCompetition,
+} from '@/lib/competitions';
 import { getCompletedMatchesPage } from '@/lib/home-feed';
+import {
+  isUpstreamPreviewMode,
+  loadUpstreamCompletedMatches,
+} from '@/lib/upstream-preview';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const season = searchParams.get('season') ?? undefined;
+  const edition = searchParams.get('edition') ?? undefined;
   const cursor = searchParams.get('cursor') ?? undefined;
 
+  if (isUpstreamPreviewMode()) {
+    const previewPage = await loadUpstreamCompletedMatches(searchParams);
+    if (previewPage) return NextResponse.json(previewPage);
+  }
+
   try {
-    const { competition } = await resolveCompetition(season);
+    const { competition } = edition
+      ? await resolveCompetitionById(edition)
+      : season
+        ? await resolveLegacyLeagueCompetition(season)
+        : await resolveCompetition();
 
     if (!competition) {
       return NextResponse.json(
@@ -19,7 +37,11 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(await getCompletedMatchesPage(competition.id, cursor));
+    return NextResponse.json(await getCompletedMatchesPage(
+      competition.id,
+      cursor,
+      [competition],
+    ));
   } catch (error) {
     if (error instanceof Error && error.message === 'INVALID_CURSOR') {
       return NextResponse.json(
