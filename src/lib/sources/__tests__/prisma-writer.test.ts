@@ -2,8 +2,13 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
+import {
+  type GlasgowFoundationReceiptRow,
+  verifyGlasgowFoundationReceiptLineage,
+} from '@/lib/glasgow/receipt-verification';
 import { planCompetitionImport } from '@/lib/sources/planner';
 import {
+  CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
   PrismaCompetitionImportWriter,
   recordPrismaImportPreview,
 } from '@/lib/sources/prisma-writer';
@@ -87,15 +92,18 @@ function createFakePrisma(
       }),
     },
     importRun: {
-      findMany: vi.fn(async ({ where, take }) =>
-        [...state.runs.values()].filter((run) =>
+      findMany: vi.fn(async ({ where, take }) => {
+        const rows = [...state.runs.values()].filter((run) =>
           run.sourceSystemId === where.sourceSystemId &&
           run.competitionId === where.competitionId &&
+          (where.editionSourceId === undefined || run.editionSourceId === where.editionSourceId) &&
           run.checksum === where.checksum &&
           run.status === where.status &&
           (where.dryRun === undefined || run.dryRun === where.dryRun) &&
           (where.issueCount === undefined || run.issueCount === where.issueCount)
-        ).reverse().slice(0, take)),
+        ).reverse();
+        return take === undefined ? rows : rows.slice(0, take);
+      }),
       findFirst: vi.fn(async ({ where }) =>
         [...state.runs.values()].find((run) =>
           run.sourceSystemId === where.sourceSystemId &&
@@ -583,6 +591,38 @@ describe('PrismaCompetitionImportWriter', () => {
     ]));
   });
 
+  it('creates and replays a reviewed canonical player on a fresh database', async () => {
+    const input = validImport();
+    input.players[0].canonicalChampionDataPlayerId = 12345;
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const { prisma, state } = createFakePrisma();
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+    });
+
+    await writer.execute(input, preview);
+    const created = [...state.players.values()][0];
+    expect(created).toMatchObject({
+      name: 'Test Player',
+      championDataPlayerId: 12345,
+    });
+
+    await writer.execute(input, preview);
+    expect(state.players).toHaveLength(1);
+    expect([...state.players.values()][0]).toMatchObject({
+      id: created.id,
+      championDataPlayerId: 12345,
+    });
+  });
+
   it('does not rename or update a mapped Champion Data player when canonical review is omitted', async () => {
     const firstInput = validImport();
     const { prisma, state } = createFakePrisma();
@@ -850,6 +890,175 @@ describe('PrismaCompetitionImportWriter', () => {
     await expect(draftWriter.execute(input, preview)).resolves.toMatchObject({
       publicationStatus: 'DRAFT',
     });
+  });
+
+  it('authorizes an exact no-op replay from one clean dry-run and authoritative apply', async () => {
+    const input = validImport();
+    const initialPreview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const draft = createFakePrisma('DRAFT');
+    const options = {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+      expectedPublicationStatus: 'DRAFT' as const,
+      requireMatchingDryRun: true,
+      receiptMetadata: { importKind: 'GLASGOW_FOUNDATION', sourceRevision: 'reviewed-v1' },
+      completeEditionRosterSnapshot: true,
+      coverageSourcePrecedence: 'INCOMING_SOURCE' as const,
+    };
+    const writer = new PrismaCompetitionImportWriter(draft.prisma, options);
+
+    await recordPrismaImportPreview(draft.prisma, options, input, initialPreview);
+    const rollbackWriter = new PrismaCompetitionImportWriter(draft.prisma, {
+      ...options,
+      controlledFailurePoint: 'BEFORE_AUDIT_FLUSH',
+    });
+    await expect(rollbackWriter.execute(input, initialPreview)).rejects.toThrow(
+      CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
+    );
+    const applied = await writer.execute(input, initialPreview);
+    const mutationCount = draft.state.mutations.length;
+    const replayPreview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: importedIdentities(draft.state.mappings),
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    expect(replayPreview.checksum).toBe(initialPreview.checksum);
+    expect(replayPreview.writes).not.toEqual(initialPreview.writes);
+
+    const replay = await writer.execute(input, replayPreview);
+    expect(replay).toMatchObject({
+      inserted: 0,
+      updated: 0,
+      publicationStatus: 'DRAFT',
+    });
+    expect(replay.skipped).toBeGreaterThan(0);
+    expect(draft.state.mutations).toHaveLength(mutationCount);
+    expect(draft.state.competition.publicationStatus).toBe('DRAFT');
+    expect(draft.state.runs.get(replay.importRunId)).toMatchObject({
+      trigger: 'REPLAY',
+      status: 'SUCCEEDED',
+      metadata: expect.objectContaining({ replayOfImportRunId: applied.importRunId }),
+    });
+
+    const receiptExpectation = {
+      checksum: initialPreview.checksum,
+      receiptMetadata: options.receiptMetadata,
+      importPolicy: {
+        completeEditionRosterSnapshot: true,
+        coverageSourcePrecedence: 'INCOMING_SOURCE',
+      },
+      sourceIdentity: {
+        sourceSystemId: options.sourceSystemId,
+        competitionId: options.competitionId,
+        editionSourceId: options.editionSourceId,
+      },
+    };
+    const receiptRows = (
+      [...draft.state.runs.values()] as unknown as GlasgowFoundationReceiptRow[]
+    );
+    expect(verifyGlasgowFoundationReceiptLineage(receiptRows, receiptExpectation)).toMatchObject({
+      rootRunId: applied.importRunId,
+      replayReceiptIds: [replay.importRunId],
+    });
+
+    const replayRun = draft.state.runs.get(replay.importRunId)!;
+    const replayMetadata = structuredClone(replayRun.metadata) as Record<string, unknown>;
+    replayMetadata.importPolicy = {
+      completeEditionRosterSnapshot: false,
+      coverageSourcePrecedence: 'INCOMING_SOURCE',
+    };
+    draft.state.runs.set(replay.importRunId, { ...replayRun, metadata: replayMetadata });
+    expect(() => verifyGlasgowFoundationReceiptLineage(
+      [...draft.state.runs.values()] as unknown as GlasgowFoundationReceiptRow[],
+      receiptExpectation,
+    )).toThrow(`receipt ${replay.importRunId} import policy is incorrect`);
+  });
+
+  it('fails closed for replay provenance, policy, dirty history, and ambiguous roots', async () => {
+    const input = validImport();
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const options = {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+      expectedPublicationStatus: 'DRAFT' as const,
+      requireMatchingDryRun: true,
+      receiptMetadata: { importKind: 'GLASGOW_FOUNDATION', sourceRevision: 'reviewed-v1' },
+      completeEditionRosterSnapshot: true,
+      coverageSourcePrecedence: 'INCOMING_SOURCE' as const,
+    };
+
+    const dirty = createFakePrisma('DRAFT');
+    const dirtyPreview = await recordPrismaImportPreview(dirty.prisma, options, input, preview);
+    const dirtyReceipt = dirty.state.runs.get(dirtyPreview.importRunId);
+    dirty.state.runs.set(dirtyPreview.importRunId, { ...dirtyReceipt, issueCount: 1 });
+    await expect(new PrismaCompetitionImportWriter(dirty.prisma, options).execute(input, preview))
+      .rejects.toThrow(
+        `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${preview.checksum}`,
+      );
+
+    const draft = createFakePrisma('DRAFT');
+    const writer = new PrismaCompetitionImportWriter(draft.prisma, options);
+    await recordPrismaImportPreview(draft.prisma, options, input, preview);
+    const applied = await writer.execute(input, preview);
+    const replayPreview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: importedIdentities(draft.state.mappings),
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+
+    const mismatchedProvenanceWriter = new PrismaCompetitionImportWriter(draft.prisma, {
+      ...options,
+      receiptMetadata: { importKind: 'GLASGOW_FOUNDATION', sourceRevision: 'unreviewed-v2' },
+    });
+    await expect(mismatchedProvenanceWriter.execute(input, replayPreview)).rejects.toThrow(
+      `Existing successful apply receipt does not match the required provenance and policy for checksum ${preview.checksum}`,
+    );
+
+    const mismatchedPolicyWriter = new PrismaCompetitionImportWriter(draft.prisma, {
+      ...options,
+      coverageSourcePrecedence: 'REQUIRE_SAME_SOURCE',
+    });
+    await expect(mismatchedPolicyWriter.execute(input, replayPreview)).rejects.toThrow(
+      `Existing successful apply receipt does not match the required provenance and policy for checksum ${preview.checksum}`,
+    );
+
+    const changedInput = structuredClone(input);
+    changedInput.teams[0].name = 'Changed unreviewed team name';
+    const changedPreview = planCompetitionImport(changedInput, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: importedIdentities(draft.state.mappings),
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    expect(changedPreview.checksum).not.toBe(preview.checksum);
+    await expect(writer.execute(changedInput, changedPreview)).rejects.toThrow(
+      `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${changedPreview.checksum}`,
+    );
+
+    const root = draft.state.runs.get(applied.importRunId);
+    draft.state.runs.set('ambiguous-root', { ...root, id: 'ambiguous-root' });
+    await expect(writer.execute(input, replayPreview)).rejects.toThrow(
+      `Expected exactly one authoritative applied receipt for checksum ${preview.checksum}; found 2`,
+    );
   });
 
   it('locks the edition before publication checks for recorded previews and applies', async () => {
@@ -1171,6 +1380,49 @@ describe('PrismaCompetitionImportWriter', () => {
     expect(state.editionSource.lastSyncedAt).toBeNull();
     expect([...state.runs.values()]).toEqual([
       expect.objectContaining({ status: 'FAILED', errorMessage: 'audit flush failed' }),
+    ]);
+  });
+
+  it('supports an audited preview-only failure before the atomic audit flush', async () => {
+    const input = validImport();
+    const preview = planCompetitionImport(input, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      existingIdentities: [],
+      knownStageSlugs: ['pool-stage'],
+      standingsStrategyKey: 'INTERNATIONAL_POOL',
+    });
+    const { prisma, state, tx } = createFakePrisma('DRAFT');
+    const writer = new PrismaCompetitionImportWriter(prisma, {
+      sourceSystemId: 'source-id',
+      competitionId: 'edition-id',
+      editionSourceId: 'edition-source-id',
+      expectedPublicationStatus: 'DRAFT',
+      controlledFailurePoint: 'BEFORE_AUDIT_FLUSH',
+    });
+
+    await expect(writer.execute(input, preview)).rejects.toThrow(
+      CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
+    );
+
+    expect(tx.importMutation.createMany).not.toHaveBeenCalled();
+    expect(state.teams).toHaveLength(0);
+    expect(state.entries).toHaveLength(0);
+    expect(state.players).toHaveLength(0);
+    expect(state.rosters).toHaveLength(0);
+    expect(state.matches).toHaveLength(0);
+    expect(state.slots).toHaveLength(0);
+    expect(state.coverage).toHaveLength(0);
+    expect(state.mappings).toHaveLength(0);
+    expect(state.snapshots).toHaveLength(0);
+    expect(state.mutations).toHaveLength(0);
+    expect(state.editionSource.lastSyncedAt).toBeNull();
+    expect([...state.runs.values()]).toEqual([
+      expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR,
+        metadata: expect.objectContaining({ controlledFailurePoint: 'BEFORE_AUDIT_FLUSH' }),
+      }),
     ]);
   });
 

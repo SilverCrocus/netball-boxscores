@@ -189,6 +189,14 @@ describe('Glasgow 2026 source bundle', () => {
     expect(evidence.publicationExpectation.matchExternalIds).toHaveLength(38);
     expect(evidence.publicationExpectation.canonicalPlayers).toHaveLength(23);
     expect(evidence.publicationExpectation.editionCoverage).toHaveLength(10);
+    expect(evidence.publicationExpectation.sources).toHaveLength(
+      evidence.publicationExpectation.sourceIds.length,
+    );
+    expect(evidence.publicationExpectation.sources.every((source) => (
+      source.url.startsWith('https://')
+      && !Number.isNaN(Date.parse(source.retrievedAt))
+      && source.fetchStatus === 'REFERENCED'
+    ))).toBe(true);
   });
 
   it('contains the complete tournament structure without inventing unresolved teams', async () => {

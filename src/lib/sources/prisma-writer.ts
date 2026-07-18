@@ -49,7 +49,16 @@ export interface PrismaCompetitionImportWriterOptions {
    * selects incoming-source precedence.
    */
   coverageSourcePrecedence?: CoverageSourcePrecedence;
+  /**
+   * Preview-rehearsal-only fault injection. This is intentionally an internal
+   * constructor option rather than an environment flag or CLI argument so it
+   * cannot be enabled by production configuration or untrusted input.
+   */
+  controlledFailurePoint?: 'BEFORE_AUDIT_FLUSH';
 }
+
+export const CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR =
+  'Controlled preview import rollback rehearsal failed before audit flush';
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -129,6 +138,16 @@ function importPolicy(options: PrismaCompetitionImportWriterOptions): Prisma.Inp
   };
 }
 
+function importSourceIdentity(
+  options: PrismaCompetitionImportWriterOptions,
+): Prisma.InputJsonObject {
+  return {
+    sourceSystemId: options.sourceSystemId,
+    competitionId: options.competitionId,
+    editionSourceId: options.editionSourceId,
+  };
+}
+
 function previewStateFingerprint(preview: ImportPreview): string {
   return sourcePayloadChecksum(preview);
 }
@@ -144,6 +163,43 @@ function importReceiptMatches(
   return jsonValuesEqual(metadata.importPolicy, importPolicy(options))
     && jsonValuesEqual(metadata.preview, jsonValue(preview))
     && metadata.previewStateFingerprint === previewStateFingerprint(preview);
+}
+
+function importReceiptProvenanceMatches(
+  metadata: Prisma.JsonValue | null,
+  options: PrismaCompetitionImportWriterOptions,
+): metadata is Prisma.JsonObject {
+  const policy = importPolicy(options);
+  const sourceIdentity = importSourceIdentity(options);
+  const receiptProvenance = options.receiptMetadata ?? {};
+  return receiptMetadataMatches(metadata, options.receiptMetadata)
+    && isJsonObject(metadata)
+    && jsonValuesEqual(metadata.importPolicy, policy)
+    && metadata.importPolicyFingerprint === sourcePayloadChecksum(policy)
+    && jsonValuesEqual(metadata.sourceIdentity, sourceIdentity)
+    && metadata.sourceIdentityFingerprint === sourcePayloadChecksum(sourceIdentity)
+    && metadata.receiptProvenanceFingerprint === sourcePayloadChecksum(receiptProvenance);
+}
+
+function storedPreviewFingerprintIsValid(metadata: Prisma.JsonValue | null): boolean {
+  return isJsonObject(metadata)
+    && isJsonObject(metadata.preview)
+    && typeof metadata.previewStateFingerprint === 'string'
+    && metadata.previewStateFingerprint === sourcePayloadChecksum(metadata.preview);
+}
+
+function recordedPreviewAuthorizesAppliedReceipt(
+  dryRunMetadata: Prisma.JsonValue | null,
+  appliedMetadata: Prisma.JsonValue | null,
+  options: PrismaCompetitionImportWriterOptions,
+): boolean {
+  return importReceiptProvenanceMatches(dryRunMetadata, options)
+    && importReceiptProvenanceMatches(appliedMetadata, options)
+    && storedPreviewFingerprintIsValid(dryRunMetadata)
+    && storedPreviewFingerprintIsValid(appliedMetadata)
+    && dryRunMetadata.previewRecorded === true
+    && dryRunMetadata.previewStateFingerprint === appliedMetadata.previewStateFingerprint
+    && jsonValuesEqual(dryRunMetadata.preview, appliedMetadata.preview);
 }
 
 function validateInputPreview(
@@ -211,9 +267,16 @@ function importRunMetadata(
   preview: ImportPreview,
   extra: Record<string, unknown> = {},
 ): Prisma.InputJsonValue {
+  const policy = importPolicy(options);
+  const sourceIdentity = importSourceIdentity(options);
+  const receiptProvenance = options.receiptMetadata ?? {};
   return jsonValue({
     ...(options.receiptMetadata ?? {}),
-    importPolicy: importPolicy(options),
+    importPolicy: policy,
+    importPolicyFingerprint: sourcePayloadChecksum(policy),
+    sourceIdentity,
+    sourceIdentityFingerprint: sourcePayloadChecksum(sourceIdentity),
+    receiptProvenanceFingerprint: sourcePayloadChecksum(receiptProvenance),
     preview,
     previewStateFingerprint: previewStateFingerprint(preview),
     ...extra,
@@ -313,6 +376,12 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
   ): Promise<ImportExecutionReceipt> {
     if (!preview.valid) throw new Error('Cannot execute an invalid import preview');
     validateInputPreview(input, preview);
+    if (
+      this.options.controlledFailurePoint
+      && this.options.expectedPublicationStatus !== 'DRAFT'
+    ) {
+      throw new Error('Controlled import failure is restricted to an expected DRAFT edition');
+    }
 
     const importRunId = randomUUID();
     const importStartedAt = new Date();
@@ -351,43 +420,102 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
         ) {
           throw new Error('Edition source does not match the selected competition import context');
         }
+        const priorRunCandidates = await transaction.importRun.findMany({
+          where: {
+            sourceSystemId: source.id,
+            competitionId: this.options.competitionId,
+            editionSourceId: this.options.editionSourceId,
+            checksum: preview.checksum,
+            status: 'SUCCEEDED',
+            dryRun: false,
+          },
+          orderBy: { completedAt: 'desc' },
+          select: {
+            id: true,
+            trigger: true,
+            issueCount: true,
+            startedAt: true,
+            completedAt: true,
+            metadata: true,
+          },
+        });
+        let priorRun = priorRunCandidates.find((candidate) =>
+          importReceiptMatches(candidate.metadata, this.options, preview)) ?? null;
+
         if (this.options.requireMatchingDryRun) {
           const dryRunCandidates = await transaction.importRun.findMany({
             where: {
               sourceSystemId: source.id,
               competitionId: this.options.competitionId,
+              editionSourceId: this.options.editionSourceId,
               checksum: preview.checksum,
               status: 'SUCCEEDED',
               dryRun: true,
               issueCount: 0,
             },
             orderBy: { completedAt: 'desc' },
-            take: 20,
-            select: { id: true, metadata: true },
+            select: { id: true, completedAt: true, metadata: true },
           });
-          const matchingDryRun = dryRunCandidates.find((candidate) =>
-            importReceiptMatches(candidate.metadata, this.options, preview));
-          if (!matchingDryRun) {
-            throw new Error(
-              `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${preview.checksum}`,
-            );
+
+          if (priorRunCandidates.length > 0) {
+            if (priorRunCandidates.some((candidate) =>
+              candidate.issueCount !== 0
+              || candidate.completedAt === null
+              || !importReceiptProvenanceMatches(candidate.metadata, this.options)
+              || !storedPreviewFingerprintIsValid(candidate.metadata))) {
+              throw new Error(
+                `Existing successful apply receipt does not match the required provenance and policy for checksum ${preview.checksum}`,
+              );
+            }
+
+            const rootRuns = priorRunCandidates.filter((candidate) => candidate.trigger !== 'REPLAY');
+            if (rootRuns.length !== 1) {
+              throw new Error(
+                `Expected exactly one authoritative applied receipt for checksum ${preview.checksum}; found ${rootRuns.length}`,
+              );
+            }
+            const rootRun = rootRuns[0];
+            if (
+              isJsonObject(rootRun.metadata)
+              && rootRun.metadata.replayOfImportRunId != null
+            ) {
+              throw new Error(
+                `Authoritative applied receipt is incorrectly linked as a replay for checksum ${preview.checksum}`,
+              );
+            }
+            const replayRuns = priorRunCandidates.filter((candidate) => candidate.trigger === 'REPLAY');
+            if (replayRuns.some((candidate) =>
+              !isJsonObject(candidate.metadata)
+              || candidate.metadata.replayOfImportRunId !== rootRun.id)) {
+              throw new Error(
+                `Existing replay receipt chain is ambiguous for checksum ${preview.checksum}`,
+              );
+            }
+            const matchingHistoricalDryRun = dryRunCandidates.find((candidate) =>
+              candidate.completedAt !== null
+              && candidate.completedAt.getTime() <= rootRun.startedAt.getTime()
+              && recordedPreviewAuthorizesAppliedReceipt(
+                candidate.metadata,
+                rootRun.metadata,
+                this.options,
+              ));
+            if (!matchingHistoricalDryRun) {
+              throw new Error(
+                `Authoritative applied receipt is missing its matching clean dry-run history for checksum ${preview.checksum}`,
+              );
+            }
+            priorRun = rootRun;
+          } else {
+            const matchingDryRun = dryRunCandidates.find((candidate) =>
+              importReceiptMatches(candidate.metadata, this.options, preview));
+            if (!matchingDryRun) {
+              throw new Error(
+                `Apply requires a recorded clean dry-run receipt with matching provenance for checksum ${preview.checksum}`,
+              );
+            }
+            priorRun = null;
           }
         }
-
-        const priorRunCandidates = await transaction.importRun.findMany({
-          where: {
-            sourceSystemId: source.id,
-            competitionId: this.options.competitionId,
-            checksum: preview.checksum,
-            status: 'SUCCEEDED',
-            dryRun: false,
-          },
-          orderBy: { completedAt: 'desc' },
-          take: 20,
-          select: { id: true, metadata: true },
-        });
-        const priorRun = priorRunCandidates.find((candidate) =>
-          importReceiptMatches(candidate.metadata, this.options, preview)) ?? null;
 
         const sourceMappings = await transaction.sourceEntityMapping.findMany({
           where: {
@@ -496,9 +624,7 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             playerInput.canonicalChampionDataPlayerId,
           );
           if (!canonicalPlayer) {
-            throw new Error(
-              `Reviewed canonical player was not found: ${playerInput.externalId}/${playerInput.canonicalChampionDataPlayerId}`,
-            );
+            continue;
           }
           if (normalizedPlayerName(canonicalPlayer.name) !== normalizedPlayerName(playerInput.name)) {
             throw new Error(
@@ -551,6 +677,9 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             issueCount: preview.issues.length,
             metadata: importRunMetadata(this.options, preview, {
               replayOfImportRunId: priorRun?.id ?? null,
+              ...(this.options.controlledFailurePoint
+                ? { controlledFailurePoint: this.options.controlledFailurePoint }
+                : {}),
             }),
           },
         });
@@ -576,6 +705,8 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             data: {
               status: 'SUCCEEDED',
               completedAt: completionTimestamp(importStartedAt),
+              insertedCount: 0,
+              updatedCount: 0,
               skippedCount: skipped,
             },
           });
@@ -812,6 +943,9 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
               name: playerInput.name,
               position: playerInput.position,
               teamId,
+              ...(playerInput.canonicalChampionDataPlayerId !== undefined
+                ? { championDataPlayerId: playerInput.canonicalChampionDataPlayerId }
+                : {}),
               ...photoFields,
             },
           });
@@ -1476,6 +1610,10 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
           );
         }
 
+        if (this.options.controlledFailurePoint === 'BEFORE_AUDIT_FLUSH') {
+          throw new Error(CONTROLLED_IMPORT_ROLLBACK_REHEARSAL_ERROR);
+        }
+
         if (mutationRows.length > 0) {
           await transaction.importMutation.createMany({ data: mutationRows });
         }
@@ -1527,7 +1665,11 @@ export class PrismaCompetitionImportWriter implements CompetitionImportWriter {
             checksum: preview.checksum,
             issueCount: preview.issues.length,
             errorMessage: message,
-            metadata: importRunMetadata(this.options, preview),
+            metadata: importRunMetadata(this.options, preview, {
+              ...(this.options.controlledFailurePoint
+                ? { controlledFailurePoint: this.options.controlledFailurePoint }
+                : {}),
+            }),
           },
         });
       } catch {
