@@ -209,6 +209,11 @@ describe('secure analytics query boundary', () => {
     expect(runtimeBoundary.match(/no_sequence_privileges/g)?.length).toBeGreaterThanOrEqual(2);
     expect(runtimeBoundary).toContain('no_function_privileges');
     expect(runtimeBoundary).toContain('exact_function_surface_ok');
+    expect(runtimeBoundary.match(/relation\.oid, 'MAINTAIN'/g)).toHaveLength(2);
+    expect(runtimeBoundary.match(/OR routine\.prosecdef/g)).toHaveLength(2);
+    expect(runtimeBoundary.match(
+      /has_schema_privilege\(CURRENT_USER, namespace\.oid, 'CREATE'\)/g,
+    )).toHaveLength(2);
   });
 
   it('keeps every public analytics service off the general Prisma client', () => {

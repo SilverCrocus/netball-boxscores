@@ -234,6 +234,83 @@ describe('scoped runtime database boundary', () => {
     expect(mocks.analyticsQueryRaw).toHaveBeenCalledOnce();
   });
 
+  it('probes PostgreSQL 17 MAINTAIN and external-schema escalation for both roles', async () => {
+    const {
+      probeAnalyticsDatabaseBoundary,
+      probeStatsOperationsDatabaseBoundary,
+    } = await import('@/lib/scoped-database-boundary');
+
+    await probeAnalyticsDatabaseBoundary();
+    await probeStatsOperationsDatabaseBoundary();
+
+    const analyticsSql = (mocks.analyticsQueryRaw.mock.calls[0]?.[0] as { sql: string }).sql;
+    const operationsSql = (mocks.operationsQueryRaw.mock.calls[0]?.[0] as { sql: string }).sql;
+    for (const sql of [analyticsSql, operationsSql]) {
+      expect(sql).toContain(
+        "has_table_privilege(CURRENT_USER, relation.oid, 'MAINTAIN')",
+      );
+      expect(sql).toContain(
+        "namespace.nspname NOT IN ('pg_catalog', 'information_schema')",
+      );
+      expect(sql).toContain('OR routine.prosecdef');
+      expect(sql).toContain(
+        "has_schema_privilege(CURRENT_USER, namespace.oid, 'CREATE')",
+      );
+    }
+  });
+
+  it('fails closed on executable external SECURITY DEFINER and schema CREATE drift', async () => {
+    mocks.analyticsQueryRaw.mockResolvedValue([{
+      ...analyticsRow,
+      no_function_privileges: false,
+      no_schema_create: false,
+    }]);
+    mocks.operationsQueryRaw.mockResolvedValue([{
+      ...operationsRow,
+      exact_function_surface_ok: false,
+      no_schema_create: false,
+    }]);
+    const {
+      probeAnalyticsDatabaseBoundary,
+      probeStatsOperationsDatabaseBoundary,
+    } = await import('@/lib/scoped-database-boundary');
+
+    await expect(probeAnalyticsDatabaseBoundary()).resolves.toMatchObject({
+      ok: false,
+      noFunctionPrivileges: false,
+      noSchemaCreate: false,
+    });
+    await expect(probeStatsOperationsDatabaseBoundary()).resolves.toMatchObject({
+      ok: false,
+      exactFunctionSurface: false,
+      noSchemaCreate: false,
+    });
+  });
+
+  it('fails closed when PostgreSQL 17 MAINTAIN appears in either scoped role', async () => {
+    mocks.analyticsQueryRaw.mockResolvedValue([{
+      ...analyticsRow,
+      no_write_privileges: false,
+    }]);
+    mocks.operationsQueryRaw.mockResolvedValue([{
+      ...operationsRow,
+      no_relation_privileges: false,
+    }]);
+    const {
+      probeAnalyticsDatabaseBoundary,
+      probeStatsOperationsDatabaseBoundary,
+    } = await import('@/lib/scoped-database-boundary');
+
+    await expect(probeAnalyticsDatabaseBoundary()).resolves.toMatchObject({
+      ok: false,
+      noWritePrivileges: false,
+    });
+    await expect(probeStatsOperationsDatabaseBoundary()).resolves.toMatchObject({
+      ok: false,
+      noRelationPrivileges: false,
+    });
+  });
+
   it('fails closed and briefly caches probe failures', async () => {
     mocks.operationsQueryRaw.mockRejectedValue(new Error('database unavailable'));
     const {

@@ -339,7 +339,8 @@ async function uncachedAnalyticsProbe(): Promise<AnalyticsBoundaryProbe> {
           OR has_table_privilege(CURRENT_USER, relation.oid, 'DELETE')
           OR has_table_privilege(CURRENT_USER, relation.oid, 'TRUNCATE')
           OR has_table_privilege(CURRENT_USER, relation.oid, 'TRIGGER')
-          OR has_table_privilege(CURRENT_USER, relation.oid, 'REFERENCES') AS can_write
+          OR has_table_privilege(CURRENT_USER, relation.oid, 'REFERENCES')
+          OR has_table_privilege(CURRENT_USER, relation.oid, 'MAINTAIN') AS can_write
       FROM pg_catalog.pg_class relation
       JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
       WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
@@ -401,11 +402,25 @@ async function uncachedAnalyticsProbe(): Promise<AnalyticsBoundaryProbe> {
       NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_proc routine
         JOIN pg_catalog.pg_namespace namespace ON namespace.oid = routine.pronamespace
-        WHERE namespace.nspname IN ('public', 'analytics')
+        WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND namespace.nspname NOT LIKE 'pg_toast%'
+          AND namespace.nspname NOT LIKE 'pg_temp%'
           AND has_function_privilege(CURRENT_USER, routine.oid, 'EXECUTE')
+          AND (
+            namespace.nspname IN ('public', 'analytics')
+            -- Supabase-managed schemas expose some SECURITY INVOKER extension
+            -- helpers through PUBLIC. They cannot expand this role's rights;
+            -- any executable SECURITY DEFINER routine remains fail-closed.
+            OR routine.prosecdef
+          )
       ) AS no_function_privileges,
-      NOT has_schema_privilege(CURRENT_USER, 'public', 'CREATE')
-        AND NOT has_schema_privilege(CURRENT_USER, 'analytics', 'CREATE') AS no_schema_create,
+      NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_namespace namespace
+        WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND namespace.nspname NOT LIKE 'pg_toast%'
+          AND namespace.nspname NOT LIKE 'pg_temp%'
+          AND has_schema_privilege(CURRENT_USER, namespace.oid, 'CREATE')
+      ) AS no_schema_create,
       current_setting('statement_timeout')::INTERVAL > INTERVAL '0 seconds'
         AND current_setting('statement_timeout')::INTERVAL <= INTERVAL '2 seconds'
         AS statement_timeout_ok,
@@ -459,7 +474,8 @@ async function uncachedOperationsProbe(): Promise<OperationsBoundaryProbe> {
           OR has_table_privilege(CURRENT_USER, relation.oid, 'DELETE')
           OR has_table_privilege(CURRENT_USER, relation.oid, 'TRUNCATE')
           OR has_table_privilege(CURRENT_USER, relation.oid, 'TRIGGER')
-          OR has_table_privilege(CURRENT_USER, relation.oid, 'REFERENCES') AS can_write
+          OR has_table_privilege(CURRENT_USER, relation.oid, 'REFERENCES')
+          OR has_table_privilege(CURRENT_USER, relation.oid, 'MAINTAIN') AS can_write
       FROM pg_catalog.pg_class relation
       JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
       WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
@@ -504,11 +520,20 @@ async function uncachedOperationsProbe(): Promise<OperationsBoundaryProbe> {
       ) AND NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_proc routine
         JOIN pg_catalog.pg_namespace namespace ON namespace.oid = routine.pronamespace
-        WHERE namespace.nspname IN ('public', 'analytics')
+        WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND namespace.nspname NOT LIKE 'pg_toast%'
+          AND namespace.nspname NOT LIKE 'pg_temp%'
           AND has_function_privilege(CURRENT_USER, routine.oid, 'EXECUTE')
           AND routine.oid NOT IN (
             'analytics.reserve_stat_query_rate_limit(text)'::regprocedure,
             'analytics.write_stat_query_telemetry(text,jsonb,text,text,integer,integer,text)'::regprocedure
+          )
+          AND (
+            namespace.nspname IN ('public', 'analytics')
+            -- Preserve only privilege-safe external SECURITY INVOKER helpers;
+            -- executable SECURITY DEFINER routines in every external schema
+            -- are outside the reviewed operations surface.
+            OR routine.prosecdef
           )
       ) AS exact_function_surface_ok,
       NOT EXISTS (
@@ -522,8 +547,13 @@ async function uncachedOperationsProbe(): Promise<OperationsBoundaryProbe> {
       ) AS no_relation_privileges,
       NOT EXISTS (SELECT 1 FROM sequence_access access WHERE access.can_access)
         AS no_sequence_privileges,
-      NOT has_schema_privilege(CURRENT_USER, 'public', 'CREATE')
-        AND NOT has_schema_privilege(CURRENT_USER, 'analytics', 'CREATE') AS no_schema_create,
+      NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_namespace namespace
+        WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND namespace.nspname NOT LIKE 'pg_toast%'
+          AND namespace.nspname NOT LIKE 'pg_temp%'
+          AND has_schema_privilege(CURRENT_USER, namespace.oid, 'CREATE')
+      ) AS no_schema_create,
       current_setting('statement_timeout')::INTERVAL > INTERVAL '0 seconds'
         AND current_setting('statement_timeout')::INTERVAL <= INTERVAL '2 seconds'
         AS statement_timeout_ok,
