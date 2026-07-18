@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
+import { navigateAfterSignIn } from '@/lib/sign-in-navigation';
+
+const AUTO_SIGN_IN_ERROR = 'Your account was created, but we could not sign you in automatically. Please use the sign-in link below.';
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
@@ -16,6 +19,7 @@ export default function SignUpPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    let accountCreated = false;
 
     try {
       const res = await fetch('/api/auth/signup', {
@@ -27,18 +31,28 @@ export default function SignUpPage() {
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || 'Failed to create account');
-        setLoading(false);
         return;
       }
 
-      // Auto sign in after successful registration
-      await signIn('credentials', {
+      accountCreated = true;
+      const result = await signIn('credentials', {
         email,
         password,
+        redirect: false,
         callbackUrl: '/',
       });
+
+      if (result?.error || !result?.url) {
+        setError(AUTO_SIGN_IN_ERROR);
+        return;
+      }
+
+      navigateAfterSignIn(result.url);
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError(accountCreated
+        ? AUTO_SIGN_IN_ERROR
+        : 'Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -56,11 +70,11 @@ export default function SignUpPage() {
         </div>
 
         <div className="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-outline-variant/15">
-          {error && (
+          {error ? (
             <div role="alert" className="bg-error-container text-on-error-container px-4 py-3 rounded-lg mb-6 font-label text-sm">
               {error}
             </div>
-          )}
+          ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

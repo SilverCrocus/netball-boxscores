@@ -85,7 +85,17 @@ export function isSameOriginRequest(request: Request): boolean {
   const origin = request.headers.get('origin');
   if (!origin) return true;
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    const requestOrigin = new URL(request.url).origin;
+    const browserOrigin = new URL(origin).origin;
+    if (browserOrigin === requestOrigin) return true;
+
+    // Reverse proxies can preserve the public browser Origin while presenting
+    // their internal service origin in Request.url. NEXTAUTH_URL is already a
+    // required, validated production setting, so it is the canonical public
+    // origin to trust in that deployment shape.
+    const configuredOrigin = process.env.NEXTAUTH_URL;
+    return configuredOrigin !== undefined
+      && browserOrigin === new URL(configuredOrigin).origin;
   } catch {
     return false;
   }

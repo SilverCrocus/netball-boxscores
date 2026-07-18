@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   clientIdentifier,
   consumeRateLimit,
@@ -7,6 +7,13 @@ import {
 } from '@/lib/request-security';
 
 describe('request security helpers', () => {
+  const originalNextAuthUrl = process.env.NEXTAUTH_URL;
+
+  afterEach(() => {
+    if (originalNextAuthUrl === undefined) delete process.env.NEXTAUTH_URL;
+    else process.env.NEXTAUTH_URL = originalNextAuthUrl;
+  });
+
   it('accepts only valid proxy IP values', () => {
     expect(clientIdentifier(new Headers({ 'x-forwarded-for': '203.0.113.10, 10.0.0.1' })))
       .toBe('203.0.113.10');
@@ -28,6 +35,25 @@ describe('request security helpers', () => {
     }))).toBe(true);
     expect(isSameOriginRequest(new Request('https://centrepass.example/api', {
       headers: { Origin: 'https://evil.example' },
+    }))).toBe(false);
+  });
+
+  it('accepts the configured public origin behind a reverse proxy', () => {
+    process.env.NEXTAUTH_URL = 'https://www.centrepass.io';
+
+    expect(isSameOriginRequest(new Request('https://centrepass.onrender.com/api', {
+      headers: { Origin: 'https://www.centrepass.io' },
+    }))).toBe(true);
+    expect(isSameOriginRequest(new Request('https://centrepass.onrender.com/api', {
+      headers: { Origin: 'https://evil.example' },
+    }))).toBe(false);
+  });
+
+  it('fails closed when the configured public origin is malformed', () => {
+    process.env.NEXTAUTH_URL = 'not-a-url';
+
+    expect(isSameOriginRequest(new Request('https://centrepass.onrender.com/api', {
+      headers: { Origin: 'https://www.centrepass.io' },
     }))).toBe(false);
   });
 
