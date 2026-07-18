@@ -121,9 +121,11 @@ npm run production:glasgow -- \
 The token binds publication to the edition, expected bundle checksum, latest
 applied foundation receipt, latest clean dry-run receipt, and source manifest.
 Any intervening change invalidates it and requires a new dry-run.
-Never substitute the unguarded `db:prepare:glasgow`, `db:import:glasgow`, or
+Never substitute the direct `db:prepare:glasgow`, `db:import:glasgow`, or
 `db:publish:edition` scripts in a production session. They remain development
-entrypoints; the production wrapper is the executable target boundary.
+entrypoints and now fail closed when they detect the production environment or
+production Supabase route without a fresh action-bound wrapper capability and
+evidence file. The production wrapper is the executable target boundary.
 
 ## 7. Post-publication smoke
 

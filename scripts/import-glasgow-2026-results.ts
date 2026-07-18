@@ -5,6 +5,7 @@ import {
   GlasgowResultsImportService,
   type GlasgowResultsImportInput,
 } from '@/lib/glasgow/results-import';
+import { assertGlasgowDatabaseActionAllowed } from './lib/glasgow-production-guard';
 
 function usage(): never {
   throw new Error(
@@ -23,6 +24,10 @@ async function main() {
   const confirmation = confirmationIndex >= 0 ? args[confirmationIndex + 1] : undefined;
   if (apply && !confirmation) throw new Error('--apply requires --confirm <token> from a recorded preview');
   if (!apply && confirmation) throw new Error('--confirm is only valid with --apply');
+
+  await assertGlasgowDatabaseActionAllowed(
+    recordPreview ? 'results-record-preview' : apply ? 'results-apply' : 'results-preview',
+  );
 
   const sourcePath = path.resolve(sourceFile);
   const input = JSON.parse(await readFile(sourcePath, 'utf8')) as GlasgowResultsImportInput;

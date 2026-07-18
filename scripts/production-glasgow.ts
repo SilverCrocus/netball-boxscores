@@ -1,24 +1,20 @@
 #!/usr/bin/env tsx
 
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { lstat, open, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  GLASGOW_GUARD_ENVIRONMENT,
+  GLASGOW_PRODUCTION_GUARD,
+  hashGlasgowProductionNonce,
+  type GlasgowDatabaseAction,
+} from './lib/glasgow-production-guard';
 import { verifyProductionTargets } from './production-target-guard';
 
-type GuardedActionName =
-  | 'prepare'
-  | 'foundation-preview'
-  | 'foundation-record-preview'
-  | 'foundation-apply'
-  | 'results-preview'
-  | 'results-record-preview'
-  | 'results-apply'
-  | 'publish-dry-run'
-  | 'publish-apply';
-
 export interface GuardedGlasgowAction {
-  action: GuardedActionName;
+  action: GlasgowDatabaseAction;
   evidenceFile: string;
   script: string;
   arguments: string[];
@@ -36,6 +32,7 @@ interface GuardedExecutionDependencies {
     options: { env: NodeJS.ProcessEnv; shell: false; stdio: 'inherit' },
   ) => SpawnResult;
   now?: () => Date;
+  nonce?: () => string;
 }
 
 const FOUNDATION_BUNDLE = 'data/glasgow-2026/v1/bundle.json';
@@ -47,7 +44,8 @@ function usage(): never {
     'Usage: npm run production:glasgow -- --evidence-file <ABSOLUTE_JSON_PATH> '
       + '(prepare | foundation <data/glasgow-2026/v1/bundle.json> [--record-preview|--apply] '
       + '| results <ABSOLUTE_RESULTS_JSON> [--record-preview|--apply --confirm <TOKEN>] '
-      + '| publish (--dry-run|--apply --confirm <TOKEN>))',
+      + '| publish (--dry-run|--apply --confirm <TOKEN>) '
+      + '| unpublish --confirm-unpublish)',
   );
 }
 
@@ -110,6 +108,15 @@ export function parseGuardedGlasgowArguments(argv: string[]): GuardedGlasgowActi
       arguments: [...GLASGOW_IDENTITY, ...argumentsList],
     };
   }
+  if (action === 'unpublish') {
+    exactMode(argumentsList, [['--confirm-unpublish']]);
+    return {
+      action: 'unpublish-apply',
+      evidenceFile,
+      script: 'unpublish-edition.ts',
+      arguments: [...GLASGOW_IDENTITY, '--confirm-unpublish'],
+    };
+  }
   return usage();
 }
 
@@ -117,6 +124,8 @@ async function writeGuardEvidence(
   action: GuardedGlasgowAction,
   targets: ReturnType<typeof verifyProductionTargets>,
   now: () => Date,
+  executionNonce: string,
+  wrapperPid: number,
 ): Promise<void> {
   const parent = path.dirname(action.evidenceFile);
   const parentLink = await lstat(parent);
@@ -141,6 +150,8 @@ async function writeGuardEvidence(
       action: action.action,
       expectedProjectRef: targets.expectedProjectRef,
       targets: targets.targets,
+      executionNonceSha256: hashGlasgowProductionNonce(executionNonce),
+      wrapperPid,
     }, null, 2)}\n`, 'utf8');
   } finally {
     await file.close();
@@ -153,7 +164,27 @@ export async function executeGuardedGlasgowAction(
   dependencies: GuardedExecutionDependencies = {},
 ): Promise<void> {
   const targets = verifyProductionTargets(environment);
-  await writeGuardEvidence(action, targets, dependencies.now ?? (() => new Date()));
+  const executionNonce = (dependencies.nonce ?? (() => randomBytes(32).toString('hex')))();
+  if (!/^[a-f0-9]{64}$/.test(executionNonce)) {
+    throw new Error('guarded Glasgow action could not create a valid execution nonce');
+  }
+  const wrapperPid = process.pid;
+  await writeGuardEvidence(
+    action,
+    targets,
+    dependencies.now ?? (() => new Date()),
+    executionNonce,
+    wrapperPid,
+  );
+
+  const childEnvironment = {
+    ...environment,
+    [GLASGOW_GUARD_ENVIRONMENT.guard]: GLASGOW_PRODUCTION_GUARD,
+    [GLASGOW_GUARD_ENVIRONMENT.action]: action.action,
+    [GLASGOW_GUARD_ENVIRONMENT.evidenceFile]: action.evidenceFile,
+    [GLASGOW_GUARD_ENVIRONMENT.nonce]: executionNonce,
+    [GLASGOW_GUARD_ENVIRONMENT.wrapperPid]: String(wrapperPid),
+  };
 
   const child = (dependencies.spawn ?? spawnSync)(process.execPath, [
     '--import',
@@ -161,7 +192,7 @@ export async function executeGuardedGlasgowAction(
     path.join(SCRIPTS_DIRECTORY, action.script),
     ...action.arguments,
   ], {
-    env: environment,
+    env: childEnvironment,
     shell: false,
     stdio: 'inherit',
   });

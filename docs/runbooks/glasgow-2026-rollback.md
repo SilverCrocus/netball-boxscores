@@ -11,14 +11,23 @@ coverage, source snapshots, and import audit history.
    operator level.
 2. Capture the current deployment ID, logs, failing URLs, latest foundation and
    results receipt IDs/checksums, and incident time.
-3. Run the explicit emergency command:
+3. Create or reuse the incident's private target-evidence directory, then run
+   the guarded emergency command with a new evidence filename:
 
 ```bash
-npm run db:unpublish:edition -- commonwealth-games-netball glasgow-2026 --confirm-unpublish
+umask 077
+mkdir -p "$RELEASE_EVIDENCE_DIR/glasgow/targets"
+chmod 700 "$RELEASE_EVIDENCE_DIR/glasgow/targets"
+npm run production:glasgow -- \
+  --evidence-file "$RELEASE_EVIDENCE_DIR/glasgow/targets/emergency-unpublish.json" \
+  unpublish --confirm-unpublish
 ```
 
+The wrapper revalidates the production database targets, writes fresh private
+refs-only evidence, and binds the child process to this exact unpublish action.
 The command is idempotent for an already-DRAFT edition and refuses archived
-editions. It does not execute a delete.
+editions. It does not execute a delete. Never invoke `db:unpublish:edition`
+directly against production; the underlying command now fails closed there.
 
 ## Application rollback
 
@@ -60,7 +69,8 @@ npm run production:glasgow -- \
   publish --apply --confirm <NEW_TOKEN>
 ```
 
-Never invoke `db:publish:edition` directly during a production rollback. A
-prior guard result does not carry into an incident republish or later apply.
+Never invoke `db:publish:edition` or `db:unpublish:edition` directly during a
+production rollback. A prior guard result does not carry into an incident
+unpublish, republish, or later apply.
 
 Repeat production smoke tests and monitoring before closing the incident.

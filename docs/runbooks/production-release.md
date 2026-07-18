@@ -157,10 +157,12 @@ Follow the Glasgow
 [`source provenance`](glasgow-2026-source-provenance.md), and
 [`rollback`](glasgow-2026-rollback.md) runbooks rather than duplicating their
 data rules here. Every production prepare, database preview, recorded preview,
-apply, publication dry-run and publication apply must use the allowlisted
-`npm run production:glasgow` wrapper from the launch/results runbooks with a
-new refs-only evidence path. A post-deploy target check or earlier operator
-check never carries forward to a later action.
+apply, publication dry-run, publication apply, and emergency unpublish must use
+the allowlisted `npm run production:glasgow` wrapper from the launch/results/
+rollback runbooks with a new refs-only evidence path. The underlying commands
+independently reject production execution without the wrapper's fresh,
+action-bound capability. A post-deploy target check or earlier operator check
+never carries forward to a later action.
 
 ### Unpublished Glasgow blocker
 
