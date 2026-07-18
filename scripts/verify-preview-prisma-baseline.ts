@@ -7,6 +7,11 @@ import {
   type IndexSemantics,
   matchesPlainBtreeIndex,
 } from './lib/preview-index-contract';
+import {
+  type DefaultAclPrivilegeRow,
+  defaultAclInspectionQuery,
+  verifyDefaultAclBoundary,
+} from './lib/preview-default-acl-contract';
 import { verifyPreviewDatabaseTarget } from './lib/preview-database-target';
 
 const BASELINED_MIGRATIONS = [
@@ -22,7 +27,12 @@ interface DefinitionRow { name: string; definition: string }
 interface CountRow { count: bigint }
 interface PolicyRow extends DefinitionRow { command: string; checkExpression: string; roles: string[] }
 interface RlsRow { name: string; enabled: boolean; forced: boolean }
-interface GrantCounts { tableGrants: bigint; sequenceGrants: bigint; routineGrants: bigint; defaultGrants: bigint }
+interface GrantCounts {
+  tableGrants: bigint;
+  sequenceGrants: bigint;
+  routineGrants: bigint;
+  providerOwnedApplicationObjects: bigint;
+}
 interface ExpectedColumn { name: string; dataType: string; isNullable: 'YES' | 'NO'; defaultValue: string | null }
 
 const POSTGRES_TYPES: Record<string, string> = {
@@ -188,7 +198,7 @@ async function verifyPublicSchemaHardening() {
   const sql = await migrationSql(BASELINED_MIGRATIONS[2]);
   const tables = [...sql.matchAll(/ALTER TABLE "([^"]+)" ENABLE ROW LEVEL SECURITY;/g)]
     .map((match) => match[1]).toSorted();
-  const [rls, policies, key, grants] = await Promise.all([
+  const [rls, policies, key, grants, defaultAclRows] = await Promise.all([
     prisma.$queryRaw<RlsRow[]>(Prisma.sql`
       SELECT c.relname AS name, c.relrowsecurity AS enabled, c.relforcerowsecurity AS forced
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -212,18 +222,18 @@ async function verifyPublicSchemaHardening() {
           WHERE object_schema = 'public' AND grantee IN ('anon', 'authenticated'))::bigint AS "sequenceGrants",
         (SELECT COUNT(*) FROM information_schema.role_routine_grants
           WHERE routine_schema = 'public' AND grantee IN ('anon', 'authenticated'))::bigint AS "routineGrants",
-        (SELECT COUNT(*) FROM pg_default_acl d
-          CROSS JOIN LATERAL aclexplode(d.defaclacl) a JOIN pg_roles r ON r.oid = a.grantee
-          JOIN pg_roles owner_role ON owner_role.oid = d.defaclrole
-          LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace
-          WHERE n.nspname = 'public' AND owner_role.rolname = 'postgres'
-            AND r.rolname IN ('anon', 'authenticated')
-            AND (
-              (d.defaclobjtype = 'r' AND a.privilege_type IN (
-                'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'))
-              OR (d.defaclobjtype = 'S' AND a.privilege_type IN ('USAGE', 'SELECT', 'UPDATE'))
-              OR (d.defaclobjtype = 'f' AND a.privilege_type = 'EXECUTE')
-            ))::bigint AS "defaultGrants"`),
+        ((SELECT COUNT(*) FROM pg_class object
+          JOIN pg_namespace namespace ON namespace.oid = object.relnamespace
+          JOIN pg_roles owner ON owner.oid = object.relowner
+          WHERE namespace.nspname IN ('public', 'analytics')
+            AND object.relkind IN ('r', 'p', 'v', 'm', 'S')
+            AND owner.rolname = 'supabase_admin') +
+         (SELECT COUNT(*) FROM pg_proc function
+          JOIN pg_namespace namespace ON namespace.oid = function.pronamespace
+          JOIN pg_roles owner ON owner.oid = function.proowner
+          WHERE namespace.nspname IN ('public', 'analytics')
+            AND owner.rolname = 'supabase_admin'))::bigint AS "providerOwnedApplicationObjects"`),
+    prisma.$queryRaw<DefaultAclPrivilegeRow[]>(defaultAclInspectionQuery),
   ]);
   invariant(rls.length === tables.length && rls.every((row) => row.enabled && !row.forced),
     'RLS state does not exactly match the hardening migration');
@@ -233,8 +243,14 @@ async function verifyPublicSchemaHardening() {
   `deny policy semantics differ on ${policy.name}`);
   invariant(key.length === 1 && key[0].name === 'VerificationToken_pkey' &&
     key[0].definition === 'PRIMARY KEY (identifier, token)', 'VerificationToken primary key differs');
-  invariant(Object.values(grants[0] ?? {}).every((count) => count === BigInt(0)),
+  const grantState = grants[0];
+  invariant(grantState && grantState.tableGrants === BigInt(0) &&
+    grantState.sequenceGrants === BigInt(0) && grantState.routineGrants === BigInt(0),
     'Data API or default privileges remain after the hardening migration');
+  verifyDefaultAclBoundary(defaultAclRows, {
+    grantees: ['PUBLIC', 'anon', 'authenticated'],
+    providerOwnedApplicationObjects: grantState.providerOwnedApplicationObjects,
+  });
 }
 
 async function verifyFinalsColumns() {

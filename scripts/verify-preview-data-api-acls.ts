@@ -1,21 +1,18 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  DATA_API_DEFAULT_ACL_GRANTEES,
+  type DefaultAclPrivilegeRow,
+  defaultAclInspectionQuery,
+  verifyDefaultAclBoundary,
+} from './lib/preview-default-acl-contract';
 import { verifyPreviewDatabaseTarget } from './lib/preview-database-target';
 
 interface AclCounts {
   relationGrants: bigint;
   functionGrants: bigint;
-  postgresDefaultGrants: bigint;
-  unsupportedDefaultGrants: bigint;
   nonPostgresRelations: bigint;
   nonPostgresFunctions: bigint;
-}
-
-interface ProviderDefaultRow {
-  schema: string;
-  objectType: string;
-  grantee: string;
-  privileges: string[];
 }
 
 function invariant(condition: unknown, message: string): asserts condition {
@@ -24,7 +21,7 @@ function invariant(condition: unknown, message: string): asserts condition {
 
 async function main() {
   const target = verifyPreviewDatabaseTarget();
-  const [counts, providerDefaults] = await Promise.all([
+  const [counts, defaultAclRows] = await Promise.all([
     prisma.$queryRaw<AclCounts[]>(Prisma.sql`
       SELECT
         (SELECT COUNT(*) FROM pg_class object
@@ -48,23 +45,6 @@ async function main() {
           WHERE namespace.nspname IN ('public', 'analytics')
             AND (privilege.grantee = 0 OR grantee.rolname IN ('anon', 'authenticated', 'service_role'))
         )::bigint AS "functionGrants",
-        (SELECT COUNT(*) FROM pg_default_acl defaults
-          JOIN pg_roles owner ON owner.oid = defaults.defaclrole
-          LEFT JOIN pg_namespace namespace ON namespace.oid = defaults.defaclnamespace
-          CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
-          LEFT JOIN pg_roles grantee ON grantee.oid = privilege.grantee
-          WHERE namespace.nspname IN ('public', 'analytics') AND owner.rolname = 'postgres'
-            AND (privilege.grantee = 0 OR grantee.rolname IN ('anon', 'authenticated', 'service_role'))
-        )::bigint AS "postgresDefaultGrants",
-        (SELECT COUNT(*) FROM pg_default_acl defaults
-          JOIN pg_roles owner ON owner.oid = defaults.defaclrole
-          LEFT JOIN pg_namespace namespace ON namespace.oid = defaults.defaclnamespace
-          CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
-          LEFT JOIN pg_roles grantee ON grantee.oid = privilege.grantee
-          WHERE namespace.nspname IN ('public', 'analytics')
-            AND owner.rolname NOT IN ('postgres', 'supabase_admin')
-            AND (privilege.grantee = 0 OR grantee.rolname IN ('anon', 'authenticated', 'service_role'))
-        )::bigint AS "unsupportedDefaultGrants",
         (SELECT COUNT(*) FROM pg_class object
           JOIN pg_namespace namespace ON namespace.oid = object.relnamespace
           JOIN pg_roles owner ON owner.oid = object.relowner
@@ -76,20 +56,7 @@ async function main() {
           JOIN pg_roles owner ON owner.oid = function.proowner
           WHERE namespace.nspname IN ('public', 'analytics') AND owner.rolname <> 'postgres'
         )::bigint AS "nonPostgresFunctions"`),
-    prisma.$queryRaw<ProviderDefaultRow[]>(Prisma.sql`
-      SELECT namespace.nspname AS schema,
-        CASE defaults.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES'
-          WHEN 'f' THEN 'FUNCTIONS' ELSE defaults.defaclobjtype::text END AS "objectType",
-        COALESCE(grantee.rolname, 'PUBLIC') AS grantee,
-        ARRAY_AGG(privilege.privilege_type ORDER BY privilege.privilege_type) AS privileges
-      FROM pg_default_acl defaults JOIN pg_roles owner ON owner.oid = defaults.defaclrole
-      LEFT JOIN pg_namespace namespace ON namespace.oid = defaults.defaclnamespace
-      CROSS JOIN LATERAL aclexplode(defaults.defaclacl) privilege
-      LEFT JOIN pg_roles grantee ON grantee.oid = privilege.grantee
-      WHERE namespace.nspname IN ('public', 'analytics') AND owner.rolname = 'supabase_admin'
-        AND (privilege.grantee = 0 OR grantee.rolname IN ('anon', 'authenticated', 'service_role'))
-      GROUP BY namespace.nspname, defaults.defaclobjtype, COALESCE(grantee.rolname, 'PUBLIC')
-      ORDER BY schema, "objectType", grantee`),
+    prisma.$queryRaw<DefaultAclPrivilegeRow[]>(defaultAclInspectionQuery),
   ]);
   const state = counts[0];
   invariant(state, 'ACL count query returned no row');
@@ -97,14 +64,14 @@ async function main() {
     `found ${state.relationGrants} effective current relation or sequence grants`);
   invariant(state.functionGrants === BigInt(0),
     `found ${state.functionGrants} effective current function grants`);
-  invariant(state.postgresDefaultGrants === BigInt(0),
-    `found ${state.postgresDefaultGrants} postgres-owned future-object grants`);
-  invariant(state.unsupportedDefaultGrants === BigInt(0),
-    `found ${state.unsupportedDefaultGrants} unsupported provider default grants`);
   invariant(state.nonPostgresRelations === BigInt(0),
     `found ${state.nonPostgresRelations} application relations not owned by postgres`);
   invariant(state.nonPostgresFunctions === BigInt(0),
     `found ${state.nonPostgresFunctions} application functions not owned by postgres`);
+  const providerDefaults = verifyDefaultAclBoundary(defaultAclRows, {
+    grantees: DATA_API_DEFAULT_ACL_GRANTEES,
+    providerOwnedApplicationObjects: state.nonPostgresRelations + state.nonPostgresFunctions,
+  });
   console.log(JSON.stringify({
     status: 'verified-owner-aware-data-api-object-boundary',
     expectedPreviewProjectRef: target.expectedPreviewProjectRef,
@@ -113,7 +80,7 @@ async function main() {
     grantees: ['PUBLIC', 'anon', 'authenticated', 'service_role'],
     currentRelationGrants: 0,
     currentFunctionGrants: 0,
-    postgresOwnedDefaultGrants: 0,
+    postgresOwnedGlobalOrSchemaDefaultGrants: 0,
     nonPostgresApplicationRelations: 0,
     nonPostgresApplicationFunctions: 0,
     providerManagedSupabaseAdminDefaults: providerDefaults,
