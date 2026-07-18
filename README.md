@@ -13,7 +13,7 @@ Live scores, box scores, standings, fixtures, team profiles, and player profiles
 - **Database:** Supabase PostgreSQL via Prisma 6.x
 - **Real-time:** Socket.io (live scores + stats)
 - **Auth:** NextAuth.js
-- **Hosting:** Render (Sydney region)
+- **Hosting:** Render (Oregon region)
 - **Testing:** Vitest
 
 ## Data Sources

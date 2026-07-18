@@ -22,7 +22,9 @@ vi.mock('@/lib/competitions', () => ({
 }));
 
 vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchAccess: vi.fn().mockResolvedValue({ scoreAvailable: true }),
+  resolvePublicMatchAccessBatch: vi.fn().mockImplementation(async (ids: string[]) => new Map(
+    ids.map((id) => [id, { scoreAvailable: true }]),
+  )),
   canExposePublicMatchScore: vi.fn().mockReturnValue(true),
 }));
 

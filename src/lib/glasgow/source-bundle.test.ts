@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { NormalizedCompetitionImport } from '@/lib/sources/types';
@@ -8,6 +10,108 @@ import nextConfig from '../../../next.config';
 
 const bundlePath = path.resolve('data/glasgow-2026/v1/bundle.json');
 const manifestPath = path.resolve('data/glasgow-2026/v1/source-manifest.json');
+const generatorPath = path.resolve('scripts/build-glasgow-2026-source-bundle.mjs');
+
+const expectedSourceIds = [
+  'glasgow-participants-pools',
+  'glasgow-match-schedule',
+  'world-netball-hub',
+  'glasgow-event-schedule-v15',
+  'glasgow-sec-venue',
+  'commonwealth-qualification-system',
+  'england-squad',
+  'england-positions',
+  'england-jayda-position',
+  'england-francesca-position',
+  'england-jess-position',
+  'england-sasha-position',
+  'england-eleanor-position',
+  'new-zealand-squad',
+  'new-zealand-positions',
+  'scotland-squad',
+  'wales-squad',
+  'wales-squad-list-image',
+  'australia-squad',
+  'australia-positions',
+  'south-africa-squad',
+  'south-africa-positions',
+  'south-africa-crinums-positions',
+  'northern-ireland-squad',
+  'northern-ireland-positions',
+  'northern-ireland-lisa-position',
+  'malawi-squad-hub',
+  'malawi-squad-post',
+  'malawi-positions',
+  'tonga-squad-hub',
+  'tonga-squad-post',
+  'jamaica-squad-hub',
+  'jamaica-squad-post',
+  'jamaica-squad-report',
+  'jamaica-position-guide',
+  'jamaica-new-player-positions',
+  'jamaica-rhea-position',
+  'jamaica-brie-position',
+  'jamaica-crystal-position',
+  'trinidad-tobago-squad-hub',
+  'trinidad-tobago-squad-post',
+  'uganda-provisional-squad',
+  'funmi-photo',
+  'olivia-photo',
+  'eleanor-photo',
+  'shamera-photo',
+] as const;
+
+const reviewedSourceClaims = {
+  'england-positions': {
+    url: 'https://londonpulsenetball.com/nsl-rd-1-match-report-london-pulse-vs-manchester-thunder/',
+    purpose: 'Halimat Adio, Funmi Fadoju, Imogen Allison, Amy Carter, Natalie Metcalf, Olivia Tchine and Lois Pearson positions',
+  },
+  'england-jayda-position': {
+    url: 'https://teamengland.org/news/jayda-pechov-completes-the-ultimate-comeback-at-glasgow-2026',
+    purpose: 'Jayda Pechová goal-keeper position',
+  },
+  'england-francesca-position': {
+    url: 'https://teamengland.org/team-england-athletes/francesca-williams',
+    purpose: 'Francesca Williams goal-defence position',
+  },
+  'england-jess-position': {
+    url: 'https://teamengland.org/team-england-athletes/jess-shaw',
+    purpose: 'Jess Shaw wing-attack position',
+  },
+  'england-sasha-position': {
+    url: 'https://teamengland.org/team-england-athletes/sasha-glasgow',
+    purpose: 'Sasha Glasgow goal-attack position',
+  },
+  'england-eleanor-position': {
+    url: 'https://www.manchesterthunder.co.uk/welcome-back-eleanor-cardwell/',
+    purpose: 'Eleanor Cardwell goal-shooter position',
+  },
+  'jamaica-new-player-positions': {
+    url: 'https://londonpulsenetball.com/academy-npl-season-complete-u17-u19-crowned-champions/',
+    purpose: 'Azara Wilmot goal-shooter position',
+  },
+  'jamaica-rhea-position': {
+    url: 'https://netballnz.co.nz/images/silver-ferns/documents/SFTJT-21-Media-Guide-web.pdf',
+    purpose: 'Rhea Dixon goal-attack position',
+  },
+} as const;
+
+const reviewedPlayerPositions = {
+  'ENG-halimat-adio': 'GK',
+  'ENG-funmi-fadoju': 'GD',
+  'ENG-imogen-allison': 'WD',
+  'ENG-amy-carter': 'C',
+  'ENG-natalie-metcalf': 'WA',
+  'ENG-olivia-tchine': 'GS',
+  'ENG-lois-pearson': 'GA',
+  'ENG-jayda-pechova': 'GK',
+  'ENG-francesca-williams': 'GD',
+  'ENG-jess-shaw': 'WA',
+  'ENG-sasha-glasgow': 'GA',
+  'ENG-eleanor-cardwell': 'GS',
+  'JAM-azara-wilmot': 'GS',
+  'JAM-rhea-dixon': 'GA',
+} as const;
 
 async function loadSourceBundle() {
   const bundleText = await readFile(bundlePath, 'utf8');
@@ -70,7 +174,7 @@ describe('Glasgow 2026 source bundle', () => {
       sourceManifest: expect.objectContaining({
         bundleVersion: 'v1',
         publicationStatusPolicy: 'DRAFT_ONLY',
-        sourceCount: expect.any(Number),
+        sourceCount: 46,
       }),
     });
     expect(evidence.publicationExpectation).toMatchObject({
@@ -85,6 +189,14 @@ describe('Glasgow 2026 source bundle', () => {
     expect(evidence.publicationExpectation.matchExternalIds).toHaveLength(38);
     expect(evidence.publicationExpectation.canonicalPlayers).toHaveLength(23);
     expect(evidence.publicationExpectation.editionCoverage).toHaveLength(10);
+    expect(evidence.publicationExpectation.sources).toHaveLength(
+      evidence.publicationExpectation.sourceIds.length,
+    );
+    expect(evidence.publicationExpectation.sources.every((source) => (
+      source.url.startsWith('https://')
+      && !Number.isNaN(Date.parse(source.retrievedAt))
+      && source.fetchStatus === 'REFERENCED'
+    ))).toBe(true);
   });
 
   it('contains the complete tournament structure without inventing unresolved teams', async () => {
@@ -195,6 +307,11 @@ describe('Glasgow 2026 source bundle', () => {
       playerExternalId: 'JAM-shamera-sterling-humphrey',
       isCaptain: true,
     }));
+    expect(Object.fromEntries(
+      bundle.players
+        .filter((player) => player.externalId in reviewedPlayerPositions)
+        .map((player) => [player.externalId, player.position]),
+    )).toEqual(reviewedPlayerPositions);
     expect(playersWithPhotos).toHaveLength(4);
     expect(playersWithPhotos).toHaveLength(manifest.declarations.photoCoverage.verifiedReusablePhotos);
     expect(playersWithPhotos.map((player) => player.photoUrl).sort()).toEqual([
@@ -240,6 +357,8 @@ describe('Glasgow 2026 source bundle', () => {
     );
 
     expect(new Set(sourceIds).size).toBe(sourceIds.length);
+    expect(manifest.sources).toHaveLength(46);
+    expect(sourceIds).toEqual(expectedSourceIds);
     expect(manifest.sources.every((source) => (
       source.url.startsWith('https://')
       && source.purpose.length > 0
@@ -251,20 +370,40 @@ describe('Glasgow 2026 source bundle', () => {
       basis: 'PUBLIC_FACTUAL_DATA_USER_ASSERTED',
       organiserApproval: 'NOT_CLAIMED',
     });
-    expect(sourceIds).toEqual(expect.arrayContaining([
-      'australia-squad',
-      'south-africa-squad',
-      'northern-ireland-squad',
-      'malawi-squad-post',
-      'tonga-squad-post',
-      'jamaica-squad-post',
-      'trinidad-tobago-squad-post',
-      'uganda-provisional-squad',
+    expect(Object.fromEntries(
+      manifest.sources
+        .filter((source) => source.id in reviewedSourceClaims)
+        .map((source) => [source.id, { url: source.url, purpose: source.purpose }]),
+    )).toEqual(reviewedSourceClaims);
+    expect(manifest.sources.map((source) => source.url)).not.toEqual(expect.arrayContaining([
+      'https://www.englandnetball.co.uk/vitality-roses/current-squad/',
+      'https://www.englandnetball.co.uk/news/vitality-roses-squad-confirmed-for-jamaica-series/',
+      'https://www.englandnetball.co.uk/news/athletes-selected-for-roses-academy-2023-24/',
+      'https://jamaica-star.com/article/sports/20231020/england-born-dixon-hopes-add-sunshine-girls%E2%80%99-style',
     ]));
     expect(new Set(
       manifest.sources
         .filter((source) => source.id.endsWith('-photo'))
         .map((source) => source.url)
     )).toEqual(photoSources);
+  });
+
+  it('reproduces both checked-in artifacts byte-for-byte from the generator', async () => {
+    const generatedRoot = await mkdtemp(path.join(tmpdir(), 'centrepass-glasgow-source-bundle-'));
+
+    try {
+      execFileSync(process.execPath, [generatorPath], {
+        cwd: generatedRoot,
+        stdio: 'pipe',
+      });
+
+      const generatedDirectory = path.join(generatedRoot, 'data/glasgow-2026/v1');
+      await expect(readFile(path.join(generatedDirectory, 'bundle.json'), 'utf8'))
+        .resolves.toBe(await readFile(bundlePath, 'utf8'));
+      await expect(readFile(path.join(generatedDirectory, 'source-manifest.json'), 'utf8'))
+        .resolves.toBe(await readFile(manifestPath, 'utf8'));
+    } finally {
+      await rm(generatedRoot, { recursive: true, force: true });
+    }
   });
 });

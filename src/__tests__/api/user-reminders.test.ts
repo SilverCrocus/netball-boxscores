@@ -4,10 +4,17 @@ vi.mock('@/lib/db', () => ({
   prisma: {
     userReminder: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
     },
   },
+}));
+
+vi.mock('@/lib/public-match', () => ({
+  resolvePublicMatchAccess: vi.fn().mockResolvedValue({ id: 'match-1' }),
+  resolvePublicMatchAccessBatch: vi.fn().mockResolvedValue(new Map([['match-1', { id: 'match-1' }]])),
 }));
 
 vi.mock('@/lib/auth', () => ({

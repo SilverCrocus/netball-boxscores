@@ -1,8 +1,10 @@
 import type { CompletedMatchesPage, HomeResultCard } from '@/lib/home-feed';
 import { matchHref } from '@/lib/edition-links';
+import { fetchJsonWithinLimits } from '@/lib/bounded-fetch';
 
 const DEFAULT_UPSTREAM_ORIGIN = 'https://www.centrepass.io';
 const UPSTREAM_TIMEOUT_MS = 5_000;
+const UPSTREAM_MAX_BYTES = 2 * 1024 * 1024;
 
 export interface PreviewLiveStatus {
   hasLive: boolean;
@@ -34,12 +36,13 @@ async function fetchUpstreamJson(path: string): Promise<unknown | null> {
   if (!origin) return null;
 
   try {
-    const response = await fetch(`${origin}${path}`, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    return await fetchJsonWithinLimits<unknown>({
+      url: `${origin}${path}`,
+      label: 'Preview upstream',
+      timeoutMs: UPSTREAM_TIMEOUT_MS,
+      maxBytes: UPSTREAM_MAX_BYTES,
+      init: { cache: 'no-store' },
     });
-    if (!response.ok) return null;
-    return await response.json() as unknown;
   } catch {
     return null;
   }

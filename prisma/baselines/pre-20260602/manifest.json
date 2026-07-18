@@ -1,0 +1,13 @@
+{
+  "contract": "centrepass-pre-20260602-prisma-baseline-v1",
+  "sourceCommit": "5956ed15bb54732897931c4e614f5d8a2c89c381",
+  "introducedMigrationCommit": "20741ac9ed367ea938988e2fdddb2e1950017c2e",
+  "sourcePath": "prisma/schema.prisma",
+  "sourceGitBlobSha1": "66717001197fcde2cf1c123896b0dbb778caf274",
+  "schemaSha256": "382f7bdc1b689214d9a076e675c0c45be93263f46ce2caa99aa62132fc9cbb52",
+  "baselineSqlSha256": "0a6b678a8adc37c3e92368e5cf1a916da603fd7f43fc3650e0ab88aa95c0c590",
+  "generator": "prisma migrate diff --from-empty --to-schema-datamodel schema.prisma --script",
+  "generatorNormalization": "strip terminal ASCII whitespace and append LF",
+  "prismaVersion": "6.19.3",
+  "firstRetainedMigration": "20260602_expand_stats_fields"
+}

@@ -4,8 +4,11 @@ import type {
   TSDBPlayer,
   TSDBPlayersResponse,
 } from "@/types/the-sports-db";
+import { fetchJsonWithinLimits } from '@/lib/bounded-fetch';
 
 const SSN_LEAGUE_NAME = "Australian Super Netball League";
+const THESPORTSDB_TIMEOUT_MS = 10_000;
+const THESPORTSDB_MAX_BYTES = 2 * 1024 * 1024;
 
 function getBaseUrl(): string {
   const apiKey = process.env.THESPORTSDB_API_KEY || "3"; // "3" is the free test key
@@ -17,13 +20,13 @@ function getBaseUrl(): string {
 
 async function fetchFromTSDB<T>(endpoint: string): Promise<T> {
   const url = `${getBaseUrl()}/${endpoint}`;
-  const res = await fetch(url, { next: { revalidate: 86400 } });
-
-  if (!res.ok) {
-    throw new Error(`TheSportsDB API error: ${res.status} ${res.statusText}`);
-  }
-
-  return res.json() as Promise<T>;
+  return fetchJsonWithinLimits<T>({
+    url,
+    label: 'TheSportsDB API',
+    timeoutMs: THESPORTSDB_TIMEOUT_MS,
+    maxBytes: THESPORTSDB_MAX_BYTES,
+    init: { next: { revalidate: 86400 } },
+  });
 }
 
 /**
@@ -45,4 +48,3 @@ export async function fetchPlayersByTeam(teamId: string): Promise<TSDBPlayer[]> 
   );
   return data.player ?? [];
 }
-
