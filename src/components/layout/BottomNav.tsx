@@ -7,6 +7,7 @@ import { getVisibleNavigationItems, isResolvedNavigationActive } from '@/lib/nav
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
+import { NavigationPendingIndicator } from '@/components/layout/NavigationPendingIndicator';
 import type { EditionContextValue } from '@/lib/edition-context';
 import {
   editionAwareNavigationHref,
@@ -199,6 +200,10 @@ export function BottomNav({
                 >
                   <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
                   {item.href === '/teams' ? 'Browse teams' : 'Ask CentrePass'}
+                  <NavigationPendingIndicator
+                    label={item.href === '/teams' ? 'Browse teams' : 'Ask CentrePass'}
+                    className="ml-auto"
+                  />
                 </Link>
               ))}
             </div>
@@ -244,6 +249,10 @@ export function BottomNav({
                 {minutesUntilNext}m
               </span>
             )}
+            <NavigationPendingIndicator
+              label={item.label}
+              className="absolute left-1 top-1"
+            />
           </Link>
         );
       })}

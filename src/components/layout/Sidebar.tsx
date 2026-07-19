@@ -8,6 +8,7 @@ import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { GlobalEditionSelector } from '@/components/competition/GlobalEditionSelector';
+import { NavigationPendingIndicator } from '@/components/layout/NavigationPendingIndicator';
 import type { EditionContextValue } from '@/lib/edition-context';
 import {
   editionAwareNavigationHref,
@@ -87,6 +88,10 @@ export function Sidebar({
                   </span>
                 )}
               </span>
+              <NavigationPendingIndicator
+                label={item.sidebarLabel ?? item.label}
+                className="ml-auto mr-4"
+              />
             </Link>
           );
         })}
