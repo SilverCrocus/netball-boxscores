@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import {
   calculateWinProbability,
@@ -11,18 +12,29 @@ const liveClientPath = resolve(
   sourceRoot,
   'app/match/[matchId]/live/LiveGameClient.tsx',
 );
+const winProbabilityBarPath = resolve(
+  sourceRoot,
+  'components/match/WinProbabilityBar.tsx',
+);
 const clientEntryPath = resolve(sourceRoot, 'lib/win-probability-client.ts');
 
-const forbiddenServerOnlyTokens = [
+const forbiddenRuntimeImports = [
   '@/lib/competitions',
   '@/lib/cached-queries',
   '@/lib/db',
   '@/lib/public-match',
   '@/lib/server-timing',
+  '@/lib/win-probability',
   '@prisma/client',
+];
+
+const forbiddenSourceMarkers = [
+  'canExposePublicMatchScore',
   'centrepass.server-timing',
-  'next/cache',
+  'getPublicCompetitions',
   'node:async_hooks',
+  'resolvePublicMatchAccessBatch',
+  'TEAM_STRENGTH_HISTORY_LIMIT',
   'trackedUnstableCache',
   'unstable_cache',
 ];
@@ -43,27 +55,71 @@ function resolveLocalModule(specifier: string, importerPath: string): string | n
     modulePath + '.tsx',
     modulePath + '.js',
     modulePath + '.jsx',
+    modulePath + '.mts',
     resolve(modulePath, 'index.ts'),
     resolve(modulePath, 'index.tsx'),
   ];
   return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
 
-function importedSpecifiers(source: string): string[] {
+function runtimeModuleSpecifiers(source: string): string[] {
+  const sourceFile = ts.createSourceFile(
+    'runtime-dependency-scan.tsx',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
   const specifiers: string[] = [];
-  const importPattern =
-    /(?:^|\n)\s*import\s+(?!\()([\s\S]*?)(?:\sfrom\s+)?['"]([^'"]+)['"]/g;
-  for (const match of source.matchAll(importPattern)) {
-    specifiers.push(match[2]);
-  }
-  const dynamicImportPattern = /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
-  for (const match of source.matchAll(dynamicImportPattern)) {
-    specifiers.push(match[1]);
-  }
-  return specifiers;
+
+  const addModuleSpecifier = (moduleSpecifier: ts.Expression | undefined) => {
+    if (moduleSpecifier && ts.isStringLiteralLike(moduleSpecifier)) {
+      specifiers.push(moduleSpecifier.text);
+    }
+  };
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node)) {
+      const clause = node.importClause;
+      const hasRuntimeImport = !clause || (
+        !clause.isTypeOnly
+        && (
+          Boolean(clause.name)
+          || !clause.namedBindings
+          || ts.isNamespaceImport(clause.namedBindings)
+          || (
+            ts.isNamedImports(clause.namedBindings)
+            && clause.namedBindings.elements.some((element) => !element.isTypeOnly)
+          )
+        )
+      );
+      if (hasRuntimeImport) addModuleSpecifier(node.moduleSpecifier);
+    } else if (ts.isExportDeclaration(node)) {
+      const exportClause = node.exportClause;
+      const hasRuntimeExport = !node.isTypeOnly && (
+        !exportClause
+        || ts.isNamespaceExport(exportClause)
+        || (
+          ts.isNamedExports(exportClause)
+          && exportClause.elements.some((element) => !element.isTypeOnly)
+        )
+      );
+      if (hasRuntimeExport) addModuleSpecifier(node.moduleSpecifier);
+    } else if (
+      ts.isCallExpression(node)
+      && node.expression.kind === ts.SyntaxKind.ImportKeyword
+    ) {
+      addModuleSpecifier(node.arguments[0]);
+    }
+
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return [...new Set(specifiers)];
 }
 
-function collectClientEntryGraph(entryPath: string): Map<string, string> {
+function collectRuntimeGraph(entryPath: string): Map<string, string> {
   const modules = new Map<string, string>();
   const pending = [entryPath];
 
@@ -73,7 +129,7 @@ function collectClientEntryGraph(entryPath: string): Map<string, string> {
 
     const source = readFileSync(modulePath, 'utf8');
     modules.set(modulePath, source);
-    for (const specifier of importedSpecifiers(source)) {
+    for (const specifier of runtimeModuleSpecifiers(source)) {
       const dependencyPath = resolveLocalModule(specifier, modulePath);
       if (dependencyPath) pending.push(dependencyPath);
     }
@@ -83,6 +139,26 @@ function collectClientEntryGraph(entryPath: string): Map<string, string> {
 }
 
 describe('live win probability client boundary', () => {
+  it('parses runtime import/export edges without following erased type edges', () => {
+    const source = [
+      "import type { ServerType } from '@/lib/server-timing';",
+      "import { type NamedType } from '@/lib/public-match';",
+      "import { runtimeValue } from '@/lib/score-flow';",
+      "export type { ServerType } from '@/lib/competitions';",
+      "export { type NamedType } from '@/lib/db';",
+      "export { runtimeValue } from '@/lib/stat-utils';",
+      "export * from '@/lib/edition-links';",
+      "export * as capabilities from '@/lib/edition-capabilities';",
+    ].join('\n');
+
+    expect(runtimeModuleSpecifiers(source)).toEqual([
+      '@/lib/score-flow',
+      '@/lib/stat-utils',
+      '@/lib/edition-links',
+      '@/lib/edition-capabilities',
+    ]);
+  });
+
   it('imports the calculator from the browser-safe entrypoint', () => {
     const liveSource = readFileSync(liveClientPath, 'utf8');
 
@@ -95,20 +171,23 @@ describe('live win probability client boundary', () => {
   });
 
   it('keeps the client entry graph free of server-only dependencies', () => {
-    const modules = collectClientEntryGraph(clientEntryPath);
+    const modules = collectRuntimeGraph(liveClientPath);
     const violations: string[] = [];
 
+    expect(modules.has(liveClientPath)).toBe(true);
+    expect(modules.has(winProbabilityBarPath)).toBe(true);
+    expect(modules.has(clientEntryPath)).toBe(true);
+    expect(modules.size).toBeGreaterThan(3);
+
     for (const [modulePath, source] of modules) {
-      for (const token of forbiddenServerOnlyTokens) {
+      for (const token of forbiddenSourceMarkers) {
         if (source.includes(token)) {
           violations.push(modulePath + ': ' + token);
         }
       }
-      for (const specifier of importedSpecifiers(source)) {
-        for (const token of forbiddenServerOnlyTokens) {
-          if (specifier === token) {
-            violations.push(modulePath + ' imports ' + specifier);
-          }
+      for (const specifier of runtimeModuleSpecifiers(source)) {
+        if (forbiddenRuntimeImports.includes(specifier)) {
+          violations.push(modulePath + ' imports ' + specifier);
         }
       }
     }
