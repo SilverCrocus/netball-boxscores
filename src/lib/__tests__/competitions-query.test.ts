@@ -6,16 +6,22 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('next/server', () => ({ connection: mocks.connection }));
+vi.mock('next/cache', () => ({ unstable_cache: (loader: unknown) => loader }));
 vi.mock('@/lib/db', () => ({
   prisma: { competition: { findMany: mocks.findMany } },
 }));
 
-import { competitionOptionSelect, getCompetitions } from '@/lib/competitions';
+import {
+  competitionNavigationSelect,
+  competitionOptionSelect,
+  getCompetitions,
+  getPublicCompetitionNavigationDirectory,
+} from '@/lib/competitions';
 
 describe('competition directory query', () => {
   beforeEach(() => {
     mocks.connection.mockClear();
-    mocks.findMany.mockClear();
+    mocks.findMany.mockReset().mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -36,4 +42,90 @@ describe('competition directory query', () => {
       where: { status: 'ACTIVE' },
     });
   });
+
+  it('uses a small selector projection for the global competition directory', async () => {
+    findNavigationCandidate();
+
+    await expect(getPublicCompetitionNavigationDirectory()).resolves.toMatchObject([
+      { id: 'edition-1', slug: '2026', series: { slug: 'suncorp-super-netball' } },
+    ]);
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { publicationStatus: 'PUBLISHED' },
+      select: competitionNavigationSelect,
+    }));
+    expect(competitionNavigationSelect).not.toHaveProperty('ruleset');
+    expect(competitionNavigationSelect).not.toHaveProperty('dataCoverage');
+  });
+
+  it('keeps generic publication gates and Glasgow readiness semantics in the directory', async () => {
+    mocks.findMany.mockResolvedValueOnce([
+      navigationCandidate({ id: 'generic-unready', countEntries: 1, countMatches: 0 }),
+      navigationCandidate({
+        id: 'glasgow-shell',
+        seriesSlug: 'commonwealth-games-netball',
+        slug: 'glasgow-2026',
+        countEntries: 12,
+        countMatches: 38,
+      }),
+    ]).mockResolvedValueOnce([glasgowReadinessCandidate('glasgow-shell', false)]);
+
+    await expect(getPublicCompetitionNavigationDirectory()).resolves.toEqual([]);
+    expect(mocks.findMany).toHaveBeenCalledTimes(2);
+  });
 });
+
+function navigationCandidate(overrides: {
+  id?: string;
+  slug?: string;
+  seriesSlug?: string;
+  countEntries?: number;
+  countMatches?: number;
+} = {}) {
+  return {
+    id: overrides.id ?? 'edition-1',
+    season: 2026,
+    name: 'SSN 2026',
+    slug: overrides.slug ?? '2026',
+    label: null,
+    sourceTimezone: 'Australia/Sydney',
+    publicationStatus: 'PUBLISHED',
+    series: {
+      id: 'series-1',
+      slug: overrides.seriesSlug ?? 'suncorp-super-netball',
+      name: 'Suncorp Super Netball',
+      kind: 'LEAGUE',
+    },
+    _count: {
+      entries: overrides.countEntries ?? 8,
+      matches: overrides.countMatches ?? 64,
+    },
+  };
+}
+
+function findNavigationCandidate() {
+  mocks.findMany.mockResolvedValueOnce([navigationCandidate()]);
+}
+
+function glasgowReadinessCandidate(id: string, ready: boolean) {
+  return {
+    id,
+    slug: 'glasgow-2026',
+    publicationStatus: 'PUBLISHED',
+    series: { slug: 'commonwealth-games-netball' },
+    _count: { entries: 12, matches: 38 },
+    stages: [
+      ['pool-stage', 'POOL', 1, 2, 30],
+      ['classification', 'CLASSIFICATION', 2, 0, 4],
+      ['semi-finals', 'SEMI_FINALS', 3, 0, 2],
+      ['medal-matches', 'MEDAL_MATCHES', 4, 0, 2],
+    ].map(([slug, type, sequence, groups, matches]) => ({
+      slug,
+      type,
+      sequence,
+      isPublished: ready,
+      _count: { groups, matches },
+    })),
+    matches: Array.from({ length: 38 }, () => ({ _count: { slots: 2 } })),
+    importRuns: ready ? [{ id: 'clean-import' }] : [],
+  };
+}

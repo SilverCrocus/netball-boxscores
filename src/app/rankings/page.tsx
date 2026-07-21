@@ -7,6 +7,7 @@ import type { MetricAggregation, MetricResult } from '@/lib/analytics';
 import { TEAM_POWER_METHODOLOGY } from '@/lib/rankings';
 import { getPlayerRankingSnapshot, getTeamPowerSnapshot } from '@/lib/rankings/service';
 import { analyticsFeaturesEnabled } from '@/lib/server-feature-flags';
+import { measureServerOperation } from '@/lib/server-timing';
 
 export const metadata: Metadata = {
   title: 'Player & Team Rankings',
@@ -54,7 +55,11 @@ function ordinal(value: number): string {
   return `${rounded}th`;
 }
 
-export default async function RankingsPage({ searchParams }: RankingsPageProps) {
+export default function RankingsPage(props: RankingsPageProps) {
+  return measureServerOperation('/rankings', 'rankings-page', () => renderRankingsPage(props));
+}
+
+async function renderRankingsPage({ searchParams }: RankingsPageProps) {
   if (!analyticsFeaturesEnabled()) notFound();
   const query = await searchParams;
   const editions = await listAnalyticsEditions();
@@ -199,7 +204,7 @@ function PlayerRankingTable({ snapshot }: { snapshot: Awaited<ReturnType<typeof 
           <article key={entry.entity.id} className="grid grid-cols-[3rem_1fr_auto] items-center gap-3 px-4 py-5 sm:grid-cols-[4rem_1fr_8rem_8rem_7rem] sm:px-6">
             <p className="font-headline text-2xl font-black text-primary">{String(entry.rank).padStart(2, '0')}</p>
             <div className="min-w-0">
-              <Link href={`/player/${entry.entity.id}?edition=${encodeURIComponent(snapshot.request.competitionId)}`} className="font-headline text-lg font-bold text-primary hover:text-secondary">{entry.entity.name}</Link>
+              <Link prefetch={false} href={`/player/${entry.entity.id}?edition=${encodeURIComponent(snapshot.request.competitionId)}`} className="font-headline text-lg font-bold text-primary hover:text-secondary">{entry.entity.name}</Link>
               <p className="truncate text-xs text-on-surface-variant">{entry.entity.position} · {entry.entity.teamName} · {ordinal(entry.percentile)} percentile</p>
               <p className="mt-1 text-xs text-on-surface-variant sm:hidden">{entry.result.games} games · {entry.result.minutes.toFixed(0)} min · {entry.result.coverage.toLocaleLowerCase()}</p>
             </div>
@@ -226,7 +231,7 @@ function TeamPowerTable({ snapshot }: { snapshot: Awaited<ReturnType<typeof getT
             <article key={entry.entity.id} className="grid grid-cols-[3rem_1fr_auto] items-center gap-3 px-4 py-5 sm:grid-cols-[4rem_1fr_8rem_8rem_7rem] sm:px-6">
               <p className="font-headline text-2xl font-black text-primary">{String(entry.rank).padStart(2, '0')}</p>
               <div>
-                <Link href={`/team/${entry.entity.slug}`} className="font-headline text-lg font-bold text-primary hover:text-secondary">{entry.entity.name}</Link>
+                <Link prefetch={false} href={`/team/${entry.entity.slug}`} className="font-headline text-lg font-bold text-primary hover:text-secondary">{entry.entity.name}</Link>
                 <p className="text-xs text-on-surface-variant">{entry.wins}-{entry.losses}-{entry.draws} · {ordinal(entry.percentile)} percentile</p>
                 <p className="mt-1 text-xs text-on-surface-variant sm:hidden">{entry.games} games · {entry.includedMatchIds.length} included · {entry.coverage.toLocaleLowerCase()}</p>
               </div>

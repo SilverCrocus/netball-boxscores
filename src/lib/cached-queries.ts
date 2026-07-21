@@ -6,6 +6,7 @@ import {
   canExposePublicMatchScore,
   resolvePublicMatchAccessBatch,
 } from '@/lib/public-match';
+import { timedQuery, trackedUnstableCache } from '@/lib/server-timing';
 
 const matchTeamSelect = { name: true, abbreviation: true, logoUrl: true } as const;
 
@@ -22,14 +23,16 @@ function loadedEditionContext(
   return [loadedEdition];
 }
 
-const standingsQuery = (competitionId: string) =>
-  prisma.standing.findMany({
+const standingsQuery = (competitionId: string) => timedQuery(
+  'standings_rows',
+  () => prisma.standing.findMany({
     where: { competitionId },
     include: {
       team: { select: { name: true, slug: true, abbreviation: true, logoUrl: true } },
     },
     orderBy: { rank: 'asc' },
-  });
+  }),
+);
 
 const teamsQuery = (publicEditionIds: string[]) => prisma.team.findMany({
   where: {
@@ -187,7 +190,7 @@ export async function getUpcomingTeamMatches(
 
 export const getStandingsForCompetition = process.env.NODE_ENV === 'test'
   ? standingsQuery
-  : unstable_cache(standingsQuery, ['standings-by-competition-v1'], {
+  : trackedUnstableCache('standings', standingsQuery, ['standings-by-competition-v1'], {
       revalidate: 60,
       tags: ['standings'],
     });

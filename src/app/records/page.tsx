@@ -8,6 +8,7 @@ import { getRecordSnapshot } from '@/lib/records/service';
 import type { RecordScope } from '@/lib/records';
 import { editionScopedHref, matchHref } from '@/lib/edition-links';
 import { analyticsFeaturesEnabled } from '@/lib/server-feature-flags';
+import { measureServerOperation } from '@/lib/server-timing';
 
 export const metadata: Metadata = {
   title: 'Netball Records',
@@ -36,7 +37,11 @@ function formatValue(value: number, unit: string): string {
   return Number.isInteger(value) ? value.toLocaleString('en-AU') : value.toFixed(1);
 }
 
-export default async function RecordsPage({ searchParams }: RecordsPageProps) {
+export default function RecordsPage(props: RecordsPageProps) {
+  return measureServerOperation('/records', 'records-page', () => renderRecordsPage(props));
+}
+
+async function renderRecordsPage({ searchParams }: RecordsPageProps) {
   if (!analyticsFeaturesEnabled()) notFound();
   const query = await searchParams;
   const scope = scopeValue(query.scope);
@@ -62,7 +67,7 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
       entityType,
       competitionId: edition?.id,
       limit: 25,
-    })
+    }, { editions })
     : null;
 
   return (
@@ -106,7 +111,7 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
                 <article key={`${entry.entity.id}-${entry.supportingMatchId ?? 'aggregate'}`} className="grid grid-cols-[3rem_1fr_auto] items-center gap-3 px-4 py-5 sm:grid-cols-[4rem_1fr_9rem_10rem] sm:px-6">
                   <p className="font-headline text-2xl font-black text-primary">{String(index + 1).padStart(2, '0')}</p>
                   <div className="min-w-0">
-                    <Link href={editionScopedHref(entry.entityType === 'PLAYER' ? `/player/${entry.entity.id}` : `/team/${entry.entity.slug}`, entry.supportingCompetitionId ?? edition?.id)} className="font-headline text-lg font-bold text-primary hover:text-secondary">{entry.entity.name}</Link>
+                    <Link prefetch={false} href={editionScopedHref(entry.entityType === 'PLAYER' ? `/player/${entry.entity.id}` : `/team/${entry.entity.slug}`, entry.supportingCompetitionId ?? edition?.id)} className="font-headline text-lg font-bold text-primary hover:text-secondary">{entry.entity.name}</Link>
                     <p className="truncate text-xs text-on-surface-variant">{entry.entity.position ? `${entry.entity.position} · ` : ''}{entry.entity.teamName ?? entry.coverageLabel}</p>
                     <p className="mt-1 text-xs text-on-surface-variant sm:hidden">{entry.games} games · {entry.minutes.toFixed(0)} min · {entry.status.toLocaleLowerCase()}</p>
                   </div>
@@ -114,7 +119,7 @@ export default async function RecordsPage({ searchParams }: RecordsPageProps) {
                   <div className="hidden text-right text-xs text-on-surface-variant sm:block">
                     <p>{entry.games} games · {entry.minutes.toFixed(0)} min</p>
                     <p>{new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' }).format(new Date(entry.achievedAt))}</p>
-                    {entry.supportingMatchId && entry.supportingCompetitionId && <Link href={matchHref(entry.supportingMatchId, entry.supportingCompetitionId)} className="font-bold text-secondary">Supporting match</Link>}
+                    {entry.supportingMatchId && entry.supportingCompetitionId && <Link prefetch={false} href={matchHref(entry.supportingMatchId, entry.supportingCompetitionId)} className="font-bold text-secondary">Supporting match</Link>}
                     <p className="font-mono">{entry.status.toLocaleLowerCase()}</p>
                   </div>
                 </article>

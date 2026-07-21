@@ -3,10 +3,11 @@ import { Lexend, Manrope, Inter } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
 import { Providers } from "@/components/providers/Providers";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
-import { getPublicCompetitions } from "@/lib/competitions";
+import { getPublicCompetitionNavigationDirectory } from "@/lib/competitions";
 import { toEditionContexts } from "@/lib/edition-context";
 import { unstable_rethrow } from "next/navigation";
 import { resolveRuntimeFeatureState } from "@/lib/server-feature-flags";
+import { measureServerOperation } from "@/lib/server-timing";
 import "./globals.css";
 
 const lexend = Lexend({
@@ -51,7 +52,9 @@ export const metadata: Metadata = {
 
 async function loadNavigationEditions() {
   try {
-    return toEditionContexts(await getPublicCompetitions());
+    return await measureServerOperation('/', 'competition-navigation', async () => (
+      toEditionContexts(await getPublicCompetitionNavigationDirectory())
+    ));
   } catch (error) {
     // Preserve Next's control-flow errors (for example `connection()` opting a
     // route into dynamic rendering) while still degrading gracefully for real

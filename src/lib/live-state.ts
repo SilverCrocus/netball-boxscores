@@ -1,6 +1,31 @@
+import type { Prisma } from '@prisma/client';
 import { prisma, excludeSimData } from '@/lib/db';
+import { homepageMatchSelect } from '@/lib/home-feed';
 import { getSydneyDayBounds } from '@/lib/time-zone';
-import { resolvePublicMatchAccess } from '@/lib/public-match';
+import {
+  publicMatchBatchSelect,
+  resolvePublicMatchAccessBatch,
+  type PublicMatchAccess,
+  type PublicMatchAccessCandidate,
+} from '@/lib/public-match';
+import { timedQuery } from '@/lib/server-timing';
+
+export const MAX_LIVE_STATE_CANDIDATES = 128;
+
+export const liveMatchSelect = {
+  ...homepageMatchSelect,
+  isSimulation: true,
+  sourceUpdatedAt: true,
+  stageId: true,
+  stage: { select: { name: true, isPublished: true } },
+} satisfies Prisma.MatchSelect;
+
+export type LiveMatch = Prisma.MatchGetPayload<{ select: typeof liveMatchSelect }>;
+
+export interface LiveMatchDetail {
+  match: LiveMatch;
+  access: PublicMatchAccess;
+}
 
 export interface LiveState {
   liveMatches: Array<{ id: string; competitionId: string }>;
@@ -8,9 +33,12 @@ export interface LiveState {
   imminentMatchIds: string[];
   nextMatchAt: Date | null;
   isMatchDay: boolean;
+  liveMatchDetails?: LiveMatchDetail[];
 }
 
-export async function getLiveState(): Promise<LiveState> {
+export async function getLiveState(
+  options: { includeMatchDetails?: boolean } = {},
+): Promise<LiveState> {
   const now = new Date();
   const sixtyMinsAgo = new Date(now.getTime() - 60 * 60 * 1000);
   const sixtyMinsFromNow = new Date(now.getTime() + 60 * 60 * 1000);
@@ -25,21 +53,33 @@ export async function getLiveState(): Promise<LiveState> {
     sixtyMinsFromNow.getTime(),
   ));
 
-  const candidates = await prisma.match.findMany({
-    where: {
-      ...excludeSimData,
-      OR: [
-        { status: 'LIVE' },
-        { scheduledAt: { gte: candidateWindowStart, lt: candidateWindowEnd } },
-      ],
-    },
-    select: { id: true, competitionId: true, scheduledAt: true },
-  });
+  const candidates = await timedQuery(
+    'live_candidate_matches',
+    () => prisma.match.findMany({
+      where: {
+        ...excludeSimData,
+        OR: [
+          { status: 'LIVE' },
+          { scheduledAt: { gte: candidateWindowStart, lt: candidateWindowEnd } },
+        ],
+      },
+      select: options.includeMatchDetails ? liveMatchSelect : publicMatchBatchSelect,
+      orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
+      take: MAX_LIVE_STATE_CANDIDATES,
+    }),
+  );
 
-  const publicCandidates = (await Promise.all(candidates.map(async (match) => ({
-    match,
-    access: await resolvePublicMatchAccess(match.id).catch(() => null),
-  })))).flatMap(({ match, access }) => access ? [{ match, access }] : []);
+  const accessById = await resolvePublicMatchAccessBatch(
+    candidates.map((match) => match.id),
+    undefined,
+    options.includeMatchDetails
+      ? candidates as unknown as PublicMatchAccessCandidate[]
+      : undefined,
+  ).catch(() => new Map<string, PublicMatchAccess>());
+  const publicCandidates = candidates.flatMap((match) => {
+    const access = accessById.get(match.id);
+    return access ? [{ match, access }] : [];
+  });
 
   const liveMatches = publicCandidates
     .filter(({ access }) => access.status === 'LIVE')
@@ -59,6 +99,12 @@ export async function getLiveState(): Promise<LiveState> {
   const isMatchDay = publicCandidates.some(({ match }) =>
     match.scheduledAt >= startOfSydneyDay && match.scheduledAt < endOfSydneyDay
   );
+  const liveMatchDetails = options.includeMatchDetails
+    ? liveMatches.flatMap(({ id }) => {
+      const candidate = publicCandidates.find(({ match }) => match.id === id);
+      return candidate ? [{ match: candidate.match as LiveMatch, access: candidate.access }] : [];
+    })
+    : undefined;
 
   return {
     liveMatches,
@@ -66,5 +112,6 @@ export async function getLiveState(): Promise<LiveState> {
     imminentMatchIds: imminentMatches.map(({ match }) => match.id),
     nextMatchAt: nextMatch?.match.scheduledAt ?? null,
     isMatchDay,
+    ...(liveMatchDetails ? { liveMatchDetails } : {}),
   };
 }

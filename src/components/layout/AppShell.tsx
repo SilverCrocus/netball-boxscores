@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
+import { ClientNavigationTiming } from './ClientNavigationTiming';
 import { GlobalEditionSelector } from '@/components/competition/GlobalEditionSelector';
 import type { EditionContextValue } from '@/lib/edition-context';
 
@@ -19,6 +20,9 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <div className="min-h-screen bg-surface text-on-surface">
+      <Suspense fallback={null}>
+        <ClientNavigationTiming />
+      </Suspense>
       <Suspense fallback={null}>
         <Sidebar
           editions={editions}
