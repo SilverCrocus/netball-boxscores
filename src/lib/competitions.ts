@@ -1,6 +1,11 @@
 import { connection } from 'next/server';
 import { cache } from 'react';
+import type { Prisma, PublicationStatus, StageType } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  timedQuery,
+  trackedUnstableCache,
+} from '@/lib/server-timing';
 import {
   evaluateGlasgowPublishedVisibility,
   isGlasgow2026Identity,
@@ -79,11 +84,13 @@ export const competitionOptionSelect = {
   },
 } as const;
 
-const competitionsQuery = () =>
-  prisma.competition.findMany({
+const competitionsQuery = () => timedQuery(
+  'competition_directory',
+  () => prisma.competition.findMany({
     select: competitionOptionSelect,
     orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
-  });
+  }),
+);
 
 /**
  * Publication is performed by a standalone CLI process, which cannot
@@ -97,6 +104,23 @@ export const getCompetitions = cache(async () => {
 
 export type CompetitionOption = Awaited<ReturnType<typeof getCompetitions>>[number];
 
+export interface PublicEditionReadinessOption {
+  id: string;
+  slug: string | null;
+  publicationStatus: PublicationStatus;
+  series: { slug: string } | null;
+  _count: { entries: number; matches: number };
+  stages: Array<{
+    slug: string;
+    type: StageType;
+    sequence: number;
+    isPublished: boolean;
+    _count: { groups: number; matches: number };
+  }>;
+  matches: Array<{ _count: { slots: number } }>;
+  importRuns: Array<{ id: string }>;
+}
+
 export { MIN_PUBLIC_EDITION_MATCHES, MIN_PUBLIC_EDITION_TEAMS };
 
 /**
@@ -104,7 +128,7 @@ export { MIN_PUBLIC_EDITION_MATCHES, MIN_PUBLIC_EDITION_TEAMS };
  * A mistakenly published shell edition must not leak into selectors, routes,
  * APIs, or analytics until it contains a viable participant and fixture set.
  */
-export function isEditionPubliclyReady(edition: CompetitionOption): boolean {
+export function isEditionPubliclyReady(edition: PublicEditionReadinessOption): boolean {
   const passesGenericGate = edition.publicationStatus === 'PUBLISHED'
     && edition.series !== null
     && edition.slug !== null
@@ -136,6 +160,138 @@ export function isEditionPubliclyReady(edition: CompetitionOption): boolean {
 
 export async function getPublicCompetitions(): Promise<CompetitionOption[]> {
   return (await getCompetitions()).filter(isEditionPubliclyReady);
+}
+
+/**
+ * The global selector needs only route identity and labels. Keep its query
+ * independent from rulesets, coverage, rosters, and other page data. Generic
+ * publication gates are applied to this small projection; the strict Glasgow
+ * gate is checked with a separate, narrowly scoped readiness projection.
+ */
+export const competitionNavigationSelect = {
+  id: true,
+  season: true,
+  name: true,
+  slug: true,
+  label: true,
+  sourceTimezone: true,
+  publicationStatus: true,
+  series: {
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      kind: true,
+    },
+  },
+  _count: {
+    select: {
+      entries: { where: { status: 'ACTIVE' } },
+      matches: true,
+    },
+  },
+} as const satisfies Prisma.CompetitionSelect;
+
+const competitionNavigationReadinessSelect = {
+  id: true,
+  slug: true,
+  publicationStatus: true,
+  series: { select: { slug: true } },
+  _count: {
+    select: {
+      entries: { where: { status: 'ACTIVE' } },
+      matches: true,
+    },
+  },
+  stages: {
+    orderBy: { sequence: 'asc' },
+    select: {
+      slug: true,
+      type: true,
+      sequence: true,
+      isPublished: true,
+      _count: { select: { groups: true, matches: true } },
+    },
+  },
+  matches: {
+    select: { _count: { select: { slots: true } } },
+  },
+  importRuns: {
+    where: {
+      sourceSystem: { key: 'glasgow-2026-public-data' },
+      status: 'SUCCEEDED',
+      dryRun: false,
+      issueCount: 0,
+    },
+    select: { id: true },
+    take: 1,
+  },
+} as const satisfies Prisma.CompetitionSelect;
+
+export type CompetitionNavigationOption = Prisma.CompetitionGetPayload<{
+  select: typeof competitionNavigationSelect;
+}>;
+
+export const COMPETITION_NAVIGATION_CACHE_TAG = 'competition-navigation';
+
+function passesGenericNavigationGate(edition: CompetitionNavigationOption): boolean {
+  return edition.publicationStatus === 'PUBLISHED'
+    && edition.series !== null
+    && edition.slug !== null
+    && edition._count.entries >= MIN_PUBLIC_EDITION_TEAMS
+    && edition._count.matches >= MIN_PUBLIC_EDITION_MATCHES;
+}
+
+async function loadPublicCompetitionNavigationDirectory(): Promise<CompetitionNavigationOption[]> {
+  const candidates = await timedQuery(
+    'competition_navigation_directory',
+    () => prisma.competition.findMany({
+      where: { publicationStatus: 'PUBLISHED' },
+      select: competitionNavigationSelect,
+      orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
+    }),
+  );
+  const genericReady = candidates.filter(passesGenericNavigationGate);
+  const strictCandidates = genericReady.filter((edition) => isGlasgow2026Identity({
+    competitionSlug: edition.series?.slug,
+    editionSlug: edition.slug,
+  }));
+
+  if (strictCandidates.length === 0) return genericReady;
+
+  const strictReadiness = await timedQuery(
+    'competition_navigation_readiness',
+    () => prisma.competition.findMany({
+      where: { id: { in: strictCandidates.map((edition) => edition.id) } },
+      select: competitionNavigationReadinessSelect,
+    }),
+  );
+  const readyStrictIds = new Set(
+    strictReadiness
+      .filter(isEditionPubliclyReady)
+      .map((edition) => edition.id),
+  );
+
+  return genericReady.filter((edition) => (
+    !strictCandidates.some((candidate) => candidate.id === edition.id)
+      || readyStrictIds.has(edition.id)
+  ));
+}
+
+const getCachedPublicCompetitionNavigationDirectory = process.env.NODE_ENV === 'test'
+  ? loadPublicCompetitionNavigationDirectory
+  : trackedUnstableCache(
+      'competition_navigation_directory',
+      loadPublicCompetitionNavigationDirectory,
+      ['competition-navigation-directory-v1'],
+      {
+        revalidate: 180,
+        tags: [COMPETITION_NAVIGATION_CACHE_TAG],
+      },
+    );
+
+export async function getPublicCompetitionNavigationDirectory(): Promise<CompetitionNavigationOption[]> {
+  return getCachedPublicCompetitionNavigationDirectory();
 }
 
 export interface EditionRouteIdentity {

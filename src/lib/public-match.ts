@@ -15,6 +15,7 @@ import {
   resolveEditionFeatures,
   type EditionFeatureFlags,
 } from '@/lib/edition-capabilities';
+import { timedQuery } from '@/lib/server-timing';
 
 export interface PublicMatchAccess {
   id: string;
@@ -74,24 +75,27 @@ const publicReadinessSelect = {
 } satisfies Prisma.CompetitionSelect;
 
 async function loadPublicMatchAccess(matchId: string): Promise<PublicMatchAccess | null> {
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    select: {
-      id: true,
-      competitionId: true,
-      status: true,
-      resultQuality: true,
-      scheduledAt: true,
-      homeTeamId: true,
-      awayTeamId: true,
-      sourceUpdatedAt: true,
-      isSimulation: true,
-      stageId: true,
-      stage: { select: { isPublished: true } },
-      competition: { select: publicReadinessSelect },
-      dataCoverage: { select: { capability: true, state: true } },
-    },
-  });
+  const match = await timedQuery(
+    'public_match_access',
+    () => prisma.match.findUnique({
+      where: { id: matchId },
+      select: {
+        id: true,
+        competitionId: true,
+        status: true,
+        resultQuality: true,
+        scheduledAt: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        sourceUpdatedAt: true,
+        isSimulation: true,
+        stageId: true,
+        stage: { select: { isPublished: true } },
+        competition: { select: publicReadinessSelect },
+        dataCoverage: { select: { capability: true, state: true } },
+      },
+    }),
+  );
 
   if (
     !match
@@ -113,7 +117,7 @@ async function loadPublicMatchAccess(matchId: string): Promise<PublicMatchAccess
   };
 }
 
-const publicMatchBatchSelect = {
+export const publicMatchBatchSelect = {
   id: true,
   competitionId: true,
   status: true,
@@ -128,6 +132,10 @@ const publicMatchBatchSelect = {
   dataCoverage: { select: { capability: true, state: true } },
 } satisfies Prisma.MatchSelect;
 
+export type PublicMatchAccessCandidate = Prisma.MatchGetPayload<{
+  select: typeof publicMatchBatchSelect;
+}>;
+
 /**
  * Resolve many matches with one fresh match/capability query and at most one
  * edition-readiness query. Supplying already-loaded editions (for example the
@@ -140,6 +148,7 @@ const publicMatchBatchSelect = {
 export async function resolvePublicMatchAccessBatch(
   matchIds: readonly string[],
   loadedEditions?: readonly CompetitionOption[],
+  loadedMatches?: readonly PublicMatchAccessCandidate[],
 ): Promise<ReadonlyMap<string, PublicMatchAccess>> {
   const uniqueIds = [...new Set(matchIds)];
   if (uniqueIds.length === 0) return new Map();
@@ -149,15 +158,30 @@ export async function resolvePublicMatchAccessBatch(
     );
   }
 
-  const matches = await prisma.match.findMany({
-    where: { id: { in: uniqueIds } },
-    select: publicMatchBatchSelect,
-  });
+  const matches = loadedMatches
+    ? (() => {
+      const matchById = new Map(loadedMatches.map((match) => [match.id, match]));
+      return uniqueIds.flatMap((matchId) => {
+        const match = matchById.get(matchId);
+        return match ? [match] : [];
+      });
+    })()
+    : await timedQuery(
+      'public_match_access_batch',
+      () => prisma.match.findMany({
+        where: { id: { in: uniqueIds } },
+        select: publicMatchBatchSelect,
+      }),
+    );
+  if (matches.length === 0) return new Map();
   const competitionIds = [...new Set(matches.map((match) => match.competitionId))];
-  const editions = loadedEditions ?? await prisma.competition.findMany({
-    where: { id: { in: competitionIds } },
-    select: publicReadinessSelect,
-  }) as unknown as CompetitionOption[];
+  const editions = loadedEditions ?? await timedQuery(
+    'public_match_access_readiness',
+    () => prisma.competition.findMany({
+      where: { id: { in: competitionIds } },
+      select: publicReadinessSelect,
+    }) as Promise<CompetitionOption[]>,
+  );
   const readyEditions = new Map(
     editions
       .filter((edition) => (

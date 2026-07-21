@@ -19,7 +19,10 @@ import {
 } from '@/components/match/LivePlayByPlay';
 import type { StatsUpdatePayload, ScoreFlowAddPayload } from '@/types/socket';
 import { emptyStats, pickStatFields, computeShootingPct } from '@/lib/stat-utils';
-import { calculateWinProbability, type PreMatchPrior } from '@/lib/win-probability';
+import {
+  calculateWinProbability,
+  type PreMatchPrior,
+} from '@/lib/win-probability-client';
 import type { PlayerStatRow } from '@/types/stats';
 import type { QuarterData } from '@/types/match';
 import type { TeamInfoWithId } from '@/types/team';

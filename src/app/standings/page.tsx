@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { resolveCompetitionById, resolveLegacyLeagueCompetition } from '@/lib/competitions';
 import { getStandingsForCompetition } from '@/lib/cached-queries';
-import { timedQuery } from '@/lib/server-timing';
+import { measureServerOperation } from '@/lib/server-timing';
 
 // Column headers with hover tooltips, matching the dotted-underline pattern
 // used on the live lineups / box-score tables (see LiveLineups.tsx).
@@ -42,13 +42,17 @@ export async function generateMetadata({ searchParams }: StandingsPageProps): Pr
   };
 }
 
-export default async function StandingsPage({ searchParams }: StandingsPageProps) {
+export default function StandingsPage(props: StandingsPageProps) {
+  return measureServerOperation('/standings', 'standings-page', () => renderStandingsPage(props));
+}
+
+async function renderStandingsPage({ searchParams }: StandingsPageProps) {
   const { edition, season } = await searchParams;
   const { competition, competitions } = edition
     ? await resolveCompetitionById(edition)
     : await resolveLegacyLeagueCompetition(season);
   const standings = competition
-    ? await timedQuery('standings', () => getStandingsForCompetition(competition.id))
+    ? await getStandingsForCompetition(competition.id)
     : [];
   const teamEditionQuery = competition
     ? `?edition=${encodeURIComponent(competition.id)}`

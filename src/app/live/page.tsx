@@ -1,42 +1,57 @@
 import { redirect } from 'next/navigation';
-import { getLiveState } from '@/lib/live-state';
+import { getLiveState, liveMatchSelect, type LiveMatch } from '@/lib/live-state';
 import { prisma, excludeSimData } from '@/lib/db';
 import { resolveCompetition } from '@/lib/competitions';
 import {
-  homepageMatchSelect,
   publicHomepageMatchState,
 } from '@/lib/home-feed';
 import { ScoreCard } from '@/components/ui/ScoreCard';
 import Link from 'next/link';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { matchHref } from '@/lib/edition-links';
-import { resolvePublicMatchAccess } from '@/lib/public-match';
+import {
+  resolvePublicMatchAccessBatch,
+  type PublicMatchAccessCandidate,
+} from '@/lib/public-match';
+import { measureServerOperation, timedQuery } from '@/lib/server-timing';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LivePage() {
-  const state = await getLiveState();
+export default function LivePage() {
+  return measureServerOperation('/live', 'live-page', renderLivePage);
+}
+
+async function renderLivePage() {
+  const state = await getLiveState({ includeMatchDetails: true });
 
   if (state.liveMatchIds.length === 1) {
     const liveMatch = state.liveMatches[0];
     redirect(matchHref(liveMatch.id, liveMatch.competitionId, 'live'));
   }
 
-  const { competition } = await resolveCompetition();
-  const baseWhere = competition
-    ? { ...excludeSimData, competitionId: competition.id }
-    : { ...excludeSimData };
-
   if (state.liveMatchIds.length > 1) {
-    const matches = await prisma.match.findMany({
-      where: { id: { in: state.liveMatchIds } },
-      select: homepageMatchSelect,
-      orderBy: { scheduledAt: 'asc' },
-    });
-    const publicMatches = await Promise.all(matches.map(async (match) => ({
-      match,
-      access: await resolvePublicMatchAccess(match.id).catch(() => null),
-    })));
+    const loadedLiveMatches = state.liveMatchDetails ?? [];
+    const matches: LiveMatch[] = loadedLiveMatches.length > 0
+      ? loadedLiveMatches.map(({ match }) => match)
+      : await timedQuery<LiveMatch[]>(
+        'live_match_cards',
+        () => prisma.match.findMany({
+          where: { id: { in: state.liveMatchIds } },
+          select: liveMatchSelect,
+          orderBy: { scheduledAt: 'asc' },
+        }) as unknown as Promise<LiveMatch[]>,
+      );
+    const loadedMatchCandidates = matches as unknown as PublicMatchAccessCandidate[];
+    const publicMatches = loadedLiveMatches.length > 0
+      ? loadedLiveMatches
+      : await resolvePublicMatchAccessBatch(
+        matches.map((match) => match.id),
+        undefined,
+        loadedMatchCandidates,
+      ).then((accessById) => matches.flatMap((match) => {
+        const access = accessById.get(match.id);
+        return access ? [{ match, access }] : [];
+      })).catch(() => []);
     const liveMatches = publicMatches.flatMap(({ match, access }) => (
       access?.status === 'LIVE' && hasResolvedMatchTeams(match) ? [{ match, access }] : []
     ));
@@ -62,9 +77,13 @@ export default async function LivePage() {
     );
   }
 
+  const { competition } = await resolveCompetition();
+  const baseWhere = competition
+    ? { ...excludeSimData, competitionId: competition.id }
+    : { ...excludeSimData };
   const now = new Date();
   const [nextCandidate, latestCandidate] = await Promise.all([
-    prisma.match.findFirst({
+    timedQuery('live_next_match', () => prisma.match.findFirst({
       where: {
         ...baseWhere,
         status: 'SCHEDULED',
@@ -74,10 +93,10 @@ export default async function LivePage() {
           { stage: { is: { isPublished: true } } },
         ],
       },
-      select: homepageMatchSelect,
+      select: liveMatchSelect,
       orderBy: { scheduledAt: 'asc' },
-    }),
-    prisma.match.findFirst({
+    })),
+    timedQuery('live_latest_match', () => prisma.match.findFirst({
       where: {
         ...baseWhere,
         status: 'COMPLETED',
@@ -87,18 +106,22 @@ export default async function LivePage() {
           { stage: { is: { isPublished: true } } },
         ],
       },
-      select: homepageMatchSelect,
+      select: liveMatchSelect,
       orderBy: { scheduledAt: 'desc' },
-    }),
+    })),
   ]);
-  const [nextAccess, latestAccess] = await Promise.all([
-    nextCandidate
-      ? resolvePublicMatchAccess(nextCandidate.id).catch(() => null)
-      : Promise.resolve(null),
-    latestCandidate
-      ? resolvePublicMatchAccess(latestCandidate.id).catch(() => null)
-      : Promise.resolve(null),
-  ]);
+  const fallbackCandidates = [nextCandidate, latestCandidate].filter(
+    (match): match is NonNullable<typeof nextCandidate> => match !== null,
+  );
+  const fallbackAccessById = fallbackCandidates.length > 0
+    ? await resolvePublicMatchAccessBatch(
+      fallbackCandidates.map((match) => match.id),
+      competition ? [competition] : undefined,
+      fallbackCandidates as unknown as PublicMatchAccessCandidate[],
+    ).catch(() => new Map())
+    : new Map();
+  const nextAccess = nextCandidate ? fallbackAccessById.get(nextCandidate.id) ?? null : null;
+  const latestAccess = latestCandidate ? fallbackAccessById.get(latestCandidate.id) ?? null : null;
   const nextMatch = nextCandidate && nextAccess ? nextCandidate : null;
   const latestResult = latestCandidate && latestAccess ? latestCandidate : null;
 

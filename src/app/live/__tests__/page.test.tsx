@@ -6,7 +6,8 @@ const {
   findManyMock,
   getLiveStateMock,
   redirectMock,
-  resolvePublicMatchMock,
+  resolveCompetitionMock,
+  resolvePublicMatchBatchMock,
   scoreCardPropsMock,
 } = vi.hoisted(() => ({
   findFirstMock: vi.fn(),
@@ -15,14 +16,18 @@ const {
   redirectMock: vi.fn((href: string) => {
     throw new Error(`NEXT_REDIRECT:${href}`);
   }),
-  resolvePublicMatchMock: vi.fn(),
+  resolveCompetitionMock: vi.fn(),
+  resolvePublicMatchBatchMock: vi.fn(),
   scoreCardPropsMock: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({ redirect: redirectMock }));
-vi.mock('@/lib/live-state', () => ({ getLiveState: getLiveStateMock }));
+vi.mock('@/lib/live-state', () => ({
+  getLiveState: getLiveStateMock,
+  liveMatchSelect: {},
+}));
 vi.mock('@/lib/competitions', () => ({
-  resolveCompetition: vi.fn().mockResolvedValue({ competition: { id: 'competition-2026' } }),
+  resolveCompetition: resolveCompetitionMock,
 }));
 vi.mock('@/lib/db', () => ({
   excludeSimData: { isSimulated: false },
@@ -31,7 +36,7 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 vi.mock('@/lib/public-match', () => ({
-  resolvePublicMatchAccess: resolvePublicMatchMock,
+  resolvePublicMatchAccessBatch: resolvePublicMatchBatchMock,
   canExposePublicMatchScore: (access: { scoreAvailable: boolean }) => access.scoreAvailable,
 }));
 vi.mock('@/components/ui/ScoreCard', () => ({
@@ -76,14 +81,17 @@ describe('LivePage', () => {
   beforeEach(() => {
     getLiveStateMock.mockReset();
     redirectMock.mockClear();
+    resolveCompetitionMock.mockReset().mockResolvedValue({ competition: { id: 'competition-2026' } });
     findFirstMock.mockReset();
     findManyMock.mockReset();
     scoreCardPropsMock.mockClear();
-    resolvePublicMatchMock.mockReset().mockImplementation(async (id: string) => ({
-      status: id === 'latest-result' ? 'COMPLETED' : id.startsWith('live-') ? 'LIVE' : 'SCHEDULED',
-      scoreAvailable: id === 'latest-result' || id.startsWith('live-'),
-      features: { superShots: { available: true } },
-    }));
+    resolvePublicMatchBatchMock.mockReset().mockImplementation(async (ids: string[]) => new Map(
+      ids.map((id) => [id, {
+        status: id === 'latest-result' ? 'COMPLETED' : id.startsWith('live-') ? 'LIVE' : 'SCHEDULED',
+        scoreAvailable: id === 'latest-result' || id.startsWith('live-'),
+        features: { superShots: { available: true } },
+      }]),
+    ));
   });
 
   it('renders a useful hub when no match is live', async () => {
@@ -109,6 +117,8 @@ describe('LivePage', () => {
         ],
       }),
     }));
+    expect(resolveCompetitionMock).toHaveBeenCalledOnce();
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledOnce();
     expect(findFirstMock).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         status: 'COMPLETED',
@@ -140,11 +150,13 @@ describe('LivePage', () => {
             ],
           }),
     );
-    resolvePublicMatchMock.mockImplementation(async (id: string) => ({
-      status: id === 'latest-result' ? 'COMPLETED' : 'SCHEDULED',
-      scoreAvailable: false,
-      features: { superShots: { available: false } },
-    }));
+    resolvePublicMatchBatchMock.mockImplementation(async (ids: string[]) => new Map(
+      ids.map((id) => [id, {
+        status: id === 'latest-result' ? 'COMPLETED' : 'SCHEDULED',
+        scoreAvailable: false,
+        features: { superShots: { available: false } },
+      }]),
+    ));
 
     render(await LivePage());
 
@@ -180,6 +192,8 @@ describe('LivePage', () => {
     expect(screen.getByRole('heading', { name: 'Choose a live match' })).toBeInTheDocument();
     expect(screen.getByText('Card live-1')).toBeInTheDocument();
     expect(screen.getByText('Card live-2')).toBeInTheDocument();
+    expect(resolveCompetitionMock).not.toHaveBeenCalled();
+    expect(findFirstMock).not.toHaveBeenCalled();
   });
 
   it('redirects one public live match to its canonical edition URL', async () => {
@@ -192,5 +206,6 @@ describe('LivePage', () => {
       'NEXT_REDIRECT:/match/live-1/live?edition=ssn-2026',
     );
     expect(findFirstMock).not.toHaveBeenCalled();
+    expect(resolveCompetitionMock).not.toHaveBeenCalled();
   });
 });

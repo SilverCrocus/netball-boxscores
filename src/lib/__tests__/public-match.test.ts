@@ -194,6 +194,27 @@ describe('public match access', () => {
     expect(findCompetitionsMock).not.toHaveBeenCalled();
   });
 
+  it('uses already-loaded match rows without re-reading match capabilities', async () => {
+    const source = match();
+
+    const access = await resolvePublicMatchAccessBatch(
+      ['match-1'],
+      [source.competition as never],
+      [matchRow(source) as never],
+    );
+
+    expect(access.has('match-1')).toBe(true);
+    expect(findMatchesMock).not.toHaveBeenCalled();
+    expect(findCompetitionsMock).not.toHaveBeenCalled();
+  });
+
+  it('does not issue a readiness query when the bounded candidate page is empty', async () => {
+    await expect(resolvePublicMatchAccessBatch(['missing'], [], [])).resolves.toEqual(new Map());
+
+    expect(findMatchesMock).not.toHaveBeenCalled();
+    expect(findCompetitionsMock).not.toHaveBeenCalled();
+  });
+
   it('propagates batch access infrastructure failures instead of treating them as denial', async () => {
     findMatchesMock.mockRejectedValue(new Error('database unavailable'));
 

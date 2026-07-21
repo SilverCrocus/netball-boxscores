@@ -1,5 +1,3 @@
-import type { CompetitionOption } from '@/lib/competitions';
-
 export interface EditionContextValue {
   id: string;
   competitionSlug: string;
@@ -9,7 +7,16 @@ export interface EditionContextValue {
   sourceTimezone: string;
 }
 
-export function toEditionContext(edition: CompetitionOption): EditionContextValue {
+export interface EditionContextSource {
+  id: string;
+  series: { slug: string; name: string } | null;
+  slug: string | null;
+  label: string | null;
+  season: number;
+  sourceTimezone: string;
+}
+
+export function toEditionContext(edition: EditionContextSource): EditionContextValue {
   if (!edition.series || !edition.slug) {
     throw new Error(`Competition edition ${edition.id} has no public route identity`);
   }
@@ -24,7 +31,7 @@ export function toEditionContext(edition: CompetitionOption): EditionContextValu
   };
 }
 
-export function toEditionContexts(editions: CompetitionOption[]): EditionContextValue[] {
+export function toEditionContexts(editions: readonly EditionContextSource[]): EditionContextValue[] {
   return editions.flatMap((edition) =>
     edition.series && edition.slug ? [toEditionContext(edition)] : []
   );

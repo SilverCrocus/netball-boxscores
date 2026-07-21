@@ -5,6 +5,7 @@ import {
   readAnalyticsPlayerFacts,
   readAnalyticsTeamFacts,
   readFinalsStageIds,
+  type AnalyticsEdition,
 } from '@/lib/analytics/repository';
 import { calculateRecordSnapshot } from '@/lib/records/calculate';
 import type { RecordEntity, RecordScope } from '@/lib/records/types';
@@ -128,9 +129,16 @@ export interface RecordSnapshotQuery {
   limit?: number;
 }
 
-export async function getRecordSnapshot(query: RecordSnapshotQuery) {
+export interface RecordSnapshotContext {
+  editions: readonly AnalyticsEdition[];
+}
+
+export async function getRecordSnapshot(
+  query: RecordSnapshotQuery,
+  context?: RecordSnapshotContext,
+) {
   const entityType: AnalyticsEntityType = query.scope === 'TEAM' ? 'TEAM' : query.entityType;
-  const editions = await listAnalyticsEditions();
+  const editions = context?.editions ?? await listAnalyticsEditions();
   const selectedEdition = editions.find((edition) => edition.id === query.competitionId);
   const isCrossEdition = query.scope === 'CAREER' || query.scope === 'CENTREPASS_ERA';
   const competitionIds = isCrossEdition ? editions.map((edition) => edition.id) : selectedEdition ? [selectedEdition.id] : [];
