@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { WinProbabilityResult } from '@/lib/win-probability';
+import type { WinProbabilityResult } from '@/lib/win-probability-client';
 import type { TeamInfo } from '@/types/team';
 
 interface WinProbabilityBarProps {
