@@ -1,15 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+type Deferred = {
+  promise: Promise<void>;
+  resolve: () => void;
+};
+
+const { cacheControls } = vi.hoisted(() => ({
+  cacheControls: {
+    hitGate: null as Deferred | null,
+    onHit: null as (() => void) | null,
+  },
+}));
+
 vi.mock('next/cache', () => ({
   unstable_cache: (loader: (...args: unknown[]) => Promise<unknown>) => {
-    let hasValue = false;
-    let value: unknown;
+    const values = new Map<string, unknown>();
     return async (...args: unknown[]) => {
-      if (!hasValue) {
-        value = await loader(...args);
-        hasValue = true;
+      const key = JSON.stringify(args);
+      if (!values.has(key)) {
+        const value = await loader(...args);
+        values.set(key, value);
+        return value;
       }
-      return value;
+      if (cacheControls.hitGate) {
+        cacheControls.onHit?.();
+        await cacheControls.hitGate.promise;
+      }
+      return values.get(key);
     };
   },
 }));
@@ -29,6 +46,8 @@ describe('server timing instrumentation', () => {
   });
 
   afterEach(() => {
+    cacheControls.hitGate = null;
+    cacheControls.onHit = null;
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
@@ -118,5 +137,55 @@ describe('server timing instrumentation', () => {
       operation: 'competition-navigation',
       cache: { 'competition-navigation-directory': 'miss' },
     }));
+  });
+
+  it('keeps overlapping keyed cache attribution request-local', async () => {
+    const makeDeferred = (): Deferred => {
+      let resolve!: () => void;
+      const promise = new Promise<void>((nextResolve) => {
+        resolve = nextResolve;
+      });
+      return { promise, resolve };
+    };
+    const missStarted = makeDeferred();
+    const releaseMiss = makeDeferred();
+    const hitStarted = makeDeferred();
+    const releaseHit = makeDeferred();
+    const cached = trackedUnstableCache(
+      'standings',
+      async (key: string) => {
+        if (key === 'miss-key') {
+          missStarted.resolve();
+          await releaseMiss.promise;
+        }
+        return key;
+      },
+      ['standings-concurrency-v1'],
+      { revalidate: 60, tags: ['standings'] },
+    );
+
+    await measureServerOperation('/standings', 'seed', () => cached('hit-key'));
+
+    cacheControls.hitGate = releaseHit;
+    cacheControls.onHit = () => hitStarted.resolve();
+    const hit = measureServerOperation('/standings', 'overlapping-hit', () => cached('hit-key'));
+    await hitStarted.promise;
+
+    const miss = measureServerOperation('/standings', 'overlapping-miss', () => cached('miss-key'));
+    await missStarted.promise;
+    releaseMiss.resolve();
+    await miss;
+    releaseHit.resolve();
+    await hit;
+
+    const operations = infoSpy.mock.calls
+      .map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>)
+      .filter((event: Record<string, unknown>) => event.event === 'server_operation_timing');
+    expect(operations.find((event: Record<string, unknown>) => event.operation === 'overlapping-hit')?.cache).toEqual({
+      standings: 'hit',
+    });
+    expect(operations.find((event: Record<string, unknown>) => event.operation === 'overlapping-miss')?.cache).toEqual({
+      standings: 'miss',
+    });
   });
 });

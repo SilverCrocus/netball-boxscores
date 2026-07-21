@@ -40,12 +40,15 @@ describe('getLiveState', () => {
   });
 
   it('derives live, imminent, next, and match-day state only from fully public matches', async () => {
-    findManyMock.mockResolvedValue([
-      candidate('live', new Date('2026-07-25T07:45:00Z')),
-      candidate('imminent', new Date('2026-07-25T08:30:00Z'), 'glasgow-2026'),
-      candidate('completed', new Date('2026-07-25T06:00:00Z')),
-      candidate('unpublished-stage', new Date('2026-07-25T08:15:00Z')),
-    ]);
+    findManyMock
+      .mockResolvedValueOnce([
+        candidate('live', new Date('2026-07-25T07:45:00Z')),
+      ])
+      .mockResolvedValueOnce([
+        candidate('imminent', new Date('2026-07-25T08:30:00Z'), 'glasgow-2026'),
+        candidate('completed', new Date('2026-07-25T06:00:00Z')),
+        candidate('unpublished-stage', new Date('2026-07-25T08:15:00Z')),
+      ]);
     resolvePublicMatchBatchMock.mockImplementation(async (ids: string[]) => {
       const resolved = new Map();
       for (const id of ids) {
@@ -91,27 +94,70 @@ describe('getLiveState', () => {
   it('queries a bounded candidate window and delegates publication policy to the resolver', async () => {
     await getLiveState();
 
-    expect(findManyMock).toHaveBeenCalledWith(expect.objectContaining({
+    expect(findManyMock).toHaveBeenCalledTimes(2);
+    expect(findManyMock.mock.calls[0]?.[0]).toMatchObject({
+      where: expect.objectContaining({ status: 'LIVE' }),
+      select: publicMatchBatchSelectMock,
+      orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
+      take: MAX_LIVE_STATE_CANDIDATES,
+    });
+    expect(findManyMock.mock.calls[1]?.[0]).toMatchObject({
       where: expect.objectContaining({
-        OR: expect.arrayContaining([
-          { status: 'LIVE' },
-          expect.objectContaining({ scheduledAt: expect.any(Object) }),
-        ]),
+        status: { not: 'LIVE' },
+        scheduledAt: expect.any(Object),
       }),
       select: publicMatchBatchSelectMock,
       orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
       take: MAX_LIVE_STATE_CANDIDATES,
-    }));
+    });
     expect(findManyMock.mock.calls[0]?.[0]?.where).not.toHaveProperty('competition');
   });
 
   it('uses the reusable full match projection when live details are requested', async () => {
     await getLiveState({ includeMatchDetails: true });
 
-    expect(findManyMock).toHaveBeenCalledWith(expect.objectContaining({
-      select: liveMatchSelect,
-    }));
+    expect(findManyMock).toHaveBeenCalledTimes(2);
+    expect(findManyMock.mock.calls[0]?.[0]).toMatchObject({ select: liveMatchSelect });
+    expect(findManyMock.mock.calls[1]?.[0]).toMatchObject({ select: liveMatchSelect });
     expect(liveMatchSelect).toHaveProperty('stageId', true);
+  });
+
+  it('prioritizes later LIVE rows before filling the bounded window budget', async () => {
+    const laterLive = candidate('later-live', new Date('2026-07-25T23:00:00Z'));
+    const nonLiveCandidates = Array.from(
+      { length: MAX_LIVE_STATE_CANDIDATES },
+      (_, index) => candidate(
+        `scheduled-${index}`,
+        new Date(NOW.getTime() + index * 1_000),
+      ),
+    );
+    findManyMock.mockImplementation(({
+      where,
+      take,
+    }: { where: { status?: unknown }; take: number }) => Promise.resolve(
+      where.status === 'LIVE'
+        ? [laterLive]
+        : nonLiveCandidates.slice(0, take),
+    ));
+    resolvePublicMatchBatchMock.mockImplementation(async (ids: string[]) => new Map(
+      ids.map((id) => [id, access(id, id === 'later-live' ? 'LIVE' : 'COMPLETED')]),
+    ));
+
+    const state = await getLiveState();
+
+    expect(state.liveMatches).toEqual([
+      { id: 'later-live', competitionId: 'ssn-2026' },
+    ]);
+    expect(findManyMock).toHaveBeenCalledTimes(2);
+    expect(findManyMock.mock.calls[1]?.[0]).toMatchObject({
+      take: MAX_LIVE_STATE_CANDIDATES - 1,
+      where: expect.objectContaining({ status: { not: 'LIVE' } }),
+    });
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
+      ['later-live', ...nonLiveCandidates.slice(0, MAX_LIVE_STATE_CANDIDATES - 1).map(({ id }) => id)],
+      undefined,
+      undefined,
+    );
   });
 
   it('returns all-empty state when there are no candidates', async () => {

@@ -53,21 +53,43 @@ export async function getLiveState(
     sixtyMinsFromNow.getTime(),
   ));
 
-  const candidates = await timedQuery(
-    'live_candidate_matches',
+  const candidateSelect = options.includeMatchDetails ? liveMatchSelect : publicMatchBatchSelect;
+  const liveCandidates = await timedQuery(
+    'live_active_candidates',
     () => prisma.match.findMany({
       where: {
         ...excludeSimData,
-        OR: [
-          { status: 'LIVE' },
-          { scheduledAt: { gte: candidateWindowStart, lt: candidateWindowEnd } },
-        ],
+        status: 'LIVE',
       },
-      select: options.includeMatchDetails ? liveMatchSelect : publicMatchBatchSelect,
+      select: candidateSelect,
       orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
       take: MAX_LIVE_STATE_CANDIDATES,
     }),
   );
+  const remainingCandidateCount = Math.max(
+    0,
+    MAX_LIVE_STATE_CANDIDATES - liveCandidates.length,
+  );
+  const liveCandidateIds = liveCandidates.map((match) => match.id);
+  const windowCandidates = remainingCandidateCount > 0
+    ? await timedQuery(
+      'live_window_candidates',
+      () => prisma.match.findMany({
+        where: {
+          ...excludeSimData,
+          status: { not: 'LIVE' },
+          scheduledAt: { gte: candidateWindowStart, lt: candidateWindowEnd },
+          ...(liveCandidateIds.length > 0
+            ? { id: { notIn: liveCandidateIds } }
+            : {}),
+        },
+        select: candidateSelect,
+        orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
+        take: remainingCandidateCount,
+      }),
+    )
+    : [];
+  const candidates = [...liveCandidates, ...windowCandidates];
 
   const accessById = await resolvePublicMatchAccessBatch(
     candidates.map((match) => match.id),

@@ -10,6 +10,7 @@ interface ServerTimingContext {
   queryDurationMs: number;
   connectionWaitMs: number;
   cache: Record<string, CacheStatus>;
+  cacheMisses: Map<string, number>;
 }
 
 interface AsyncLocalStorageLike {
@@ -79,6 +80,7 @@ export async function measureServerOperation<T>(
     queryDurationMs: 0,
     connectionWaitMs: 0,
     cache: {},
+    cacheMisses: new Map(),
   };
 
   const run = async () => {
@@ -109,7 +111,8 @@ export function recordCacheResult(name: string, status: CacheStatus): void {
 
 /**
  * Wraps Next's supported data cache with production-safe hit/miss metadata.
- * The loader counter observes misses without exposing arguments or payloads.
+ * A miss is marked in the request context that actually executes the loader,
+ * avoiding shared mutable counters across concurrent cache keys or requests.
  */
 export function trackedUnstableCache<Args extends unknown[], Result>(
   name: string,
@@ -117,10 +120,12 @@ export function trackedUnstableCache<Args extends unknown[], Result>(
   keyParts: string[],
   options: Parameters<typeof unstable_cache>[2],
 ): (...args: Args) => Promise<Result> {
-  let loaderRuns = 0;
   const cachedLoader = unstable_cache(
     async (...args: Args) => {
-      loaderRuns += 1;
+      const context = timingContext?.getStore();
+      if (context) {
+        context.cacheMisses.set(name, (context.cacheMisses.get(name) ?? 0) + 1);
+      }
       return loader(...args);
     },
     keyParts,
@@ -129,12 +134,14 @@ export function trackedUnstableCache<Args extends unknown[], Result>(
 
   return async (...args: Args) => {
     const context = timingContext?.getStore();
-    const loaderRunsBefore = loaderRuns;
+    const cacheMissesBefore = context?.cacheMisses.get(name) ?? 0;
     try {
       return await cachedLoader(...args);
     } finally {
-      const status: CacheStatus = loaderRuns > loaderRunsBefore ? 'miss' : 'hit';
-      if (context) context.cache[name] = status;
+      const status: CacheStatus | 'unknown' = context
+        ? ((context.cacheMisses.get(name) ?? 0) > cacheMissesBefore ? 'miss' : 'hit')
+        : 'unknown';
+      if (context && status !== 'unknown') context.cache[name] = status;
       productionLog({
         event: 'server_cache_timing',
         route: context?.route ?? 'unknown',
