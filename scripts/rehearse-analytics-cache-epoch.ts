@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { hasExactEmptySearchPath } from './lib/analytics-cache-epoch-contract';
 
 const SERIES_ID = 'rehearsal-series-glasgow';
 const COMPETITION_ID = 'rehearsal-glasgow-2026';
@@ -665,7 +666,7 @@ async function verifyPrivateContracts() {
   for (const functionName of ['advance_cache_epoch', 'queue_match_invalidation']) {
     const functionContract = functionContracts.find((candidate) => candidate.name === functionName);
     invariant(functionContract?.securityDefiner === true
-      && (functionContract.config ?? []).some((value) => value.startsWith('search_path=')),
+      && hasExactEmptySearchPath(functionContract.config),
     `${functionName} is not SECURITY DEFINER with an explicit empty search_path`);
   }
 

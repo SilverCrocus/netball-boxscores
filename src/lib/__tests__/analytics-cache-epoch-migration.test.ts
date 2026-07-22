@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { hasExactEmptySearchPath } from '../../../scripts/lib/analytics-cache-epoch-contract';
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const migration = read('prisma/migrations/20260722000000_add_analytics_cache_epoch/migration.sql');
 const analyticsRole = read('scripts/provision-analytics-role.sql');
 const queryPlans = read('scripts/check-analytics-query-plans.sql');
+const rehearsal = read('scripts/rehearse-analytics-cache-epoch.ts');
 
 const sourceTriggers = [
   'analytics_competition_series_cache_invalidation',
@@ -92,5 +94,15 @@ describe('analytics cache epoch migration contract', () => {
     expect(migration).toContain(
       'REVOKE ALL ON FUNCTION analytics.queue_match_invalidation()\n  FROM PUBLIC, anon, authenticated, service_role',
     );
+  });
+
+  it('requires the exact empty search_path catalog value for both private functions', () => {
+    expect(rehearsal).toContain(
+      'hasExactEmptySearchPath(functionContract.config)',
+    );
+    expect(rehearsal).not.toContain("value.startsWith('search_path=')");
+
+    expect(hasExactEmptySearchPath(['search_path=public, pg_temp'])).toBe(false);
+    expect(hasExactEmptySearchPath(['search_path=""'])).toBe(true);
   });
 });
