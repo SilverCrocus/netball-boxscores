@@ -4,6 +4,11 @@ import {
   readTeamPowerMatches,
 } from '@/lib/analytics/repository';
 import {
+  assertAnalyticsSnapshotCacheSize,
+  runAnalyticsSnapshotSingleFlight,
+  SnapshotCacheTooLargeError,
+} from '@/lib/analytics/snapshot-cache';
+import {
   buildAnalyticsSnapshotCacheKey,
   readAnalyticsCacheEpoch,
 } from '@/lib/analytics/cache-epoch';
@@ -197,7 +202,7 @@ export async function getPlayerRankingSnapshotUncached(request: PlayerRankingReq
 }
 
 function serializePlayerRankingSnapshot(snapshot: PlayerRankingSnapshot): CachedPlayerRankingSnapshot {
-  return {
+  const cached: CachedPlayerRankingSnapshot = {
     ...snapshot,
     request: {
       ...snapshot.request,
@@ -209,6 +214,10 @@ function serializePlayerRankingSnapshot(snapshot: PlayerRankingSnapshot): Cached
       result: serializeMetricResult(entry.result),
     })),
   };
+  return assertAnalyticsSnapshotCacheSize(PLAYER_RANKING_CACHE_NAME, cached, {
+    rowCount: snapshot.populationSize,
+    resultCount: snapshot.entries.length,
+  });
 }
 
 function hydratePlayerRankingSnapshot(snapshot: CachedPlayerRankingSnapshot): PlayerRankingSnapshot {
@@ -255,7 +264,20 @@ export async function getPlayerRankingSnapshot(request: PlayerRankingRequest) {
     return getPlayerRankingSnapshotUncached(request);
   }
 
-  return hydratePlayerRankingSnapshot(await cachedPlayerRankingSnapshot(cacheKey, normalized));
+  try {
+    return hydratePlayerRankingSnapshot(await runAnalyticsSnapshotSingleFlight(
+      PLAYER_RANKING_CACHE_NAME,
+      epoch,
+      cacheKey,
+      () => cachedPlayerRankingSnapshot(cacheKey, normalized),
+    ));
+  } catch (error) {
+    if (error instanceof SnapshotCacheTooLargeError) {
+      recordCacheResult(PLAYER_RANKING_CACHE_NAME, 'miss');
+      return hydratePlayerRankingSnapshot(error.value as CachedPlayerRankingSnapshot);
+    }
+    throw error;
+  }
 }
 
 export async function getTeamPowerSnapshotUncached(competitionId: string) {
@@ -290,7 +312,13 @@ export async function getTeamPowerSnapshotUncached(competitionId: string) {
 
 const cachedTeamPowerSnapshot = trackedUnstableCache(
   TEAM_POWER_CACHE_NAME,
-  async (_cacheKey: string, competitionId: string) => getTeamPowerSnapshotUncached(competitionId),
+  async (_cacheKey: string, competitionId: string) => {
+    const snapshot = await getTeamPowerSnapshotUncached(competitionId);
+    return assertAnalyticsSnapshotCacheSize(TEAM_POWER_CACHE_NAME, snapshot, {
+      rowCount: snapshot.populationSize,
+      resultCount: snapshot.entries.length,
+    });
+  },
   ['analytics-team-power-snapshot-v1'],
   {
     revalidate: CACHE_REVALIDATE_SECONDS,
@@ -312,5 +340,18 @@ export async function getTeamPowerSnapshot(competitionId: string) {
     return getTeamPowerSnapshotUncached(competitionId);
   }
 
-  return cachedTeamPowerSnapshot(cacheKey, competitionId);
+  try {
+    return await runAnalyticsSnapshotSingleFlight(
+      TEAM_POWER_CACHE_NAME,
+      epoch,
+      cacheKey,
+      () => cachedTeamPowerSnapshot(cacheKey, competitionId),
+    );
+  } catch (error) {
+    if (error instanceof SnapshotCacheTooLargeError) {
+      recordCacheResult(TEAM_POWER_CACHE_NAME, 'miss');
+      return error.value as Awaited<ReturnType<typeof getTeamPowerSnapshotUncached>>;
+    }
+    throw error;
+  }
 }

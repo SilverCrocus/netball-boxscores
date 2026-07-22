@@ -2,6 +2,18 @@ import { unstable_cache } from 'next/cache';
 
 export type CacheStatus = 'hit' | 'miss';
 
+export interface CacheSnapshotMeasurement {
+  rowCount: number;
+  resultCount: number;
+  serializedBytes: number;
+  rssBeforeBytes: number | null;
+  rssAfterBytes: number | null;
+  rssDeltaBytes: number | null;
+  heapUsedBeforeBytes: number | null;
+  heapUsedAfterBytes: number | null;
+  heapUsedDeltaBytes: number | null;
+}
+
 interface ServerTimingContext {
   route: string;
   operation: string;
@@ -111,6 +123,21 @@ export async function measureServerOperation<T>(
 export function recordCacheResult(name: string, status: CacheStatus): void {
   const context = timingContext?.getStore();
   if (context) context.cache[name] = status;
+}
+
+/** Records bounded snapshot-size and process-memory metadata without payloads or keys. */
+export function recordCacheSnapshotMeasurement(
+  name: string,
+  measurement: CacheSnapshotMeasurement,
+): void {
+  const context = timingContext?.getStore();
+  productionLog({
+    event: 'server_cache_snapshot_measurement',
+    route: context?.route ?? 'unknown',
+    operation: context?.operation ?? name,
+    name,
+    ...measurement,
+  });
 }
 
 /**

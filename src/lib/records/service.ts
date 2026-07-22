@@ -12,6 +12,11 @@ import {
   readFinalsStageIds,
   type AnalyticsEdition,
 } from '@/lib/analytics/repository';
+import {
+  assertAnalyticsSnapshotCacheSize,
+  runAnalyticsSnapshotSingleFlight,
+  SnapshotCacheTooLargeError,
+} from '@/lib/analytics/snapshot-cache';
 import { calculateRecordSnapshot } from '@/lib/records/calculate';
 import {
   RECORDS_METHOD_VERSION,
@@ -331,13 +336,17 @@ export async function getRecordSnapshotUncached(
 }
 
 function serializeRecordSnapshot(snapshot: RecordSnapshot): CachedRecordSnapshot {
-  return {
+  const cached: CachedRecordSnapshot = {
     ...snapshot,
     request: {
       ...snapshot.request,
       coverageStart: snapshot.request.coverageStart.toISOString(),
     },
   };
+  return assertAnalyticsSnapshotCacheSize(RECORD_SNAPSHOT_CACHE_NAME, cached, {
+    rowCount: snapshot.entries.length,
+    resultCount: snapshot.entries.length,
+  });
 }
 
 function hydrateRecordSnapshot(snapshot: CachedRecordSnapshot): RecordSnapshot {
@@ -354,7 +363,13 @@ const cachedAnalyticsEditions = trackedUnstableCache(
   RECORD_EDITIONS_CACHE_NAME,
   async (epoch: string): Promise<CachedAnalyticsEdition[] | null> => {
     void epoch;
-    return normalizeAnalyticsEditions(await listAnalyticsEditions());
+    const editions = normalizeAnalyticsEditions(await listAnalyticsEditions());
+    return editions
+      ? assertAnalyticsSnapshotCacheSize(RECORD_EDITIONS_CACHE_NAME, editions, {
+        rowCount: editions.length,
+        resultCount: editions.length,
+      })
+      : null;
   },
   ['analytics-record-editions-v1'],
   {
@@ -393,7 +408,12 @@ export async function getRecordSnapshot(
 
   const normalizedEditions = context
     ? normalizeAnalyticsEditions(context.editions)
-    : await cachedAnalyticsEditions(epoch);
+    : await runAnalyticsSnapshotSingleFlight(
+      RECORD_EDITIONS_CACHE_NAME,
+      epoch,
+      epoch,
+      () => cachedAnalyticsEditions(epoch),
+    );
   const metric = getMetricDefinition(normalizedQuery.metricId);
   const cacheKey = normalizedEditions && metric
     ? buildAnalyticsSnapshotCacheKey('record', epoch, {
@@ -414,5 +434,18 @@ export async function getRecordSnapshot(
     );
   }
 
-  return hydrateRecordSnapshot(await cachedRecordSnapshot(cacheKey, normalizedQuery, normalizedEditions));
+  try {
+    return hydrateRecordSnapshot(await runAnalyticsSnapshotSingleFlight(
+      RECORD_SNAPSHOT_CACHE_NAME,
+      epoch,
+      cacheKey,
+      () => cachedRecordSnapshot(cacheKey, normalizedQuery, normalizedEditions),
+    ));
+  } catch (error) {
+    if (error instanceof SnapshotCacheTooLargeError) {
+      recordCacheResult(RECORD_SNAPSHOT_CACHE_NAME, 'miss');
+      return hydrateRecordSnapshot(error.value as CachedRecordSnapshot);
+    }
+    throw error;
+  }
 }

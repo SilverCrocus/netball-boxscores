@@ -126,6 +126,28 @@ absent or any evidence is missing, decision is `NO-GO` for Glasgow publication.
 
 ## Monitoring and handoff
 
+### Phase 2 analytics memory gate
+
+Run the post-deploy probe in two stages. First make sequential warm requests to
+`/rankings` and `/records` and confirm the expected warm-cache timings. Only
+after that should the operator run a bounded concurrency probe while watching
+Render RSS, heap, health, readiness, and 5xx/error metrics. The preferred peak
+RSS target is below 384 MiB; the hard review ceiling is below 410 MiB, leaving
+20–25% headroom on the 512 MiB Starter instance. Do not run the probe against
+production from this repository's release-preparation lane.
+
+- local production-build harness command:
+  `npm run stress:phase2-memory`
+- representative local fixture/data confirmation:
+- sequential warm `/rankings` evidence:
+- sequential warm `/records` evidence:
+- controlled-concurrency probe configuration/results:
+- peak app RSS / heap:
+- continuous `/api/health` and `/api/readiness` result:
+- 5xx/unhandled-rejection result:
+- Render metrics/log evidence and monitoring owner:
+- headroom decision: `PASS` / `BLOCKED`
+
 - Monitoring owner/window:
 - Render logs/metrics result:
 - Supabase reports/advisors result:
@@ -134,6 +156,26 @@ absent or any evidence is missing, decision is `NO-GO` for Glasgow publication.
 - Evidence archive URL and retention expiry:
 - Remaining caveats:
 - Final decision/status:
+
+## Historical mutation ledger correction
+
+The first automatic Render PR #52 preview, running head `1fb85fd`, inherited
+the base service's production database credentials and executed the inherited
+`preDeployCommand` before the migration guard existed. Render applied
+`20260722000000_add_analytics_cache_epoch` to production; the production
+ledger records completion at `2026-07-22 05:31:39.151698+00`. Record the exact
+Render preview deployment/log evidence and the production ledger read here.
+This was an automatic preview-side mutation, not a manual production action
+from this lane. It was additive and ledger-clean; do not claim that no
+production mutation occurred and do not attempt rollback.
+
+- historical Render PR preview service: `srv-d9g5akn7f7vs73eqt52g`
+- historical preview URL: `https://centrepass-pr-52.onrender.com`
+- historical base service: `srv-d71t7iaa214c73eaqmcg`
+- historical mutation migration:
+- historical Render pre-deploy evidence:
+- production ledger evidence:
+- next preview guard-skip log evidence:
 
 ## Exact rollback instructions
 

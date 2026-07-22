@@ -105,6 +105,16 @@ const recordQuery = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('analytics snapshot cache safety', () => {
   beforeEach(() => {
     mocks.cache.clear();
@@ -153,7 +163,18 @@ describe('analytics snapshot cache safety', () => {
       populationSize: facts.length,
       entries: [],
     }));
-    mocks.teamCalculator.mockImplementation((competitionId: string) => ({ competitionId }));
+    mocks.teamCalculator.mockImplementation((competitionId: string) => ({
+      rankingType: 'TEAM_POWER',
+      methodVersion: 'centrepass-team-power.v1',
+      formulaVersion: 'centrepass-team-power.v1',
+      competitionId,
+      competitionSeriesId: null,
+      competitionKind: null,
+      scopeKey: `edition:${competitionId}`,
+      asOf: null,
+      populationSize: 0,
+      entries: [],
+    }));
     mocks.recordCalculator.mockImplementation((_facts: unknown[], _entities: unknown[], request: unknown) => ({
       methodVersion: 'centrepass-records.v1',
       request,
@@ -257,6 +278,139 @@ describe('analytics snapshot cache safety', () => {
     expect(mocks.playerCalculator).toHaveBeenCalledTimes(3);
   });
 
+  it('coalesces identical parallel ranking misses while keeping distinct keys separate', async () => {
+    const firstFacts = deferred<unknown[]>();
+    const secondFacts = deferred<unknown[]>();
+    let factCall = 0;
+    mocks.playerFacts.mockImplementation(async () => {
+      factCall += 1;
+      await (factCall === 1 ? firstFacts.promise : secondFacts.promise);
+      return [{ entityId: 'player-1' }];
+    });
+
+    const sameA = getPlayerRankingSnapshot(playerRequest({ minimumMinutes: 120 }));
+    const sameB = getPlayerRankingSnapshot(playerRequest({ minimumMinutes: 120 }));
+    await vi.waitFor(() => expect(mocks.playerFacts).toHaveBeenCalledTimes(1));
+    firstFacts.resolve([]);
+    await Promise.all([sameA, sameB]);
+    expect(mocks.playerCalculator).toHaveBeenCalledTimes(1);
+
+    const distinctA = getPlayerRankingSnapshot(playerRequest({ minimumMinutes: 121 }));
+    const distinctB = getPlayerRankingSnapshot(playerRequest({ minimumMinutes: 122 }));
+    await vi.waitFor(() => expect(mocks.playerFacts).toHaveBeenCalledTimes(3));
+    secondFacts.resolve([]);
+    await Promise.all([distinctA, distinctB]);
+    expect(mocks.playerCalculator).toHaveBeenCalledTimes(3);
+  });
+
+  it('cleans up a rejected ranking flight so the next call retries', async () => {
+    mocks.playerFacts
+      .mockRejectedValueOnce(new Error('temporary facts failure'))
+      .mockResolvedValue([{ entityId: 'player-1' }]);
+
+    await expect(getPlayerRankingSnapshot(playerRequest())).rejects.toThrow('temporary facts failure');
+    await getPlayerRankingSnapshot(playerRequest());
+
+    expect(mocks.playerFacts).toHaveBeenCalledTimes(2);
+    expect(mocks.playerCalculator).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an oversized computed DTO without persisting or recomputing it', async () => {
+    const facts = Array.from({ length: 2_500 }, (_, index) => ({ entityId: `player-${index}` }));
+    const players = facts.map((fact, index) => ({
+      id: fact.entityId,
+      name: `Player ${index} ${'x'.repeat(700)}`,
+      position: 'GS',
+      teamName: 'Team One',
+    }));
+    mocks.playerFacts.mockResolvedValue(facts);
+    mocks.comparisonPlayers.mockResolvedValue(players);
+    mocks.playerCalculator.mockImplementation((inputFacts: unknown[], _entities: unknown[], request: unknown) => ({
+      rankingType: 'PLAYER_METRIC',
+      methodVersion: 'centrepass-player-ranking.v1',
+      formulaVersion: 'goals.v1',
+      scopeKey: 'oversized-test',
+      request,
+      asOf: '2026-07-22T00:00:00.000Z',
+      populationSize: inputFacts.length,
+      entries: inputFacts.map((fact, index) => ({
+        rank: index + 1,
+        percentile: 50,
+        entity: players[index],
+        result: {
+          metricId: 'goals',
+          value: 42,
+          status: 'AVAILABLE',
+          unit: 'COUNT',
+          aggregation: 'TOTAL',
+          context: {
+            entityType: 'PLAYER',
+            entityId: (fact as { entityId: string }).entityId,
+            competitionId: 'edition-1',
+          },
+          games: 4,
+          minutes: 240,
+          minimumSample: { minutes: 120 },
+          minimumSampleMet: true,
+          coverage: 'AVAILABLE',
+          formulaVersion: 'goals.v1',
+          asOf: '2026-07-22T00:00:00.000Z',
+          includedMatchIds: ['match-1'],
+        },
+        movement: null,
+        movementLabel: 'NEW',
+      })),
+    }));
+
+    const result = await getPlayerRankingSnapshot(playerRequest());
+
+    expect(result.entries).toHaveLength(2_500);
+    expect(mocks.playerFacts).toHaveBeenCalledTimes(1);
+    expect(mocks.comparisonPlayers).toHaveBeenCalledTimes(1);
+    expect(mocks.playerCalculator).toHaveBeenCalledTimes(1);
+    expect(mocks.cache.size).toBe(0);
+  });
+
+  it('does not share a ranking flight across epoch rotation', async () => {
+    let revision = 1;
+    mocks.snapshotEpoch.mockImplementation(async () => ({
+      revision: BigInt(revision),
+      invalidatedAt: new Date('2026-07-22T00:00:00.000Z'),
+      contractVersion: 'analytics-cache-epoch.v1',
+    }));
+    const firstFacts = deferred<unknown[]>();
+    const secondFacts = deferred<unknown[]>();
+    let factCall = 0;
+    mocks.playerFacts.mockImplementation(async () => {
+      factCall += 1;
+      await (factCall === 1 ? firstFacts.promise : secondFacts.promise);
+      return [{ entityId: 'player-1' }];
+    });
+    let calculation = 0;
+    mocks.playerCalculator.mockImplementation((facts: unknown[], _entities: unknown[], request: unknown) => ({
+      rankingType: 'PLAYER_METRIC',
+      methodVersion: 'centrepass-player-ranking.v1',
+      formulaVersion: 'goals.v1',
+      scopeKey: `calculation-${++calculation}`,
+      request,
+      asOf: '2026-07-22T00:00:00.000Z',
+      populationSize: facts.length,
+      entries: [],
+    }));
+
+    const first = getPlayerRankingSnapshot(playerRequest());
+    await vi.waitFor(() => expect(mocks.playerFacts).toHaveBeenCalledTimes(1));
+    revision = 2;
+    const second = getPlayerRankingSnapshot(playerRequest());
+    await vi.waitFor(() => expect(mocks.playerFacts).toHaveBeenCalledTimes(2));
+    firstFacts.resolve([]);
+    secondFacts.resolve([]);
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(firstResult.scopeKey).not.toBe(secondResult.scopeKey);
+    expect(mocks.cache.size).toBe(2);
+  });
+
   it('bypasses the player cache when the epoch read fails', async () => {
     mocks.snapshotEpoch.mockRejectedValue(new Error('epoch unavailable'));
     await getPlayerRankingSnapshot(playerRequest());
@@ -332,6 +486,29 @@ describe('analytics snapshot cache safety', () => {
     await getRecordSnapshot(recordQuery(), context);
     expect(mocks.playerRecordFacts).toHaveBeenCalledTimes(4);
     expect(mocks.recordCalculator).toHaveBeenCalledTimes(4);
+  });
+
+  it('coalesces identical parallel Records misses and cleans up after rejection', async () => {
+    const factsGate = deferred<unknown[]>();
+    mocks.playerRecordFacts.mockImplementation(async () => {
+      await factsGate.promise;
+      return [];
+    });
+    const context = { editions: [edition()] };
+    const first = getRecordSnapshot(recordQuery(), context);
+    const second = getRecordSnapshot(recordQuery(), context);
+    await vi.waitFor(() => expect(mocks.playerRecordFacts).toHaveBeenCalledTimes(1));
+    factsGate.resolve([]);
+    await Promise.all([first, second]);
+    expect(mocks.playerRecordFacts).toHaveBeenCalledTimes(1);
+    expect(mocks.recordCalculator).toHaveBeenCalledTimes(1);
+
+    mocks.playerRecordFacts
+      .mockRejectedValueOnce(new Error('temporary record facts failure'))
+      .mockResolvedValue([]);
+    await expect(getRecordSnapshot(recordQuery({ limit: 26 }), context)).rejects.toThrow('temporary record facts failure');
+    await getRecordSnapshot(recordQuery({ limit: 26 }), context);
+    expect(mocks.playerRecordFacts).toHaveBeenCalledTimes(3);
   });
 
   it('does not collide a changed Records limit', async () => {

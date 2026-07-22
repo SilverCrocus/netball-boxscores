@@ -229,9 +229,14 @@ Only after the explicit `GO`:
    commit** (or the repository's existing automatic deploy if its event and
    commit are visible). Do not deploy an unrecorded branch head.
 4. The checked-in [`render.yaml`](../../render.yaml) requires
-   `preDeployCommand: npm run db:migrate:deploy`. Confirm in the new deployment
-   logs that this command completed successfully **before** the new web process
-   started. A migration failure, unexpected migration, wrong service/region, or
+   `preDeployCommand: npm run db:migrate:deploy`. That command is guarded: a
+   Render pull-request preview (`RENDER=true`, `IS_PULL_REQUEST=true`) exits
+   successfully without invoking Prisma; a Render non-preview run may invoke
+   Prisma only when `IS_PULL_REQUEST=false` and `RENDER_GIT_BRANCH=main`.
+   Outside Render it preserves the normal local migration behavior. Confirm in
+   the deployment logs that the guard decision and any approved migration
+   completed **before** the new web process started. A malformed Render
+   contract, migration failure, unexpected migration, wrong service/region, or
    commit mismatch is a hard halt; do not publish Glasgow.
 5. Capture deployment ID, commit, start/end time, pre-deploy logs, build result,
    and the first application logs. Never capture secret values.
@@ -267,6 +272,21 @@ duplicate, out-of-order, missing, extra or changed catalog state.
 The commit-bound baseline smoke must pass before feature enablement or the
 first Glasgow DRAFT write; it also proves Glasgow and feature routes fail
 closed while their switches are off.
+
+### Historical PR-preview migration incident
+
+The first automatic Render PR #52 preview was created from `1fb85fd` and
+inherited the base service's production database credentials. Before this
+guard existed, its inherited `preDeployCommand` ran `npm run
+db:migrate:deploy` and applied the additive migration
+`20260722000000_add_analytics_cache_epoch` to production. The production
+ledger records it as finished at `2026-07-22 05:31:39.151698+00`; the Render
+preview log identified the pooler target and reported 15 migrations with no
+pending migrations at its latest deployment. This mutation was not performed
+manually by the release-preparation lane, is additive and ledger-clean, and
+must remain in the release ledger. Do not attempt a rollback. Future PR
+previews must show the guard's low-cardinality skip message and must not invoke
+Prisma.
 
 The Blueprint's Render health check is `/api/health`; liveness alone is not a
 release pass. `/api/readiness` must also return `200` and `status=ready`.
