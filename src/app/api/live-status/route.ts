@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getLiveState } from '@/lib/live-state';
+import { getLiveStatus } from '@/lib/live-state';
 import { isUpstreamPreviewMode, loadUpstreamLiveStatus } from '@/lib/upstream-preview';
 
 export const dynamic = 'force-dynamic';
@@ -17,12 +17,12 @@ export async function GET() {
     }
   }
 
-  const state = await getLiveState();
+  const status = await getLiveStatus();
 
   return NextResponse.json(
     {
-      hasLive: state.liveMatchIds.length > 0,
-      nextMatchAt: state.nextMatchAt,
+      hasLive: status.hasLive,
+      nextMatchAt: status.nextMatchAt,
     },
     {
       headers: {

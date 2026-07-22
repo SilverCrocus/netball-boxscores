@@ -22,7 +22,10 @@ export default function LivePage() {
 }
 
 async function renderLivePage() {
-  const state = await getLiveState({ includeMatchDetails: true });
+  const state = await getLiveState({
+    includeMatchDetails: true,
+    includeWindowCandidates: false,
+  });
 
   if (state.liveMatchIds.length === 1) {
     const liveMatch = state.liveMatches[0];

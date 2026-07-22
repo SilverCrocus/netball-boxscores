@@ -290,8 +290,12 @@ const getCachedPublicCompetitionNavigationDirectory = process.env.NODE_ENV === '
       },
     );
 
-export async function getPublicCompetitionNavigationDirectory(): Promise<CompetitionNavigationOption[]> {
-  return getCachedPublicCompetitionNavigationDirectory();
+export async function getPublicCompetitionNavigationDirectory(options: {
+  cache?: boolean;
+} = {}): Promise<CompetitionNavigationOption[]> {
+  return options.cache === false
+    ? loadPublicCompetitionNavigationDirectory()
+    : getCachedPublicCompetitionNavigationDirectory();
 }
 
 export interface EditionRouteIdentity {
