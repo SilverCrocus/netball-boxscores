@@ -108,6 +108,10 @@ describe('LivePage', () => {
     expect(screen.getByText('Card next-match')).toBeInTheDocument();
     expect(screen.getByText('Card latest-result')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View all fixtures' })).toHaveAttribute('href', '/');
+    expect(getLiveStateMock).toHaveBeenCalledWith({
+      includeMatchDetails: true,
+      includeWindowCandidates: false,
+    });
     expect(findFirstMock).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         status: 'SCHEDULED',

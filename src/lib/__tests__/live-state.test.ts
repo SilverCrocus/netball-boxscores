@@ -15,7 +15,12 @@ vi.mock('@/lib/public-match', () => ({
   resolvePublicMatchAccessBatch: resolvePublicMatchBatchMock,
 }));
 
-import { getLiveState, liveMatchSelect, MAX_LIVE_STATE_CANDIDATES } from '@/lib/live-state';
+import {
+  getLiveState,
+  getLiveStatus,
+  liveMatchSelect,
+  MAX_LIVE_STATE_CANDIDATES,
+} from '@/lib/live-state';
 
 const NOW = new Date('2026-07-25T08:00:00Z');
 
@@ -122,6 +127,28 @@ describe('getLiveState', () => {
     expect(liveMatchSelect).toHaveProperty('stageId', true);
   });
 
+  it('can skip the non-live window when the page only needs live details', async () => {
+    const live = candidate('live', new Date('2026-07-25T08:00:00Z'));
+    findManyMock.mockResolvedValueOnce([live]);
+    resolvePublicMatchBatchMock.mockResolvedValue(new Map([
+      ['live', access('live', 'LIVE')],
+    ]));
+
+    const state = await getLiveState({
+      includeMatchDetails: true,
+      includeWindowCandidates: false,
+    });
+
+    expect(state.liveMatchIds).toEqual(['live']);
+    expect(findManyMock).toHaveBeenCalledTimes(1);
+    expect(findManyMock.mock.calls[0]?.[0]).toMatchObject({ select: liveMatchSelect });
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
+      ['live'],
+      undefined,
+      [live],
+    );
+  });
+
   it('prioritizes later LIVE rows before filling the bounded window budget', async () => {
     const laterLive = candidate('later-live', new Date('2026-07-25T23:00:00Z'));
     const nonLiveCandidates = Array.from(
@@ -167,6 +194,52 @@ describe('getLiveState', () => {
       imminentMatchIds: [],
       nextMatchAt: null,
       isMatchDay: false,
+    });
+  });
+
+  it('uses only live and next-hour candidates for the shared status badge', async () => {
+    const live = candidate('live', new Date('2026-07-25T07:45:00Z'));
+    const next = candidate('next', new Date('2026-07-25T08:30:00Z'));
+    findManyMock.mockImplementation(({ where }: { where: { status?: string } }) =>
+      Promise.resolve(where.status === 'LIVE' ? [live] : [next]));
+    resolvePublicMatchBatchMock.mockImplementation(async (ids: string[]) => new Map(
+      ids.map((id) => [id, access(id, id === 'live' ? 'LIVE' : 'SCHEDULED')]),
+    ));
+
+    await expect(getLiveStatus()).resolves.toEqual({
+      hasLive: true,
+      nextMatchAt: next.scheduledAt,
+    });
+    expect(findManyMock).toHaveBeenCalledTimes(2);
+    expect(findManyMock.mock.calls[0]?.[0]).toMatchObject({
+      where: expect.objectContaining({ status: 'LIVE' }),
+      select: publicMatchBatchSelectMock,
+      take: MAX_LIVE_STATE_CANDIDATES,
+    });
+    expect(findManyMock.mock.calls[1]?.[0]).toMatchObject({
+      where: expect.objectContaining({
+        status: 'SCHEDULED',
+        scheduledAt: expect.any(Object),
+      }),
+      select: publicMatchBatchSelectMock,
+      take: MAX_LIVE_STATE_CANDIDATES,
+    });
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
+      ['live', 'next'],
+      undefined,
+      [live, next],
+    );
+  });
+
+  it('fails closed for shared status when public access resolution is unavailable', async () => {
+    findManyMock
+      .mockResolvedValueOnce([candidate('live')])
+      .mockResolvedValueOnce([candidate('next', new Date('2026-07-25T08:30:00Z'))]);
+    resolvePublicMatchBatchMock.mockRejectedValue(new Error('database unavailable'));
+
+    await expect(getLiveStatus()).resolves.toEqual({
+      hasLive: false,
+      nextMatchAt: null,
     });
   });
 });

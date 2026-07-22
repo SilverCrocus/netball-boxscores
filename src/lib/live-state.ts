@@ -36,8 +36,18 @@ export interface LiveState {
   liveMatchDetails?: LiveMatchDetail[];
 }
 
+export interface LiveStatusState {
+  hasLive: boolean;
+  nextMatchAt: Date | null;
+}
+
+interface LiveStateOptions {
+  includeMatchDetails?: boolean;
+  includeWindowCandidates?: boolean;
+}
+
 export async function getLiveState(
-  options: { includeMatchDetails?: boolean } = {},
+  options: LiveStateOptions = {},
 ): Promise<LiveState> {
   const now = new Date();
   const sixtyMinsAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -71,7 +81,7 @@ export async function getLiveState(
     MAX_LIVE_STATE_CANDIDATES - liveCandidates.length,
   );
   const liveCandidateIds = liveCandidates.map((match) => match.id);
-  const windowCandidates = remainingCandidateCount > 0
+  const windowCandidates = options.includeWindowCandidates !== false && remainingCandidateCount > 0
     ? await timedQuery(
       'live_window_candidates',
       () => prisma.match.findMany({
@@ -136,4 +146,65 @@ export async function getLiveState(
     isMatchDay,
     ...(liveMatchDetails ? { liveMatchDetails } : {}),
   };
+}
+
+/**
+ * The shared navigation badge needs only current live rows and the next hour.
+ * Keep this uncached: a stale score-state snapshot is worse than a cheap
+ * request, and the page-level loader still owns the richer match-day facts.
+ */
+export async function getLiveStatus(): Promise<LiveStatusState> {
+  const now = new Date();
+  const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
+  const [liveCandidates, upcomingCandidates] = await Promise.all([
+    timedQuery(
+      'live_status_active_candidates',
+      () => prisma.match.findMany({
+        where: {
+          ...excludeSimData,
+          status: 'LIVE',
+        },
+        select: publicMatchBatchSelect,
+        orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
+        take: MAX_LIVE_STATE_CANDIDATES,
+      }),
+    ),
+    timedQuery(
+      'live_status_upcoming_candidates',
+      () => prisma.match.findMany({
+        where: {
+          ...excludeSimData,
+          status: 'SCHEDULED',
+          scheduledAt: { gte: now, lte: nextHour },
+        },
+        select: publicMatchBatchSelect,
+        orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
+        take: MAX_LIVE_STATE_CANDIDATES,
+      }),
+    ),
+  ]);
+  const candidates = [
+    ...new Map(
+      [...liveCandidates, ...upcomingCandidates].map((match) => [match.id, match]),
+    ).values(),
+  ];
+  const accessById = await resolvePublicMatchAccessBatch(
+    candidates.map((match) => match.id),
+    undefined,
+    candidates as unknown as PublicMatchAccessCandidate[],
+  ).catch(() => new Map<string, PublicMatchAccess>());
+
+  const hasLive = candidates.some((match) => accessById.get(match.id)?.status === 'LIVE');
+  const nextMatchAt = candidates
+    .flatMap((match) => {
+      const access = accessById.get(match.id);
+      return access?.status === 'SCHEDULED'
+        && match.scheduledAt >= now
+        && match.scheduledAt <= nextHour
+        ? [match.scheduledAt]
+        : [];
+    })
+    .toSorted((left, right) => left.getTime() - right.getTime())[0] ?? null;
+
+  return { hasLive, nextMatchAt };
 }

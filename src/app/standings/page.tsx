@@ -2,7 +2,10 @@ import Link from 'next/link';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import type { Metadata } from 'next';
 import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
-import { resolveCompetitionById, resolveLegacyLeagueCompetition } from '@/lib/competitions';
+import {
+  getPublicCompetitionNavigationDirectory,
+  type CompetitionNavigationOption,
+} from '@/lib/competitions';
 import { getStandingsForCompetition } from '@/lib/cached-queries';
 import { measureServerOperation } from '@/lib/server-timing';
 
@@ -30,11 +33,51 @@ interface StandingsPageProps {
   searchParams: Promise<{ edition?: string; season?: string }>;
 }
 
+interface StandingsCompetitionSelection {
+  competition: CompetitionNavigationOption | null;
+  competitions: CompetitionNavigationOption[];
+}
+
+export function selectStandingsCompetition(
+  competitions: CompetitionNavigationOption[],
+  { edition, season }: { edition?: string; season?: string },
+): StandingsCompetitionSelection {
+  if (edition) {
+    return {
+      competition: competitions.find((candidate) => candidate.id === edition) ?? null,
+      competitions,
+    };
+  }
+
+  const leagueCompetitions = competitions.filter(
+    (candidate) => candidate.series?.kind === 'LEAGUE',
+  );
+  const latest = leagueCompetitions[0] ?? null;
+  if (!season) return { competition: latest, competitions: leagueCompetitions };
+
+  const parsedSeason = Number(season);
+  const selected = Number.isInteger(parsedSeason)
+    ? leagueCompetitions.find((candidate) => candidate.season === parsedSeason) ?? null
+    : null;
+
+  return {
+    competition: selected ?? latest,
+    competitions: leagueCompetitions,
+  };
+}
+
+async function resolveStandingsCompetition(
+  params: { edition?: string; season?: string },
+): Promise<StandingsCompetitionSelection> {
+  return selectStandingsCompetition(
+    await getPublicCompetitionNavigationDirectory({ cache: false }),
+    params,
+  );
+}
+
 export async function generateMetadata({ searchParams }: StandingsPageProps): Promise<Metadata> {
   const { edition, season } = await searchParams;
-  const { competition } = edition
-    ? await resolveCompetitionById(edition)
-    : await resolveLegacyLeagueCompetition(season);
+  const { competition } = await resolveStandingsCompetition({ edition, season });
   const year = competition?.season ?? new Date().getFullYear();
   return {
     title: `${year} SSN Standings`,
@@ -48,9 +91,7 @@ export default function StandingsPage(props: StandingsPageProps) {
 
 async function renderStandingsPage({ searchParams }: StandingsPageProps) {
   const { edition, season } = await searchParams;
-  const { competition, competitions } = edition
-    ? await resolveCompetitionById(edition)
-    : await resolveLegacyLeagueCompetition(season);
+  const { competition, competitions } = await resolveStandingsCompetition({ edition, season });
   const standings = competition
     ? await getStandingsForCompetition(competition.id)
     : [];
