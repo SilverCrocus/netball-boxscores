@@ -336,10 +336,13 @@ export async function readOpponentMatchIds(
 }
 
 export async function readAnalyticsRevision(): Promise<{ revision: bigint; invalidatedAt: Date | null }> {
-  const rows = await (await getVerifiedAnalyticsDatabase()).$queryRaw<Array<{ revision: bigint; invalidated_at: Date | null }>>(Prisma.sql`
+  const rows = await analyticsQuery('analytics_cache_epoch', (database) => database.$queryRaw<Array<{
+    revision: bigint;
+    invalidated_at: Date | null;
+  }>>(Prisma.sql`
     SELECT revision, invalidated_at
     FROM analytics.cache_revision_read
-  `);
+  `));
   return { revision: rows[0]?.revision ?? BigInt(0), invalidatedAt: rows[0]?.invalidated_at ?? null };
 }
 
