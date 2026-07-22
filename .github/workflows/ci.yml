@@ -239,6 +239,21 @@ jobs:
       - name: Verify zero current and default Data API grants
         run: npx tsx scripts/verify-preview-data-api-acls.ts
 
+      - name: Generate guarded preview production catalog artifact
+        env:
+          PREVIEW_CATALOG_GENERATION: "true"
+        run: |
+          mkdir -p .artifacts
+          npm run generate:production-catalog -- --output .artifacts/production-catalog.json
+
+      - name: Upload guarded preview production catalog artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-catalog-preview
+          path: .artifacts/production-catalog.json
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Validate the immutable bundle offline
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
 

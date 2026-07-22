@@ -19,6 +19,7 @@
     "production:glasgow": "npx tsx scripts/production-glasgow.ts",
     "verify:production-migrations": "npx tsx scripts/verify-production-migrations.ts",
     "verify:production-catalog": "npx tsx scripts/verify-production-catalog.ts",
+    "generate:production-catalog": "npx tsx scripts/generate-production-catalog.ts",
     "db:push": "npx prisma db push",
     "db:migrate:deploy": "npx tsx scripts/guarded-prisma-migrate-deploy.ts",
     "db:seed": "npx tsx prisma/seed.ts",

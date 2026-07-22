@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Prisma } from '@prisma/client';
@@ -14,6 +15,15 @@ import {
   verifyDefaultAclBoundary,
 } from './lib/preview-default-acl-contract';
 import { verifyPreviewDatabaseTarget } from './lib/preview-database-target';
+import {
+  assertNoMaterializedPendingObjects,
+  extractNewPendingObjectIdentities,
+  EXPECTED_PREVIEW_PRISMA_MIGRATIONS,
+  type MigrationDescriptor,
+  type PendingObjectIdentities,
+  validatePreviewPrismaLedger,
+  type PreviewMigrationLedgerRow,
+} from './lib/preview-prisma-ledger-contract';
 
 const BASELINED_MIGRATIONS = [
   '20260602_expand_stats_fields',
@@ -22,10 +32,15 @@ const BASELINED_MIGRATIONS = [
   '20260712020000_add_finals_match_metadata',
 ] as const;
 const FIRST_UNAPPLIED_MIGRATION = '20260715000000_add_competition_foundation';
+const REUSE_PREFIX_LAST_MIGRATION = '20260717010000_close_postgres17_maintain_acl';
+const PENDING_CACHE_EPOCH_MIGRATION = '20260722000000_add_analytics_cache_epoch';
 
 interface ColumnRow { name: string; dataType: string; isNullable: 'YES' | 'NO'; defaultValue: string | null }
 interface DefinitionRow { name: string; definition: string }
 interface CountRow { count: bigint }
+interface ObjectIdentityRow { identity: string }
+interface FunctionIdentityRow { identity: string }
+interface TriggerIdentityRow { identity: string }
 interface PolicyRow extends DefinitionRow { command: string; checkExpression: string; roles: string[] }
 interface RlsRow { name: string; enabled: boolean; forced: boolean }
 interface GrantCounts {
@@ -78,14 +93,31 @@ async function migrationSql(name: string) {
   return readFile(path.resolve('prisma/migrations', name, 'migration.sql'), 'utf8');
 }
 
-async function verifyContiguousOrder() {
+async function checkedInMigrations(): Promise<MigrationDescriptor[]> {
   const entries = await readdir(path.resolve('prisma/migrations'), { withFileTypes: true });
   const names = entries.filter((entry) => entry.isDirectory() && /^\d+_/.test(entry.name))
     .map((entry) => entry.name).toSorted();
+  const migrations = await Promise.all(names.map(async (name) => ({
+    migrationName: name,
+    checksum: createHash('sha256').update(await readFile(
+      path.resolve('prisma/migrations', name, 'migration.sql'),
+    )).digest('hex'),
+  })));
+  return migrations;
+}
+
+async function verifyContiguousOrder(migrations: readonly MigrationDescriptor[]) {
+  const names = migrations.map((migration) => migration.migrationName);
+  invariant(JSON.stringify(names) === JSON.stringify(EXPECTED_PREVIEW_PRISMA_MIGRATIONS),
+    'checked-in migrations are not the exact contiguous preview chain');
   invariant(JSON.stringify(names.slice(0, BASELINED_MIGRATIONS.length)) ===
     JSON.stringify(BASELINED_MIGRATIONS), 'materialized migrations are not a checked-in contiguous prefix');
   invariant(names[BASELINED_MIGRATIONS.length] === FIRST_UNAPPLIED_MIGRATION,
     `expected ${FIRST_UNAPPLIED_MIGRATION} immediately after the materialized prefix`);
+  invariant(names.at(-2) === REUSE_PREFIX_LAST_MIGRATION,
+    `expected ${REUSE_PREFIX_LAST_MIGRATION} immediately before the pending cache epoch migration`);
+  invariant(names.at(-1) === PENDING_CACHE_EPOCH_MIGRATION,
+    `expected ${PENDING_CACHE_EPOCH_MIGRATION} to be the only pending migration`);
 }
 
 async function verifyInitialMigration() {
@@ -266,27 +298,102 @@ async function verifyFinalsColumns() {
   assertExactColumns(actual, expected, 'Match');
 }
 
-async function verifyFirstUnappliedMigrationAbsent() {
-  const sql = await migrationSql(FIRST_UNAPPLIED_MIGRATION);
+async function verifyMigrationEffectsAbsent(
+  migrationName: string,
+  precedingMigrationNames: readonly string[],
+) {
+  const sql = await migrationSql(migrationName);
+  const precedingSql = await Promise.all(precedingMigrationNames.map(migrationSql));
+  const pendingObjects = extractNewPendingObjectIdentities(sql, precedingSql);
   const types = [...sql.matchAll(/CREATE TYPE "([^"]+)"/g)].map((match) => match[1]);
-  const tables = [...sql.matchAll(/CREATE TABLE "([^"]+)"/g)].map((match) => match[1]);
+  const tables = [...sql.matchAll(/CREATE TABLE\s+(?:(?:[A-Za-z_][A-Za-z0-9_$]*)\.)?("[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)/g)]
+    .map((match) => match[1]!.replace(/^"|"$/g, ''));
   const indexes = [...sql.matchAll(/CREATE (?:UNIQUE )?INDEX "([^"]+)"/g)].map((match) => match[1]);
   const constraints = [...sql.matchAll(/ADD CONSTRAINT "([^"]+)"/g)].map((match) => match[1]);
   const additions = [...sql.matchAll(/ALTER TABLE "([^"]+)"([\s\S]*?);/g)].flatMap((table) =>
     [...table[2].matchAll(/ADD COLUMN "([^"]+)"/g)].map((column) => `${table[1]}.${column[1]}`));
-  const counts = await prisma.$queryRaw<CountRow[]>(Prisma.sql`
-    SELECT (
+  const countExpressions: Prisma.Sql[] = [];
+  if (types.length > 0) {
+    countExpressions.push(Prisma.sql`
       (SELECT COUNT(*) FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-        WHERE n.nspname = 'public' AND t.typname IN (${Prisma.join(types)})) +
+        WHERE n.nspname = 'public' AND t.typname IN (${Prisma.join(types)}))`);
+  }
+  if (tables.length > 0) {
+    countExpressions.push(Prisma.sql`
       (SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relname IN (${Prisma.join(tables)})) +
-      (SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname IN (${Prisma.join(indexes)})) +
-      (SELECT COUNT(*) FROM pg_constraint WHERE conname IN (${Prisma.join(constraints)})) +
+        WHERE n.nspname IN ('public', 'analytics') AND c.relkind IN ('r', 'p')
+          AND c.relname IN (${Prisma.join(tables)}))`);
+  }
+  if (indexes.length > 0) {
+    countExpressions.push(Prisma.sql`
+      (SELECT COUNT(*) FROM pg_indexes
+        WHERE schemaname IN ('public', 'analytics') AND indexname IN (${Prisma.join(indexes)}))`);
+  }
+  if (constraints.length > 0) {
+    countExpressions.push(Prisma.sql`
+      (SELECT COUNT(*) FROM pg_constraint WHERE conname IN (${Prisma.join(constraints)}))`);
+  }
+  if (additions.length > 0) {
+    countExpressions.push(Prisma.sql`
       (SELECT COUNT(*) FROM information_schema.columns
-        WHERE table_schema = 'public' AND (table_name || '.' || column_name) IN (${Prisma.join(additions)}))
-    )::bigint AS count`);
+        WHERE table_schema IN ('public', 'analytics')
+          AND (table_name || '.' || column_name) IN (${Prisma.join(additions)}))`);
+  }
+  const counts = countExpressions.length > 0
+    ? await prisma.$queryRaw<CountRow[]>(Prisma.sql`
+        SELECT (${Prisma.join(countExpressions, ' + ')})::bigint AS count`)
+    : [{ count: BigInt(0) }];
   invariant(counts[0]?.count === BigInt(0),
-    `${FIRST_UNAPPLIED_MIGRATION} is partially or non-contiguously materialized`);
+    `${migrationName} is partially or non-contiguously materialized`);
+
+  const relationIdentities = pendingObjects.relations.map((object) => object.identity);
+  const functionIdentities = pendingObjects.functions.map((object) => object.identity);
+  const triggerIdentities = pendingObjects.triggers.map((object) => object.identity);
+  const [relations, functions, triggers] = await Promise.all([
+    prisma.$queryRaw<ObjectIdentityRow[]>(Prisma.sql`
+      SELECT format('%I.%I', namespace.nspname, relation.relname) AS identity
+      FROM pg_class relation
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+      WHERE format('%I.%I', namespace.nspname, relation.relname)
+        IN (${Prisma.join(relationIdentities)})`),
+    prisma.$queryRaw<FunctionIdentityRow[]>(Prisma.sql`
+      SELECT format('%I.%I(%s)', namespace.nspname, function.proname, COALESCE((
+        SELECT string_agg(format_type(argument.type_oid, NULL), ',' ORDER BY argument.ordinality)
+        FROM unnest(function.proargtypes::oid[]) WITH ORDINALITY AS argument(type_oid, ordinality)
+      ), '')) AS identity
+      FROM pg_proc function
+      JOIN pg_namespace namespace ON namespace.oid = function.pronamespace
+      WHERE format('%I.%I(%s)', namespace.nspname, function.proname, COALESCE((
+        SELECT string_agg(format_type(argument.type_oid, NULL), ',' ORDER BY argument.ordinality)
+        FROM unnest(function.proargtypes::oid[]) WITH ORDINALITY AS argument(type_oid, ordinality)
+      ), '')) IN (${Prisma.join(functionIdentities)})`),
+    prisma.$queryRaw<TriggerIdentityRow[]>(Prisma.sql`
+      SELECT format('%I.%I.%I', namespace.nspname, relation.relname, trigger.tgname) AS identity
+      FROM pg_trigger trigger
+      JOIN pg_class relation ON relation.oid = trigger.tgrelid
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+      WHERE NOT trigger.tgisinternal
+        AND format('%I.%I.%I', namespace.nspname, relation.relname, trigger.tgname)
+          IN (${Prisma.join(triggerIdentities)})`),
+  ]);
+  const expectedRelations = new Map(pendingObjects.relations.map((object) => [object.identity, object]));
+  const expectedFunctions = new Map(pendingObjects.functions.map((object) => [object.identity, object]));
+  const expectedTriggers = new Map(pendingObjects.triggers.map((object) => [object.identity, object]));
+  const actualObjects: PendingObjectIdentities = {
+    relations: relations.flatMap((row) => {
+      const object = expectedRelations.get(row.identity);
+      return object ? [object] : [];
+    }),
+    functions: functions.flatMap((row) => {
+      const object = expectedFunctions.get(row.identity);
+      return object ? [object] : [];
+    }),
+    triggers: triggers.flatMap((row) => {
+      const object = expectedTriggers.get(row.identity);
+      return object ? [object] : [];
+    }),
+  };
+  assertNoMaterializedPendingObjects(pendingObjects, actualObjects);
 }
 
 async function resolveVerifiedPrefix() {
@@ -301,26 +408,62 @@ async function resolveVerifiedPrefix() {
 
 async function main() {
   const target = verifyPreviewDatabaseTarget();
-  const ledger = await prisma.$queryRaw<CountRow[]>(Prisma.sql`
-    SELECT COUNT(*)::bigint AS count FROM "_prisma_migrations"`);
-  invariant(ledger[0]?.count === BigInt(0), 'expected an empty Prisma ledger on the reset snapshot');
-  await verifyContiguousOrder();
-  await verifyInitialMigration();
-  await verifyHotIndexes();
-  await verifyPublicSchemaHardening();
-  await verifyFinalsColumns();
-  await verifyFirstUnappliedMigrationAbsent();
+  const checkedIn = await checkedInMigrations();
+  await verifyContiguousOrder(checkedIn);
+  const pendingIndex = checkedIn.findIndex(
+    (migration) => migration.migrationName === PENDING_CACHE_EPOCH_MIGRATION,
+  );
+  invariant(pendingIndex > 0, `${PENDING_CACHE_EPOCH_MIGRATION} is missing from the checked-in chain`);
+  const expectedPrefix = checkedIn.slice(0, pendingIndex);
+  const ledger = await prisma.$queryRaw<PreviewMigrationLedgerRow[]>(Prisma.sql`
+    SELECT
+      migration_name AS "migrationName",
+      checksum,
+      finished_at AS "finishedAt",
+      rolled_back_at AS "rolledBackAt"
+    FROM "_prisma_migrations"
+    ORDER BY migration_name`);
+  const validation = validatePreviewPrismaLedger(
+    ledger,
+    expectedPrefix,
+    PENDING_CACHE_EPOCH_MIGRATION,
+  );
+
+  if (validation.mode === 'empty') {
+    await verifyInitialMigration();
+    await verifyHotIndexes();
+    await verifyPublicSchemaHardening();
+    await verifyFinalsColumns();
+    await verifyMigrationEffectsAbsent(FIRST_UNAPPLIED_MIGRATION, BASELINED_MIGRATIONS);
+  } else {
+    await verifyMigrationEffectsAbsent(
+      PENDING_CACHE_EPOCH_MIGRATION,
+      expectedPrefix.map((migration) => migration.migrationName),
+    );
+  }
+
   console.log(JSON.stringify({
-    status: 'verified-contiguous-supabase-remote-schema-prefix',
+    status: validation.mode === 'empty'
+      ? 'verified-contiguous-supabase-remote-schema-prefix'
+      : 'verified-reusable-supabase-prisma-prefix',
     expectedPreviewProjectRef: target.expectedPreviewProjectRef,
     productionProjectRef: target.productionProjectRef,
-    prismaLedgerRows: 0,
-    materializedMigrationCount: BASELINED_MIGRATIONS.length,
-    materializedMigrations: BASELINED_MIGRATIONS,
-    firstUnappliedMigration: FIRST_UNAPPLIED_MIGRATION,
-    firstUnappliedMigrationEffectsFound: 0,
+    prismaLedgerRows: ledger.length,
+    materializedMigrationCount: validation.mode === 'empty'
+      ? BASELINED_MIGRATIONS.length
+      : expectedPrefix.length,
+    materializedMigrations: validation.mode === 'empty'
+      ? BASELINED_MIGRATIONS
+      : expectedPrefix.map((migration) => migration.migrationName),
+    pendingMigration: validation.mode === 'empty'
+      ? FIRST_UNAPPLIED_MIGRATION
+      : PENDING_CACHE_EPOCH_MIGRATION,
+    pendingMigrationEffectsFound: 0,
+    ledgerMode: validation.mode,
   }, null, 2));
-  if (process.argv.includes('--resolve')) await resolveVerifiedPrefix();
+  if (validation.mode === 'empty' && process.argv.includes('--resolve')) {
+    await resolveVerifiedPrefix();
+  }
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; })

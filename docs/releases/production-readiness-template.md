@@ -52,7 +52,7 @@ URLs, tokens, cookies, raw client identifiers or OAuth data.
 - explicitly reviewed local-only pending migration set:
 - pre-deploy migration verifier JSON/result:
 - post-deploy exact migration verifier JSON/result:
-- checked-in catalog manifest source migration/ref:
+- checked-in catalog manifest source migration/ref and governed preview artifact provenance:
 - post-deploy live view/function/trigger checksum verifier JSON/result:
 - complete applied migration versions:
 - newest applied migration:

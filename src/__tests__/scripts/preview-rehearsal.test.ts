@@ -182,6 +182,8 @@ describe('Glasgow preview workflow', () => {
       'name: Provision reviewed scoped preview roles without emitting credentials',
       'name: Verify exact scoped preview role allowlists',
       'name: Verify zero current and default Data API grants',
+      'name: Generate guarded preview production catalog artifact',
+      'name: Upload guarded preview production catalog artifact',
       'name: Validate the immutable bundle offline',
       'name: Normalize preview publication state to DRAFT',
       'name: Prepare unpublished foundation',
@@ -194,6 +196,15 @@ describe('Glasgow preview workflow', () => {
       'name: Exercise publication readiness without publishing',
     ]);
     expect(rehearsal).not.toContain('prisma db execute');
+    expect(rehearsal).toContain('PREVIEW_CATALOG_GENERATION: "true"');
+    expect(rehearsal).toContain(
+      'npm run generate:production-catalog -- --output .artifacts/production-catalog.json',
+    );
+    expect(rehearsal).toContain(
+      'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
+    );
+    expect(rehearsal).toContain('path: .artifacts/production-catalog.json');
+    expect(rehearsal).not.toContain('scripts/manifests/production-catalog.json');
     expect(migrationRehearsal).toContain('prisma/baselines/pre-20260602/baseline.sql');
     expect(migrationRehearsal).toContain('00000000000000_historical_baseline');
     expect(migrationRehearsal).toContain('P3005 or migration drift is not accepted');

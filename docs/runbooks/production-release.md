@@ -124,6 +124,15 @@ trigger enabled state, and function security/configuration attributes. The live
 catalog is verified after the pending migrations are applied and before any
 feature or Glasgow data is enabled.
 
+The catalog generator is preview-only. The governed CI rehearsal may write a
+deterministic artifact to `.artifacts/production-catalog.json` only after the
+exact final Prisma ledger and scoped role/Data API ACL checks pass. It requires
+the staging preview target guard, refuses production-equivalent URLs, and
+refuses `scripts/manifests/production-catalog.json` as an output path. Review
+the artifact's project-ref and `sourceMigrationThrough` before mechanically
+installing it as the checked-in manifest; never hand-edit that manifest or run
+the generator against production.
+
 In the Supabase Dashboard for project `iqnhnlttvnvkwrqvnrna`:
 
 1. Open **Database > Backups**.
