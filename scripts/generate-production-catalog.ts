@@ -30,7 +30,7 @@ import {
 
 const CHECKED_IN_CATALOG_PATH = path.resolve('scripts/manifests/production-catalog.json');
 const DEFAULT_OUTPUT_PATH = path.resolve('.artifacts/production-catalog.json');
-const REQUIRED_FINAL_MIGRATION = '20260722000000_add_analytics_cache_epoch';
+const REQUIRED_FINAL_MIGRATION = '20260722010000_repair_analytics_cache_epoch_contract';
 
 export interface PreviewCatalogLedgerRow {
   migrationName: string;
@@ -83,8 +83,8 @@ export function validatePreviewCatalogLedger(
   rows: readonly PreviewCatalogLedgerRow[],
   localMigrations: readonly MigrationDefinition[],
 ): VerifiedPreviewCatalogLedger {
-  invariant(localMigrations.length === 15,
-    `expected the exact 15-migration checked-in chain, found ${localMigrations.length}`);
+  invariant(localMigrations.length === 16,
+    `expected the exact 16-migration checked-in chain, found ${localMigrations.length}`);
   const expectedNames = localMigrations.map((migration) => migration.name);
   invariant(JSON.stringify(expectedNames) === JSON.stringify(EXPECTED_PREVIEW_PRISMA_MIGRATIONS),
     'the checked-in migrations are not the exact contiguous preview chain');

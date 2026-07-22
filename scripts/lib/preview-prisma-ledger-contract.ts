@@ -34,6 +34,7 @@ export const EXPECTED_PREVIEW_PRISMA_MIGRATIONS = [
   '20260717000000_secure_analytics_query_boundary',
   '20260717010000_close_postgres17_maintain_acl',
   '20260722000000_add_analytics_cache_epoch',
+  '20260722010000_repair_analytics_cache_epoch_contract',
 ] as const;
 
 export interface PendingRelationIdentity {
@@ -62,6 +63,12 @@ export interface PendingObjectIdentities {
   relations: PendingRelationIdentity[];
   functions: PendingFunctionIdentity[];
   triggers: PendingTriggerIdentity[];
+}
+
+export interface HistoricalEpochContractEvidence {
+  cacheRevisionReadColumns: readonly string[];
+  queueFunctionDefinition: string;
+  matchTriggerDefinitions: readonly string[];
 }
 
 function invariant(condition: unknown, message: string): asserts condition {
@@ -183,6 +190,30 @@ export function assertNoMaterializedPendingObjects(
   ].filter((key) => expectedKeys.has(key)).sort((left, right) => left.localeCompare(right));
   invariant(actualKeys.length === 0,
     `pending migration is partially materialized: ${[...new Set(actualKeys)].join(', ')}`);
+}
+
+export function assertHistoricalEpochContractPending(
+  evidence: HistoricalEpochContractEvidence,
+): void {
+  invariant(JSON.stringify(evidence.cacheRevisionReadColumns) ===
+    JSON.stringify(['revision', 'invalidated_at']),
+  'repair migration is partially materialized: cache_revision_read is not the historical two-column contract');
+  invariant(evidence.queueFunctionDefinition.length > 0,
+    'repair migration is partially materialized: queue_match_invalidation() is missing');
+  for (const marker of [
+    'new_is_glasgow',
+    'glasgow_structural_changed',
+    'NEW IS NOT DISTINCT FROM OLD',
+    "'PLAYER_BOX_SCORE'::public.\"DataCapability\"",
+    "'SUPER_SHOTS'::public.\"DataCapability\"",
+  ]) {
+    invariant(!evidence.queueFunctionDefinition.includes(marker),
+      `repair migration is partially materialized: queue_match_invalidation() contains ${marker}`);
+  }
+  invariant(evidence.matchTriggerDefinitions.length === 1,
+    'repair migration is partially materialized: Match lifecycle trigger is missing or duplicated');
+  invariant(evidence.matchTriggerDefinitions[0]!.includes('"updatedAt"'),
+    'repair migration is partially materialized: Match lifecycle trigger already has the repaired column list');
 }
 
 export function validatePreviewPrismaLedger(

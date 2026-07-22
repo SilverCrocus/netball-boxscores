@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  assertHistoricalEpochContractPending,
   assertNoMaterializedPendingObjects,
   extractNewPendingObjectIdentities,
   type MigrationDescriptor,
@@ -23,8 +24,10 @@ const PREFIX_NAMES = [
   '20260716095500_harden_prisma_migration_ledger',
   '20260717000000_secure_analytics_query_boundary',
   '20260717010000_close_postgres17_maintain_acl',
+  '20260722000000_add_analytics_cache_epoch',
 ] as const;
-const PENDING = '20260722000000_add_analytics_cache_epoch';
+const EPOCH_MIGRATION = '20260722000000_add_analytics_cache_epoch';
+const PENDING = '20260722010000_repair_analytics_cache_epoch_contract';
 
 function descriptors(): MigrationDescriptor[] {
   return PREFIX_NAMES.map((migrationName, index) => ({
@@ -42,12 +45,38 @@ function validRows() {
 }
 
 describe('preview Prisma baseline ledger contract', () => {
-  it('accepts an empty ledger and the exact reusable 14-row prefix', () => {
+  it('accepts an empty ledger and the exact reusable 15-row prefix', () => {
     expect(validatePreviewPrismaLedger([], descriptors(), PENDING).mode).toBe('empty');
     expect(validatePreviewPrismaLedger(validRows(), descriptors(), PENDING)).toMatchObject({
       mode: 'reuse',
       pendingMigrationName: PENDING,
     });
+  });
+
+  it('accepts the historical epoch contract and rejects any partially applied repair', () => {
+    const historical = {
+      cacheRevisionReadColumns: ['revision', 'invalidated_at'],
+      queueFunctionDefinition: 'CREATE FUNCTION queue_match_invalidation() source_relevant;',
+      matchTriggerDefinitions: ['CREATE TRIGGER ... UPDATE OF "stageGroupId", "updatedAt"'],
+    };
+    expect(() => assertHistoricalEpochContractPending(historical)).not.toThrow();
+
+    expect(() => assertHistoricalEpochContractPending({
+      ...historical,
+      cacheRevisionReadColumns: ['revision', 'invalidated_at', 'contract_version'],
+    })).toThrow('cache_revision_read');
+    expect(() => assertHistoricalEpochContractPending({
+      ...historical,
+      queueFunctionDefinition: `${historical.queueFunctionDefinition} new_is_glasgow`,
+    })).toThrow('queue_match_invalidation()');
+    expect(() => assertHistoricalEpochContractPending({
+      ...historical,
+      matchTriggerDefinitions: [],
+    })).toThrow('Match lifecycle trigger');
+    expect(() => assertHistoricalEpochContractPending({
+      ...historical,
+      matchTriggerDefinitions: ['CREATE TRIGGER ... UPDATE OF "stageGroupId"'],
+    })).toThrow('column list');
   });
 
   it.each([
@@ -71,9 +100,9 @@ describe('preview Prisma baseline ledger contract', () => {
 
   it('derives pending relations/functions/triggers from SQL and rejects partial materialization', async () => {
     const pendingSql = await readFile(path.resolve(
-      'prisma/migrations/20260722000000_add_analytics_cache_epoch/migration.sql',
+      'prisma/migrations', EPOCH_MIGRATION, 'migration.sql',
     ), 'utf8');
-    const precedingSql = await Promise.all(PREFIX_NAMES.map((migration) => readFile(path.resolve(
+    const precedingSql = await Promise.all(PREFIX_NAMES.slice(0, -1).map((migration) => readFile(path.resolve(
       'prisma/migrations', migration, 'migration.sql',
     ), 'utf8')));
     const objects = extractNewPendingObjectIdentities(pendingSql, precedingSql);
@@ -108,5 +137,28 @@ describe('preview Prisma baseline ledger contract', () => {
       functions: [],
       triggers: [],
     })).toThrow('analytics.cache_epoch');
+  });
+
+  it('pins the forward repair as a replacement-only migration with the final contract', async () => {
+    const repair = await readFile(path.resolve(
+      'prisma/migrations', PENDING, 'migration.sql',
+    ), 'utf8');
+
+    expect(repair).toContain('CREATE OR REPLACE VIEW analytics.cache_revision_read AS');
+    expect(repair).toContain("'analytics-cache-epoch.v1'::TEXT AS contract_version");
+    expect(repair).toContain('CREATE OR REPLACE FUNCTION analytics.queue_match_invalidation()');
+    expect(repair).toContain('new_is_glasgow BOOLEAN := false');
+    expect(repair).toContain('glasgow_structural_changed BOOLEAN := false');
+    expect(repair).toContain('NEW IS NOT DISTINCT FROM OLD');
+    expect(repair).toContain("'SUPER_SHOTS'::public.\"DataCapability\"");
+    expect(repair).toContain('DROP TRIGGER IF EXISTS analytics_match_finalization_invalidation');
+    expect(repair).toContain('"awayScore", "stageId", "stageGroupId"\n  OR DELETE');
+    expect(repair).not.toContain('"stageGroupId", "updatedAt"');
+    expect(repair).not.toMatch(/CREATE TABLE|CREATE TYPE|CREATE INDEX|ADD COLUMN/u);
+    expect(repair.match(/DROP TRIGGER IF EXISTS/g)?.length).toBe(1);
+    expect(repair).toContain('SET search_path = \'\'');
+    expect(repair).toContain(
+      'REVOKE ALL ON FUNCTION analytics.queue_match_invalidation()\n  FROM PUBLIC, anon, authenticated, service_role',
+    );
   });
 });

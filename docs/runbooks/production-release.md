@@ -284,18 +284,23 @@ closed while their switches are off.
 
 ### Historical PR-preview migration incident
 
-The first automatic Render PR #52 preview was created from `1fb85fd` and
-inherited the base service's production database credentials. Before this
-guard existed, its inherited `preDeployCommand` ran `npm run
-db:migrate:deploy` and applied the additive migration
-`20260722000000_add_analytics_cache_epoch` to production. The production
-ledger records it as finished at `2026-07-22 05:31:39.151698+00`; the Render
-preview log identified the pooler target and reported 15 migrations with no
-pending migrations at its latest deployment. This mutation was not performed
-manually by the release-preparation lane, is additive and ledger-clean, and
-must remain in the release ledger. Do not attempt a rollback. Future PR
-previews must show the guard's low-cardinality skip message and must not invoke
-Prisma.
+The applying automatic Render PR #52 preview was the pre-guard,
+`e9a252d`-era deployment at approximately 15:31 Sydney time. It inherited the
+base service's production database credentials, its inherited
+`preDeployCommand` ran `npm run db:migrate:deploy`, and it applied the
+additive migration `20260722000000_add_analytics_cache_epoch` to production.
+The production ledger records completion at `2026-07-22 05:31:39.151698+00`
+(approximately 15:31:39 Sydney); the Render preview log identified the pooler
+target and reported 15 migrations with no pending migrations. This mutation was
+not performed manually by the release-preparation lane, is additive and
+ledger-clean, and must remain in the release ledger.
+
+`1fb85fd`, created later at approximately 19:59 Sydney time, contained the
+later `0e7fbb76...` migration bytes and only observed/verified preview behavior;
+it could not have applied the production ledger row carrying checksum
+`1f7d2690...`. The migration guard arrived in `0895da8` and subsequent Render
+PR previews must show its low-cardinality skip message without invoking
+Prisma. Do not attempt a rollback.
 
 The Blueprint's Render health check is `/api/health`; liveness alone is not a
 release pass. `/api/readiness` must also return `200` and `status=ready`.

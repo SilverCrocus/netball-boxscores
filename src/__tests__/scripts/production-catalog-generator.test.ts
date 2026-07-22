@@ -148,7 +148,7 @@ describe('guarded preview production catalog generator', () => {
     }));
     expect(validatePreviewCatalogLedger(rows, migrations)).toEqual({
       migrations,
-      sourceMigrationThrough: '20260722000000_add_analytics_cache_epoch',
+      sourceMigrationThrough: '20260722010000_repair_analytics_cache_epoch_contract',
     });
     expect(() => validatePreviewCatalogLedger(
       rows.map((row, index) => index === 1 ? { ...row, checksum: 'f'.repeat(64) } : row),
@@ -164,12 +164,12 @@ describe('guarded preview production catalog generator', () => {
     const records = sampleRecords();
     const first = buildProductionCatalogManifest({
       sourceProjectRef: PREVIEW_REF,
-      sourceMigrationThrough: '20260722000000_add_analytics_cache_epoch',
+      sourceMigrationThrough: '20260722010000_repair_analytics_cache_epoch_contract',
       records,
     });
     const second = buildProductionCatalogManifest({
       sourceProjectRef: PREVIEW_REF,
-      sourceMigrationThrough: '20260722000000_add_analytics_cache_epoch',
+      sourceMigrationThrough: '20260722010000_repair_analytics_cache_epoch_contract',
       records: [...records].reverse(),
     });
     expect(JSON.stringify(first)).toBe(JSON.stringify(second));
@@ -189,14 +189,14 @@ describe('guarded preview production catalog generator', () => {
   it('fails closed for materialized views and unstable profiles', () => {
     expect(() => buildProductionCatalogManifest({
       sourceProjectRef: PREVIEW_REF,
-      sourceMigrationThrough: '20260722000000_add_analytics_cache_epoch',
+      sourceMigrationThrough: '20260722010000_repair_analytics_cache_epoch_contract',
       records: [record('materialized_view', 'analytics.future', viewOwnerState)],
     })).toThrow('rejects materialized views');
     const records = sampleRecords();
     const changed = record('view', 'analytics.other', { ...viewOwnerState, reloptions: ['security_barrier=false'] });
     expect(() => buildProductionCatalogManifest({
       sourceProjectRef: PREVIEW_REF,
-      sourceMigrationThrough: '20260722000000_add_analytics_cache_epoch',
+      sourceMigrationThrough: '20260722010000_repair_analytics_cache_epoch_contract',
       records: [...records, changed],
     })).toThrow('security profile view-owner is not stable');
   });

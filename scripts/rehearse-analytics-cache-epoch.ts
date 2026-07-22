@@ -707,8 +707,8 @@ async function main() {
   const [ledger] = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
     SELECT COUNT(*)::bigint AS count FROM "_prisma_migrations"
   `);
-  invariant(ledger.count === BigInt(16),
-    `expected the historical baseline plus 15 retained migrations, found ${ledger.count}`);
+  invariant(ledger.count === BigInt(17),
+    `expected the historical baseline plus 16 retained migrations, found ${ledger.count}`);
   console.log(JSON.stringify({
     status: 'rehearsed-analytics-cache-epoch-on-postgresql-17',
     migrationLedgerRows: Number(ledger.count),

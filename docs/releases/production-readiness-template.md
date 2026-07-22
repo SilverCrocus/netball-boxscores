@@ -159,8 +159,9 @@ production from this repository's release-preparation lane.
 
 ## Historical mutation ledger correction
 
-The first automatic Render PR #52 preview, running head `1fb85fd`, inherited
-the base service's production database credentials and executed the inherited
+The applying automatic Render PR #52 preview was the pre-guard,
+`e9a252d`-era deployment at approximately 15:31 Sydney time. It inherited the
+base service's production database credentials and executed the inherited
 `preDeployCommand` before the migration guard existed. Render applied
 `20260722000000_add_analytics_cache_epoch` to production; the production
 ledger records completion at `2026-07-22 05:31:39.151698+00`. Record the exact
@@ -168,6 +169,12 @@ Render preview deployment/log evidence and the production ledger read here.
 This was an automatic preview-side mutation, not a manual production action
 from this lane. It was additive and ledger-clean; do not claim that no
 production mutation occurred and do not attempt rollback.
+
+`1fb85fd`, created later at approximately 19:59 Sydney time, contained the
+later `0e7fbb76...` migration bytes and only observed/verified preview
+behavior; it could not have applied the production ledger row carrying
+checksum `1f7d2690...`. The migration guard arrived in `0895da8`; future PR
+previews must show the guard-skip evidence and must not invoke Prisma.
 
 - historical Render PR preview service: `srv-d9g5akn7f7vs73eqt52g`
 - historical preview URL: `https://centrepass-pr-52.onrender.com`

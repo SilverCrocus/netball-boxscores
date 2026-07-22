@@ -17,6 +17,7 @@ import {
 import { verifyPreviewDatabaseTarget } from './lib/preview-database-target';
 import {
   assertNoMaterializedPendingObjects,
+  assertHistoricalEpochContractPending,
   extractNewPendingObjectIdentities,
   EXPECTED_PREVIEW_PRISMA_MIGRATIONS,
   type MigrationDescriptor,
@@ -32,12 +33,13 @@ const BASELINED_MIGRATIONS = [
   '20260712020000_add_finals_match_metadata',
 ] as const;
 const FIRST_UNAPPLIED_MIGRATION = '20260715000000_add_competition_foundation';
-const REUSE_PREFIX_LAST_MIGRATION = '20260717010000_close_postgres17_maintain_acl';
-const PENDING_CACHE_EPOCH_MIGRATION = '20260722000000_add_analytics_cache_epoch';
+const REUSE_PREFIX_LAST_MIGRATION = '20260722000000_add_analytics_cache_epoch';
+const PENDING_REPAIR_MIGRATION = '20260722010000_repair_analytics_cache_epoch_contract';
 
 interface ColumnRow { name: string; dataType: string; isNullable: 'YES' | 'NO'; defaultValue: string | null }
 interface DefinitionRow { name: string; definition: string }
 interface CountRow { count: bigint }
+interface NameRow { name: string }
 interface ObjectIdentityRow { identity: string }
 interface FunctionIdentityRow { identity: string }
 interface TriggerIdentityRow { identity: string }
@@ -115,9 +117,9 @@ async function verifyContiguousOrder(migrations: readonly MigrationDescriptor[])
   invariant(names[BASELINED_MIGRATIONS.length] === FIRST_UNAPPLIED_MIGRATION,
     `expected ${FIRST_UNAPPLIED_MIGRATION} immediately after the materialized prefix`);
   invariant(names.at(-2) === REUSE_PREFIX_LAST_MIGRATION,
-    `expected ${REUSE_PREFIX_LAST_MIGRATION} immediately before the pending cache epoch migration`);
-  invariant(names.at(-1) === PENDING_CACHE_EPOCH_MIGRATION,
-    `expected ${PENDING_CACHE_EPOCH_MIGRATION} to be the only pending migration`);
+    `expected ${REUSE_PREFIX_LAST_MIGRATION} immediately before the pending repair migration`);
+  invariant(names.at(-1) === PENDING_REPAIR_MIGRATION,
+    `expected ${PENDING_REPAIR_MIGRATION} to be the only pending migration`);
 }
 
 async function verifyInitialMigration() {
@@ -396,6 +398,32 @@ async function verifyMigrationEffectsAbsent(
   assertNoMaterializedPendingObjects(pendingObjects, actualObjects);
 }
 
+async function verifyRepairMigrationEffectsAbsent() {
+  const [viewColumns, queueFunctions, matchTriggers] = await Promise.all([
+    prisma.$queryRaw<NameRow[]>(Prisma.sql`
+      SELECT attribute.attname AS name
+      FROM pg_attribute attribute
+      WHERE attribute.attrelid = 'analytics.cache_revision_read'::regclass
+        AND attribute.attnum > 0
+        AND NOT attribute.attisdropped
+      ORDER BY attribute.attnum`),
+    prisma.$queryRaw<Array<{ definition: string }>>(Prisma.sql`
+      SELECT pg_get_functiondef('analytics.queue_match_invalidation()'::regprocedure)
+        AS definition`),
+    prisma.$queryRaw<Array<{ definition: string }>>(Prisma.sql`
+      SELECT pg_get_triggerdef(trigger.oid, true) AS definition
+      FROM pg_trigger trigger
+      WHERE trigger.tgrelid = 'public."Match"'::regclass
+        AND trigger.tgname = 'analytics_match_finalization_invalidation'
+        AND NOT trigger.tgisinternal`),
+  ]);
+  assertHistoricalEpochContractPending({
+    cacheRevisionReadColumns: viewColumns.map((column) => column.name),
+    queueFunctionDefinition: queueFunctions[0]?.definition ?? '',
+    matchTriggerDefinitions: matchTriggers.map((trigger) => trigger.definition),
+  });
+}
+
 async function resolveVerifiedPrefix() {
   for (const migration of BASELINED_MIGRATIONS) {
     const result = spawnSync('npx', ['prisma', 'migrate', 'resolve', '--applied', migration], {
@@ -411,9 +439,9 @@ async function main() {
   const checkedIn = await checkedInMigrations();
   await verifyContiguousOrder(checkedIn);
   const pendingIndex = checkedIn.findIndex(
-    (migration) => migration.migrationName === PENDING_CACHE_EPOCH_MIGRATION,
+    (migration) => migration.migrationName === PENDING_REPAIR_MIGRATION,
   );
-  invariant(pendingIndex > 0, `${PENDING_CACHE_EPOCH_MIGRATION} is missing from the checked-in chain`);
+  invariant(pendingIndex > 0, `${PENDING_REPAIR_MIGRATION} is missing from the checked-in chain`);
   const expectedPrefix = checkedIn.slice(0, pendingIndex);
   const ledger = await prisma.$queryRaw<PreviewMigrationLedgerRow[]>(Prisma.sql`
     SELECT
@@ -426,7 +454,7 @@ async function main() {
   const validation = validatePreviewPrismaLedger(
     ledger,
     expectedPrefix,
-    PENDING_CACHE_EPOCH_MIGRATION,
+    PENDING_REPAIR_MIGRATION,
   );
 
   if (validation.mode === 'empty') {
@@ -436,10 +464,7 @@ async function main() {
     await verifyFinalsColumns();
     await verifyMigrationEffectsAbsent(FIRST_UNAPPLIED_MIGRATION, BASELINED_MIGRATIONS);
   } else {
-    await verifyMigrationEffectsAbsent(
-      PENDING_CACHE_EPOCH_MIGRATION,
-      expectedPrefix.map((migration) => migration.migrationName),
-    );
+    await verifyRepairMigrationEffectsAbsent();
   }
 
   console.log(JSON.stringify({
@@ -457,7 +482,7 @@ async function main() {
       : expectedPrefix.map((migration) => migration.migrationName),
     pendingMigration: validation.mode === 'empty'
       ? FIRST_UNAPPLIED_MIGRATION
-      : PENDING_CACHE_EPOCH_MIGRATION,
+      : PENDING_REPAIR_MIGRATION,
     pendingMigrationEffectsFound: 0,
     ledgerMode: validation.mode,
   }, null, 2));

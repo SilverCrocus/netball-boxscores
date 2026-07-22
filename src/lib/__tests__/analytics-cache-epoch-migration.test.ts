@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -5,6 +6,9 @@ import { hasExactEmptySearchPath } from '../../../scripts/lib/analytics-cache-ep
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const migration = read('prisma/migrations/20260722000000_add_analytics_cache_epoch/migration.sql');
+const repairMigration = read(
+  'prisma/migrations/20260722010000_repair_analytics_cache_epoch_contract/migration.sql',
+);
 const analyticsRole = read('scripts/provision-analytics-role.sql');
 const queryPlans = read('scripts/check-analytics-query-plans.sql');
 const rehearsal = read('scripts/rehearse-analytics-cache-epoch.ts');
@@ -25,6 +29,36 @@ const sourceTriggers = [
 ] as const;
 
 describe('analytics cache epoch migration contract', () => {
+  it('pins the historically applied epoch migration bytes before the forward repair', () => {
+    expect(createHash('sha256').update(migration).digest('hex')).toBe(
+      '1f7d2690e4e00025932bbf4725fe6e964b0db1334c458f21dc0758d749099aa8',
+    );
+    expect(migration).not.toContain("'analytics-cache-epoch.v1'::TEXT AS contract_version");
+    expect(migration).toContain('"awayScore", "stageId", "stageGroupId", "updatedAt"');
+  });
+
+  it('repairs the complete final view, queue function, trigger, and private security contract', () => {
+    expect(repairMigration).toContain('CREATE OR REPLACE VIEW analytics.cache_revision_read AS');
+    expect(repairMigration).toContain("'analytics-cache-epoch.v1'::TEXT AS contract_version");
+    expect(repairMigration).toContain('CREATE OR REPLACE FUNCTION analytics.queue_match_invalidation()');
+    expect(repairMigration).toContain('new_is_glasgow BOOLEAN := false');
+    expect(repairMigration).toContain('glasgow_structural_changed BOOLEAN := false');
+    expect(repairMigration).toContain('NEW IS NOT DISTINCT FROM OLD');
+    expect(repairMigration).toContain("'PLAYER_BOX_SCORE'::public.\"DataCapability\"");
+    expect(repairMigration).toContain("'TEAM_BOX_SCORE'::public.\"DataCapability\"");
+    expect(repairMigration).toContain("'NET_POINTS'::public.\"DataCapability\"");
+    expect(repairMigration).toContain("'SUPER_SHOTS'::public.\"DataCapability\"");
+    expect(repairMigration).toContain('DROP TRIGGER IF EXISTS analytics_match_finalization_invalidation');
+    expect(repairMigration).toContain('"awayScore", "stageId", "stageGroupId"\n  OR DELETE');
+    expect(repairMigration).not.toContain('"stageGroupId", "updatedAt"');
+    expect(repairMigration).not.toMatch(/CREATE TABLE|CREATE TYPE|CREATE INDEX|ADD COLUMN/u);
+    expect(repairMigration.match(/DROP TRIGGER IF EXISTS/g)?.length).toBe(1);
+    expect(repairMigration).toContain('SET search_path = \'\'');
+    expect(repairMigration).toContain(
+      'REVOKE ALL ON FUNCTION analytics.queue_match_invalidation()\n  FROM PUBLIC, anon, authenticated, service_role',
+    );
+  });
+
   it('creates and deterministically seeds one private global epoch', () => {
     expect(migration).toContain('CREATE TABLE analytics.cache_epoch');
     expect(migration).toContain(
@@ -36,7 +70,7 @@ describe('analytics cache epoch migration contract', () => {
     );
     expect(migration).toContain('CREATE OR REPLACE VIEW analytics.cache_revision_read AS');
     expect(migration).toContain('FROM analytics.cache_epoch epoch');
-    expect(migration).toContain("'analytics-cache-epoch.v1'::TEXT AS contract_version");
+    expect(repairMigration).toContain("'analytics-cache-epoch.v1'::TEXT AS contract_version");
     expect(migration).not.toMatch(/MAX\(invalidation\.revision\)/u);
   });
 
@@ -66,17 +100,17 @@ describe('analytics cache epoch migration contract', () => {
     expect(migration.match(/OR DELETE/g)?.length).toBeGreaterThanOrEqual(sourceTriggers.length + 3);
     expect(migration).toContain("TG_OP IN ('UPDATE', 'DELETE')");
     expect(migration).toContain('OLD."matchId"');
-    expect(migration).toContain('NEW IS NOT DISTINCT FROM OLD');
-    expect(migration).toContain('NEW."capability" IN (');
-    expect(migration).toContain('OLD."capability" IN (');
-    expect(migration).toContain('NEW."stageId" IS DISTINCT FROM OLD."stageId"');
-    expect(migration).toContain("competition.\"slug\" = 'glasgow-2026'");
-    expect(migration).not.toMatch(/"stageGroupId", "updatedAt"/u);
+    expect(repairMigration).toContain('NEW IS NOT DISTINCT FROM OLD');
+    expect(repairMigration).toContain('NEW."capability" IN (');
+    expect(repairMigration).toContain('OLD."capability" IN (');
+    expect(repairMigration).toContain('NEW."stageId" IS DISTINCT FROM OLD."stageId"');
+    expect(repairMigration).toContain("competition.\"slug\" = 'glasgow-2026'");
+    expect(repairMigration).not.toMatch(/"stageGroupId", "updatedAt"/u);
     expect(migration).toContain('PERFORM analytics.advance_cache_epoch()');
-    expect(migration).toContain(
+    expect(repairMigration).toContain(
       "IF TG_OP <> 'DELETE' AND new_is_eligible THEN",
     );
-    expect(migration).toContain(
+    expect(repairMigration).toContain(
       "ELSIF TG_OP = 'UPDATE' AND old_is_eligible THEN",
     );
   });
