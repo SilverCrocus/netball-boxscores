@@ -1,13 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findManyMock, resolvePublicMatchBatchMock, publicMatchBatchSelectMock } = vi.hoisted(() => ({
+const {
+  findManyMock,
+  resolvePublicMatchBatchMock,
+  publicMatchBatchSelectMock,
+  transactionMock,
+  transactionState,
+} = vi.hoisted(() => ({
   findManyMock: vi.fn(),
   resolvePublicMatchBatchMock: vi.fn(),
   publicMatchBatchSelectMock: { id: true, competitionId: true, scheduledAt: true },
+  transactionMock: vi.fn(),
+  transactionState: { active: false },
 }));
 
 vi.mock('@/lib/db', () => ({
-  prisma: { match: { findMany: findManyMock } },
+  prisma: {
+    match: { findMany: findManyMock },
+    $transaction: transactionMock,
+  },
   excludeSimData: {},
 }));
 vi.mock('@/lib/public-match', () => ({
@@ -38,6 +49,16 @@ describe('getLiveState', () => {
     vi.setSystemTime(NOW);
     findManyMock.mockReset().mockResolvedValue([]);
     resolvePublicMatchBatchMock.mockReset().mockResolvedValue(new Map());
+    transactionMock.mockReset().mockImplementation(async (
+      operation: (transaction: { match: { findMany: typeof findManyMock } }) => Promise<unknown>,
+    ) => {
+      transactionState.active = true;
+      try {
+        return await operation({ match: { findMany: findManyMock } });
+      } finally {
+        transactionState.active = false;
+      }
+    });
   });
 
   afterEach(() => {
@@ -198,14 +219,11 @@ describe('getLiveState', () => {
   });
 
   it('uses only live and next-hour candidates for the shared status badge', async () => {
-    const live = candidate('live', new Date('2026-07-25T07:45:00Z'));
-    const next = candidate('next', new Date('2026-07-25T08:30:00Z'));
-    const authoritativeLive = { ...live, status: 'LIVE' as const };
-    const authoritativeNext = { ...next, status: 'SCHEDULED' as const };
-    findManyMock.mockImplementation(({ where }: { where: { status?: string; id?: unknown } }) => {
+    const live = { ...candidate('live', new Date('2026-07-25T07:45:00Z')), status: 'LIVE' as const };
+    const next = { ...candidate('next', new Date('2026-07-25T08:30:00Z')), status: 'SCHEDULED' as const };
+    findManyMock.mockImplementation(({ where }: { where: { status?: string } }) => {
       if (where.status === 'LIVE') return Promise.resolve([live]);
-      if (where.status === 'SCHEDULED') return Promise.resolve([next]);
-      return Promise.resolve([authoritativeLive, authoritativeNext]);
+      return Promise.resolve([next]);
     });
     resolvePublicMatchBatchMock.mockImplementation(async (
       _ids: string[],
@@ -220,7 +238,13 @@ describe('getLiveState', () => {
       hasLive: true,
       nextMatchAt: next.scheduledAt,
     });
-    expect(findManyMock).toHaveBeenCalledTimes(3);
+    expect(transactionMock).toHaveBeenCalledOnce();
+    expect(transactionMock.mock.calls[0]?.[1]).toMatchObject({
+      isolationLevel: 'RepeatableRead',
+      maxWait: 1_000,
+      timeout: 5_000,
+    });
+    expect(findManyMock).toHaveBeenCalledTimes(2);
     expect(findManyMock.mock.calls[0]?.[0]).toMatchObject({
       where: expect.objectContaining({ status: 'LIVE' }),
       select: publicMatchBatchSelectMock,
@@ -234,25 +258,19 @@ describe('getLiveState', () => {
       select: publicMatchBatchSelectMock,
       take: MAX_LIVE_STATE_CANDIDATES,
     });
-    expect(findManyMock.mock.calls[2]?.[0]).toMatchObject({
-      where: { id: { in: ['live', 'next'] } },
-      select: publicMatchBatchSelectMock,
-      take: 2,
-    });
     expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
       ['live', 'next'],
       undefined,
-      [authoritativeLive, authoritativeNext],
+      [live, next],
     );
   });
 
   it('authoritatively resolves a LIVE-to-SCHEDULED same-id transition', async () => {
-    const staleLive = { ...candidate('same-match', new Date('2026-07-25T07:45:00Z')), status: 'LIVE' as const };
     const currentScheduled = { ...candidate('same-match', new Date('2026-07-25T08:30:00Z')), status: 'SCHEDULED' as const };
-    findManyMock.mockImplementation(({ where }: { where: { status?: string; id?: unknown } }) => {
-      if (where.status === 'LIVE') return Promise.resolve([staleLive]);
-      if (where.status === 'SCHEDULED') return Promise.resolve([currentScheduled]);
-      return Promise.resolve([currentScheduled]);
+    findManyMock.mockImplementation(({ where }: { where: { status?: string } }) => {
+      return where.status === 'SCHEDULED'
+        ? Promise.resolve([currentScheduled])
+        : Promise.resolve([]);
     });
     resolvePublicMatchBatchMock.mockImplementation(async (
       _ids: string[],
@@ -264,11 +282,8 @@ describe('getLiveState', () => {
       hasLive: false,
       nextMatchAt: currentScheduled.scheduledAt,
     });
-    expect(findManyMock).toHaveBeenCalledTimes(3);
-    expect(findManyMock.mock.calls[2]?.[0]).toMatchObject({
-      where: { id: { in: ['same-match'] } },
-      take: 1,
-    });
+    expect(transactionMock).toHaveBeenCalledOnce();
+    expect(findManyMock).toHaveBeenCalledTimes(2);
     expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
       ['same-match'],
       undefined,
@@ -278,11 +293,10 @@ describe('getLiveState', () => {
 
   it('authoritatively resolves a SCHEDULED-to-LIVE same-id transition', async () => {
     const currentLive = { ...candidate('same-match', new Date('2026-07-25T07:45:00Z')), status: 'LIVE' as const };
-    const staleScheduled = { ...candidate('same-match', new Date('2026-07-25T08:30:00Z')), status: 'SCHEDULED' as const };
-    findManyMock.mockImplementation(({ where }: { where: { status?: string; id?: unknown } }) => {
-      if (where.status === 'LIVE') return Promise.resolve([currentLive]);
-      if (where.status === 'SCHEDULED') return Promise.resolve([staleScheduled]);
-      return Promise.resolve([currentLive]);
+    findManyMock.mockImplementation(({ where }: { where: { status?: string } }) => {
+      return where.status === 'LIVE'
+        ? Promise.resolve([currentLive])
+        : Promise.resolve([]);
     });
     resolvePublicMatchBatchMock.mockImplementation(async (
       _ids: string[],
@@ -294,13 +308,80 @@ describe('getLiveState', () => {
       hasLive: true,
       nextMatchAt: null,
     });
-    expect(findManyMock).toHaveBeenCalledTimes(3);
-    expect(findManyMock.mock.calls[2]?.[0]).toMatchObject({
-      where: { id: { in: ['same-match'] } },
-      take: 1,
-    });
+    expect(transactionMock).toHaveBeenCalledOnce();
+    expect(findManyMock).toHaveBeenCalledTimes(2);
     expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
       ['same-match'],
+      undefined,
+      [currentLive],
+    );
+  });
+
+  it('uses one coherent snapshot when a SCHEDULED-to-LIVE transition would miss both branches', async () => {
+    const currentScheduled = { ...candidate('missed-match', new Date('2026-07-25T08:30:00Z')), status: 'SCHEDULED' as const };
+    let independentReadCount = 0;
+    findManyMock.mockImplementation(({ where }: { where: { status?: string } }) => {
+      if (!transactionState.active) {
+        independentReadCount += 1;
+        return Promise.resolve([]);
+      }
+      return where.status === 'SCHEDULED'
+        ? Promise.resolve([currentScheduled])
+        : Promise.resolve([]);
+    });
+    resolvePublicMatchBatchMock.mockImplementation(async (
+      _ids: string[],
+      _editions: unknown,
+      loadedMatches?: Array<{ id: string; status: 'LIVE' | 'SCHEDULED' }>,
+    ) => new Map((loadedMatches ?? []).map((match) => [match.id, access(match.id, match.status)])));
+
+    await expect(getLiveStatus()).resolves.toEqual({
+      hasLive: false,
+      nextMatchAt: currentScheduled.scheduledAt,
+    });
+    expect(independentReadCount).toBe(0);
+    expect(transactionMock).toHaveBeenCalledOnce();
+    expect(transactionMock.mock.calls[0]?.[1]).toMatchObject({
+      isolationLevel: 'RepeatableRead',
+    });
+    expect(findManyMock).toHaveBeenCalledTimes(2);
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
+      ['missed-match'],
+      undefined,
+      [currentScheduled],
+    );
+  });
+
+  it('uses one coherent snapshot when a LIVE-to-SCHEDULED transition would miss both branches', async () => {
+    const currentLive = { ...candidate('missed-match', new Date('2026-07-25T07:45:00Z')), status: 'LIVE' as const };
+    let independentReadCount = 0;
+    findManyMock.mockImplementation(({ where }: { where: { status?: string } }) => {
+      if (!transactionState.active) {
+        independentReadCount += 1;
+        return Promise.resolve([]);
+      }
+      return where.status === 'LIVE'
+        ? Promise.resolve([currentLive])
+        : Promise.resolve([]);
+    });
+    resolvePublicMatchBatchMock.mockImplementation(async (
+      _ids: string[],
+      _editions: unknown,
+      loadedMatches?: Array<{ id: string; status: 'LIVE' | 'SCHEDULED' }>,
+    ) => new Map((loadedMatches ?? []).map((match) => [match.id, access(match.id, match.status)])));
+
+    await expect(getLiveStatus()).resolves.toEqual({
+      hasLive: true,
+      nextMatchAt: null,
+    });
+    expect(independentReadCount).toBe(0);
+    expect(transactionMock).toHaveBeenCalledOnce();
+    expect(transactionMock.mock.calls[0]?.[1]).toMatchObject({
+      isolationLevel: 'RepeatableRead',
+    });
+    expect(findManyMock).toHaveBeenCalledTimes(2);
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
+      ['missed-match'],
       undefined,
       [currentLive],
     );

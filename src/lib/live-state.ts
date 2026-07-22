@@ -12,6 +12,12 @@ import { timedQuery } from '@/lib/server-timing';
 
 export const MAX_LIVE_STATE_CANDIDATES = 128;
 
+const LIVE_STATUS_SNAPSHOT_OPTIONS = {
+  isolationLevel: 'RepeatableRead' as const,
+  maxWait: 1_000,
+  timeout: 5_000,
+};
+
 export const liveMatchSelect = {
   ...homepageMatchSelect,
   isSimulation: true,
@@ -156,10 +162,10 @@ export async function getLiveState(
 export async function getLiveStatus(): Promise<LiveStatusState> {
   const now = new Date();
   const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
-  const [liveCandidates, upcomingCandidates] = await Promise.all([
-    timedQuery(
+  const [liveCandidates, upcomingCandidates] = await prisma.$transaction(async (transaction) => {
+    const live = await timedQuery(
       'live_status_active_candidates',
-      () => prisma.match.findMany({
+      () => transaction.match.findMany({
         where: {
           ...excludeSimData,
           status: 'LIVE',
@@ -168,10 +174,10 @@ export async function getLiveStatus(): Promise<LiveStatusState> {
         orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
         take: MAX_LIVE_STATE_CANDIDATES,
       }),
-    ),
-    timedQuery(
+    );
+    const upcoming = await timedQuery(
       'live_status_upcoming_candidates',
-      () => prisma.match.findMany({
+      () => transaction.match.findMany({
         where: {
           ...excludeSimData,
           status: 'SCHEDULED',
@@ -181,28 +187,14 @@ export async function getLiveStatus(): Promise<LiveStatusState> {
         orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
         take: MAX_LIVE_STATE_CANDIDATES,
       }),
-    ),
-  ]);
-  const mergedCandidates = [
+    );
+    return [live, upcoming] as const;
+  }, LIVE_STATUS_SNAPSHOT_OPTIONS);
+  const candidates = [
     ...new Map(
       [...liveCandidates, ...upcomingCandidates].map((match) => [match.id, match]),
     ).values(),
   ];
-  const candidateIds = mergedCandidates.map((match) => match.id);
-  const candidates = candidateIds.length > 0
-    ? await timedQuery(
-      'live_status_authoritative_candidates',
-      () => prisma.match.findMany({
-        where: {
-          ...excludeSimData,
-          id: { in: candidateIds },
-        },
-        select: publicMatchBatchSelect,
-        orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
-        take: candidateIds.length,
-      }),
-    )
-    : [];
   const accessById = await resolvePublicMatchAccessBatch(
     candidates.map((match) => match.id),
     undefined,
