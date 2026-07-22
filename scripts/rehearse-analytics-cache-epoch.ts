@@ -15,8 +15,19 @@ const PLAYER_ID = 'rehearsal-player-01';
 const PLAYER_STATS_ID = 'rehearsal-player-stats-01';
 const TEAM_STATS_ID = 'rehearsal-team-stats-01';
 const COVERAGE_ID = 'rehearsal-coverage-player';
+const TEAM_COVERAGE_ID = 'rehearsal-coverage-team';
+const NET_POINTS_COVERAGE_ID = 'rehearsal-coverage-net-points';
+const SUPER_SHOTS_COVERAGE_ID = 'rehearsal-coverage-super-shots';
+const TRANSITION_COVERAGE_ID = 'rehearsal-coverage-transition';
 const IRRELEVANT_COVERAGE_ID = 'rehearsal-coverage-final-score';
 const FIXTURE_UPDATED_AT = new Date('2026-07-22T00:00:00.000Z');
+
+const RELEVANT_COVERAGE_CASES = [
+  { id: COVERAGE_ID, capability: 'PLAYER_BOX_SCORE' },
+  { id: TEAM_COVERAGE_ID, capability: 'TEAM_BOX_SCORE' },
+  { id: NET_POINTS_COVERAGE_ID, capability: 'NET_POINTS' },
+  { id: SUPER_SHOTS_COVERAGE_ID, capability: 'SUPER_SHOTS' },
+] as const;
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Analytics cache epoch rehearsal failed: ${message}`);
@@ -27,8 +38,10 @@ function verifyLocalTarget() {
     const raw = process.env[name];
     invariant(raw, `${name} is required`);
     const url = new URL(raw);
-    invariant(['127.0.0.1', 'localhost', '::1'].includes(url.hostname),
-      `${name} must target the ephemeral local PostgreSQL service`);
+    invariant(url.protocol === 'postgresql:'
+      && url.hostname === '127.0.0.1'
+      && url.port === '5432',
+    `${name} must target the hardcoded loopback PostgreSQL 17 service`);
   }
   invariant(process.env.FRESH_MIGRATION_REHEARSAL === 'true',
     'FRESH_MIGRATION_REHEARSAL must be true');
@@ -100,6 +113,32 @@ async function expectEpochUnchanged(previous: bigint, label: string): Promise<bi
   const next = await readEpoch();
   invariant(next === previous, `${label} unexpectedly advanced the global epoch`);
   return next;
+}
+
+async function readCacheInvalidationRevisions(matchIds: readonly string[]): Promise<Map<string, bigint>> {
+  const rows = await prisma.$queryRaw<Array<{ match_id: string; revision: bigint }>>(Prisma.sql`
+    SELECT match_id, revision
+    FROM analytics.cache_invalidation
+    WHERE match_id IN (${Prisma.join(matchIds.map((matchId) => Prisma.sql`${matchId}`))})
+  `);
+  const revisions = new Map(rows.map((row) => [row.match_id, row.revision]));
+  invariant(revisions.size === matchIds.length,
+    `expected cache invalidation receipts for ${matchIds.join(',')}`);
+  return revisions;
+}
+
+async function expectCacheInvalidationRevisionsAdvanced(
+  previous: Map<string, bigint>,
+  matchIds: readonly string[],
+  label: string,
+): Promise<void> {
+  const next = await readCacheInvalidationRevisions(matchIds);
+  for (const matchId of matchIds) {
+    const previousRevision = previous.get(matchId);
+    const nextRevision = next.get(matchId);
+    invariant(previousRevision !== undefined && nextRevision !== undefined && nextRevision > previousRevision,
+      `${label} did not advance the ${matchId} cache invalidation receipt`);
+  }
 }
 
 async function seedPublishedGlasgowFixture() {
@@ -350,21 +389,70 @@ async function runStructuralScenarios() {
 
 async function runCoverageScenarios() {
   let revision = await readEpoch();
-  await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO public."DataCoverage" ("id", "competitionId", "matchId", "capability", "state")
-    VALUES (
-      ${COVERAGE_ID}, ${COMPETITION_ID}, ${ELIGIBLE_MATCH_ID},
-      'PLAYER_BOX_SCORE'::public."DataCapability", 'AVAILABLE'::public."CoverageState"
-    )
-  `);
-  revision = await expectEpochChanged(revision, 'relevant PLAYER_BOX_SCORE coverage INSERT');
+  for (const coverage of RELEVANT_COVERAGE_CASES) {
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO public."DataCoverage" ("id", "competitionId", "matchId", "capability", "state")
+      VALUES (
+        ${coverage.id}, ${COMPETITION_ID}, ${ELIGIBLE_MATCH_ID},
+        ${coverage.capability}::public."DataCapability", 'AVAILABLE'::public."CoverageState"
+      )
+    `);
+    revision = await expectEpochChanged(revision, `relevant ${coverage.capability} coverage INSERT`);
+  }
 
   await prisma.$executeRaw(Prisma.sql`
     UPDATE public."DataCoverage"
-    SET "state" = "state"
+    SET "state" = 'PARTIAL'::public."CoverageState"
     WHERE "id" = ${COVERAGE_ID}
   `);
-  revision = await expectEpochUnchanged(revision, 'no-op relevant coverage UPDATE');
+  revision = await expectEpochChanged(revision, 'relevant coverage state UPDATE');
+
+  for (const coverage of RELEVANT_COVERAGE_CASES) {
+    await prisma.$executeRaw(Prisma.sql`
+      UPDATE public."DataCoverage"
+      SET "capability" = "capability", "state" = "state"
+      WHERE "id" = ${coverage.id}
+    `);
+  }
+  revision = await expectEpochUnchanged(revision, 'same-row semantic no-op relevant coverage UPDATEs');
+
+  for (const coverage of RELEVANT_COVERAGE_CASES) {
+    await prisma.$executeRaw(Prisma.sql`DELETE FROM public."DataCoverage" WHERE "id" = ${coverage.id}`);
+    revision = await expectEpochChanged(revision, `relevant ${coverage.capability} coverage DELETE`);
+  }
+
+  await prisma.$executeRaw(Prisma.sql`
+    INSERT INTO public."DataCoverage" ("id", "competitionId", "matchId", "capability", "state")
+    VALUES (
+      ${TRANSITION_COVERAGE_ID}, ${COMPETITION_ID}, ${ELIGIBLE_MATCH_ID},
+      'PLAYER_BOX_SCORE'::public."DataCapability", 'AVAILABLE'::public."CoverageState"
+    )
+  `);
+  revision = await expectEpochChanged(revision, 'relevant-to-irrelevant capability INSERT');
+
+  await prisma.$executeRaw(Prisma.sql`
+    UPDATE public."DataCoverage"
+    SET "capability" = 'FINAL_SCORE'::public."DataCapability"
+    WHERE "id" = ${TRANSITION_COVERAGE_ID}
+  `);
+  revision = await expectEpochChanged(revision, 'relevant-to-irrelevant capability UPDATE');
+
+  await prisma.$executeRaw(Prisma.sql`
+    UPDATE public."DataCoverage"
+    SET "capability" = 'NET_POINTS'::public."DataCapability"
+    WHERE "id" = ${TRANSITION_COVERAGE_ID}
+  `);
+  revision = await expectEpochChanged(revision, 'irrelevant-to-relevant capability UPDATE');
+
+  await prisma.$executeRaw(Prisma.sql`
+    UPDATE public."DataCoverage"
+    SET "capability" = "capability", "state" = "state"
+    WHERE "id" = ${TRANSITION_COVERAGE_ID}
+  `);
+  revision = await expectEpochUnchanged(revision, 'same-row semantic no-op transitioned coverage UPDATE');
+
+  await prisma.$executeRaw(Prisma.sql`DELETE FROM public."DataCoverage" WHERE "id" = ${TRANSITION_COVERAGE_ID}`);
+  revision = await expectEpochChanged(revision, 'relevant transitioned coverage DELETE');
 
   await prisma.$executeRaw(Prisma.sql`
     INSERT INTO public."DataCoverage" ("id", "competitionId", "matchId", "capability", "state")
@@ -384,13 +472,20 @@ async function runCoverageScenarios() {
 
   await prisma.$executeRaw(Prisma.sql`
     UPDATE public."DataCoverage"
-    SET "state" = 'PARTIAL'::public."CoverageState"
-    WHERE "id" = ${COVERAGE_ID}
+    SET "capability" = "capability", "state" = "state"
+    WHERE "id" = ${IRRELEVANT_COVERAGE_ID}
   `);
-  revision = await expectEpochChanged(revision, 'relevant coverage state UPDATE');
+  revision = await expectEpochUnchanged(revision, 'same-row semantic no-op irrelevant coverage UPDATE');
 
-  await prisma.$executeRaw(Prisma.sql`DELETE FROM public."DataCoverage" WHERE "id" = ${COVERAGE_ID}`);
-  await expectEpochChanged(revision, 'relevant coverage DELETE');
+  await prisma.$executeRaw(Prisma.sql`
+    UPDATE public."DataCoverage"
+    SET "capability" = 'SUPER_SHOTS'::public."DataCapability"
+    WHERE "id" = ${IRRELEVANT_COVERAGE_ID}
+  `);
+  revision = await expectEpochChanged(revision, 'irrelevant-to-relevant capability UPDATE');
+
+  await prisma.$executeRaw(Prisma.sql`DELETE FROM public."DataCoverage" WHERE "id" = ${IRRELEVANT_COVERAGE_ID}`);
+  await expectEpochChanged(revision, 'relevant-after-transition coverage DELETE');
 }
 
 async function runStatsScenarios() {
@@ -420,12 +515,21 @@ async function runStatsScenarios() {
   `);
   revision = await expectEpochChanged(revision, 'changed PlayerMatchStats UPDATE');
 
+  const playerMoveReceiptsBefore = await readCacheInvalidationRevisions([
+    ELIGIBLE_MATCH_ID,
+    SECOND_ELIGIBLE_MATCH_ID,
+  ]);
   await prisma.$executeRaw(Prisma.sql`
     UPDATE public."PlayerMatchStats"
     SET "matchId" = ${SECOND_ELIGIBLE_MATCH_ID}
     WHERE "id" = ${PLAYER_STATS_ID}
   `);
   revision = await expectEpochChanged(revision, 'PlayerMatchStats matchId move');
+  await expectCacheInvalidationRevisionsAdvanced(
+    playerMoveReceiptsBefore,
+    [ELIGIBLE_MATCH_ID, SECOND_ELIGIBLE_MATCH_ID],
+    'PlayerMatchStats matchId move',
+  );
 
   await prisma.$executeRaw(Prisma.sql`DELETE FROM public."PlayerMatchStats" WHERE "id" = ${PLAYER_STATS_ID}`);
   revision = await expectEpochChanged(revision, 'PlayerMatchStats DELETE');
@@ -450,8 +554,30 @@ async function runStatsScenarios() {
   `);
   revision = await expectEpochChanged(revision, 'changed TeamMatchStats UPDATE');
 
+  const teamMoveReceiptsBefore = await readCacheInvalidationRevisions([
+    ELIGIBLE_MATCH_ID,
+    SECOND_ELIGIBLE_MATCH_ID,
+  ]);
+  await prisma.$executeRaw(Prisma.sql`
+    UPDATE public."TeamMatchStats"
+    SET "matchId" = ${SECOND_ELIGIBLE_MATCH_ID}
+    WHERE "id" = ${TEAM_STATS_ID}
+  `);
+  revision = await expectEpochChanged(revision, 'TeamMatchStats matchId move');
+  await expectCacheInvalidationRevisionsAdvanced(
+    teamMoveReceiptsBefore,
+    [ELIGIBLE_MATCH_ID, SECOND_ELIGIBLE_MATCH_ID],
+    'TeamMatchStats matchId move',
+  );
+
+  const teamDeleteReceiptsBefore = await readCacheInvalidationRevisions([SECOND_ELIGIBLE_MATCH_ID]);
   await prisma.$executeRaw(Prisma.sql`DELETE FROM public."TeamMatchStats" WHERE "id" = ${TEAM_STATS_ID}`);
   await expectEpochChanged(revision, 'TeamMatchStats DELETE');
+  await expectCacheInvalidationRevisionsAdvanced(
+    teamDeleteReceiptsBefore,
+    [SECOND_ELIGIBLE_MATCH_ID],
+    'TeamMatchStats DELETE',
+  );
 }
 
 async function verifyPrivateContracts() {
@@ -496,6 +622,9 @@ async function verifyPrivateContracts() {
     functionAnon: boolean;
     functionAuthenticated: boolean;
     functionServiceRole: boolean;
+    queueFunctionAnon: boolean;
+    queueFunctionAuthenticated: boolean;
+    queueFunctionServiceRole: boolean;
   }>>(Prisma.sql`
     SELECT
       has_table_privilege('anon', 'analytics.cache_epoch', 'SELECT') AS "epochAnon",
@@ -512,22 +641,33 @@ async function verifyPrivateContracts() {
       has_table_privilege('service_role', 'analytics.record_entry', 'SELECT') AS "recordServiceRole",
       has_function_privilege('anon', 'analytics.advance_cache_epoch()', 'EXECUTE') AS "functionAnon",
       has_function_privilege('authenticated', 'analytics.advance_cache_epoch()', 'EXECUTE') AS "functionAuthenticated",
-      has_function_privilege('service_role', 'analytics.advance_cache_epoch()', 'EXECUTE') AS "functionServiceRole"
+      has_function_privilege('service_role', 'analytics.advance_cache_epoch()', 'EXECUTE') AS "functionServiceRole",
+      has_function_privilege('anon', 'analytics.queue_match_invalidation()', 'EXECUTE') AS "queueFunctionAnon",
+      has_function_privilege('authenticated', 'analytics.queue_match_invalidation()', 'EXECUTE') AS "queueFunctionAuthenticated",
+      has_function_privilege('service_role', 'analytics.queue_match_invalidation()', 'EXECUTE') AS "queueFunctionServiceRole"
   `);
   invariant(Object.values(acl).every((value) => value === false),
     'a Data API compatibility role can access a private analytics object');
 
-  const [functionContract] = await prisma.$queryRaw<Array<{
+  const functionContracts = await prisma.$queryRaw<Array<{
+    name: string;
     securityDefiner: boolean;
     config: string[] | null;
   }>>(Prisma.sql`
-    SELECT prosecdef AS "securityDefiner", proconfig AS config
+    SELECT proname AS name, prosecdef AS "securityDefiner", proconfig AS config
     FROM pg_proc
-    WHERE oid = 'analytics.advance_cache_epoch()'::regprocedure
+    WHERE oid IN (
+      'analytics.advance_cache_epoch()'::regprocedure,
+      'analytics.queue_match_invalidation()'::regprocedure
+    )
   `);
-  invariant(functionContract.securityDefiner &&
-    (functionContract.config ?? []).some((value) => value.startsWith('search_path=')),
-  'epoch function is not SECURITY DEFINER with an explicit empty search_path');
+  invariant(functionContracts.length === 2, 'expected both private analytics trigger functions');
+  for (const functionName of ['advance_cache_epoch', 'queue_match_invalidation']) {
+    const functionContract = functionContracts.find((candidate) => candidate.name === functionName);
+    invariant(functionContract?.securityDefiner === true
+      && (functionContract.config ?? []).some((value) => value.startsWith('search_path=')),
+    `${functionName} is not SECURITY DEFINER with an explicit empty search_path`);
+  }
 
   const [triggerContract] = await prisma.$queryRaw<Array<{ enabled_count: bigint }>>(Prisma.sql`
     SELECT COUNT(*)::bigint AS enabled_count
@@ -572,8 +712,32 @@ async function main() {
     status: 'rehearsed-analytics-cache-epoch-on-postgresql-17',
     migrationLedgerRows: Number(ledger.count),
     structuralTransitions: ['37-to-38', '38-to-39', '39-to-38', 'stage-count', 'competitionId-move', '38-to-37'],
-    coverageTransitions: ['relevant-insert', 'same-row-no-op', 'irrelevant-insert', 'irrelevant-update', 'relevant-update', 'relevant-delete'],
-    statsTransitions: ['identical-update-no-op', 'changed-update', 'matchId-move', 'delete'],
+    coverageTransitions: [
+      'PLAYER_BOX_SCORE-insert',
+      'TEAM_BOX_SCORE-insert',
+      'NET_POINTS-insert',
+      'SUPER_SHOTS-insert',
+      'relevant-state-update',
+      'same-row-no-op-update',
+      'relevant-delete',
+      'relevant-to-irrelevant-capability-update',
+      'irrelevant-to-relevant-capability-update',
+      'irrelevant-insert',
+      'irrelevant-update',
+      'irrelevant-no-op-update',
+      'relevant-after-transition-delete',
+    ],
+    statsTransitions: [
+      'PlayerMatchStats-identical-update-no-op',
+      'PlayerMatchStats-changed-update',
+      'PlayerMatchStats-matchId-move-source-destination-receipts',
+      'PlayerMatchStats-delete',
+      'TeamMatchStats-identical-update-no-op',
+      'TeamMatchStats-changed-update',
+      'TeamMatchStats-matchId-move-source-destination-receipts',
+      'TeamMatchStats-delete-destination-receipt',
+    ],
+    privateFunctionChecks: ['advance_cache_epoch', 'queue_match_invalidation'],
     productionMutation: false,
   }, null, 2));
 }

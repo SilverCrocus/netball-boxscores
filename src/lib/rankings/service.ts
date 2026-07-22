@@ -8,6 +8,7 @@ import {
   readAnalyticsCacheEpoch,
 } from '@/lib/analytics/cache-epoch';
 import { getMetricDefinition } from '@/lib/analytics';
+import type { MetricQueryContext, MetricResult, MetricWindow } from '@/lib/analytics';
 import { getCompetitionPlayerFacts } from '@/lib/player-analytics';
 import { calculatePlayerRankingSnapshot } from '@/lib/rankings/player-rankings';
 import { calculateTeamPowerSnapshot } from '@/lib/rankings/team-power';
@@ -15,6 +16,7 @@ import {
   PLAYER_RANKING_METHOD_VERSION,
   TEAM_POWER_METHOD_VERSION,
   type PlayerRankingRequest,
+  type PlayerRankingEntry,
   type PlayerRankingSnapshot,
   type TeamPowerMatch,
 } from '@/lib/rankings/types';
@@ -40,11 +42,27 @@ interface CachedPlayerRankingRequest {
   minimumMinutes: number;
 }
 
-type CachedPlayerRankingSnapshot = Omit<PlayerRankingSnapshot, 'request'> & {
+type CachedMetricWindow = Omit<MetricWindow, 'from' | 'to'> & {
+  from?: string;
+  to?: string;
+};
+
+type CachedMetricResult = Omit<MetricResult, 'context'> & {
+  context: Omit<MetricQueryContext, 'window'> & {
+    window?: CachedMetricWindow;
+  };
+};
+
+type CachedPlayerRankingEntry = Omit<PlayerRankingEntry, 'result'> & {
+  result: CachedMetricResult;
+};
+
+type CachedPlayerRankingSnapshot = Omit<PlayerRankingSnapshot, 'request' | 'entries'> & {
   request: Omit<PlayerRankingRequest, 'from' | 'to'> & {
     from: string | null;
     to: string | null;
   };
+  entries: CachedPlayerRankingEntry[];
 };
 
 function cacheableIdentifier(value: unknown, required = false): value is string {
@@ -111,6 +129,55 @@ function restorePlayerRankingRequest(request: CachedPlayerRankingRequest): Playe
   };
 }
 
+function serializeMetricWindow(window: MetricWindow | undefined): CachedMetricWindow | undefined {
+  if (!window) return undefined;
+  const from = dateToIso(window.from);
+  const to = dateToIso(window.to);
+  if (from === null || to === null) {
+    throw new Error('Cannot cache a ranking result with an invalid metric window date');
+  }
+  return {
+    ...(window.lastN !== undefined ? { lastN: window.lastN } : {}),
+    ...(from !== undefined ? { from } : {}),
+    ...(to !== undefined ? { to } : {}),
+  };
+}
+
+function hydrateMetricWindow(window: CachedMetricWindow | undefined): MetricWindow | undefined {
+  if (!window) return undefined;
+  return {
+    ...(window.lastN !== undefined ? { lastN: window.lastN } : {}),
+    ...(window.from !== undefined ? { from: new Date(window.from) } : {}),
+    ...(window.to !== undefined ? { to: new Date(window.to) } : {}),
+  };
+}
+
+function serializeMetricResult(result: MetricResult): CachedMetricResult {
+  const { window, ...context } = result.context;
+  return {
+    ...result,
+    context: {
+      ...context,
+      ...(window
+        ? { window: serializeMetricWindow(window) }
+        : {}),
+    },
+  };
+}
+
+function hydrateMetricResult(result: CachedMetricResult): MetricResult {
+  const { window, ...context } = result.context;
+  return {
+    ...result,
+    context: {
+      ...context,
+      ...(window
+        ? { window: hydrateMetricWindow(window) }
+        : {}),
+    },
+  };
+}
+
 export async function getPlayerRankingSnapshotUncached(request: PlayerRankingRequest): Promise<PlayerRankingSnapshot> {
   const facts = await getCompetitionPlayerFacts(request.competitionId);
   const playerIds = [...new Set(facts.map((fact) => fact.entityId))];
@@ -137,6 +204,10 @@ function serializePlayerRankingSnapshot(snapshot: PlayerRankingSnapshot): Cached
       from: snapshot.request.from?.toISOString() ?? null,
       to: snapshot.request.to?.toISOString() ?? null,
     },
+    entries: snapshot.entries.map((entry) => ({
+      ...entry,
+      result: serializeMetricResult(entry.result),
+    })),
   };
 }
 
@@ -149,6 +220,10 @@ function hydratePlayerRankingSnapshot(snapshot: CachedPlayerRankingSnapshot): Pl
       ...(from ? { from: new Date(from) } : {}),
       ...(to ? { to: new Date(to) } : {}),
     },
+    entries: snapshot.entries.map((entry) => ({
+      ...entry,
+      result: hydrateMetricResult(entry.result),
+    })),
   };
 }
 

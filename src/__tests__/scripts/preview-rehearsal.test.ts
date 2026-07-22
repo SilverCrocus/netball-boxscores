@@ -150,6 +150,14 @@ describe('Glasgow preview workflow', () => {
     ]);
     expect(postgres17).toContain('image: postgres:17');
     expect(postgres17).not.toContain('needs:');
+    expect(postgres17).toContain(
+      'DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres?schema=public',
+    );
+    expect(postgres17).toContain(
+      'DIRECT_URL: postgresql://postgres@127.0.0.1:5432/postgres?schema=public',
+    );
+    expect(postgres17).toContain('FRESH_MIGRATION_REHEARSAL: "true"');
+    expect(postgres17).not.toContain('SUPABASE_PREVIEW_DATABASE_URL');
     expectMarkersInOrder(postgres17, [
       'run: npm ci',
       'run: npx prisma generate',

@@ -29,10 +29,13 @@ vi.mock('next/cache', () => ({
     keyParts: string[],
   ) => async (...args: unknown[]) => {
     const key = JSON.stringify([keyParts, args]);
-    if (!mocks.cache.has(key)) {
-      mocks.cache.set(key, JSON.stringify(await loader(...args)));
+    const stored = mocks.cache.get(key);
+    if (stored === undefined) {
+      const result = await loader(...args);
+      mocks.cache.set(key, JSON.stringify(result));
+      return result;
     }
-    return JSON.parse(mocks.cache.get(key)!);
+    return JSON.parse(stored);
   },
 }));
 
@@ -174,6 +177,69 @@ describe('analytics snapshot cache safety', () => {
     expect(mocks.playerFacts).toHaveBeenCalledTimes(1);
     expect(mocks.comparisonPlayers).toHaveBeenCalledTimes(1);
     expect(mocks.playerCalculator).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves nested ranking MetricResult window dates across cold and warm hits', async () => {
+    const windowFrom = new Date('2026-04-01T00:00:00.000Z');
+    const windowTo = new Date('2026-06-30T00:00:00.000Z');
+    mocks.playerCalculator.mockImplementation((facts: unknown[], _entities: unknown[], request: unknown) => ({
+      rankingType: 'PLAYER_METRIC',
+      methodVersion: 'centrepass-player-ranking.v1',
+      formulaVersion: 'goals.v1',
+      scopeKey: 'test-scope',
+      request,
+      asOf: '2026-07-22T00:00:00.000Z',
+      populationSize: facts.length,
+      entries: [{
+        rank: 1,
+        percentile: 99,
+        entity: {
+          id: 'player-1',
+          name: 'Player One',
+          position: 'GS',
+          teamName: 'Team One',
+        },
+        result: {
+          metricId: 'goals',
+          value: 42,
+          status: 'AVAILABLE',
+          unit: 'COUNT',
+          aggregation: 'TOTAL',
+          context: {
+            entityType: 'PLAYER',
+            entityId: 'player-1',
+            competitionId: 'edition-1',
+            window: { from: windowFrom, to: windowTo },
+          },
+          games: 4,
+          minutes: 240,
+          minimumSample: { minutes: 120 },
+          minimumSampleMet: true,
+          coverage: 'AVAILABLE',
+          formulaVersion: 'goals.v1',
+          asOf: '2026-07-22T00:00:00.000Z',
+          includedMatchIds: ['match-1'],
+        },
+        movement: null,
+        movementLabel: 'NEW',
+      }],
+    }));
+
+    const request = playerRequest();
+    const cold = await getPlayerRankingSnapshot(request);
+    const warm = await getPlayerRankingSnapshot(request);
+    const coldWindow = cold.entries[0]?.result.context.window;
+    const warmWindow = warm.entries[0]?.result.context.window;
+
+    expect(warm).toEqual(cold);
+    expect(cold.request.from).toBeInstanceOf(Date);
+    expect(cold.request.to).toBeInstanceOf(Date);
+    expect(warm.request.from).toBeInstanceOf(Date);
+    expect(warm.request.to).toBeInstanceOf(Date);
+    expect(coldWindow?.from).toBeInstanceOf(Date);
+    expect(coldWindow?.to).toBeInstanceOf(Date);
+    expect(warmWindow?.from).toBeInstanceOf(Date);
+    expect(warmWindow?.to).toBeInstanceOf(Date);
   });
 
   it('does not collide changed request fields and does not serve an old epoch result', async () => {
