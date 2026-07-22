@@ -16,6 +16,7 @@ const PLAYER_STATS_ID = 'rehearsal-player-stats-01';
 const TEAM_STATS_ID = 'rehearsal-team-stats-01';
 const COVERAGE_ID = 'rehearsal-coverage-player';
 const IRRELEVANT_COVERAGE_ID = 'rehearsal-coverage-final-score';
+const FIXTURE_UPDATED_AT = new Date('2026-07-22T00:00:00.000Z');
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Analytics cache epoch rehearsal failed: ${message}`);
@@ -103,8 +104,8 @@ async function expectEpochUnchanged(previous: bigint, label: string): Promise<bi
 
 async function seedPublishedGlasgowFixture() {
   await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO public."CompetitionSeries" ("id", "slug", "name", "kind")
-    VALUES (${SERIES_ID}, 'commonwealth-games-netball', 'Commonwealth Games Netball', 'TOURNAMENT'::public."CompetitionKind")
+    INSERT INTO public."CompetitionSeries" ("id", "slug", "name", "kind", "updatedAt")
+    VALUES (${SERIES_ID}, 'commonwealth-games-netball', 'Commonwealth Games Netball', 'TOURNAMENT'::public."CompetitionKind", ${FIXTURE_UPDATED_AT})
   `);
   await prisma.$executeRaw(Prisma.sql`
     INSERT INTO public."Competition" (
@@ -171,7 +172,7 @@ async function seedPublishedGlasgowFixture() {
       ${id}, ${COMPETITION_ID}, NULL, NULL, 'Glasgow rehearsal venue',
       ${scheduledAt}, ${completed ? 'COMPLETED' : 'SCHEDULED'}::public."MatchStatus",
       ${number}, ${number - 1}, ${completed ? 'OFFICIAL_FINAL' : 'UNKNOWN'}::public."ResultQualityStatus",
-      ${stage}, ${stageGroup}
+      ${stage}, ${stageGroup}, ${FIXTURE_UPDATED_AT}
     )`;
   });
   const slots = matches.flatMap((_, index) => {
@@ -185,7 +186,7 @@ async function seedPublishedGlasgowFixture() {
     await transaction.$executeRaw(Prisma.sql`
       INSERT INTO public."Match" (
         "id", "competitionId", "homeTeamId", "awayTeamId", "venue", "scheduledAt",
-        "status", "homeScore", "awayScore", "resultQuality", "stageId", "stageGroupId"
+        "status", "homeScore", "awayScore", "resultQuality", "stageId", "stageGroupId", "updatedAt"
       ) VALUES ${Prisma.join(matches)}
     `);
     await transaction.$executeRaw(Prisma.sql`
@@ -195,10 +196,10 @@ async function seedPublishedGlasgowFixture() {
   });
 
   await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO public."SourceSystem" ("id", "key", "name", "kind")
+    INSERT INTO public."SourceSystem" ("id", "key", "name", "kind", "updatedAt")
     VALUES (
       ${SOURCE_SYSTEM_ID}, 'glasgow-2026-public-data', 'Glasgow rehearsal source',
-      'PUBLIC_PAGE'::public."SourceSystemKind"
+      'PUBLIC_PAGE'::public."SourceSystemKind", ${FIXTURE_UPDATED_AT}
     )
   `);
   await prisma.$executeRaw(Prisma.sql`
@@ -216,12 +217,12 @@ async function insertMatch38() {
     await transaction.$executeRaw(Prisma.sql`
       INSERT INTO public."Match" (
         "id", "competitionId", "homeTeamId", "awayTeamId", "venue", "scheduledAt",
-        "status", "homeScore", "awayScore", "resultQuality", "stageId"
+        "status", "homeScore", "awayScore", "resultQuality", "stageId", "updatedAt"
       ) VALUES (
         ${FINAL_MATCH_ID}, ${COMPETITION_ID}, NULL, NULL,
         'Glasgow rehearsal venue', TIMESTAMPTZ '2026-08-15 00:00:00+00',
         'SCHEDULED'::public."MatchStatus", 0, 0, 'UNKNOWN'::public."ResultQualityStatus",
-        'rehearsal-stage-medal-matches'
+        'rehearsal-stage-medal-matches', ${FIXTURE_UPDATED_AT}
       )
     `);
     await transaction.$executeRaw(Prisma.sql`
@@ -255,12 +256,12 @@ async function runStructuralScenarios() {
     await transaction.$executeRaw(Prisma.sql`
       INSERT INTO public."Match" (
         "id", "competitionId", "homeTeamId", "awayTeamId", "venue", "scheduledAt",
-        "status", "homeScore", "awayScore", "resultQuality", "stageId"
+        "status", "homeScore", "awayScore", "resultQuality", "stageId", "updatedAt"
       ) VALUES (
         ${EXTRA_MATCH_ID}, ${COMPETITION_ID}, NULL, NULL,
         'Glasgow rehearsal venue', TIMESTAMPTZ '2026-08-16 00:00:00+00',
         'SCHEDULED'::public."MatchStatus", 0, 0, 'UNKNOWN'::public."ResultQualityStatus",
-        'rehearsal-stage-classification'
+        'rehearsal-stage-classification', ${FIXTURE_UPDATED_AT}
       )
     `);
     await transaction.$executeRaw(Prisma.sql`
@@ -294,8 +295,8 @@ async function runStructuralScenarios() {
   invariant(await directoryVisible(), 'restored Glasgow stage count remained unpublished');
 
   await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO public."CompetitionSeries" ("id", "slug", "name", "kind")
-    VALUES (${MOVE_TARGET_SERIES_ID}, 'rehearsal-move-target-series', 'Rehearsal move target', 'TOURNAMENT'::public."CompetitionKind")
+    INSERT INTO public."CompetitionSeries" ("id", "slug", "name", "kind", "updatedAt")
+    VALUES (${MOVE_TARGET_SERIES_ID}, 'rehearsal-move-target-series', 'Rehearsal move target', 'TOURNAMENT'::public."CompetitionKind", ${FIXTURE_UPDATED_AT})
   `);
   await prisma.$executeRaw(Prisma.sql`
     INSERT INTO public."Competition" ("id", "name", "season", "seriesId", "slug", "publicationStatus")
