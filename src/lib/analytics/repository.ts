@@ -346,6 +346,33 @@ export async function readAnalyticsRevision(): Promise<{ revision: bigint; inval
   return { revision: rows[0]?.revision ?? BigInt(0), invalidatedAt: rows[0]?.invalidated_at ?? null };
 }
 
+export interface AnalyticsSnapshotEpochRow {
+  revision: bigint;
+  invalidatedAt: Date | null;
+  contractVersion: string | null;
+}
+
+/**
+ * Snapshot caching has a stricter contract than stat-query revision reporting.
+ * The dedicated read intentionally selects the v1 discriminator so a legacy
+ * two-column cache_revision_read view can never authenticate a snapshot epoch.
+ */
+export async function readAnalyticsSnapshotEpoch(): Promise<AnalyticsSnapshotEpochRow> {
+  const rows = await analyticsQuery('analytics_snapshot_cache_epoch', (database) => database.$queryRaw<Array<{
+    revision: bigint;
+    invalidated_at: Date | null;
+    contract_version: string | null;
+  }>>(Prisma.sql`
+    SELECT revision, invalidated_at, contract_version
+    FROM analytics.cache_revision_read
+  `));
+  return {
+    revision: rows[0]?.revision ?? BigInt(0),
+    invalidatedAt: rows[0]?.invalidated_at ?? null,
+    contractVersion: rows[0]?.contract_version ?? null,
+  };
+}
+
 export interface ParserDirectoryRows {
   players: Array<{ id: string; name: string; position: string; aliases: string[] }>;
   teams: Array<{ id: string; name: string; abbreviation: string; aliases: string[] }>;

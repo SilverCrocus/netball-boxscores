@@ -103,6 +103,10 @@ describe('Glasgow preview workflow', () => {
       workflow.indexOf('  verify:'),
       workflow.indexOf('  glasgow-preview-rehearsal:'),
     );
+    const postgres17 = workflow.slice(
+      workflow.indexOf('  postgres17-analytics-rehearsal:'),
+      workflow.indexOf('  glasgow-preview-rehearsal:'),
+    );
     const rehearsal = workflow.slice(workflow.indexOf('  glasgow-preview-rehearsal:'));
     const migrationRehearsal = await readFile(
       path.resolve('scripts/rehearse-complete-prisma-migrations.ts'),
@@ -129,10 +133,10 @@ describe('Glasgow preview workflow', () => {
     expect(workflow).toContain(
       "${{ !(github.event_name == 'workflow_dispatch' && inputs.run_glasgow_preview) }}",
     );
-    expect(workflow.split(`uses: ${CHECKOUT_PIN}`)).toHaveLength(3);
-    expect(workflow.split(`uses: ${SETUP_NODE_PIN}`)).toHaveLength(3);
+    expect(workflow.split(`uses: ${CHECKOUT_PIN}`)).toHaveLength(4);
+    expect(workflow.split(`uses: ${SETUP_NODE_PIN}`)).toHaveLength(4);
     expect(workflow).not.toMatch(/actions\/(?:checkout|setup-node)@v\d+/);
-    for (const job of [verify, rehearsal]) {
+    for (const job of [verify, postgres17, rehearsal]) {
       expect(job).toContain('persist-credentials: false');
       expect(job).toContain('fetch-depth: 0');
     }
@@ -143,6 +147,17 @@ describe('Glasgow preview workflow', () => {
       'run: npm run check',
       'run: npm run build',
       'run: npm run smoke:server-startup',
+    ]);
+    expect(postgres17).toContain('image: postgres:17');
+    expect(postgres17).not.toContain('needs:');
+    expectMarkersInOrder(postgres17, [
+      'run: npm ci',
+      'run: npx prisma generate',
+      'run: npx tsx scripts/verify-fresh-prisma-migration-target.ts',
+      'run: npx tsx scripts/verify-prisma-baseline-artifact.ts',
+      'run: npx tsx scripts/rehearse-complete-prisma-migrations.ts',
+      'run: npx tsx scripts/verify-preview-migrations.ts',
+      'run: npx tsx scripts/rehearse-analytics-cache-epoch.ts',
     ]);
     expect(rehearsal).toContain('name: centrepass-preview-rehearsal');
     expect(rehearsal).toContain('image: postgres:17');

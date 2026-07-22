@@ -34,6 +34,7 @@ describe('analytics cache epoch migration contract', () => {
     );
     expect(migration).toContain('CREATE OR REPLACE VIEW analytics.cache_revision_read AS');
     expect(migration).toContain('FROM analytics.cache_epoch epoch');
+    expect(migration).toContain("'analytics-cache-epoch.v1'::TEXT AS contract_version");
     expect(migration).not.toMatch(/MAX\(invalidation\.revision\)/u);
   });
 
@@ -63,6 +64,12 @@ describe('analytics cache epoch migration contract', () => {
     expect(migration.match(/OR DELETE/g)?.length).toBeGreaterThanOrEqual(sourceTriggers.length + 3);
     expect(migration).toContain("TG_OP IN ('UPDATE', 'DELETE')");
     expect(migration).toContain('OLD."matchId"');
+    expect(migration).toContain('NEW IS NOT DISTINCT FROM OLD');
+    expect(migration).toContain('NEW."capability" IN (');
+    expect(migration).toContain('OLD."capability" IN (');
+    expect(migration).toContain('NEW."stageId" IS DISTINCT FROM OLD."stageId"');
+    expect(migration).toContain("competition.\"slug\" = 'glasgow-2026'");
+    expect(migration).not.toMatch(/"stageGroupId", "updatedAt"/u);
     expect(migration).toContain('PERFORM analytics.advance_cache_epoch()');
   });
 

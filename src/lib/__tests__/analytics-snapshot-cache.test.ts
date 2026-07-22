@@ -7,8 +7,8 @@ import {
 import { getRecordSnapshot } from '@/lib/records/service';
 
 const mocks = vi.hoisted(() => ({
-  cache: new Map<string, unknown>(),
-  revision: vi.fn(),
+  cache: new Map<string, string>(),
+  snapshotEpoch: vi.fn(),
   playerFacts: vi.fn(),
   comparisonPlayers: vi.fn(),
   teamPowerMatches: vi.fn(),
@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   playerRecordFacts: vi.fn(),
   teamRecordFacts: vi.fn(),
   analyticsEntities: vi.fn(),
+  editions: vi.fn(),
   finalsStageIds: vi.fn(),
   playerCalculator: vi.fn(),
   teamCalculator: vi.fn(),
@@ -28,20 +29,22 @@ vi.mock('next/cache', () => ({
     keyParts: string[],
   ) => async (...args: unknown[]) => {
     const key = JSON.stringify([keyParts, args]);
-    if (!mocks.cache.has(key)) mocks.cache.set(key, await loader(...args));
-    return mocks.cache.get(key);
+    if (!mocks.cache.has(key)) {
+      mocks.cache.set(key, JSON.stringify(await loader(...args)));
+    }
+    return JSON.parse(mocks.cache.get(key)!);
   },
 }));
 
 vi.mock('@/lib/analytics/repository', () => ({
-  readAnalyticsRevision: mocks.revision,
+  readAnalyticsSnapshotEpoch: mocks.snapshotEpoch,
   readComparisonPlayers: mocks.comparisonPlayers,
   readTeamPowerMatches: mocks.teamPowerMatches,
   readEditionTeams: mocks.editionTeams,
   readAnalyticsPlayerFacts: mocks.playerRecordFacts,
   readAnalyticsTeamFacts: mocks.teamRecordFacts,
   readAnalyticsEntities: mocks.analyticsEntities,
-  listAnalyticsEditions: vi.fn(),
+  listAnalyticsEditions: mocks.editions,
   readFinalsStageIds: mocks.finalsStageIds,
 }));
 
@@ -84,6 +87,8 @@ const playerRequest = (overrides: Record<string, unknown> = {}) => ({
   metricId: 'goals',
   aggregation: 'TOTAL' as const,
   minimumMinutes: 120,
+  from: new Date('2026-03-01T00:00:00.000Z'),
+  to: new Date('2026-06-30T00:00:00.000Z'),
   ...overrides,
 });
 
@@ -101,7 +106,7 @@ describe('analytics snapshot cache safety', () => {
   beforeEach(() => {
     mocks.cache.clear();
     for (const mock of [
-      mocks.revision,
+      mocks.snapshotEpoch,
       mocks.playerFacts,
       mocks.comparisonPlayers,
       mocks.teamPowerMatches,
@@ -109,13 +114,18 @@ describe('analytics snapshot cache safety', () => {
       mocks.playerRecordFacts,
       mocks.teamRecordFacts,
       mocks.analyticsEntities,
+      mocks.editions,
       mocks.finalsStageIds,
       mocks.playerCalculator,
       mocks.teamCalculator,
       mocks.recordCalculator,
     ]) mock.mockReset();
 
-    mocks.revision.mockResolvedValue({ revision: BigInt(1), invalidatedAt: new Date('2026-07-22T00:00:00.000Z') });
+    mocks.snapshotEpoch.mockResolvedValue({
+      revision: BigInt(1),
+      invalidatedAt: new Date('2026-07-22T00:00:00.000Z'),
+      contractVersion: 'analytics-cache-epoch.v1',
+    });
     mocks.playerFacts.mockResolvedValue([{ entityId: 'player-1' }]);
     mocks.comparisonPlayers.mockResolvedValue([{
       id: 'player-1',
@@ -128,20 +138,39 @@ describe('analytics snapshot cache safety', () => {
     mocks.playerRecordFacts.mockResolvedValue([]);
     mocks.teamRecordFacts.mockResolvedValue([]);
     mocks.analyticsEntities.mockResolvedValue([]);
+    mocks.editions.mockResolvedValue([edition()]);
     mocks.finalsStageIds.mockResolvedValue([]);
-    mocks.playerCalculator.mockImplementation((facts: unknown[]) => ({ calculatedFrom: facts.length }));
+    mocks.playerCalculator.mockImplementation((facts: unknown[], _entities: unknown[], request: unknown) => ({
+      rankingType: 'PLAYER_METRIC',
+      methodVersion: 'centrepass-player-ranking.v1',
+      formulaVersion: 'goals.v1',
+      scopeKey: 'test-scope',
+      request,
+      asOf: '2026-07-22T00:00:00.000Z',
+      populationSize: facts.length,
+      entries: [],
+    }));
     mocks.teamCalculator.mockImplementation((competitionId: string) => ({ competitionId }));
-    mocks.recordCalculator.mockImplementation((_facts: unknown[], _entities: unknown[], request: { limit?: number }) => ({
-      calculatedLimit: request.limit,
+    mocks.recordCalculator.mockImplementation((_facts: unknown[], _entities: unknown[], request: unknown) => ({
+      methodVersion: 'centrepass-records.v1',
+      request,
+      asOf: '2026-07-22T00:00:00.000Z',
+      coverageLabel: 'test coverage',
+      entries: [],
     }));
   });
 
   it('hits an identical player-ranking calculation and avoids heavy reads', async () => {
     const request = playerRequest();
-    await getPlayerRankingSnapshot(request);
-    await getPlayerRankingSnapshot(request);
+    const cold = await getPlayerRankingSnapshot(request);
+    const warm = await getPlayerRankingSnapshot(request);
 
-    expect(mocks.revision).toHaveBeenCalledTimes(2);
+    expect(warm).toEqual(cold);
+    expect(cold.request.from).toBeInstanceOf(Date);
+    expect(cold.request.to).toBeInstanceOf(Date);
+    expect(warm.request.from).toBeInstanceOf(Date);
+    expect(warm.request.to).toBeInstanceOf(Date);
+    expect(mocks.snapshotEpoch).toHaveBeenCalledTimes(2);
     expect(mocks.playerFacts).toHaveBeenCalledTimes(1);
     expect(mocks.comparisonPlayers).toHaveBeenCalledTimes(1);
     expect(mocks.playerCalculator).toHaveBeenCalledTimes(1);
@@ -152,19 +181,59 @@ describe('analytics snapshot cache safety', () => {
     await getPlayerRankingSnapshot(playerRequest({ minimumMinutes: 121 }));
     expect(mocks.playerFacts).toHaveBeenCalledTimes(2);
 
-    mocks.revision.mockResolvedValue({ revision: BigInt(2), invalidatedAt: new Date('2026-07-22T00:01:00.000Z') });
+    mocks.snapshotEpoch.mockResolvedValue({
+      revision: BigInt(2),
+      invalidatedAt: new Date('2026-07-22T00:01:00.000Z'),
+      contractVersion: 'analytics-cache-epoch.v1',
+    });
     await getPlayerRankingSnapshot(playerRequest({ minimumMinutes: 120 }));
     expect(mocks.playerFacts).toHaveBeenCalledTimes(3);
     expect(mocks.playerCalculator).toHaveBeenCalledTimes(3);
   });
 
   it('bypasses the player cache when the epoch read fails', async () => {
-    mocks.revision.mockRejectedValue(new Error('epoch unavailable'));
+    mocks.snapshotEpoch.mockRejectedValue(new Error('epoch unavailable'));
     await getPlayerRankingSnapshot(playerRequest());
     await getPlayerRankingSnapshot(playerRequest());
 
     expect(mocks.playerFacts).toHaveBeenCalledTimes(2);
     expect(mocks.playerCalculator).toHaveBeenCalledTimes(2);
+    expect(mocks.cache.size).toBe(0);
+  });
+
+  it('rejects a positive legacy revision and never reuses a result without the v1 discriminator', async () => {
+    mocks.snapshotEpoch.mockResolvedValue({
+      revision: BigInt(99),
+      invalidatedAt: new Date('2026-07-22T00:00:00.000Z'),
+      contractVersion: 'legacy-cache-revision',
+    });
+
+    await getPlayerRankingSnapshot(playerRequest());
+    await getPlayerRankingSnapshot(playerRequest());
+
+    expect(mocks.playerFacts).toHaveBeenCalledTimes(2);
+    expect(mocks.playerCalculator).toHaveBeenCalledTimes(2);
+    expect(mocks.cache.size).toBe(0);
+  });
+
+  it('bypasses caching for zero or malformed authenticated epochs', async () => {
+    mocks.snapshotEpoch.mockResolvedValue({
+      revision: BigInt(0),
+      invalidatedAt: null,
+      contractVersion: 'analytics-cache-epoch.v1',
+    });
+    await getPlayerRankingSnapshot(playerRequest());
+    await getPlayerRankingSnapshot(playerRequest());
+
+    mocks.snapshotEpoch.mockResolvedValue({
+      revision: 'not-a-bigint' as unknown as bigint,
+      invalidatedAt: null,
+      contractVersion: 'analytics-cache-epoch.v1',
+    });
+    await getPlayerRankingSnapshot(playerRequest({ minimumMinutes: 121 }));
+    await getPlayerRankingSnapshot(playerRequest({ minimumMinutes: 121 }));
+
+    expect(mocks.playerCalculator).toHaveBeenCalledTimes(4);
     expect(mocks.cache.size).toBe(0);
   });
 
@@ -180,8 +249,11 @@ describe('analytics snapshot cache safety', () => {
 
   it('caches Records with ordered edition identity and bypasses after an epoch failure', async () => {
     const context = { editions: [edition()] };
-    await getRecordSnapshot(recordQuery(), context);
-    await getRecordSnapshot(recordQuery(), context);
+    const cold = await getRecordSnapshot(recordQuery(), context);
+    const warm = await getRecordSnapshot(recordQuery(), context);
+    expect(warm).toEqual(cold);
+    expect(cold.request.coverageStart).toBeInstanceOf(Date);
+    expect(warm.request.coverageStart).toBeInstanceOf(Date);
     expect(mocks.playerRecordFacts).toHaveBeenCalledTimes(1);
     expect(mocks.analyticsEntities).toHaveBeenCalledTimes(1);
     expect(mocks.recordCalculator).toHaveBeenCalledTimes(1);
@@ -189,7 +261,7 @@ describe('analytics snapshot cache safety', () => {
     await getRecordSnapshot(recordQuery(), { editions: [edition({ label: 'Published correction' })] });
     expect(mocks.playerRecordFacts).toHaveBeenCalledTimes(2);
 
-    mocks.revision.mockRejectedValue(new Error('epoch unavailable'));
+    mocks.snapshotEpoch.mockRejectedValue(new Error('epoch unavailable'));
     await getRecordSnapshot(recordQuery(), context);
     await getRecordSnapshot(recordQuery(), context);
     expect(mocks.playerRecordFacts).toHaveBeenCalledTimes(4);
@@ -205,10 +277,21 @@ describe('analytics snapshot cache safety', () => {
     expect(mocks.recordCalculator).toHaveBeenCalledTimes(2);
   });
 
+  it('rehydrates JSON-safe cached edition dates before calculating Records without context', async () => {
+    const cold = await getRecordSnapshot(recordQuery());
+    const warm = await getRecordSnapshot(recordQuery());
+
+    expect(warm).toEqual(cold);
+    expect(cold.request.coverageStart).toBeInstanceOf(Date);
+    expect(warm.request.coverageStart).toBeInstanceOf(Date);
+    expect(mocks.editions).toHaveBeenCalledTimes(1);
+    expect(mocks.playerRecordFacts).toHaveBeenCalledTimes(1);
+  });
+
   it('preserves an omitted Records limit through the cached calculation contract', async () => {
     const context = { editions: [edition()] };
     const result = await getRecordSnapshot(recordQuery({ limit: undefined }), context);
 
-    expect(result).toEqual({ calculatedLimit: undefined });
+    expect(result.request.limit).toBeUndefined();
   });
 });

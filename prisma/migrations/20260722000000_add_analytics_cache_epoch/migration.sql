@@ -15,7 +15,10 @@ REVOKE ALL ON analytics.cache_epoch FROM PUBLIC, anon, authenticated, service_ro
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA analytics FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE VIEW analytics.cache_revision_read AS
-SELECT epoch.revision, epoch.invalidated_at
+SELECT
+  epoch.revision,
+  epoch.invalidated_at,
+  'analytics-cache-epoch.v1'::TEXT AS contract_version
 FROM analytics.cache_epoch epoch
 WHERE epoch.singleton_id = true;
 
@@ -52,28 +55,73 @@ DECLARE
   previous_match_id TEXT;
   new_is_eligible BOOLEAN := false;
   old_is_eligible BOOLEAN := false;
+  new_is_glasgow BOOLEAN := false;
+  old_is_glasgow BOOLEAN := false;
+  match_behavior_changed BOOLEAN := false;
+  glasgow_structural_changed BOOLEAN := false;
   source_relevant BOOLEAN := false;
+  new_coverage_relevant BOOLEAN := false;
+  old_coverage_relevant BOOLEAN := false;
 BEGIN
   IF TG_TABLE_NAME = 'Match' THEN
     IF TG_OP IN ('INSERT', 'UPDATE') THEN
-      new_is_eligible := NEW."status" = 'COMPLETED'::public."MatchStatus"
+      new_is_eligible := COALESCE(NEW."status" = 'COMPLETED'::public."MatchStatus"
         AND NEW."resultQuality" IN (
           'OFFICIAL_FINAL'::public."ResultQualityStatus",
           'CORRECTED'::public."ResultQualityStatus"
         )
-        AND NEW."isSimulation" = false;
+        AND NEW."isSimulation" = false, false);
+      new_is_glasgow := EXISTS (
+        SELECT 1
+        FROM public."Competition" competition
+        JOIN public."CompetitionSeries" series ON series."id" = competition."seriesId"
+        WHERE competition."id" = NEW."competitionId"
+          AND competition."slug" = 'glasgow-2026'
+          AND series."slug" = 'commonwealth-games-netball'
+      );
     END IF;
 
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
-      old_is_eligible := OLD."status" = 'COMPLETED'::public."MatchStatus"
+      old_is_eligible := COALESCE(OLD."status" = 'COMPLETED'::public."MatchStatus"
         AND OLD."resultQuality" IN (
           'OFFICIAL_FINAL'::public."ResultQualityStatus",
           'CORRECTED'::public."ResultQualityStatus"
         )
-        AND OLD."isSimulation" = false;
+        AND OLD."isSimulation" = false, false);
+      old_is_glasgow := EXISTS (
+        SELECT 1
+        FROM public."Competition" competition
+        JOIN public."CompetitionSeries" series ON series."id" = competition."seriesId"
+        WHERE competition."id" = OLD."competitionId"
+          AND competition."slug" = 'glasgow-2026'
+          AND series."slug" = 'commonwealth-games-netball'
+      );
     END IF;
 
-    IF new_is_eligible OR old_is_eligible THEN
+    IF TG_OP IN ('INSERT', 'DELETE') THEN
+      match_behavior_changed := true;
+      glasgow_structural_changed := new_is_glasgow OR old_is_glasgow;
+    ELSE
+      match_behavior_changed := NEW."competitionId" IS DISTINCT FROM OLD."competitionId"
+        OR NEW."status" IS DISTINCT FROM OLD."status"
+        OR NEW."resultQuality" IS DISTINCT FROM OLD."resultQuality"
+        OR NEW."isSimulation" IS DISTINCT FROM OLD."isSimulation"
+        OR NEW."scheduledAt" IS DISTINCT FROM OLD."scheduledAt"
+        OR NEW."sourceUpdatedAt" IS DISTINCT FROM OLD."sourceUpdatedAt"
+        OR NEW."homeTeamId" IS DISTINCT FROM OLD."homeTeamId"
+        OR NEW."awayTeamId" IS DISTINCT FROM OLD."awayTeamId"
+        OR NEW."neutralVenue" IS DISTINCT FROM OLD."neutralVenue"
+        OR NEW."homeScore" IS DISTINCT FROM OLD."homeScore"
+        OR NEW."awayScore" IS DISTINCT FROM OLD."awayScore"
+        OR NEW."stageId" IS DISTINCT FROM OLD."stageId"
+        OR NEW."stageGroupId" IS DISTINCT FROM OLD."stageGroupId";
+      glasgow_structural_changed := (
+        NEW."competitionId" IS DISTINCT FROM OLD."competitionId"
+        OR NEW."stageId" IS DISTINCT FROM OLD."stageId"
+      ) AND (new_is_glasgow OR old_is_glasgow);
+    END IF;
+
+    IF glasgow_structural_changed OR ((new_is_eligible OR old_is_eligible) AND match_behavior_changed) THEN
       PERFORM analytics.advance_cache_epoch();
 
       -- A deleted Match is removed by the foreign key cascade from
@@ -105,6 +153,10 @@ BEGIN
       END IF;
     END IF;
   ELSIF TG_TABLE_NAME IN ('PlayerMatchStats', 'TeamMatchStats') THEN
+    IF TG_OP = 'UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN
+      RETURN NEW;
+    END IF;
+
     IF TG_OP = 'DELETE' THEN
       target_match_id := OLD."matchId";
     ELSE
@@ -143,7 +195,22 @@ BEGIN
         invalidated_at = CURRENT_TIMESTAMP;
     END IF;
   ELSIF TG_TABLE_NAME = 'DataCoverage' THEN
-    IF TG_OP IN ('INSERT', 'UPDATE') AND EXISTS (
+    IF TG_OP = 'UPDATE'
+      AND NEW."competitionId" IS NOT DISTINCT FROM OLD."competitionId"
+      AND NEW."matchId" IS NOT DISTINCT FROM OLD."matchId"
+      AND NEW."capability" IS NOT DISTINCT FROM OLD."capability"
+      AND NEW."state" IS NOT DISTINCT FROM OLD."state" THEN
+      RETURN NEW;
+    END IF;
+
+    IF TG_OP IN ('INSERT', 'UPDATE')
+      AND NEW."capability" IN (
+        'PLAYER_BOX_SCORE'::public."DataCapability",
+        'TEAM_BOX_SCORE'::public."DataCapability",
+        'NET_POINTS'::public."DataCapability",
+        'SUPER_SHOTS'::public."DataCapability"
+      )
+      AND EXISTS (
       SELECT 1
       FROM public."Match" match
       WHERE match."competitionId" = NEW."competitionId"
@@ -155,9 +222,17 @@ BEGIN
         )
         AND match."isSimulation" = false
     ) THEN
+      new_coverage_relevant := true;
       source_relevant := true;
     END IF;
-    IF TG_OP IN ('UPDATE', 'DELETE') AND EXISTS (
+    IF TG_OP IN ('UPDATE', 'DELETE')
+      AND OLD."capability" IN (
+        'PLAYER_BOX_SCORE'::public."DataCapability",
+        'TEAM_BOX_SCORE'::public."DataCapability",
+        'NET_POINTS'::public."DataCapability",
+        'SUPER_SHOTS'::public."DataCapability"
+      )
+      AND EXISTS (
       SELECT 1
       FROM public."Match" match
       WHERE match."competitionId" = OLD."competitionId"
@@ -169,9 +244,12 @@ BEGIN
         )
         AND match."isSimulation" = false
     ) THEN
+      old_coverage_relevant := true;
       source_relevant := true;
     END IF;
-    IF source_relevant THEN PERFORM analytics.advance_cache_epoch(); END IF;
+    IF new_coverage_relevant OR old_coverage_relevant OR source_relevant THEN
+      PERFORM analytics.advance_cache_epoch();
+    END IF;
   ELSIF TG_TABLE_NAME = 'ImportRun' THEN
     IF TG_OP IN ('INSERT', 'UPDATE') AND NEW."competitionId" IS NOT NULL AND EXISTS (
       SELECT 1
@@ -274,7 +352,7 @@ CREATE TRIGGER analytics_match_finalization_invalidation
 AFTER INSERT OR UPDATE OF
   "competitionId", "status", "resultQuality", "isSimulation", "scheduledAt",
   "sourceUpdatedAt", "homeTeamId", "awayTeamId", "neutralVenue", "homeScore",
-  "awayScore", "stageId", "stageGroupId", "updatedAt"
+  "awayScore", "stageId", "stageGroupId"
   OR DELETE
 ON public."Match"
 FOR EACH ROW EXECUTE FUNCTION analytics.queue_match_invalidation('MATCH_LIFECYCLE_CHANGED');

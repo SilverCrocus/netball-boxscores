@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readAnalyticsRevision } from '@/lib/analytics/repository';
+import { readAnalyticsSnapshotEpoch } from '@/lib/analytics/repository';
 
 /**
  * The namespace is part of the cache contract. Bump it whenever a deployed
@@ -7,6 +7,7 @@ import { readAnalyticsRevision } from '@/lib/analytics/repository';
  * previously calculated snapshot.
  */
 export const ANALYTICS_SNAPSHOT_CACHE_NAMESPACE = 'centrepass-analytics-snapshots.v1';
+export const ANALYTICS_CACHE_EPOCH_CONTRACT_VERSION = 'analytics-cache-epoch.v1';
 
 const MAX_CACHE_INPUT_BYTES = 32_768;
 const CACHE_EPOCH_PATTERN = /^[1-9]\d{0,18}$/u;
@@ -18,7 +19,8 @@ const CACHE_EPOCH_PATTERN = /^[1-9]\d{0,18}$/u;
  */
 export async function readAnalyticsCacheEpoch(): Promise<string | null> {
   try {
-    const { revision } = await readAnalyticsRevision();
+    const { revision, contractVersion } = await readAnalyticsSnapshotEpoch();
+    if (contractVersion !== ANALYTICS_CACHE_EPOCH_CONTRACT_VERSION) return null;
     if (typeof revision !== 'bigint' || revision < BigInt(1)) return null;
     const serialized = revision.toString();
     return CACHE_EPOCH_PATTERN.test(serialized) ? serialized : null;

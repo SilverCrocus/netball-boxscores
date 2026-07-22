@@ -13,7 +13,13 @@ import {
   type AnalyticsEdition,
 } from '@/lib/analytics/repository';
 import { calculateRecordSnapshot } from '@/lib/records/calculate';
-import { RECORDS_METHOD_VERSION, type RecordEntity, type RecordScope } from '@/lib/records/types';
+import {
+  RECORDS_METHOD_VERSION,
+  type RecordEntity,
+  type RecordRequest,
+  type RecordScope,
+  type RecordSnapshot,
+} from '@/lib/records/types';
 import { recordCacheResult, trackedUnstableCache } from '@/lib/server-timing';
 
 const RECORD_SNAPSHOT_CACHE_NAME = 'analytics_record_snapshot';
@@ -180,6 +186,10 @@ interface CachedAnalyticsEdition {
   };
 }
 
+type CachedRecordSnapshot = Omit<RecordSnapshot, 'request'> & {
+  request: Omit<RecordRequest, 'coverageStart'> & { coverageStart: string };
+};
+
 function cacheableIdentifier(value: unknown, required = false): value is string {
   return typeof value === 'string'
     && (required || value.length > 0)
@@ -284,7 +294,7 @@ function restoreAnalyticsEditions(editions: readonly CachedAnalyticsEdition[]): 
 export async function getRecordSnapshotUncached(
   query: RecordSnapshotQuery,
   context?: RecordSnapshotContext,
-) {
+): Promise<RecordSnapshot> {
   const entityType: AnalyticsEntityType = query.scope === 'TEAM' ? 'TEAM' : query.entityType;
   const editions = context?.editions ?? await listAnalyticsEditions();
   const selectedEdition = editions.find((edition) => edition.id === query.competitionId);
@@ -320,11 +330,31 @@ export async function getRecordSnapshotUncached(
   });
 }
 
+function serializeRecordSnapshot(snapshot: RecordSnapshot): CachedRecordSnapshot {
+  return {
+    ...snapshot,
+    request: {
+      ...snapshot.request,
+      coverageStart: snapshot.request.coverageStart.toISOString(),
+    },
+  };
+}
+
+function hydrateRecordSnapshot(snapshot: CachedRecordSnapshot): RecordSnapshot {
+  return {
+    ...snapshot,
+    request: {
+      ...snapshot.request,
+      coverageStart: new Date(snapshot.request.coverageStart),
+    },
+  };
+}
+
 const cachedAnalyticsEditions = trackedUnstableCache(
   RECORD_EDITIONS_CACHE_NAME,
-  async (epoch: string) => {
+  async (epoch: string): Promise<CachedAnalyticsEdition[] | null> => {
     void epoch;
-    return listAnalyticsEditions();
+    return normalizeAnalyticsEditions(await listAnalyticsEditions());
   },
   ['analytics-record-editions-v1'],
   {
@@ -339,10 +369,10 @@ const cachedRecordSnapshot = trackedUnstableCache(
     _cacheKey: string,
     query: CachedRecordSnapshotQuery,
     editions: CachedAnalyticsEdition[],
-  ) => getRecordSnapshotUncached(
+  ): Promise<CachedRecordSnapshot> => serializeRecordSnapshot(await getRecordSnapshotUncached(
     restoreRecordQuery(query),
     { editions: restoreAnalyticsEditions(editions) },
-  ),
+  )),
   ['analytics-record-snapshot-v1'],
   {
     revalidate: CACHE_REVALIDATE_SECONDS,
@@ -361,8 +391,9 @@ export async function getRecordSnapshot(
     return getRecordSnapshotUncached(query, context);
   }
 
-  const editions = context?.editions ?? await cachedAnalyticsEditions(epoch);
-  const normalizedEditions = normalizeAnalyticsEditions(editions);
+  const normalizedEditions = context
+    ? normalizeAnalyticsEditions(context.editions)
+    : await cachedAnalyticsEditions(epoch);
   const metric = getMetricDefinition(normalizedQuery.metricId);
   const cacheKey = normalizedEditions && metric
     ? buildAnalyticsSnapshotCacheKey('record', epoch, {
@@ -375,8 +406,13 @@ export async function getRecordSnapshot(
 
   if (!cacheKey || !normalizedEditions) {
     recordCacheResult(RECORD_SNAPSHOT_CACHE_NAME, 'miss');
-    return getRecordSnapshotUncached(query, context ?? { editions });
+    return getRecordSnapshotUncached(
+      query,
+      context ?? (normalizedEditions
+        ? { editions: restoreAnalyticsEditions(normalizedEditions) }
+        : undefined),
+    );
   }
 
-  return cachedRecordSnapshot(cacheKey, normalizedQuery, normalizedEditions);
+  return hydrateRecordSnapshot(await cachedRecordSnapshot(cacheKey, normalizedQuery, normalizedEditions));
 }

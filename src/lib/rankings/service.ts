@@ -15,6 +15,7 @@ import {
   PLAYER_RANKING_METHOD_VERSION,
   TEAM_POWER_METHOD_VERSION,
   type PlayerRankingRequest,
+  type PlayerRankingSnapshot,
   type TeamPowerMatch,
 } from '@/lib/rankings/types';
 import { recordCacheResult, trackedUnstableCache } from '@/lib/server-timing';
@@ -38,6 +39,13 @@ interface CachedPlayerRankingRequest {
   to: string | null;
   minimumMinutes: number;
 }
+
+type CachedPlayerRankingSnapshot = Omit<PlayerRankingSnapshot, 'request'> & {
+  request: Omit<PlayerRankingRequest, 'from' | 'to'> & {
+    from: string | null;
+    to: string | null;
+  };
+};
 
 function cacheableIdentifier(value: unknown, required = false): value is string {
   return typeof value === 'string'
@@ -103,7 +111,7 @@ function restorePlayerRankingRequest(request: CachedPlayerRankingRequest): Playe
   };
 }
 
-export async function getPlayerRankingSnapshotUncached(request: PlayerRankingRequest) {
+export async function getPlayerRankingSnapshotUncached(request: PlayerRankingRequest): Promise<PlayerRankingSnapshot> {
   const facts = await getCompetitionPlayerFacts(request.competitionId);
   const playerIds = [...new Set(facts.map((fact) => fact.entityId))];
   const playerIdSet = new Set(playerIds);
@@ -121,10 +129,33 @@ export async function getPlayerRankingSnapshotUncached(request: PlayerRankingReq
   );
 }
 
+function serializePlayerRankingSnapshot(snapshot: PlayerRankingSnapshot): CachedPlayerRankingSnapshot {
+  return {
+    ...snapshot,
+    request: {
+      ...snapshot.request,
+      from: snapshot.request.from?.toISOString() ?? null,
+      to: snapshot.request.to?.toISOString() ?? null,
+    },
+  };
+}
+
+function hydratePlayerRankingSnapshot(snapshot: CachedPlayerRankingSnapshot): PlayerRankingSnapshot {
+  const { from, to, ...request } = snapshot.request;
+  return {
+    ...snapshot,
+    request: {
+      ...request,
+      ...(from ? { from: new Date(from) } : {}),
+      ...(to ? { to: new Date(to) } : {}),
+    },
+  };
+}
+
 const cachedPlayerRankingSnapshot = trackedUnstableCache(
   PLAYER_RANKING_CACHE_NAME,
-  async (_cacheKey: string, request: CachedPlayerRankingRequest) =>
-    getPlayerRankingSnapshotUncached(restorePlayerRankingRequest(request)),
+  async (_cacheKey: string, request: CachedPlayerRankingRequest): Promise<CachedPlayerRankingSnapshot> =>
+    serializePlayerRankingSnapshot(await getPlayerRankingSnapshotUncached(restorePlayerRankingRequest(request))),
   ['analytics-player-ranking-snapshot-v1'],
   {
     revalidate: CACHE_REVALIDATE_SECONDS,
@@ -149,7 +180,7 @@ export async function getPlayerRankingSnapshot(request: PlayerRankingRequest) {
     return getPlayerRankingSnapshotUncached(request);
   }
 
-  return cachedPlayerRankingSnapshot(cacheKey, normalized);
+  return hydratePlayerRankingSnapshot(await cachedPlayerRankingSnapshot(cacheKey, normalized));
 }
 
 export async function getTeamPowerSnapshotUncached(competitionId: string) {

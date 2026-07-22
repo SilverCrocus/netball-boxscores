@@ -48,5 +48,5 @@ ORDER BY scheduled_at, match_id;
 -- analytics surface so an accidental table scan or expanded cache contract is
 -- visible during the role-boundary rehearsal.
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
-SELECT revision, invalidated_at
+SELECT revision, invalidated_at, contract_version
 FROM analytics.cache_revision_read;
