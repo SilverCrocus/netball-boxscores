@@ -724,7 +724,7 @@ describe('production operation guards', () => {
     )) as unknown);
 
     expect(manifest.sourceProjectRef).toBe(PREVIEW_REF);
-    expect(manifest.sourceMigrationThrough).toBe('20260722000000_add_analytics_cache_epoch');
+    expect(manifest.sourceMigrationThrough).toBe('20260722010000_repair_analytics_cache_epoch_contract');
     expect(manifest.objects).toHaveLength(56);
     expect(Object.fromEntries(['function', 'trigger', 'view'].map((kind) => [
       kind,

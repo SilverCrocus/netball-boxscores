@@ -649,6 +649,6 @@
       }
     }
   },
-  "sourceMigrationThrough": "20260722000000_add_analytics_cache_epoch",
+  "sourceMigrationThrough": "20260722010000_repair_analytics_cache_epoch_contract",
   "sourceProjectRef": "xpfdjkqrbvdasjpllxnc"
 }
