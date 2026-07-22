@@ -2,6 +2,18 @@ import { unstable_cache } from 'next/cache';
 
 export type CacheStatus = 'hit' | 'miss';
 
+export interface CacheSnapshotMeasurement {
+  rowCount: number;
+  resultCount: number;
+  serializedBytes: number;
+  rssBeforeBytes: number | null;
+  rssAfterBytes: number | null;
+  rssDeltaBytes: number | null;
+  heapUsedBeforeBytes: number | null;
+  heapUsedAfterBytes: number | null;
+  heapUsedDeltaBytes: number | null;
+}
+
 interface ServerTimingContext {
   route: string;
   operation: string;
@@ -10,12 +22,15 @@ interface ServerTimingContext {
   queryDurationMs: number;
   connectionWaitMs: number;
   cache: Record<string, CacheStatus>;
-  cacheMisses: Map<string, number>;
 }
 
-interface AsyncLocalStorageLike {
-  run<T>(store: ServerTimingContext, callback: () => Promise<T>): Promise<T>;
-  getStore(): ServerTimingContext | undefined;
+interface CacheInvocationContext {
+  loaderExecuted: boolean;
+}
+
+interface AsyncLocalStorageLike<Store> {
+  run<T>(store: Store, callback: () => Promise<T>): Promise<T>;
+  getStore(): Store | undefined;
 }
 
 interface NodeProcessLike {
@@ -23,10 +38,11 @@ interface NodeProcessLike {
 }
 
 interface AsyncHooksModule {
-  AsyncLocalStorage: new () => AsyncLocalStorageLike;
+  AsyncLocalStorage: new () => AsyncLocalStorageLike<unknown>;
 }
 
 const TIMING_CONTEXT_KEY = Symbol.for('centrepass.server-timing.context');
+const CACHE_INVOCATION_CONTEXT_KEY = Symbol.for('centrepass.server-timing.cache-invocation');
 
 /**
  * This module is imported by shared policy helpers that can be reached from
@@ -34,24 +50,25 @@ const TIMING_CONTEXT_KEY = Symbol.for('centrepass.server-timing.context');
  * not receive a node:async_hooks external while server renders still get
  * request-local counters on the supported Node runtime.
  */
-function createTimingContext(): AsyncLocalStorageLike | null {
+function createAsyncLocalStorage<Store>(key: symbol): AsyncLocalStorageLike<Store> | null {
   const globalState = globalThis as typeof globalThis & { [key: symbol]: unknown };
-  const existing = globalState[TIMING_CONTEXT_KEY];
-  if (existing) return existing as AsyncLocalStorageLike;
+  const existing = globalState[key];
+  if (existing) return existing as AsyncLocalStorageLike<Store>;
 
   const nodeProcess = (globalThis as typeof globalThis & { process?: NodeProcessLike }).process;
   if (typeof nodeProcess?.getBuiltinModule !== 'function') return null;
   try {
     const asyncHooks = nodeProcess.getBuiltinModule('node:async_hooks') as AsyncHooksModule;
     const context = new asyncHooks.AsyncLocalStorage();
-    globalState[TIMING_CONTEXT_KEY] = context;
-    return context;
+    globalState[key] = context;
+    return context as AsyncLocalStorageLike<Store>;
   } catch {
     return null;
   }
 }
 
-const timingContext = createTimingContext();
+const timingContext = createAsyncLocalStorage<ServerTimingContext>(TIMING_CONTEXT_KEY);
+const cacheInvocationContext = createAsyncLocalStorage<CacheInvocationContext>(CACHE_INVOCATION_CONTEXT_KEY);
 
 function roundedDuration(value: number): number {
   return Math.round(value * 10) / 10;
@@ -80,7 +97,6 @@ export async function measureServerOperation<T>(
     queryDurationMs: 0,
     connectionWaitMs: 0,
     cache: {},
-    cacheMisses: new Map(),
   };
 
   const run = async () => {
@@ -109,10 +125,26 @@ export function recordCacheResult(name: string, status: CacheStatus): void {
   if (context) context.cache[name] = status;
 }
 
+/** Records bounded snapshot-size and process-memory metadata without payloads or keys. */
+export function recordCacheSnapshotMeasurement(
+  name: string,
+  measurement: CacheSnapshotMeasurement,
+): void {
+  const context = timingContext?.getStore();
+  productionLog({
+    event: 'server_cache_snapshot_measurement',
+    route: context?.route ?? 'unknown',
+    operation: context?.operation ?? name,
+    name,
+    ...measurement,
+  });
+}
+
 /**
  * Wraps Next's supported data cache with production-safe hit/miss metadata.
- * A miss is marked in the request context that actually executes the loader,
- * avoiding shared mutable counters across concurrent cache keys or requests.
+ * A miss is marked in an invocation-local async context that only the cache
+ * loader for this wrapper call can see. Rejections remain unknown because a
+ * cache-layer failure may happen before the loader is reached.
  */
 export function trackedUnstableCache<Args extends unknown[], Result>(
   name: string,
@@ -122,10 +154,8 @@ export function trackedUnstableCache<Args extends unknown[], Result>(
 ): (...args: Args) => Promise<Result> {
   const cachedLoader = unstable_cache(
     async (...args: Args) => {
-      const context = timingContext?.getStore();
-      if (context) {
-        context.cacheMisses.set(name, (context.cacheMisses.get(name) ?? 0) + 1);
-      }
+      const invocation = cacheInvocationContext?.getStore();
+      if (invocation) invocation.loaderExecuted = true;
       return loader(...args);
     },
     keyParts,
@@ -134,13 +164,21 @@ export function trackedUnstableCache<Args extends unknown[], Result>(
 
   return async (...args: Args) => {
     const context = timingContext?.getStore();
-    const cacheMissesBefore = context?.cacheMisses.get(name) ?? 0;
+    let status: CacheStatus | 'unknown' = 'unknown';
     try {
-      return await cachedLoader(...args);
+      let result: Result;
+      if (context && cacheInvocationContext) {
+        const invocation: CacheInvocationContext = { loaderExecuted: false };
+        result = await cacheInvocationContext.run(
+          invocation,
+          () => cachedLoader(...args),
+        );
+        status = invocation.loaderExecuted ? 'miss' : 'hit';
+      } else {
+        result = await cachedLoader(...args);
+      }
+      return result;
     } finally {
-      const status: CacheStatus | 'unknown' = context
-        ? ((context.cacheMisses.get(name) ?? 0) > cacheMissesBefore ? 'miss' : 'hit')
-        : 'unknown';
       if (context && status !== 'unknown') context.cache[name] = status;
       productionLog({
         event: 'server_cache_timing',

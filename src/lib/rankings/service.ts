@@ -3,12 +3,187 @@ import {
   readEditionTeams,
   readTeamPowerMatches,
 } from '@/lib/analytics/repository';
+import {
+  assertAnalyticsSnapshotCacheSize,
+  runAnalyticsSnapshotSingleFlight,
+  SnapshotCacheTooLargeError,
+} from '@/lib/analytics/snapshot-cache';
+import {
+  buildAnalyticsSnapshotCacheKey,
+  readAnalyticsCacheEpoch,
+} from '@/lib/analytics/cache-epoch';
+import { getMetricDefinition } from '@/lib/analytics';
+import type { MetricQueryContext, MetricResult, MetricWindow } from '@/lib/analytics';
 import { getCompetitionPlayerFacts } from '@/lib/player-analytics';
 import { calculatePlayerRankingSnapshot } from '@/lib/rankings/player-rankings';
 import { calculateTeamPowerSnapshot } from '@/lib/rankings/team-power';
-import type { PlayerRankingRequest, TeamPowerMatch } from '@/lib/rankings/types';
+import {
+  PLAYER_RANKING_METHOD_VERSION,
+  TEAM_POWER_METHOD_VERSION,
+  type PlayerRankingRequest,
+  type PlayerRankingEntry,
+  type PlayerRankingSnapshot,
+  type TeamPowerMatch,
+} from '@/lib/rankings/types';
+import { recordCacheResult, trackedUnstableCache } from '@/lib/server-timing';
 
-export async function getPlayerRankingSnapshot(request: PlayerRankingRequest) {
+const PLAYER_RANKING_CACHE_NAME = 'analytics_player_ranking_snapshot';
+const TEAM_POWER_CACHE_NAME = 'analytics_team_power_snapshot';
+const CACHE_REVALIDATE_SECONDS = 60 * 60;
+const CACHE_TAG = 'analytics-snapshots';
+const CACHEABLE_IDENTIFIER = /^[^\u0000-\u001f]{1,128}$/u;
+const RANKING_POSITIONS = new Set(['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']);
+
+interface CachedPlayerRankingRequest {
+  competitionId: string;
+  metricId: string;
+  aggregation: PlayerRankingRequest['aggregation'];
+  position: string | null;
+  stageId: string | null;
+  stageGroupId: string | null;
+  lastN: number | null;
+  from: string | null;
+  to: string | null;
+  minimumMinutes: number;
+}
+
+type CachedMetricWindow = Omit<MetricWindow, 'from' | 'to'> & {
+  from?: string;
+  to?: string;
+};
+
+type CachedMetricResult = Omit<MetricResult, 'context'> & {
+  context: Omit<MetricQueryContext, 'window'> & {
+    window?: CachedMetricWindow;
+  };
+};
+
+type CachedPlayerRankingEntry = Omit<PlayerRankingEntry, 'result'> & {
+  result: CachedMetricResult;
+};
+
+type CachedPlayerRankingSnapshot = Omit<PlayerRankingSnapshot, 'request' | 'entries'> & {
+  request: Omit<PlayerRankingRequest, 'from' | 'to'> & {
+    from: string | null;
+    to: string | null;
+  };
+  entries: CachedPlayerRankingEntry[];
+};
+
+function cacheableIdentifier(value: unknown, required = false): value is string {
+  return typeof value === 'string'
+    && (required || value.length > 0)
+    && CACHEABLE_IDENTIFIER.test(value);
+}
+
+function dateToIso(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (!(value instanceof Date) || !Number.isFinite(value.getTime())) return null;
+  return value.toISOString();
+}
+
+function normalizePlayerRankingRequest(request: PlayerRankingRequest): CachedPlayerRankingRequest | null {
+  if (!cacheableIdentifier(request.competitionId, true)
+    || !cacheableIdentifier(request.metricId, true)
+    || !cacheableIdentifier(request.aggregation, true)
+    || (request.position !== undefined && (!cacheableIdentifier(request.position, true) || !RANKING_POSITIONS.has(request.position)))
+    || (request.stageId !== undefined && !cacheableIdentifier(request.stageId, true))
+    || (request.stageGroupId !== undefined && !cacheableIdentifier(request.stageGroupId, true))
+    || !Number.isFinite(request.minimumMinutes)
+    || request.minimumMinutes < 0
+    || request.minimumMinutes > 10_000
+    || (request.lastN !== undefined && (!Number.isInteger(request.lastN) || request.lastN < 1 || request.lastN > 100))) {
+    return null;
+  }
+
+  const metric = getMetricDefinition(request.metricId);
+  if (!metric || !metric.entityTypes.includes('PLAYER') || !metric.allowedAggregations.includes(request.aggregation)) {
+    return null;
+  }
+
+  const from = dateToIso(request.from);
+  const to = dateToIso(request.to);
+  if (from === null || to === null) return null;
+
+  return {
+    competitionId: request.competitionId,
+    metricId: request.metricId,
+    aggregation: request.aggregation,
+    position: request.position ?? null,
+    stageId: request.stageId ?? null,
+    stageGroupId: request.stageGroupId ?? null,
+    lastN: request.lastN ?? null,
+    from: from ?? null,
+    to: to ?? null,
+    minimumMinutes: request.minimumMinutes,
+  };
+}
+
+function restorePlayerRankingRequest(request: CachedPlayerRankingRequest): PlayerRankingRequest {
+  return {
+    competitionId: request.competitionId,
+    metricId: request.metricId,
+    aggregation: request.aggregation,
+    ...(request.position ? { position: request.position } : {}),
+    ...(request.stageId ? { stageId: request.stageId } : {}),
+    ...(request.stageGroupId ? { stageGroupId: request.stageGroupId } : {}),
+    ...(request.lastN !== null ? { lastN: request.lastN } : {}),
+    ...(request.from ? { from: new Date(request.from) } : {}),
+    ...(request.to ? { to: new Date(request.to) } : {}),
+    minimumMinutes: request.minimumMinutes,
+  };
+}
+
+function serializeMetricWindow(window: MetricWindow | undefined): CachedMetricWindow | undefined {
+  if (!window) return undefined;
+  const from = dateToIso(window.from);
+  const to = dateToIso(window.to);
+  if (from === null || to === null) {
+    throw new Error('Cannot cache a ranking result with an invalid metric window date');
+  }
+  return {
+    ...(window.lastN !== undefined ? { lastN: window.lastN } : {}),
+    ...(from !== undefined ? { from } : {}),
+    ...(to !== undefined ? { to } : {}),
+  };
+}
+
+function hydrateMetricWindow(window: CachedMetricWindow | undefined): MetricWindow | undefined {
+  if (!window) return undefined;
+  return {
+    ...(window.lastN !== undefined ? { lastN: window.lastN } : {}),
+    ...(window.from !== undefined ? { from: new Date(window.from) } : {}),
+    ...(window.to !== undefined ? { to: new Date(window.to) } : {}),
+  };
+}
+
+function serializeMetricResult(result: MetricResult): CachedMetricResult {
+  const { window, ...context } = result.context;
+  return {
+    ...result,
+    context: {
+      ...context,
+      ...(window
+        ? { window: serializeMetricWindow(window) }
+        : {}),
+    },
+  };
+}
+
+function hydrateMetricResult(result: CachedMetricResult): MetricResult {
+  const { window, ...context } = result.context;
+  return {
+    ...result,
+    context: {
+      ...context,
+      ...(window
+        ? { window: hydrateMetricWindow(window) }
+        : {}),
+    },
+  };
+}
+
+export async function getPlayerRankingSnapshotUncached(request: PlayerRankingRequest): Promise<PlayerRankingSnapshot> {
   const facts = await getCompetitionPlayerFacts(request.competitionId);
   const playerIds = [...new Set(facts.map((fact) => fact.entityId))];
   const playerIdSet = new Set(playerIds);
@@ -26,7 +201,86 @@ export async function getPlayerRankingSnapshot(request: PlayerRankingRequest) {
   );
 }
 
-export async function getTeamPowerSnapshot(competitionId: string) {
+function serializePlayerRankingSnapshot(snapshot: PlayerRankingSnapshot): CachedPlayerRankingSnapshot {
+  const cached: CachedPlayerRankingSnapshot = {
+    ...snapshot,
+    request: {
+      ...snapshot.request,
+      from: snapshot.request.from?.toISOString() ?? null,
+      to: snapshot.request.to?.toISOString() ?? null,
+    },
+    entries: snapshot.entries.map((entry) => ({
+      ...entry,
+      result: serializeMetricResult(entry.result),
+    })),
+  };
+  return assertAnalyticsSnapshotCacheSize(PLAYER_RANKING_CACHE_NAME, cached, {
+    rowCount: snapshot.populationSize,
+    resultCount: snapshot.entries.length,
+  });
+}
+
+function hydratePlayerRankingSnapshot(snapshot: CachedPlayerRankingSnapshot): PlayerRankingSnapshot {
+  const { from, to, ...request } = snapshot.request;
+  return {
+    ...snapshot,
+    request: {
+      ...request,
+      ...(from ? { from: new Date(from) } : {}),
+      ...(to ? { to: new Date(to) } : {}),
+    },
+    entries: snapshot.entries.map((entry) => ({
+      ...entry,
+      result: hydrateMetricResult(entry.result),
+    })),
+  };
+}
+
+const cachedPlayerRankingSnapshot = trackedUnstableCache(
+  PLAYER_RANKING_CACHE_NAME,
+  async (_cacheKey: string, request: CachedPlayerRankingRequest): Promise<CachedPlayerRankingSnapshot> =>
+    serializePlayerRankingSnapshot(await getPlayerRankingSnapshotUncached(restorePlayerRankingRequest(request))),
+  ['analytics-player-ranking-snapshot-v1'],
+  {
+    revalidate: CACHE_REVALIDATE_SECONDS,
+    tags: [CACHE_TAG],
+  },
+);
+
+export async function getPlayerRankingSnapshot(request: PlayerRankingRequest) {
+  const epoch = await readAnalyticsCacheEpoch();
+  const normalized = epoch ? normalizePlayerRankingRequest(request) : null;
+  const metric = normalized ? getMetricDefinition(normalized.metricId) : undefined;
+  const cacheKey = epoch && normalized && metric
+    ? buildAnalyticsSnapshotCacheKey('player-ranking', epoch, {
+      methodVersion: PLAYER_RANKING_METHOD_VERSION,
+      formulaVersion: metric.formulaVersion,
+      request: normalized,
+    })
+    : null;
+
+  if (!cacheKey || !normalized || !epoch) {
+    recordCacheResult(PLAYER_RANKING_CACHE_NAME, 'miss');
+    return getPlayerRankingSnapshotUncached(request);
+  }
+
+  try {
+    return hydratePlayerRankingSnapshot(await runAnalyticsSnapshotSingleFlight(
+      PLAYER_RANKING_CACHE_NAME,
+      epoch,
+      cacheKey,
+      () => cachedPlayerRankingSnapshot(cacheKey, normalized),
+    ));
+  } catch (error) {
+    if (error instanceof SnapshotCacheTooLargeError) {
+      recordCacheResult(PLAYER_RANKING_CACHE_NAME, 'miss');
+      return hydratePlayerRankingSnapshot(error.value as CachedPlayerRankingSnapshot);
+    }
+    throw error;
+  }
+}
+
+export async function getTeamPowerSnapshotUncached(competitionId: string) {
   const [matches, teams] = await Promise.all([
     readTeamPowerMatches(competitionId),
     readEditionTeams(competitionId),
@@ -54,4 +308,50 @@ export async function getTeamPowerSnapshot(competitionId: string) {
       abbreviation: team.abbreviation,
     })),
   );
+}
+
+const cachedTeamPowerSnapshot = trackedUnstableCache(
+  TEAM_POWER_CACHE_NAME,
+  async (_cacheKey: string, competitionId: string) => {
+    const snapshot = await getTeamPowerSnapshotUncached(competitionId);
+    return assertAnalyticsSnapshotCacheSize(TEAM_POWER_CACHE_NAME, snapshot, {
+      rowCount: snapshot.populationSize,
+      resultCount: snapshot.entries.length,
+    });
+  },
+  ['analytics-team-power-snapshot-v1'],
+  {
+    revalidate: CACHE_REVALIDATE_SECONDS,
+    tags: [CACHE_TAG],
+  },
+);
+
+export async function getTeamPowerSnapshot(competitionId: string) {
+  const epoch = await readAnalyticsCacheEpoch();
+  const cacheKey = epoch && cacheableIdentifier(competitionId, true)
+    ? buildAnalyticsSnapshotCacheKey('team-power', epoch, {
+      methodVersion: TEAM_POWER_METHOD_VERSION,
+      competitionId,
+    })
+    : null;
+
+  if (!cacheKey || !epoch) {
+    recordCacheResult(TEAM_POWER_CACHE_NAME, 'miss');
+    return getTeamPowerSnapshotUncached(competitionId);
+  }
+
+  try {
+    return await runAnalyticsSnapshotSingleFlight(
+      TEAM_POWER_CACHE_NAME,
+      epoch,
+      cacheKey,
+      () => cachedTeamPowerSnapshot(cacheKey, competitionId),
+    );
+  } catch (error) {
+    if (error instanceof SnapshotCacheTooLargeError) {
+      recordCacheResult(TEAM_POWER_CACHE_NAME, 'miss');
+      return error.value as Awaited<ReturnType<typeof getTeamPowerSnapshotUncached>>;
+    }
+    throw error;
+  }
 }

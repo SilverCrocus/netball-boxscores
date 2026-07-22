@@ -13,13 +13,15 @@
     "test:watch": "vitest",
     "smoke:production": "npx tsx scripts/production-smoke.ts",
     "smoke:server-startup": "node scripts/smoke-server-startup.mjs",
+    "stress:phase2-memory": "npx tsx scripts/stress-phase2-memory.ts --representative-data-confirmed",
     "guard:production-psql": "npx tsx scripts/lib/production-psql.ts",
     "guard:production-target": "npx tsx scripts/production-target-guard.ts",
     "production:glasgow": "npx tsx scripts/production-glasgow.ts",
     "verify:production-migrations": "npx tsx scripts/verify-production-migrations.ts",
     "verify:production-catalog": "npx tsx scripts/verify-production-catalog.ts",
+    "generate:production-catalog": "npx tsx scripts/generate-production-catalog.ts",
     "db:push": "npx prisma db push",
-    "db:migrate:deploy": "npx prisma migrate deploy",
+    "db:migrate:deploy": "npx tsx scripts/guarded-prisma-migrate-deploy.ts",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:prepare:glasgow": "npx tsx scripts/prepare-glasgow-2026.ts",
     "db:reset:glasgow-preview": "npx tsx scripts/reset-glasgow-2026-preview.ts",
@@ -65,8 +67,10 @@
     "vitest": "4.1.10"
   },
   "overrides": {
+    "body-parser": "2.3.0",
     "cookie": "0.7.2",
     "postcss": "8.5.17",
+    "sharp": "0.35.3",
     "uuid": "11.1.1"
   }
 }

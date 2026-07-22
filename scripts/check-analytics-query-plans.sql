@@ -43,3 +43,10 @@ SELECT
 FROM analytics.team_power_match
 WHERE competition_id = :'competition_id'
 ORDER BY scheduled_at, match_id;
+
+-- The cache epoch is a singleton read. Keep this assertion in the reviewed
+-- analytics surface so an accidental table scan or expanded cache contract is
+-- visible during the role-boundary rehearsal.
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT revision, invalidated_at, contract_version
+FROM analytics.cache_revision_read;

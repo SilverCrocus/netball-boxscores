@@ -124,6 +124,15 @@ trigger enabled state, and function security/configuration attributes. The live
 catalog is verified after the pending migrations are applied and before any
 feature or Glasgow data is enabled.
 
+The catalog generator is preview-only. The governed CI rehearsal may write a
+deterministic artifact to `.artifacts/production-catalog.json` only after the
+exact final Prisma ledger and scoped role/Data API ACL checks pass. It requires
+the staging preview target guard, refuses production-equivalent URLs, and
+refuses `scripts/manifests/production-catalog.json` as an output path. Review
+the artifact's project-ref and `sourceMigrationThrough` before mechanically
+installing it as the checked-in manifest; never hand-edit that manifest or run
+the generator against production.
+
 In the Supabase Dashboard for project `iqnhnlttvnvkwrqvnrna`:
 
 1. Open **Database > Backups**.
@@ -229,9 +238,14 @@ Only after the explicit `GO`:
    commit** (or the repository's existing automatic deploy if its event and
    commit are visible). Do not deploy an unrecorded branch head.
 4. The checked-in [`render.yaml`](../../render.yaml) requires
-   `preDeployCommand: npm run db:migrate:deploy`. Confirm in the new deployment
-   logs that this command completed successfully **before** the new web process
-   started. A migration failure, unexpected migration, wrong service/region, or
+   `preDeployCommand: npm run db:migrate:deploy`. That command is guarded: a
+   Render pull-request preview (`RENDER=true`, `IS_PULL_REQUEST=true`) exits
+   successfully without invoking Prisma; a Render non-preview run may invoke
+   Prisma only when `IS_PULL_REQUEST=false` and `RENDER_GIT_BRANCH=main`.
+   Outside Render it preserves the normal local migration behavior. Confirm in
+   the deployment logs that the guard decision and any approved migration
+   completed **before** the new web process started. A malformed Render
+   contract, migration failure, unexpected migration, wrong service/region, or
    commit mismatch is a hard halt; do not publish Glasgow.
 5. Capture deployment ID, commit, start/end time, pre-deploy logs, build result,
    and the first application logs. Never capture secret values.
@@ -267,6 +281,26 @@ duplicate, out-of-order, missing, extra or changed catalog state.
 The commit-bound baseline smoke must pass before feature enablement or the
 first Glasgow DRAFT write; it also proves Glasgow and feature routes fail
 closed while their switches are off.
+
+### Historical PR-preview migration incident
+
+The applying automatic Render PR #52 preview was the pre-guard,
+`e9a252d`-era deployment at approximately 15:31 Sydney time. It inherited the
+base service's production database credentials, its inherited
+`preDeployCommand` ran `npm run db:migrate:deploy`, and it applied the
+additive migration `20260722000000_add_analytics_cache_epoch` to production.
+The production ledger records completion at `2026-07-22 05:31:39.151698+00`
+(approximately 15:31:39 Sydney); the Render preview log identified the pooler
+target and reported 15 migrations with no pending migrations. This mutation was
+not performed manually by the release-preparation lane, is additive and
+ledger-clean, and must remain in the release ledger.
+
+`1fb85fd`, created later at approximately 19:59 Sydney time, contained the
+later `0e7fbb76...` migration bytes and only observed/verified preview behavior;
+it could not have applied the production ledger row carrying checksum
+`1f7d2690...`. The migration guard arrived in `0895da8` and subsequent Render
+PR previews must show its low-cardinality skip message without invoking
+Prisma. Do not attempt a rollback.
 
 The Blueprint's Render health check is `/api/health`; liveness alone is not a
 release pass. `/api/readiness` must also return `200` and `status=ready`.

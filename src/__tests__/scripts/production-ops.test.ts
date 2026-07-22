@@ -724,15 +724,16 @@ describe('production operation guards', () => {
     )) as unknown);
 
     expect(manifest.sourceProjectRef).toBe(PREVIEW_REF);
-    expect(manifest.sourceMigrationThrough).toBe('20260717010000_close_postgres17_maintain_acl');
-    expect(manifest.objects).toHaveLength(43);
+    expect(manifest.sourceMigrationThrough).toBe('20260722010000_repair_analytics_cache_epoch_contract');
+    expect(manifest.objects).toHaveLength(56);
     expect(Object.fromEntries(['function', 'trigger', 'view'].map((kind) => [
       kind,
       manifest.objects.filter((object) => object.kind === kind).length,
-    ]))).toEqual({ function: 6, trigger: 12, view: 25 });
+    ]))).toEqual({ function: 7, trigger: 24, view: 25 });
     expect(manifest.objects
       .filter((object) => object.kind === 'function')
       .map((object) => object.identity)).toEqual([
+      'analytics.advance_cache_epoch()',
       'analytics.queue_match_invalidation()',
       'analytics.reserve_stat_query_rate_limit(text)',
       'analytics.write_stat_query_telemetry(text,jsonb,text,text,integer,integer,text)',

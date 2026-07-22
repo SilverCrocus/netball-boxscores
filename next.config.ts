@@ -3,6 +3,9 @@ import { buildSecurityHeaders } from "./src/lib/security-headers";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Render runs one 512 MiB instance. Keep Next's filesystem cache durable
+  // while disabling its process-local LRU to preserve memory headroom.
+  cacheMaxMemorySize: 0,
   allowedDevOrigins: ['127.0.0.1'],
   turbopack: {
     root: process.cwd(),

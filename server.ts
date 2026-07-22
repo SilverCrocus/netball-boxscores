@@ -8,6 +8,15 @@ import { safeErrorMessage } from "./src/lib/safe-logging";
 
 const SHUTDOWN_TIMEOUT_MS = 5_000;
 
+const localMemoryStressInterval = process.env.LOCAL_MEMORY_STRESS === 'true'
+  && process.env.DATABASE_ENVIRONMENT === 'local'
+  && typeof process.send === 'function'
+  ? setInterval(() => {
+    process.send?.({ type: 'phase2-memory-sample', memory: process.memoryUsage() });
+  }, 250)
+  : null;
+localMemoryStressInterval?.unref();
+
 const SIM_MODE = process.env.SIMULATION_MODE === 'true';
 const dev = process.env.NODE_ENV !== "production";
 const hostname = dev ? "localhost" : (process.env.HOSTNAME || "0.0.0.0");

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { runProtectedPsql } from './lib/production-psql';
 
-type CatalogKind = 'view' | 'materialized_view' | 'function' | 'trigger';
+export type CatalogKind = 'view' | 'materialized_view' | 'function' | 'trigger';
 type Scalar = boolean | string;
 export type SecurityState = Record<string, Scalar | string[] | AclEntry[]>;
 
@@ -25,19 +25,23 @@ export interface CatalogObjectChecksum {
   sha256: string;
 }
 
-interface ManifestProfile {
+export interface CatalogObjectRecord extends CatalogObjectChecksum {
+  securityState: SecurityState;
+}
+
+export interface ManifestProfile {
   kind: CatalogKind;
   state: SecurityState;
 }
 
-interface ManifestObject {
+export interface ManifestObject {
   kind: CatalogKind;
   identity: string;
   definitionSha256: string;
   securityProfile: string;
 }
 
-interface CatalogManifest {
+export interface CatalogManifest {
   schemaVersion: 2;
   hashAlgorithm: 'sha256';
   sourceProjectRef: string;
@@ -166,7 +170,7 @@ function exactKeys(value: Record<string, unknown>, expected: string[], label: st
   }
 }
 
-function canonicalJson(value: unknown): string {
+export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') {
     const object = value as Record<string, unknown>;
@@ -271,17 +275,23 @@ export function compareCatalog(
   };
 }
 
-function catalogRow(kind: CatalogKind, identity: string, definitionSha256: string, state: SecurityState): CatalogObjectChecksum {
+function catalogRow(
+  kind: CatalogKind,
+  identity: string,
+  definitionSha256: string,
+  state: SecurityState,
+): CatalogObjectRecord {
   return {
     kind,
     identity,
     definitionSha256,
     securityStateSha256: catalogSecurityStateChecksum(state),
     sha256: catalogObjectChecksum(definitionSha256, state),
+    securityState: state,
   };
 }
 
-export function parseCatalogOutput(output: string): CatalogObjectChecksum[] {
+export function parseCatalogRecords(output: string): CatalogObjectRecord[] {
   if (!output.trim()) return [];
   let previous = '';
   return output.trim().split('\n').map((line) => {
@@ -305,6 +315,16 @@ export function parseCatalogOutput(output: string): CatalogObjectChecksum[] {
     const state = validateSecurityState(kind as CatalogKind, parsedState, `${objectKey} security state`);
     return catalogRow(kind as CatalogKind, identity, catalogDefinitionChecksum(definition), state);
   });
+}
+
+export function parseCatalogOutput(output: string): CatalogObjectChecksum[] {
+  return parseCatalogRecords(output).map((object) => ({
+    kind: object.kind,
+    identity: object.identity,
+    definitionSha256: object.definitionSha256,
+    securityStateSha256: object.securityStateSha256,
+    sha256: object.sha256,
+  }));
 }
 
 export function validateManifest(value: unknown): CatalogManifest & { checksums: CatalogObjectChecksum[] } {

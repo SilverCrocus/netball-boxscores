@@ -1,4 +1,9 @@
 import type { AnalyticsCoverageState, AnalyticsEntityType, AnalyticsFact, AnalyticsRawField, MetricAggregation } from '@/lib/analytics';
+import { getMetricDefinition } from '@/lib/analytics';
+import {
+  buildAnalyticsSnapshotCacheKey,
+  readAnalyticsCacheEpoch,
+} from '@/lib/analytics/cache-epoch';
 import {
   listAnalyticsEditions,
   readAnalyticsEntities,
@@ -7,8 +12,34 @@ import {
   readFinalsStageIds,
   type AnalyticsEdition,
 } from '@/lib/analytics/repository';
+import {
+  assertAnalyticsSnapshotCacheSize,
+  runAnalyticsSnapshotSingleFlight,
+  SnapshotCacheTooLargeError,
+} from '@/lib/analytics/snapshot-cache';
 import { calculateRecordSnapshot } from '@/lib/records/calculate';
-import type { RecordEntity, RecordScope } from '@/lib/records/types';
+import {
+  RECORDS_METHOD_VERSION,
+  type RecordEntity,
+  type RecordRequest,
+  type RecordScope,
+  type RecordSnapshot,
+} from '@/lib/records/types';
+import { recordCacheResult, trackedUnstableCache } from '@/lib/server-timing';
+
+const RECORD_SNAPSHOT_CACHE_NAME = 'analytics_record_snapshot';
+const RECORD_EDITIONS_CACHE_NAME = 'analytics_record_editions';
+const CACHE_REVALIDATE_SECONDS = 60 * 60;
+const CACHE_TAG = 'analytics-snapshots';
+const CACHEABLE_IDENTIFIER = /^[^\u0000-\u001f]{1,128}$/u;
+const RECORD_SCOPES = new Set<RecordScope>([
+  'SINGLE_MATCH',
+  'EDITION',
+  'FINALS',
+  'CAREER',
+  'TEAM',
+  'CENTREPASS_ERA',
+]);
 
 interface FactRow {
   match_id: string;
@@ -133,10 +164,142 @@ export interface RecordSnapshotContext {
   editions: readonly AnalyticsEdition[];
 }
 
-export async function getRecordSnapshot(
+interface CachedRecordSnapshotQuery {
+  scope: RecordScope;
+  metricId: string;
+  aggregation: MetricAggregation;
+  entityType: AnalyticsEntityType;
+  effectiveEntityType: AnalyticsEntityType;
+  competitionId: string | null;
+  limit: number | null;
+}
+
+interface CachedAnalyticsEdition {
+  id: string;
+  season: number;
+  name: string;
+  slug: string;
+  label: string | null;
+  seasonStart: string | null;
+  seasonEnd: string | null;
+  sourceTimezone: string;
+  series: {
+    id: string;
+    slug: string;
+    name: string;
+    kind: 'LEAGUE' | 'TOURNAMENT';
+  };
+}
+
+type CachedRecordSnapshot = Omit<RecordSnapshot, 'request'> & {
+  request: Omit<RecordRequest, 'coverageStart'> & { coverageStart: string };
+};
+
+function cacheableIdentifier(value: unknown, required = false): value is string {
+  return typeof value === 'string'
+    && (required || value.length > 0)
+    && CACHEABLE_IDENTIFIER.test(value);
+}
+
+function optionalDateToIso(value: Date | null): string | null | undefined {
+  if (value === null) return null;
+  if (!(value instanceof Date) || !Number.isFinite(value.getTime())) return undefined;
+  return value.toISOString();
+}
+
+function normalizeRecordQuery(query: RecordSnapshotQuery): CachedRecordSnapshotQuery | null {
+  if (!RECORD_SCOPES.has(query.scope)
+    || (query.entityType !== 'PLAYER' && query.entityType !== 'TEAM')
+    || !cacheableIdentifier(query.metricId, true)
+    || !cacheableIdentifier(query.aggregation, true)
+    || (query.competitionId !== undefined && !cacheableIdentifier(query.competitionId, true))
+    || (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100))) {
+    return null;
+  }
+
+  const effectiveEntityType: AnalyticsEntityType = query.scope === 'TEAM' ? 'TEAM' : query.entityType;
+  const metric = getMetricDefinition(query.metricId);
+  if (!metric
+    || metric.calculation.kind === 'SERVICE'
+    || !metric.entityTypes.includes(effectiveEntityType)
+    || !metric.allowedAggregations.includes(query.aggregation)) {
+    return null;
+  }
+
+  return {
+    scope: query.scope,
+    metricId: query.metricId,
+    aggregation: query.aggregation,
+    entityType: query.entityType,
+    effectiveEntityType,
+    competitionId: query.competitionId ?? null,
+    limit: query.limit ?? null,
+  };
+}
+
+function normalizeAnalyticsEditions(editions: readonly AnalyticsEdition[]): CachedAnalyticsEdition[] | null {
+  if (editions.length > 200) return null;
+  const normalized: CachedAnalyticsEdition[] = [];
+  for (const edition of editions) {
+    if (!cacheableIdentifier(edition.id, true)
+      || !Number.isInteger(edition.season)
+      || !cacheableIdentifier(edition.name, true)
+      || !cacheableIdentifier(edition.slug, true)
+      || (edition.label !== null && !cacheableIdentifier(edition.label, true))
+      || !cacheableIdentifier(edition.sourceTimezone, true)
+      || !cacheableIdentifier(edition.series.id, true)
+      || !cacheableIdentifier(edition.series.slug, true)
+      || !cacheableIdentifier(edition.series.name, true)
+      || (edition.series.kind !== 'LEAGUE' && edition.series.kind !== 'TOURNAMENT')) {
+      return null;
+    }
+    const seasonStart = optionalDateToIso(edition.seasonStart);
+    const seasonEnd = optionalDateToIso(edition.seasonEnd);
+    if (seasonStart === undefined || seasonEnd === undefined) return null;
+    normalized.push({
+      id: edition.id,
+      season: edition.season,
+      name: edition.name,
+      slug: edition.slug,
+      label: edition.label,
+      seasonStart,
+      seasonEnd,
+      sourceTimezone: edition.sourceTimezone,
+      series: { ...edition.series },
+    });
+  }
+  return normalized;
+}
+
+function restoreRecordQuery(query: CachedRecordSnapshotQuery): RecordSnapshotQuery {
+  return {
+    scope: query.scope,
+    metricId: query.metricId,
+    aggregation: query.aggregation,
+    entityType: query.entityType,
+    ...(query.competitionId ? { competitionId: query.competitionId } : {}),
+    ...(query.limit !== null ? { limit: query.limit } : {}),
+  };
+}
+
+function restoreAnalyticsEditions(editions: readonly CachedAnalyticsEdition[]): AnalyticsEdition[] {
+  return editions.map((edition) => ({
+    id: edition.id,
+    season: edition.season,
+    name: edition.name,
+    slug: edition.slug,
+    label: edition.label,
+    seasonStart: edition.seasonStart ? new Date(edition.seasonStart) : null,
+    seasonEnd: edition.seasonEnd ? new Date(edition.seasonEnd) : null,
+    sourceTimezone: edition.sourceTimezone,
+    series: { ...edition.series },
+  }));
+}
+
+export async function getRecordSnapshotUncached(
   query: RecordSnapshotQuery,
   context?: RecordSnapshotContext,
-) {
+): Promise<RecordSnapshot> {
   const entityType: AnalyticsEntityType = query.scope === 'TEAM' ? 'TEAM' : query.entityType;
   const editions = context?.editions ?? await listAnalyticsEditions();
   const selectedEdition = editions.find((edition) => edition.id === query.competitionId);
@@ -170,4 +333,119 @@ export async function getRecordSnapshot(
     coverageStart,
     limit: query.limit,
   });
+}
+
+function serializeRecordSnapshot(snapshot: RecordSnapshot): CachedRecordSnapshot {
+  const cached: CachedRecordSnapshot = {
+    ...snapshot,
+    request: {
+      ...snapshot.request,
+      coverageStart: snapshot.request.coverageStart.toISOString(),
+    },
+  };
+  return assertAnalyticsSnapshotCacheSize(RECORD_SNAPSHOT_CACHE_NAME, cached, {
+    rowCount: snapshot.entries.length,
+    resultCount: snapshot.entries.length,
+  });
+}
+
+function hydrateRecordSnapshot(snapshot: CachedRecordSnapshot): RecordSnapshot {
+  return {
+    ...snapshot,
+    request: {
+      ...snapshot.request,
+      coverageStart: new Date(snapshot.request.coverageStart),
+    },
+  };
+}
+
+const cachedAnalyticsEditions = trackedUnstableCache(
+  RECORD_EDITIONS_CACHE_NAME,
+  async (epoch: string): Promise<CachedAnalyticsEdition[] | null> => {
+    void epoch;
+    const editions = normalizeAnalyticsEditions(await listAnalyticsEditions());
+    return editions
+      ? assertAnalyticsSnapshotCacheSize(RECORD_EDITIONS_CACHE_NAME, editions, {
+        rowCount: editions.length,
+        resultCount: editions.length,
+      })
+      : null;
+  },
+  ['analytics-record-editions-v1'],
+  {
+    revalidate: CACHE_REVALIDATE_SECONDS,
+    tags: [CACHE_TAG],
+  },
+);
+
+const cachedRecordSnapshot = trackedUnstableCache(
+  RECORD_SNAPSHOT_CACHE_NAME,
+  async (
+    _cacheKey: string,
+    query: CachedRecordSnapshotQuery,
+    editions: CachedAnalyticsEdition[],
+  ): Promise<CachedRecordSnapshot> => serializeRecordSnapshot(await getRecordSnapshotUncached(
+    restoreRecordQuery(query),
+    { editions: restoreAnalyticsEditions(editions) },
+  )),
+  ['analytics-record-snapshot-v1'],
+  {
+    revalidate: CACHE_REVALIDATE_SECONDS,
+    tags: [CACHE_TAG],
+  },
+);
+
+export async function getRecordSnapshot(
+  query: RecordSnapshotQuery,
+  context?: RecordSnapshotContext,
+) {
+  const epoch = await readAnalyticsCacheEpoch();
+  const normalizedQuery = epoch ? normalizeRecordQuery(query) : null;
+  if (!epoch || !normalizedQuery) {
+    recordCacheResult(RECORD_SNAPSHOT_CACHE_NAME, 'miss');
+    return getRecordSnapshotUncached(query, context);
+  }
+
+  const normalizedEditions = context
+    ? normalizeAnalyticsEditions(context.editions)
+    : await runAnalyticsSnapshotSingleFlight(
+      RECORD_EDITIONS_CACHE_NAME,
+      epoch,
+      epoch,
+      () => cachedAnalyticsEditions(epoch),
+    );
+  const metric = getMetricDefinition(normalizedQuery.metricId);
+  const cacheKey = normalizedEditions && metric
+    ? buildAnalyticsSnapshotCacheKey('record', epoch, {
+      methodVersion: RECORDS_METHOD_VERSION,
+      formulaVersion: metric.formulaVersion,
+      query: normalizedQuery,
+      orderedPublishedEditionIdentity: normalizedEditions,
+    })
+    : null;
+
+  if (!cacheKey || !normalizedEditions) {
+    recordCacheResult(RECORD_SNAPSHOT_CACHE_NAME, 'miss');
+    return getRecordSnapshotUncached(
+      query,
+      context ?? (normalizedEditions
+        ? { editions: restoreAnalyticsEditions(normalizedEditions) }
+        : undefined),
+    );
+  }
+
+  try {
+    return hydrateRecordSnapshot(await runAnalyticsSnapshotSingleFlight(
+      RECORD_SNAPSHOT_CACHE_NAME,
+      epoch,
+      cacheKey,
+      () => cachedRecordSnapshot(cacheKey, normalizedQuery, normalizedEditions),
+    ));
+  } catch (error) {
+    if (error instanceof SnapshotCacheTooLargeError) {
+      recordCacheResult(RECORD_SNAPSHOT_CACHE_NAME, 'miss');
+      return hydrateRecordSnapshot(error.value as CachedRecordSnapshot);
+    }
+    throw error;
+  }
 }
