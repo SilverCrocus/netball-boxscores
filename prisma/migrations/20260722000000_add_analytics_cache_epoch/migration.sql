@@ -126,30 +126,28 @@ BEGIN
 
       -- A deleted Match is removed by the foreign key cascade from
       -- cache_invalidation, so only live rows receive a local receipt.
-      IF TG_OP <> 'DELETE' THEN
-        IF new_is_eligible THEN
-          INSERT INTO analytics.cache_invalidation (
-            match_id, competition_id, reason, revision, invalidated_at
-          ) VALUES (
-            NEW."id", NEW."competitionId", TG_ARGV[0], 1, CURRENT_TIMESTAMP
-          )
-          ON CONFLICT (match_id) DO UPDATE SET
-            competition_id = EXCLUDED.competition_id,
-            reason = EXCLUDED.reason,
-            revision = analytics.cache_invalidation.revision + 1,
-            invalidated_at = CURRENT_TIMESTAMP;
-        ELSE
-          INSERT INTO analytics.cache_invalidation (
-            match_id, competition_id, reason, revision, invalidated_at
-          ) VALUES (
-            OLD."id", OLD."competitionId", TG_ARGV[0], 1, CURRENT_TIMESTAMP
-          )
-          ON CONFLICT (match_id) DO UPDATE SET
-            competition_id = EXCLUDED.competition_id,
-            reason = EXCLUDED.reason,
-            revision = analytics.cache_invalidation.revision + 1,
-            invalidated_at = CURRENT_TIMESTAMP;
-        END IF;
+      IF TG_OP <> 'DELETE' AND new_is_eligible THEN
+        INSERT INTO analytics.cache_invalidation (
+          match_id, competition_id, reason, revision, invalidated_at
+        ) VALUES (
+          NEW."id", NEW."competitionId", TG_ARGV[0], 1, CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (match_id) DO UPDATE SET
+          competition_id = EXCLUDED.competition_id,
+          reason = EXCLUDED.reason,
+          revision = analytics.cache_invalidation.revision + 1,
+          invalidated_at = CURRENT_TIMESTAMP;
+      ELSIF TG_OP = 'UPDATE' AND old_is_eligible THEN
+        INSERT INTO analytics.cache_invalidation (
+          match_id, competition_id, reason, revision, invalidated_at
+        ) VALUES (
+          OLD."id", OLD."competitionId", TG_ARGV[0], 1, CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (match_id) DO UPDATE SET
+          competition_id = EXCLUDED.competition_id,
+          reason = EXCLUDED.reason,
+          revision = analytics.cache_invalidation.revision + 1,
+          invalidated_at = CURRENT_TIMESTAMP;
       END IF;
     END IF;
   ELSIF TG_TABLE_NAME IN ('PlayerMatchStats', 'TeamMatchStats') THEN

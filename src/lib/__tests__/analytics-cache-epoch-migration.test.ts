@@ -71,6 +71,12 @@ describe('analytics cache epoch migration contract', () => {
     expect(migration).toContain("competition.\"slug\" = 'glasgow-2026'");
     expect(migration).not.toMatch(/"stageGroupId", "updatedAt"/u);
     expect(migration).toContain('PERFORM analytics.advance_cache_epoch()');
+    expect(migration).toContain(
+      "IF TG_OP <> 'DELETE' AND new_is_eligible THEN",
+    );
+    expect(migration).toContain(
+      "ELSIF TG_OP = 'UPDATE' AND old_is_eligible THEN",
+    );
   });
 
   it('keeps the runtime role surface unchanged and adds a bounded epoch plan', () => {
