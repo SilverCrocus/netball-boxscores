@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cache } from 'react';
 import { TeamBadge } from '@/components/ui/TeamBadge';
 import type { Metadata } from 'next';
 import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
@@ -38,6 +39,10 @@ interface StandingsCompetitionSelection {
   competitions: CompetitionNavigationOption[];
 }
 
+const getFreshStandingsCompetitionDirectory = cache(
+  () => getPublicCompetitionNavigationDirectory({ cache: false }),
+);
+
 export function selectStandingsCompetition(
   competitions: CompetitionNavigationOption[],
   { edition, season }: { edition?: string; season?: string },
@@ -70,7 +75,7 @@ async function resolveStandingsCompetition(
   params: { edition?: string; season?: string },
 ): Promise<StandingsCompetitionSelection> {
   return selectStandingsCompetition(
-    await getPublicCompetitionNavigationDirectory({ cache: false }),
+    await getFreshStandingsCompetitionDirectory(),
     params,
   );
 }

@@ -183,11 +183,26 @@ export async function getLiveStatus(): Promise<LiveStatusState> {
       }),
     ),
   ]);
-  const candidates = [
+  const mergedCandidates = [
     ...new Map(
       [...liveCandidates, ...upcomingCandidates].map((match) => [match.id, match]),
     ).values(),
   ];
+  const candidateIds = mergedCandidates.map((match) => match.id);
+  const candidates = candidateIds.length > 0
+    ? await timedQuery(
+      'live_status_authoritative_candidates',
+      () => prisma.match.findMany({
+        where: {
+          ...excludeSimData,
+          id: { in: candidateIds },
+        },
+        select: publicMatchBatchSelect,
+        orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
+        take: candidateIds.length,
+      }),
+    )
+    : [];
   const accessById = await resolvePublicMatchAccessBatch(
     candidates.map((match) => match.id),
     undefined,

@@ -200,17 +200,27 @@ describe('getLiveState', () => {
   it('uses only live and next-hour candidates for the shared status badge', async () => {
     const live = candidate('live', new Date('2026-07-25T07:45:00Z'));
     const next = candidate('next', new Date('2026-07-25T08:30:00Z'));
-    findManyMock.mockImplementation(({ where }: { where: { status?: string } }) =>
-      Promise.resolve(where.status === 'LIVE' ? [live] : [next]));
-    resolvePublicMatchBatchMock.mockImplementation(async (ids: string[]) => new Map(
-      ids.map((id) => [id, access(id, id === 'live' ? 'LIVE' : 'SCHEDULED')]),
-    ));
+    const authoritativeLive = { ...live, status: 'LIVE' as const };
+    const authoritativeNext = { ...next, status: 'SCHEDULED' as const };
+    findManyMock.mockImplementation(({ where }: { where: { status?: string; id?: unknown } }) => {
+      if (where.status === 'LIVE') return Promise.resolve([live]);
+      if (where.status === 'SCHEDULED') return Promise.resolve([next]);
+      return Promise.resolve([authoritativeLive, authoritativeNext]);
+    });
+    resolvePublicMatchBatchMock.mockImplementation(async (
+      _ids: string[],
+      _editions: unknown,
+      loadedMatches?: Array<{ id: string; status: 'LIVE' | 'SCHEDULED' }>,
+    ) => new Map((loadedMatches ?? []).map((match) => [
+      match.id,
+      access(match.id, match.status),
+    ])));
 
     await expect(getLiveStatus()).resolves.toEqual({
       hasLive: true,
       nextMatchAt: next.scheduledAt,
     });
-    expect(findManyMock).toHaveBeenCalledTimes(2);
+    expect(findManyMock).toHaveBeenCalledTimes(3);
     expect(findManyMock.mock.calls[0]?.[0]).toMatchObject({
       where: expect.objectContaining({ status: 'LIVE' }),
       select: publicMatchBatchSelectMock,
@@ -224,10 +234,75 @@ describe('getLiveState', () => {
       select: publicMatchBatchSelectMock,
       take: MAX_LIVE_STATE_CANDIDATES,
     });
+    expect(findManyMock.mock.calls[2]?.[0]).toMatchObject({
+      where: { id: { in: ['live', 'next'] } },
+      select: publicMatchBatchSelectMock,
+      take: 2,
+    });
     expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
       ['live', 'next'],
       undefined,
-      [live, next],
+      [authoritativeLive, authoritativeNext],
+    );
+  });
+
+  it('authoritatively resolves a LIVE-to-SCHEDULED same-id transition', async () => {
+    const staleLive = { ...candidate('same-match', new Date('2026-07-25T07:45:00Z')), status: 'LIVE' as const };
+    const currentScheduled = { ...candidate('same-match', new Date('2026-07-25T08:30:00Z')), status: 'SCHEDULED' as const };
+    findManyMock.mockImplementation(({ where }: { where: { status?: string; id?: unknown } }) => {
+      if (where.status === 'LIVE') return Promise.resolve([staleLive]);
+      if (where.status === 'SCHEDULED') return Promise.resolve([currentScheduled]);
+      return Promise.resolve([currentScheduled]);
+    });
+    resolvePublicMatchBatchMock.mockImplementation(async (
+      _ids: string[],
+      _editions: unknown,
+      loadedMatches?: Array<{ id: string; status: 'LIVE' | 'SCHEDULED' }>,
+    ) => new Map((loadedMatches ?? []).map((match) => [match.id, access(match.id, match.status)])));
+
+    await expect(getLiveStatus()).resolves.toEqual({
+      hasLive: false,
+      nextMatchAt: currentScheduled.scheduledAt,
+    });
+    expect(findManyMock).toHaveBeenCalledTimes(3);
+    expect(findManyMock.mock.calls[2]?.[0]).toMatchObject({
+      where: { id: { in: ['same-match'] } },
+      take: 1,
+    });
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
+      ['same-match'],
+      undefined,
+      [currentScheduled],
+    );
+  });
+
+  it('authoritatively resolves a SCHEDULED-to-LIVE same-id transition', async () => {
+    const currentLive = { ...candidate('same-match', new Date('2026-07-25T07:45:00Z')), status: 'LIVE' as const };
+    const staleScheduled = { ...candidate('same-match', new Date('2026-07-25T08:30:00Z')), status: 'SCHEDULED' as const };
+    findManyMock.mockImplementation(({ where }: { where: { status?: string; id?: unknown } }) => {
+      if (where.status === 'LIVE') return Promise.resolve([currentLive]);
+      if (where.status === 'SCHEDULED') return Promise.resolve([staleScheduled]);
+      return Promise.resolve([currentLive]);
+    });
+    resolvePublicMatchBatchMock.mockImplementation(async (
+      _ids: string[],
+      _editions: unknown,
+      loadedMatches?: Array<{ id: string; status: 'LIVE' | 'SCHEDULED' }>,
+    ) => new Map((loadedMatches ?? []).map((match) => [match.id, access(match.id, match.status)])));
+
+    await expect(getLiveStatus()).resolves.toEqual({
+      hasLive: true,
+      nextMatchAt: null,
+    });
+    expect(findManyMock).toHaveBeenCalledTimes(3);
+    expect(findManyMock.mock.calls[2]?.[0]).toMatchObject({
+      where: { id: { in: ['same-match'] } },
+      take: 1,
+    });
+    expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(
+      ['same-match'],
+      undefined,
+      [currentLive],
     );
   });
 
