@@ -1,16 +1,88 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import type { PrismaClient } from '@prisma/client';
+import { describe, expect, it, vi } from 'vitest';
 import {
   projectRefFromPreviewDatabaseUrl,
   verifyPreviewDatabaseTarget,
 } from '../../../scripts/lib/preview-database-target';
 import { matchesPlainBtreeIndex } from '../../../scripts/lib/preview-index-contract';
+import {
+  assertGlasgowPreviewFresh,
+  dirtyGlasgowPreviewCategories,
+  readGlasgowPreviewFreshness,
+  runGlasgowPreviewFreshnessPreflight,
+  type GlasgowPreviewFreshnessCounts,
+} from '../../../scripts/verify-glasgow-2026-preview-freshness';
 
 const PREVIEW_REF = 'xpfdjkqrbvdasjpllxnc';
 const PRODUCTION_REF = 'iqnhnlttvnvkwrqvnrna';
 const CHECKOUT_PIN = 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0';
 const SETUP_NODE_PIN = 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020';
+
+function emptyFreshnessCounts(): GlasgowPreviewFreshnessCounts {
+  return {
+    importRuns: 0,
+    sourceSnapshots: 0,
+    sourceMappings: 0,
+    sourceSystem: 0,
+    foundationSeries: 0,
+    foundationRuleset: 0,
+    foundationCompetition: 0,
+    foundationEditionSources: 0,
+    foundationStages: 0,
+    foundationStageGroups: 0,
+    canonicalTeams: 0,
+    canonicalPlayers: 0,
+    canonicalEntries: 0,
+    canonicalRosters: 0,
+    canonicalMatches: 0,
+    canonicalMatchSlots: 0,
+    canonicalMatchQuarters: 0,
+    canonicalCoverage: 0,
+    canonicalImportMutations: 0,
+    canonicalImportIssues: 0,
+  };
+}
+
+function countOnly(
+  overrides: Partial<GlasgowPreviewFreshnessCounts>,
+): GlasgowPreviewFreshnessCounts {
+  return { ...emptyFreshnessCounts(), ...overrides };
+}
+
+function countClient(counts: GlasgowPreviewFreshnessCounts) {
+  const delegates = [
+    ['importRun', counts.importRuns],
+    ['sourceSnapshot', counts.sourceSnapshots],
+    ['sourceEntityMapping', counts.sourceMappings],
+    ['sourceSystem', counts.sourceSystem],
+    ['competitionSeries', counts.foundationSeries],
+    ['ruleset', counts.foundationRuleset],
+    ['competition', counts.foundationCompetition],
+    ['editionSource', counts.foundationEditionSources],
+    ['stage', counts.foundationStages],
+    ['stageGroup', counts.foundationStageGroups],
+    ['team', counts.canonicalTeams],
+    ['player', counts.canonicalPlayers],
+    ['editionEntry', counts.canonicalEntries],
+    ['rosterMembership', counts.canonicalRosters],
+    ['match', counts.canonicalMatches],
+    ['matchSlot', counts.canonicalMatchSlots],
+    ['matchQuarter', counts.canonicalMatchQuarters],
+    ['dataCoverage', counts.canonicalCoverage],
+    ['importMutation', counts.canonicalImportMutations],
+    ['importIssue', counts.canonicalImportIssues],
+  ] as const;
+  const calls: Array<{ model: string; args: unknown }> = [];
+  const client = Object.fromEntries(delegates.map(([model, count]) => [model, {
+    count: vi.fn(async (args: unknown) => {
+      calls.push({ model, args });
+      return count;
+    }),
+  }])) as unknown as PrismaClient;
+  return { client, calls };
+}
 
 function expectMarkersInOrder(source: string, markers: string[]): void {
   let previousIndex = -1;
@@ -63,6 +135,62 @@ describe('preview rehearsal target guard', () => {
     expect(() => verifyPreviewDatabaseTarget(environment({
       DIRECT_URL: `postgresql://postgres.${PREVIEW_REF}:secret@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres`,
     }))).toThrow('DIRECT_URL must use a direct or session-mode endpoint on port 5432');
+  });
+});
+
+describe('Glasgow preview freshness preflight', () => {
+  it('accepts an empty target and performs only count reads', async () => {
+    const { client, calls } = countClient(emptyFreshnessCounts());
+    const result = await runGlasgowPreviewFreshnessPreflight(client, environment());
+    expect(result.counts).toEqual(emptyFreshnessCounts());
+    expect(calls).toHaveLength(20);
+    expect(calls.every(({ model }) => model !== 'prisma')).toBe(true);
+  });
+
+  it.each([
+    ['dry-run-only receipt', { importRuns: 1 }],
+    ['failed receipt', { importRuns: 1 }],
+    ['authoritative apply receipt', { importRuns: 1 }],
+    ['replay receipt', { importRuns: 1 }],
+    ['source snapshot', { sourceSnapshots: 1 }],
+    ['source mapping', { sourceMappings: 1 }],
+    ['canonical imported state', { canonicalMatches: 1 }],
+  ])('rejects %s with the exact reset instruction', async (_label, overrides) => {
+    const { client } = countClient(countOnly(overrides));
+    await expect(runGlasgowPreviewFreshnessPreflight(client, environment()))
+      .rejects.toThrow(/29a1a5f9-8e67-46b0-8efe-89f32feb1ad4.*20260715122711_remote_schema/);
+  });
+
+  it('rejects every canonical state category, not only matches', () => {
+    const canonicalFields: Array<keyof GlasgowPreviewFreshnessCounts> = [
+      'canonicalTeams', 'canonicalPlayers', 'canonicalEntries', 'canonicalRosters',
+      'canonicalMatches', 'canonicalMatchSlots', 'canonicalMatchQuarters',
+      'canonicalCoverage', 'canonicalImportMutations', 'canonicalImportIssues',
+    ];
+    for (const field of canonicalFields) {
+      expect(dirtyGlasgowPreviewCategories(countOnly({ [field]: 1 })))
+        .toContain('canonical-state');
+    }
+    expect(() => assertGlasgowPreviewFresh(countOnly({ importRuns: 1 })))
+      .toThrow('read-only preflight did not delete or repair');
+  });
+
+  it('does not filter receipts by status or dry-run mode', async () => {
+    const { client, calls } = countClient(emptyFreshnessCounts());
+    await readGlasgowPreviewFreshness(client);
+    const importRunWhere = calls.find(({ model }) => model === 'importRun')?.args as {
+      where?: Record<string, unknown>;
+    };
+    expect(importRunWhere.where).not.toHaveProperty('status');
+    expect(importRunWhere.where).not.toHaveProperty('dryRun');
+  });
+
+  it('rejects mismatched and production-equivalent refs before querying the database', async () => {
+    const { client, calls } = countClient(emptyFreshnessCounts());
+    await expect(runGlasgowPreviewFreshnessPreflight(client, environment({
+      DATABASE_URL: `postgresql://postgres.${PRODUCTION_REF}:secret@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres`,
+    }))).rejects.toThrow('DATABASE_URL targets the forbidden production project');
+    expect(calls).toHaveLength(0);
   });
 });
 
@@ -185,6 +313,7 @@ describe('Glasgow preview workflow', () => {
       'name: Generate guarded preview production catalog artifact',
       'name: Upload guarded preview production catalog artifact',
       'name: Validate the immutable bundle offline',
+      'name: Verify Glasgow preview freshness before database writes',
       'name: Normalize preview publication state to DRAFT',
       'name: Prepare unpublished foundation',
       'name: Build database-aware import plan',
@@ -220,5 +349,25 @@ describe('Glasgow preview workflow', () => {
     expect(maintainMigration).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE postgres');
     expect(maintainMigration).not.toContain('supabase_admin');
     expect(rehearsal).not.toMatch(/db:publish:edition[^\n]*--apply/);
+  });
+
+  it('keeps the read-only freshness preflight before every Glasgow data write or receipt', async () => {
+    const workflow = await readFile(path.resolve('.github/workflows/ci.yml'), 'utf8');
+    const rehearsal = workflow.slice(workflow.indexOf('  glasgow-preview-rehearsal:'));
+    const preflight = rehearsal.indexOf('scripts/verify-glasgow-2026-preview-freshness.ts');
+    expect(preflight).toBeGreaterThan(-1);
+    for (const marker of [
+      'run: npm run db:reset:glasgow-preview',
+      'run: npm run db:prepare:glasgow',
+      'run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --record-preview',
+      'run: npx tsx scripts/rehearse-glasgow-2026-rollback.ts',
+    ]) {
+      expect(preflight).toBeLessThan(rehearsal.indexOf(marker));
+    }
+    const freshness = await readFile(
+      path.resolve('scripts/verify-glasgow-2026-preview-freshness.ts'),
+      'utf8',
+    );
+    expect(freshness).not.toMatch(/\.(create|createMany|createManyAndReturn|update|updateMany|upsert|delete|deleteMany)\(/);
   });
 });

@@ -257,6 +257,9 @@ jobs:
       - name: Validate the immutable bundle offline
         run: npm run db:import:glasgow -- data/glasgow-2026/v1/bundle.json --offline-preview
 
+      - name: Verify Glasgow preview freshness before database writes
+        run: npx tsx scripts/verify-glasgow-2026-preview-freshness.ts
+
       - name: Normalize preview publication state to DRAFT
         run: npm run db:reset:glasgow-preview
 
