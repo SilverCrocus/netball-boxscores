@@ -9,6 +9,7 @@ import { resolveEdition } from '@/lib/competitions';
 import { toEditionContext } from '@/lib/edition-context';
 import { getTournamentPoolStandings } from '@/lib/tournament';
 import { getStandingsForCompetition } from '@/lib/cached-queries';
+import { measureServerOperation } from '@/lib/server-timing';
 
 interface TournamentStandingsPageProps {
   params: Promise<{
@@ -30,7 +31,17 @@ export async function generateMetadata({ params }: TournamentStandingsPageProps)
   };
 }
 
-export default async function TournamentStandingsPage({ params }: TournamentStandingsPageProps) {
+export default function TournamentStandingsPage({ params }: TournamentStandingsPageProps) {
+  return measureServerOperation(
+    '/competitions/[competitionSlug]/[editionSlug]/standings',
+    'tournament-standings-page',
+    () => renderTournamentStandingsPage(params),
+  );
+}
+
+async function renderTournamentStandingsPage(
+  params: TournamentStandingsPageProps['params'],
+) {
   const identity = await params;
   const { edition } = await resolveEdition(identity);
   if (!edition) notFound();

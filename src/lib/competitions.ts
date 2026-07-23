@@ -16,6 +16,7 @@ import {
 import {
   evaluateGlasgowPublishedVisibility,
   isGlasgow2026Identity,
+  GLASGOW_2026_IDENTITY,
   GLASGOW_2026_EXPECTED_MATCH_COUNT,
   GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT,
   GLASGOW_2026_EXPECTED_STAGE_COUNT,
@@ -335,6 +336,62 @@ export const competitionNavigationSelect = {
   },
 } as const satisfies Prisma.CompetitionSelect;
 
+/**
+ * Fresh legacy standings selection. It combines the route identity used by
+ * the selector with the strict readiness evidence needed for Glasgow in one
+ * bounded relation-join statement. Exact scalar counts remain authoritative;
+ * the child evidence limits only cap JSON aggregation and still expose a
+ * possible +1 row for rejection.
+ */
+export const standingsDirectorySelect = {
+  ...competitionNavigationSelect,
+  _count: {
+    select: {
+      entries: { where: { status: 'ACTIVE' } },
+      matches: true,
+      stages: true,
+    },
+  },
+  stages: {
+    where: {
+      competition: {
+        slug: GLASGOW_2026_IDENTITY.editionSlug,
+        series: { slug: GLASGOW_2026_IDENTITY.competitionSlug },
+      },
+    },
+    orderBy: [{ sequence: 'asc' }, { id: 'asc' }],
+    take: LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT,
+    select: {
+      slug: true,
+      type: true,
+      sequence: true,
+      isPublished: true,
+      _count: { select: { groups: true, matches: true } },
+    },
+  },
+  matches: {
+    where: {
+      competition: {
+        slug: GLASGOW_2026_IDENTITY.editionSlug,
+        series: { slug: GLASGOW_2026_IDENTITY.competitionSlug },
+      },
+    },
+    orderBy: { id: 'asc' },
+    take: LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT,
+    select: { _count: { select: { slots: true } } },
+  },
+  importRuns: {
+    where: {
+      sourceSystem: { key: 'glasgow-2026-public-data' },
+      status: 'SUCCEEDED',
+      dryRun: false,
+      issueCount: 0,
+    },
+    select: { id: true },
+    take: 1,
+  },
+} as const satisfies Prisma.CompetitionSelect;
+
 const competitionNavigationReadinessSelect = {
   id: true,
   slug: true,
@@ -385,10 +442,12 @@ function passesGenericNavigationGate(edition: CompetitionNavigationOption): bool
     && edition._count.matches >= MIN_PUBLIC_EDITION_MATCHES;
 }
 
-async function loadPublicCompetitionNavigationDirectory(): Promise<CompetitionNavigationOption[]> {
+export async function loadPublicCompetitionNavigationDirectoryWithClient(
+  database: PrismaClient,
+): Promise<CompetitionNavigationOption[]> {
   const candidates = await timedQuery(
     'competition_navigation_directory',
-    () => prisma.competition.findMany({
+    () => database.competition.findMany({
       where: { publicationStatus: 'PUBLISHED' },
       select: competitionNavigationSelect,
       orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
@@ -404,7 +463,7 @@ async function loadPublicCompetitionNavigationDirectory(): Promise<CompetitionNa
 
   const strictReadiness = await timedQuery(
     'competition_navigation_readiness',
-    () => prisma.competition.findMany({
+    () => database.competition.findMany({
       where: { id: { in: strictCandidates.map((edition) => edition.id) } },
       select: competitionNavigationReadinessSelect,
     }),
@@ -419,6 +478,34 @@ async function loadPublicCompetitionNavigationDirectory(): Promise<CompetitionNa
     !strictCandidates.some((candidate) => candidate.id === edition.id)
       || readyStrictIds.has(edition.id)
   ));
+}
+
+export async function loadPublicCompetitionNavigationDirectory(): Promise<CompetitionNavigationOption[]> {
+  return loadPublicCompetitionNavigationDirectoryWithClient(prisma);
+}
+
+export type StandingsDirectoryOption = Prisma.CompetitionGetPayload<{
+  select: typeof standingsDirectorySelect;
+}>;
+
+export async function loadFreshStandingsCompetitionDirectoryWithClient(
+  database: PrismaClient,
+): Promise<StandingsDirectoryOption[]> {
+  const candidates = await timedQuery(
+    'standings_directory',
+    () => database.competition.findMany({
+      where: { publicationStatus: 'PUBLISHED' },
+      select: standingsDirectorySelect,
+      relationLoadStrategy: 'join',
+      orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
+    }),
+  );
+
+  return candidates.filter(isEditionPubliclyReady);
+}
+
+export async function loadFreshStandingsCompetitionDirectory(): Promise<StandingsDirectoryOption[]> {
+  return loadFreshStandingsCompetitionDirectoryWithClient(prisma);
 }
 
 const getCachedPublicCompetitionNavigationDirectory = process.env.NODE_ENV === 'test'
@@ -437,7 +524,7 @@ export async function getPublicCompetitionNavigationDirectory(options: {
   cache?: boolean;
 } = {}): Promise<CompetitionNavigationOption[]> {
   return options.cache === false
-    ? loadPublicCompetitionNavigationDirectory()
+    ? loadFreshStandingsCompetitionDirectory()
     : getCachedPublicCompetitionNavigationDirectory();
 }
 

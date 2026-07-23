@@ -1,4 +1,4 @@
-# CentrePass Phase 4-5 Live Performance Plan
+# CentrePass Phase 4-6 Live Performance Plan
 
 ## Decision
 
@@ -10,6 +10,51 @@ access, capability, and freshness policy as the authority.
 This work does not enable Cache Components, add a materialized view, create a
 persistent read model, add a database index, change `/api/live-status`, or
 cache changing live state.
+
+## Phase 6 standings baseline and decision
+
+Phase 6 targets the two materially different standings routes at release
+`a4a6ff4485a42caabab13efffde41d3be896c53a`. The measurements below are formal
+warm sequential baselines: 20 full-body requests, concurrency 1, one warmup
+excluded.
+
+| Route | Response | TTFB p50 / p95 | Total p50 / p95 |
+| --- | ---: | ---: | ---: |
+| `/standings?edition=glasgow-2026` (legacy `Standing`, no table) | 36,226 bytes, all 200 | 22.713ms / 24.463ms | 1082.535ms / 1157.048ms |
+| `/competitions/commonwealth-games-netball/glasgow-2026/standings` (`StageStanding`, pool tables) | 98,760 bytes, all 200 | 21.530ms / 28.249ms | 1183.056ms / 1371.686ms |
+
+Separate `pg_stat_statements` windows for the canonical route recorded two
+application statements per request: the fresh joined edition/readiness
+projection used approximately 1.47–2.07ms of PostgreSQL execution, and the
+joined Stage/StageGroup/EditionEntry/Team/StageStanding read used approximately
+0.41–0.43ms. The roughly 1.1s completed-render cost is therefore primarily
+round-trip/application latency, not PostgreSQL execution. Statement counts in
+this plan refer to executed PostgreSQL statements, not logical Prisma calls;
+nested relation loading can expand one logical call, so production evidence
+must capture both explicitly.
+
+Phase 6 keeps the fresh publication/readiness gate in front of the canonical
+standings cache. The cached pool projection uses the versioned
+`tournament_standings` namespace, `revalidate: 60`, and the `standings` tag.
+This is Next's stale-while-revalidate guidance, not a hard TTL or a maximum
+staleness guarantee: after the threshold Next may serve the current value while
+refreshing in the background, and a failed refresh can leave that value stale
+longer while retries continue. The fresh `resolveEdition()` gate still runs
+before cache access and rejects unpublishing, identity changes, or readiness
+revocation. Pre-event rows retain null standings and deterministic seed order;
+zeros are never fabricated. Production remeasurement must exercise cold, warm,
+post-threshold stale/background-refresh, and refresh-failure behavior when it
+is observable; this PR does not claim a strict content-freshness bound.
+
+The legacy fresh selector retains request-only React memoization between
+`generateMetadata` and the page, but its `cache:false` loader now uses one
+joined, route-shaped projection. It carries exact scalar counts and at most
+five ordered stage-evidence rows and 39 ordered match-evidence rows (the
+Glasgow contract plus one observable overflow row). Glasgow still requires
+exactly 12 teams, 38 matches, 76 slots, four expected published stages, and a
+clean applied import. Scalar counts and the overflow row make missing,
+unexpected, unpublished, or +1 evidence fail closed; generic editions retain
+their existing minimum gates even when larger than Glasgow.
 
 ## Measured baseline
 
@@ -138,8 +183,22 @@ score/capability fail-closed rules are unchanged.
   proves the cursor traversal still selects the older ready edition after 34
   newer unready shells, and proves query/join result parity. Production
   acceptance remains pending a deployed exact-head measurement.
-- Phase 6: measured Standings read-model or query work only after exact
-  attribution and safe invalidation evidence.
+- Phase 6 (this PR): cache canonical tournament pool standings behind the
+  fresh edition/readiness gate and collapse the legacy fresh directory into
+  one bounded joined projection. The PostgreSQL 17 rehearsal must prove
+  projection parity for pre-event and populated pool tables, a clearly labeled
+  JSON/cache emulation with one loader miss and zero warm pool-data reads,
+  exact/adversarial Glasgow readiness, normalized legacy/fresh directory
+  selection parity, and an actual directory statement reduction. That
+  emulation does not prove Next `unstable_cache` or SWR behavior; actual
+  production cache behavior is a mandatory deployment/remeasurement gate. The
+  later deployed acceptance gate is zero
+  HTTP errors with health/readiness 200, cached TTFB p50 below 500ms, warm
+  full-response p95 below 1.5s, and at least 20% p95 improvement against both
+  formal baselines (legacy <=925.638ms; canonical <=1097.349ms). Cold and
+  post-threshold SWR responses are expected; production evidence must record
+  whether the response was stale/background-refreshing and whether refresh
+  failure was observable. This PR does not claim that deployed gate.
 - Phase 7: route transitions, prefetching, loading boundaries, and navigation
   UX after client/server traces identify a real transition bottleneck.
 - Optional Phase 8: a gated Rust/WASM proof of concept only if production

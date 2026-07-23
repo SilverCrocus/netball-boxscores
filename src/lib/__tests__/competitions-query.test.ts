@@ -31,6 +31,7 @@ import {
   competitionOptionSelect,
   getCompetitions,
   getPublicCompetitionNavigationDirectory,
+  standingsDirectorySelect,
 } from '@/lib/competitions';
 
 describe('competition directory query', () => {
@@ -91,6 +92,99 @@ describe('competition directory query', () => {
 
     await expect(getPublicCompetitionNavigationDirectory()).resolves.toEqual([]);
     expect(mocks.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses one bounded joined projection for the fresh legacy standings directory', async () => {
+    mocks.findMany.mockResolvedValueOnce([
+      {
+        ...navigationCandidate({
+          id: 'glasgow-ready',
+          seriesSlug: 'commonwealth-games-netball',
+          slug: 'glasgow-2026',
+          countEntries: 12,
+          countMatches: 38,
+        }),
+        stages: glasgowReadinessCandidate('glasgow-ready', true).stages,
+        matches: glasgowReadinessCandidate('glasgow-ready', true).matches,
+        importRuns: [{ id: 'clean-import' }],
+      },
+    ]);
+
+    await expect(getPublicCompetitionNavigationDirectory({ cache: false })).resolves.toMatchObject([
+      { id: 'glasgow-ready' },
+    ]);
+    expect(mocks.findMany).toHaveBeenCalledOnce();
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { publicationStatus: 'PUBLISHED' },
+      select: standingsDirectorySelect,
+      relationLoadStrategy: 'join',
+    }));
+    expect(standingsDirectorySelect.stages.take)
+      .toBe(GLASGOW_2026_EXPECTED_STAGE_COUNT + 1);
+    expect(standingsDirectorySelect.matches.take)
+      .toBe(GLASGOW_2026_EXPECTED_MATCH_COUNT + 1);
+  });
+
+  it('keeps all published navigation rows while projecting Glasgow evidence only for Glasgow', async () => {
+    const generic = Array.from({ length: 40 }, (_, index) => ({
+      ...navigationCandidate({
+        id: `generic-${index + 1}`,
+        slug: `generic-${index + 1}`,
+        countEntries: 2,
+        countMatches: 1,
+      }),
+      stages: [],
+      matches: [],
+      importRuns: [],
+      _count: { entries: 2, matches: 1, stages: 1 },
+    }));
+    const glasgow = {
+      ...navigationCandidate({
+        id: 'glasgow-ready',
+        seriesSlug: 'commonwealth-games-netball',
+        slug: 'glasgow-2026',
+        countEntries: 12,
+        countMatches: 38,
+      }),
+      ...glasgowReadinessCandidate('glasgow-ready', true),
+      _count: { entries: 12, matches: 38, stages: 4 },
+    };
+    mocks.findMany.mockResolvedValueOnce([...generic, glasgow]);
+
+    const selected = await getPublicCompetitionNavigationDirectory({ cache: false });
+    const selectedWithEvidence = selected as unknown as Array<{
+      id: string;
+      stages: unknown[];
+      matches: unknown[];
+    }>;
+
+    expect(selectedWithEvidence.map((edition) => edition.id)).toEqual([
+      ...generic.map((edition) => edition.id),
+      'glasgow-ready',
+    ]);
+    expect(selectedWithEvidence
+      .filter((edition) => edition.id.startsWith('generic-'))
+      .every((edition) => edition.stages.length === 0 && edition.matches.length === 0))
+      .toBe(true);
+    expect(selectedWithEvidence.find((edition) => edition.id === 'glasgow-ready')?.stages).toHaveLength(4);
+    expect(selectedWithEvidence.find((edition) => edition.id === 'glasgow-ready')?.matches).toHaveLength(38);
+    expect(standingsDirectorySelect.stages).toMatchObject({
+      where: {
+        competition: {
+          slug: 'glasgow-2026',
+          series: { slug: 'commonwealth-games-netball' },
+        },
+      },
+    });
+    expect(standingsDirectorySelect.matches).toMatchObject({
+      where: {
+        competition: {
+          slug: 'glasgow-2026',
+          series: { slug: 'commonwealth-games-netball' },
+        },
+      },
+    });
+    expect(mocks.findMany).toHaveBeenCalledOnce();
   });
 
   it('uses a bounded policy projection and skips a newer published but unready shell', async () => {

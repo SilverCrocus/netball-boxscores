@@ -147,6 +147,70 @@ number: at least two data statements and at least 25% of the observed query
 mode count (rounded up). On the current 12-statement fixture this requires
 three statements, so the observed 12-to-7 result passes while 12-to-11 fails.
 
+## Phase 6 standings evidence
+
+Use the exact release `a4a6ff4485a42caabab13efffde41d3be896c53a` baselines when
+comparing the later canonical standings cache:
+
+- Legacy `/standings?edition=glasgow-2026`: 20 warm sequential full-body
+  samples, one warmup excluded, all 200 and 36,226 bytes; total p50
+  1082.535ms and p95 1157.048ms.
+- Canonical `/competitions/commonwealth-games-netball/glasgow-2026/standings`:
+  the same method, all 200 and 98,760 bytes; total p50 1183.056ms and p95
+  1371.686ms.
+
+The later deployed acceptance thresholds are zero HTTP errors with
+health/readiness 200, cached TTFB p50 below 500ms, warm full-response p95 below
+1.5s, and at least 20% p95 improvement against both formal baselines: legacy
+`<=925.638ms` and canonical `<=1097.349ms`. These are deployment gates, not
+claims that local or preview measurements satisfy them.
+
+The canonical route resolves the edition and its complete public readiness
+freshly on every request before reading the `tournament_standings` cache. The
+pool read uses `revalidate: 60` with the `standings` tag as Next's
+stale-while-revalidate guidance, not as a hard TTL or maximum staleness bound.
+After the threshold, a request may receive the current value immediately while
+Next refreshes in the background; a failed refresh can leave that value stale
+longer and be retried. A warm hit must produce no
+`tournament_pool_standings_rows` query, while a miss produces one joined read.
+Production evidence must separately exercise cold, warm, post-threshold
+stale/background-refresh, and refresh-failure behavior when observable. The
+fresh edition/readiness check still fails closed before cache access. StageStanding
+rows are projected as published values when present and remain null in
+pre-event seed order when absent. Never manufacture zero statistics.
+
+The PostgreSQL rehearsal's miss/warm section is intentionally a JSON/cache
+emulation of loader invocation and serialization parity; it is not a Next
+`unstable_cache` or SWR proof. The production acceptance packet must use an
+exact deployed build and real requests to verify cold, warm, post-threshold
+stale/background-refresh, and observable refresh-failure behavior.
+
+The legacy fresh selector is request-memoized so metadata and page rendering
+share one result. Its `cache:false` path uses one joined, bounded projection:
+five ordered stage-evidence rows and 39 ordered match-evidence rows, while
+exact scalar counts remain authoritative. Glasgow readiness still requires
+exactly 12 teams, 38 matches, 76 slots, four expected published stages, and a
+clean applied import. An extra or unexpected stage/match/slot, a missing or
+unpublished required stage, or a failed import remains fail-closed. Generic
+editions retain their minimum gates even when their shape exceeds Glasgow.
+
+Run the loopback-only PostgreSQL 17 proof in the CI lane (or against an
+explicitly opted-in ephemeral local service):
+
+```sh
+CENTREPASS_EPHEMERAL_PG17_REHEARSAL=true \
+  npm run verify:standings-postgres
+```
+
+The verifier counts emitted query executions, not unique SQL shapes, and never
+prints SQL. It compares the actual two-logical-read legacy projection with the
+one-statement fresh projection, checks at least one relation-join statement,
+proves pre-event/populated serialized projection parity, and proves one cache
+miss followed by a warm read with zero pool-data statements. It also adds and
+removes only namespaced ephemeral child rows around the canonical Glasgow seed
+to prove exact readiness and +1 overflow rejection. It must not be pointed at
+preview, shared, or production credentials.
+
 ## Rollout and rollback
 
 After deployment, begin with sequential warm checks for `/live`, then perform

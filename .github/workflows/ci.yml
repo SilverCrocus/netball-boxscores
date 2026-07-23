@@ -135,6 +135,11 @@ jobs:
           CENTREPASS_EPHEMERAL_PG17_REHEARSAL: "true"
         run: npx tsx scripts/verify-live-fallback-competition-postgres.ts
 
+      - name: Execute tournament standings cache and directory rehearsal
+        env:
+          CENTREPASS_EPHEMERAL_PG17_REHEARSAL: "true"
+        run: npm run verify:standings-postgres
+
   glasgow-preview-rehearsal:
     name: Glasgow DRAFT preview rehearsal
     if: >-
