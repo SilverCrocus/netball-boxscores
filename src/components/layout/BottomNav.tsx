@@ -196,21 +196,24 @@ export function BottomNav({
             </div>
             <GlobalSearch onNavigate={closeMore} askCentrePassEnabled={askCentrePassEnabled} />
             <div className="my-4 grid gap-2">
-              {moreItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={editionAwareNavigationHref(currentEdition, item.href)}
-                  onClick={closeMore}
-                  className="flex min-h-11 items-center gap-3 rounded-xl bg-surface-container-low px-4 font-headline text-sm font-bold"
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
-                  {item.href === '/teams' ? 'Browse teams' : 'Ask CentrePass'}
-                  <NavigationPendingIndicator
-                    label={item.href === '/teams' ? 'Browse teams' : 'Ask CentrePass'}
-                    className="ml-auto"
-                  />
-                </Link>
-              ))}
+              {moreItems.map((item) => {
+                const policy = getNavigationPrefetchPolicy(item.href);
+                const prefetchProps = policy === 'off' ? { prefetch: false as const } : {};
+                const label = item.href === '/teams' ? 'Browse teams' : 'Ask CentrePass';
+                return (
+                  <Link
+                    {...prefetchProps}
+                    key={item.href}
+                    href={editionAwareNavigationHref(currentEdition, item.href)}
+                    onClick={closeMore}
+                    className="flex min-h-11 items-center gap-3 rounded-xl bg-surface-container-low px-4 font-headline text-sm font-bold"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
+                    {label}
+                    <NavigationPendingIndicator label={label} className="ml-auto" />
+                  </Link>
+                );
+              })}
             </div>
             <div className="border-t border-outline-variant/20 pt-4">
               <AuthButton onNavigate={closeMore} />
@@ -224,6 +227,7 @@ export function BottomNav({
         const active = isResolvedNavigationActive(pathname, item.href, href);
         const isLiveItem = item.href === '/live';
         const policy = getNavigationPrefetchPolicy(item.href);
+        const prefetchProps = policy === 'off' ? { prefetch: false as const } : {};
         const className = `relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 transition-all ${
           active
             ? 'bg-lime-500 text-slate-950 scale-105'
@@ -268,7 +272,7 @@ export function BottomNav({
             {content}
           </IntentPrefetchLink>
         ) : (
-          <Link key={item.href} href={href} className={className}>
+          <Link {...prefetchProps} key={item.href} href={href} className={className}>
             {content}
           </Link>
         );

@@ -65,14 +65,14 @@ describe('IntentPrefetchLink', () => {
     expect(link).toHaveAttribute('data-prefetch', 'false');
   });
 
-  it('fails safely with no connection API and respects the explicit none policy', () => {
+  it('fails safely with no connection API and respects the explicit off policy', () => {
     Reflect.deleteProperty(navigator, 'connection');
     const { rerender } = render(<IntentPrefetchLink href="/rankings">Rankings</IntentPrefetchLink>);
     const rankings = screen.getByRole('link', { name: 'Rankings' });
     fireEvent.focus(rankings);
     expect(rankings).toHaveAttribute('data-prefetch', 'false');
 
-    rerender(<IntentPrefetchLink href="/live" policy="none">Live</IntentPrefetchLink>);
+    rerender(<IntentPrefetchLink href="/live" policy="off">Live</IntentPrefetchLink>);
     const live = screen.getByRole('link', { name: 'Live' });
     fireEvent.pointerEnter(live);
     expect(live).toHaveAttribute('data-prefetch', 'false');

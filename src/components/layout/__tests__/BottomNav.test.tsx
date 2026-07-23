@@ -214,12 +214,14 @@ describe('BottomNav', () => {
       'href',
       '/competitions/commonwealth-games/glasgow-2026/standings'
     );
+    expect(screen.getByText('Standings').closest('a')).toHaveAttribute('data-prefetch', 'default');
 
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
     expect(screen.getByRole('link', { name: /Browse teams/ })).toHaveAttribute(
       'href',
       '/competitions/commonwealth-games/glasgow-2026/teams'
     );
+    expect(screen.getByRole('link', { name: /Browse teams/ })).toHaveAttribute('data-prefetch', 'false');
   });
 
   it('hides analytics tabs and the Ask menu entry when disabled', () => {
@@ -236,9 +238,15 @@ describe('BottomNav', () => {
   it('uses intent prefetch only for analytics landings and keeps ordinary navigation automatic', () => {
     render(<BottomNav analyticsEnabled askCentrePassEnabled />);
 
+    expect(screen.getByRole('link', { name: 'Fixtures' })).toHaveAttribute('data-prefetch', 'default');
     expect(screen.getByRole('link', { name: 'Rankings' })).toHaveAttribute('data-prefetch', 'false');
     expect(screen.getByRole('link', { name: 'Records' })).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: 'Compare' })).toHaveAttribute('data-prefetch', 'false');
     expect(screen.getByRole('link', { name: 'Live' })).toHaveAttribute('data-prefetch', 'default');
     expect(screen.getByRole('link', { name: 'Standings' })).toHaveAttribute('data-prefetch', 'default');
+
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('link', { name: /Browse teams/ })).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: /^Ask CentrePass$/ })).toHaveAttribute('data-prefetch', 'false');
   });
 });

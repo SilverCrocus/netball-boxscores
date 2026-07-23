@@ -5,16 +5,20 @@ export interface NavItem {
   sidebarLabel?: string;
 }
 
-export type NavigationPrefetchPolicy = 'none' | 'intent-full';
+export type NavigationPrefetchPolicy = 'off' | 'intent-full';
 
 const INTENT_FULL_PREFETCH_HREFS = new Set(['/rankings', '/records']);
+const OFF_PREFETCH_HREFS = new Set(['/teams', '/compare/players', '/explore']);
 
 /**
  * Only the two analytics entry points opt into a full prefetch after explicit
- * user intent. Callers keep ordinary navigation links native for all others.
+ * user intent. Low-value destinations opt out of viewport prefetch explicitly;
+ * every other destination keeps Next's ordinary default behavior.
  */
-export function getNavigationPrefetchPolicy(href: string): NavigationPrefetchPolicy {
-  return INTENT_FULL_PREFETCH_HREFS.has(href) ? 'intent-full' : 'none';
+export function getNavigationPrefetchPolicy(href: string): NavigationPrefetchPolicy | undefined {
+  if (INTENT_FULL_PREFETCH_HREFS.has(href)) return 'intent-full';
+  if (OFF_PREFETCH_HREFS.has(href)) return 'off';
+  return undefined;
 }
 
 export function isActive(pathname: string, href: string): boolean {

@@ -12,8 +12,8 @@ persistent read model, add a database index, change `/api/live-status`, or
 cache changing live state.
 
 Phase 7 keeps navigation as a client-only concern. It changes when Next is
-allowed to prefetch analytics destinations, not what any route loads or how
-freshness and publication are evaluated.
+allowed to prefetch analytics and low-value navigation destinations, not what
+any route loads or how freshness and publication are evaluated.
 
 ## Phase 6 standings baseline and decision
 
@@ -79,13 +79,15 @@ rankings-subview RSC traffic. Phase 7 addresses that request amplification
 without changing route loaders, database queries, cache TTLs, publication
 checks, or URL construction.
 
-`src/lib/navigation.ts` defines two explicit policies: `none` and
-`intent-full`. Only the exact `/rankings` and `/records` sidebar/bottom-nav
-destinations use `intent-full`, and those links begin with `prefetch={false}`.
-The native Next `Link` wrapper enables `prefetch={true}` only after
-pointer/mouse entry, keyboard focus, or touch start. Other Sidebar/BottomNav
-destinations remain ordinary native Next links with default automatic/partial
-prefetch; Live and Standings never receive the full-prefetch policy. Save-Data,
+`src/lib/navigation.ts` defines two explicit policies: `off` and
+`intent-full`; an absent policy preserves Next's default. Only the exact
+`/rankings` and `/records` sidebar/bottom-nav destinations use `intent-full`,
+and those links begin with `prefetch={false}`. The native Next `Link` wrapper
+enables `prefetch={true}` only after pointer/mouse entry, keyboard focus, or
+touch start. The low-value Teams, Compare, and Ask/Explore destinations use
+`off`; other Sidebar/BottomNav destinations remain ordinary native Next links
+with default automatic/partial prefetch. Live and Standings never receive the
+full-prefetch policy. Save-Data,
 slow-2g, and 2g connections remain disabled; an unavailable connection API
 also fails closed. Live remains request-time fresh and Standings retains its
 fresh publication/readiness gate. Auth links and Rankings `view=players` /
@@ -102,6 +104,40 @@ acknowledgement p95 must remain below 150ms; initial navigation-prefetch
 requests or bytes must fall by at least 40%; Save-Data/2G must produce zero
 analytics prefetch before click; and no idle auth or rankings-subview prefetch
 may occur. Local tests and a non-production build do not claim this gate.
+
+### Phase 7 remeasurement and low-value traffic follow-up
+
+The read-only production acceptance audit for merged PR #58 used the expected
+release `eae37432c48f239fdf3a8305450611257b9aec54`; health and readiness stayed
+200/ready. The first 20-sample table that clustered every transition around
+three seconds was discarded as a measurement artifact after auditing the
+timing helper. A fresh desktop observer measured the first target URL plus a
+changed visible `main h1` with page `performance.now()` and no fixed
+post-click wait:
+
+| Transition | No-intent p50 / p95 |
+| --- | ---: |
+| Records -> Rankings | 1.733s / 1.796s |
+| Rankings -> canonical Glasgow Standings | 0.768s / 0.824s |
+| Standings -> Live | 1.975s / 2.061s |
+| Live -> Records | 3.459s / 3.634s |
+
+Keyboard-focus intent produced completed full prefetches, but the separate
+click-to-heading p95 values were 1.588s for Records -> Rankings and 1.536s
+for Live -> Records, so the analytics transition gates were still not met.
+This audit does not claim Phase 7 acceptance.
+
+A clean production Records load emitted 14 idle RSC prefetches totaling
+26,822 encoded bytes. Teams accounted for 5,536 bytes, Ask/Explore 4,160,
+Compare/players 3,797, canonical Standings 2,927, Live 3,754, competition
+Home 2,904, and root 3,744. Rankings, Records, Auth, and rankings subview
+prefetches were absent from the idle capture. The low-value traffic repair is
+therefore deliberately limited to exact `/teams`, `/compare/players`, and
+`/explore` links: disabling their viewport prefetch removes six requests and
+13,493 bytes, a 42.9% request and 50.3% byte reduction. Root/Home, Live, and
+canonical Standings retain ordinary default Next prefetch, while Rankings and
+Records retain the existing intent-full policy. This is a traffic-only
+follow-up; it changes no route, data, freshness, or publication behavior.
 
 ## Measured baseline
 

@@ -140,6 +140,14 @@ function SidebarNavigationLink({
     );
   }
 
+  if (policy === 'off') {
+    return (
+      <Link href={href} prefetch={false} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
   return (
     <Link href={href} className={className}>
       {content}

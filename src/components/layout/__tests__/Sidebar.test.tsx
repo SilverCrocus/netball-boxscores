@@ -74,10 +74,12 @@ describe('Sidebar', () => {
       'href',
       '/competitions/commonwealth-games/glasgow-2026'
     );
+    expect(screen.getByText('Home').closest('a')).toHaveAttribute('data-prefetch', 'default');
     expect(screen.getByText('Standings').closest('a')).toHaveAttribute(
       'href',
       '/competitions/commonwealth-games/glasgow-2026/standings'
     );
+    expect(screen.getByText('Standings').closest('a')).toHaveAttribute('data-prefetch', 'default');
     expect(screen.getByText('Teams').closest('a')).toHaveAttribute(
       'href',
       '/competitions/commonwealth-games/glasgow-2026/teams'
@@ -97,8 +99,12 @@ describe('Sidebar', () => {
   it('uses intent prefetch only for analytics landings and keeps ordinary navigation automatic', () => {
     render(<Sidebar analyticsEnabled askCentrePassEnabled />);
 
+    expect(screen.getByText('CentrePass').closest('a')).toHaveAttribute('data-prefetch', 'default');
     expect(screen.getByRole('link', { name: 'Rankings' })).toHaveAttribute('data-prefetch', 'false');
     expect(screen.getByRole('link', { name: 'Records' })).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: 'Compare' })).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: 'Ask CentrePass' })).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: 'Teams' })).toHaveAttribute('data-prefetch', 'false');
     expect(screen.getByRole('link', { name: 'Live' })).toHaveAttribute('data-prefetch', 'default');
     expect(screen.getByRole('link', { name: 'Standings' })).toHaveAttribute('data-prefetch', 'default');
   });

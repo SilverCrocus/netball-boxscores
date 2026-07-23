@@ -31,13 +31,20 @@ describe('isResolvedNavigationActive', () => {
     expect(getVisibleNavigationItems({ analyticsEnabled: true, askCentrePassEnabled: false }).map((item) => item.href)).not.toContain('/explore');
   });
 
-  it('limits intent-full prefetch policy to the analytics landing routes', () => {
+  it('keeps prefetch policies on exact allowlists', () => {
     expect(getNavigationPrefetchPolicy('/rankings')).toBe('intent-full');
     expect(getNavigationPrefetchPolicy('/records')).toBe('intent-full');
-    expect(getNavigationPrefetchPolicy('/rankings?view=players')).toBe('none');
-    expect(getNavigationPrefetchPolicy('/rankings?view=teams')).toBe('none');
-    expect(getNavigationPrefetchPolicy('/live')).toBe('none');
-    expect(getNavigationPrefetchPolicy('/standings')).toBe('none');
-    expect(getNavigationPrefetchPolicy('/competitions/commonwealth-games-netball/glasgow-2026/standings')).toBe('none');
+    expect(getNavigationPrefetchPolicy('/teams')).toBe('off');
+    expect(getNavigationPrefetchPolicy('/compare/players')).toBe('off');
+    expect(getNavigationPrefetchPolicy('/explore')).toBe('off');
+  });
+
+  it('leaves protected default-prefetch destinations outside the off policy', () => {
+    expect(getNavigationPrefetchPolicy('/')).toBeUndefined();
+    expect(getNavigationPrefetchPolicy('/live')).toBeUndefined();
+    expect(getNavigationPrefetchPolicy('/standings')).toBeUndefined();
+    expect(getNavigationPrefetchPolicy('/competitions/commonwealth-games-netball/glasgow-2026/standings')).toBeUndefined();
+    expect(getNavigationPrefetchPolicy('/rankings?view=players')).toBeUndefined();
+    expect(getNavigationPrefetchPolicy('/rankings?view=teams')).toBeUndefined();
   });
 });
