@@ -42,6 +42,7 @@ export function assertEphemeralPostgres17Target(
 interface RehearsalFixture {
   seriesId: string;
   competitionIds: string[];
+  stageIds: string[];
   matchIds: string[];
   teamIds: string[];
 }
@@ -68,6 +69,7 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
   const namespace = `live-fallback-${randomUUID()}`;
   const seriesId = `${namespace}-series`;
   const readyCompetitionId = `${namespace}-ready`;
+  const stageId = `${namespace}-stage`;
   const shellIds = Array.from({ length: 34 }, (_, index) => (
     `${namespace}-shell-${String(index).padStart(2, '0')}`
   ));
@@ -104,6 +106,16 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
         seriesId,
         slug: `ready-${namespace}`,
         publicationStatus: 'PUBLISHED',
+      },
+    });
+    await transaction.stage.create({
+      data: {
+        id: stageId,
+        competitionId: readyCompetitionId,
+        slug: 'regular-season',
+        name: 'Regular season',
+        type: 'REGULAR_SEASON',
+        sequence: 1,
       },
     });
 
@@ -143,13 +155,35 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
         scheduledAt: new Date('2029-02-01T00:00:00.000Z'),
         status: 'COMPLETED',
         resultQuality: 'OFFICIAL_FINAL',
+        stageId,
       },
+    });
+    await transaction.matchSlot.createMany({
+      data: [
+        {
+          id: `${namespace}-slot-a`,
+          matchId,
+          side: 'A',
+          sourceType: 'TEAM',
+          resolvedEntryId: `${namespace}-entry-0`,
+          resolvedAt: new Date('2029-02-01T00:00:00.000Z'),
+        },
+        {
+          id: `${namespace}-slot-b`,
+          matchId,
+          side: 'B',
+          sourceType: 'TEAM',
+          resolvedEntryId: `${namespace}-entry-1`,
+          resolvedAt: new Date('2029-02-01T00:00:00.000Z'),
+        },
+      ],
     });
   });
 
   return {
     seriesId,
     competitionIds,
+    stageIds: [stageId],
     matchIds: [matchId],
     teamIds,
   };
@@ -164,6 +198,7 @@ async function cleanFixture(
     await transaction.match.deleteMany({ where: { id: { in: fixture.matchIds } } });
     await transaction.editionEntry.deleteMany({ where: { competitionId: { in: fixture.competitionIds } } });
     await transaction.team.deleteMany({ where: { id: { in: fixture.teamIds } } });
+    await transaction.stage.deleteMany({ where: { id: { in: fixture.stageIds } } });
     await transaction.competition.deleteMany({ where: { id: { in: fixture.competitionIds } } });
     await transaction.competitionSeries.deleteMany({ where: { id: fixture.seriesId } });
   });
