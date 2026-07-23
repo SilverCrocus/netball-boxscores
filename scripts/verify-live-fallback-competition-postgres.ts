@@ -62,12 +62,25 @@ function isLoaderDataStatement(query: string): boolean {
   return !normalized.includes('CURRENT_SETTING(');
 }
 
+function summarizeSqlShape(query: string): string {
+  const tables = [...query.matchAll(/\bFROM\s+(?:"[^"]+"\.)?"([^"]+)"/gi)]
+    .map((match) => match[1])
+    .filter((table): table is string => Boolean(table));
+  const uniqueTables = [...new Set(tables)].slice(0, 4);
+  return `${/\bLATERAL\b/i.test(query) ? 'joined' : 'separate'}:${uniqueTables.join(',') || 'unknown'}`;
+}
+
 function assertJoinedLoaderSql(queryEvents: string[]): LoaderSqlEvidence {
   const dataStatements = queryEvents.filter(isLoaderDataStatement);
   const joinedStatements = dataStatements.filter((query) => /\bLATERAL\b/i.test(query));
   if (dataStatements.length !== 2) {
+    const shapeCounts = new Map<string, number>();
+    for (const statement of dataStatements) {
+      const shape = summarizeSqlShape(statement);
+      shapeCounts.set(shape, (shapeCounts.get(shape) ?? 0) + 1);
+    }
     throw new Error(
-      `[live-fallback-rehearsal] expected two joined competition-page statements, observed ${dataStatements.length}`,
+      `[live-fallback-rehearsal] expected two joined competition-page statements, observed ${dataStatements.length}; shapes=${JSON.stringify(Object.fromEntries(shapeCounts))}`,
     );
   }
   if (joinedStatements.length !== dataStatements.length) {
