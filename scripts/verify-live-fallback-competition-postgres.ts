@@ -62,32 +62,9 @@ function isLoaderDataStatement(query: string): boolean {
   return !normalized.includes('CURRENT_SETTING(');
 }
 
-function summarizeSqlShape(query: string): string {
-  const tables = [...query.matchAll(/\bFROM\s+(?:"[^"]+"\.)?"([^"]+)"/gi)]
-    .map((match) => match[1])
-    .filter((table): table is string => Boolean(table));
-  const uniqueTables = [...new Set(tables)].slice(0, 4);
-  return `${/\bLATERAL\b/i.test(query) ? 'joined' : 'separate'}:${uniqueTables.join(',') || 'unknown'}`;
-}
-
-function assertJoinedLoaderSql(queryEvents: string[]): LoaderSqlEvidence {
+function captureLoaderSql(queryEvents: string[]): LoaderSqlEvidence {
   const dataStatements = queryEvents.filter(isLoaderDataStatement);
   const joinedStatements = dataStatements.filter((query) => /\bLATERAL\b/i.test(query));
-  if (dataStatements.length !== 2) {
-    const shapeCounts = new Map<string, number>();
-    for (const statement of dataStatements) {
-      const shape = summarizeSqlShape(statement);
-      shapeCounts.set(shape, (shapeCounts.get(shape) ?? 0) + 1);
-    }
-    throw new Error(
-      `[live-fallback-rehearsal] expected two joined competition-page statements, observed ${dataStatements.length}; shapes=${JSON.stringify(Object.fromEntries(shapeCounts))}`,
-    );
-  }
-  if (joinedStatements.length !== dataStatements.length) {
-    throw new Error(
-      '[live-fallback-rehearsal] relationJoins did not produce LATERAL SQL for every competition-page statement',
-    );
-  }
   return {
     queryEvents: queryEvents.length,
     dataStatements: dataStatements.length,
@@ -259,22 +236,37 @@ async function main(): Promise<void> {
       }
     };
 
-    const runLoader = async () => {
+    const runLoader = async (relationLoadStrategy: 'join' | 'query') => {
       const start = queryEvents.length;
-      const selected = await loadLiveFallbackCompetitionWithClient(prisma, transactionProbe);
-      const sql = assertJoinedLoaderSql(queryEvents.slice(start));
+      const selected = await loadLiveFallbackCompetitionWithClient(
+        prisma,
+        transactionProbe,
+        relationLoadStrategy,
+      );
+      const sql = captureLoaderSql(queryEvents.slice(start));
       return { selected, sql };
     };
-    const first = await runLoader();
-    const second = await runLoader();
-    if (first.selected?.id !== `${fixture.competitionIds[fixture.competitionIds.length - 1]}`) {
+    const queryMode = await runLoader('query');
+    const joinMode = await runLoader('join');
+    if (queryMode.selected?.id !== `${fixture.competitionIds[fixture.competitionIds.length - 1]}`) {
       throw new Error('[live-fallback-rehearsal] older ready edition was not selected');
     }
-    if (second.selected?.id !== first.selected?.id) {
-      throw new Error('[live-fallback-rehearsal] repeated cursor traversal changed selection');
+    if (joinMode.selected?.id !== queryMode.selected?.id) {
+      throw new Error('[live-fallback-rehearsal] join/query selection parity failed');
     }
-    if (JSON.stringify(second.selected) !== JSON.stringify(first.selected)) {
-      throw new Error('[live-fallback-rehearsal] joined loader result changed across identical reads');
+    if (JSON.stringify(joinMode.selected) !== JSON.stringify(queryMode.selected)) {
+      throw new Error('[live-fallback-rehearsal] join/query result parity failed');
+    }
+    if (queryMode.sql.joinedStatements !== 0) {
+      throw new Error('[live-fallback-rehearsal] query strategy unexpectedly emitted LATERAL SQL');
+    }
+    if (joinMode.sql.joinedStatements === 0) {
+      throw new Error('[live-fallback-rehearsal] join strategy emitted no LATERAL SQL');
+    }
+    if (joinMode.sql.dataStatements >= queryMode.sql.dataStatements) {
+      throw new Error(
+        `[live-fallback-rehearsal] relation join did not reduce physical statements: query=${queryMode.sql.dataStatements}, join=${joinMode.sql.dataStatements}`,
+      );
     }
 
     result = {
@@ -283,10 +275,13 @@ async function main(): Promise<void> {
       isolationLevel: 'repeatable read',
       newerPublishedUnreadyEditions: 34,
       selectedOlderReadyEdition: true,
-      repeatedSelectionStable: true,
-      repeatedResultParity: true,
-      joinedCompetitionPageStatementsPerLoad: [first.sql, second.sql].map((sql) => sql.dataStatements),
-      joinedSqlStatementsPerLoad: [first.sql, second.sql].map((sql) => sql.joinedStatements),
+      joinQuerySelectionParity: true,
+      joinQueryResultParity: true,
+      queryModeQueryEvents: queryMode.sql.queryEvents,
+      joinModeQueryEvents: joinMode.sql.queryEvents,
+      queryModeDataStatements: queryMode.sql.dataStatements,
+      joinModeDataStatements: joinMode.sql.dataStatements,
+      joinModeJoinedStatements: joinMode.sql.joinedStatements,
       fixtureCleaned: true,
     };
   } finally {

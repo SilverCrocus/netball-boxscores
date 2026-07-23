@@ -192,6 +192,8 @@ export const LIVE_FALLBACK_COMPETITION_SNAPSHOT_OPTIONS = {
   timeout: 5_000,
 };
 
+export type LiveRelationLoadStrategy = 'join' | 'query';
+
 export { MIN_PUBLIC_EDITION_MATCHES, MIN_PUBLIC_EDITION_TEAMS };
 
 /**
@@ -244,6 +246,7 @@ export async function getPublicCompetitions(): Promise<CompetitionOption[]> {
 export async function loadLiveFallbackCompetitionWithClient(
   database: PrismaClient,
   transactionProbe?: (transaction: Prisma.TransactionClient) => Promise<void>,
+  relationLoadStrategy: LiveRelationLoadStrategy = 'join',
 ): Promise<LiveFallbackCompetition | null> {
   return database.$transaction(async (transaction) => {
     await transactionProbe?.(transaction);
@@ -255,7 +258,7 @@ export async function loadLiveFallbackCompetitionWithClient(
         () => transaction.competition.findMany({
           where: { publicationStatus: 'PUBLISHED' },
           select: liveFallbackCompetitionSelect,
-          relationLoadStrategy: 'join',
+          relationLoadStrategy,
           orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
           take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
           ...(cursor ? { cursor, skip: 1 } : {}),
