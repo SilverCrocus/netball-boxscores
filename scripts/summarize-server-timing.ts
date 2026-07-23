@@ -6,6 +6,7 @@ import { SERVER_PHASE_NAMES } from '@/lib/server-timing';
 export const DEFAULT_MIN_SAMPLES = 20;
 export const MAX_TIMING_GROUPS = 64;
 const MAX_DURATION_MS = 300_000;
+const COVERAGE_ROUNDING_TOLERANCE_MS = 0.2;
 const STABLE_NAME = /^[a-z][a-z0-9_-]{0,63}$/;
 const STABLE_ROUTE = /^\/[A-Za-z0-9/_\-[\]]{0,63}$/;
 const KNOWN_PHASES = new Set<string>(SERVER_PHASE_NAMES);
@@ -40,6 +41,9 @@ export interface ServerTimingSummary {
   invalidLineCount: number;
   ignoredEventCount: number;
   invalidReasons: string[];
+  coverageSampleCount: number;
+  coverageInvalidCount: number;
+  coverageInvalidReasons: string[];
   operations: TimingGroupSummary[];
   phases: TimingGroupSummary[];
   queries: TimingGroupSummary[];
@@ -173,16 +177,27 @@ function summarizeCoverage(
     ));
 }
 
-function readPhaseCoverage(event: TimingEvent, durationMs: number): number | null {
-  if (!isRecord(event.phases) || durationMs <= 0) return null;
-  let totalPhaseMs = 0;
-  for (const [phase, value] of Object.entries(event.phases)) {
-    if (!KNOWN_PHASES.has(phase) || typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-      return null;
-    }
-    totalPhaseMs += value;
+function readOperationCoverage(
+  event: TimingEvent,
+  durationMs: number,
+): { ratioPct: number } | { reason: string } {
+  const attributedDurationMs = event.attributedDurationMs;
+  if (typeof attributedDurationMs !== 'number' || Number.isNaN(attributedDurationMs)) {
+    return { reason: 'missing_operation_coverage' };
   }
-  return (totalPhaseMs / durationMs) * 100;
+  if (!Number.isFinite(attributedDurationMs)) {
+    return { reason: 'nonfinite_operation_coverage' };
+  }
+  if (attributedDurationMs < 0) {
+    return { reason: 'negative_operation_coverage' };
+  }
+  if (attributedDurationMs > durationMs + COVERAGE_ROUNDING_TOLERANCE_MS) {
+    return { reason: 'operation_coverage_exceeds_duration' };
+  }
+  const boundedDurationMs = Math.min(durationMs, attributedDurationMs);
+  return {
+    ratioPct: durationMs === 0 ? 100 : (boundedDurationMs / durationMs) * 100,
+  };
 }
 
 export function summarizeServerTimingJsonl(
@@ -203,6 +218,9 @@ export function summarizeServerTimingJsonl(
   let validSampleCount = 0;
   let invalidLineCount = 0;
   let ignoredEventCount = 0;
+  let coverageSampleCount = 0;
+  let coverageInvalidCount = 0;
+  const coverageInvalidReasons = new Set<string>();
 
   for (const line of input.split(/\r?\n/)) {
     if (line.trim() === '') continue;
@@ -241,16 +259,22 @@ export function summarizeServerTimingJsonl(
     let accepted = false;
     if (eventName === 'server_operation_timing') {
       accepted = addSample(operations, event, undefined, durationMs, invalidReasons);
-      const coveragePct = readPhaseCoverage(event, durationMs);
-      if (accepted && coveragePct !== null && safeRoute(event.route) && safeName(event.operation)) {
-        const key = groupKey(event.route, event.operation);
-        const group = phaseCoverage.get(key) ?? {
-          route: event.route,
-          operation: event.operation,
-          ratios: [],
-        };
-        group.ratios.push(coveragePct);
-        phaseCoverage.set(key, group);
+      if (accepted) {
+        const coverage = readOperationCoverage(event, durationMs);
+        if ('reason' in coverage) {
+          coverageInvalidCount += 1;
+          coverageInvalidReasons.add(coverage.reason);
+        } else if (safeRoute(event.route) && safeName(event.operation)) {
+          coverageSampleCount += 1;
+          const key = groupKey(event.route, event.operation);
+          const group = phaseCoverage.get(key) ?? {
+            route: event.route,
+            operation: event.operation,
+            ratios: [],
+          };
+          group.ratios.push(coverage.ratioPct);
+          phaseCoverage.set(key, group);
+        }
       }
     } else if (eventName === 'server_phase_timing') {
       if (typeof event.phase !== 'string' || !KNOWN_PHASES.has(event.phase)) {
@@ -280,11 +304,23 @@ export function summarizeServerTimingJsonl(
     invalidLineCount,
     ignoredEventCount,
     invalidReasons: [...invalidReasons].sort(),
+    coverageSampleCount,
+    coverageInvalidCount,
+    coverageInvalidReasons: [...coverageInvalidReasons].sort(),
     operations: summarizeGroups(operations, minSamples),
     phases: summarizeGroups(phases, minSamples),
     queries: summarizeGroups(queries, minSamples),
     phaseCoverage: summarizeCoverage(phaseCoverage, minSamples),
   };
+}
+
+export function isServerTimingCoverageGateSatisfied(summary: ServerTimingSummary): boolean {
+  return summary.invalidLineCount === 0
+    && summary.coverageInvalidCount === 0
+    && summary.phaseCoverage.length > 0
+    && summary.phaseCoverage.every((group) => (
+      group.sufficientSamples && group.atLeast95Pct >= 95
+    ));
 }
 
 async function readInput(filePath?: string): Promise<string> {
@@ -294,9 +330,10 @@ async function readInput(filePath?: string): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-function parseCliArgs(argv: string[]): { filePath?: string; minSamples?: number } {
+function parseCliArgs(argv: string[]): { filePath?: string; minSamples?: number; gate: boolean } {
   let filePath: string | undefined;
   let minSamples: number | undefined;
+  let gate = false;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--file') {
@@ -308,18 +345,22 @@ function parseCliArgs(argv: string[]): { filePath?: string; minSamples?: number 
       if (!raw) throw new Error('--min-samples requires an integer');
       minSamples = Number(raw);
       index += 1;
+    } else if (argument === '--gate') {
+      gate = true;
     } else {
       throw new Error(`unknown argument: ${argument}`);
     }
   }
-  return { filePath, minSamples };
+  return { filePath, minSamples, gate };
 }
 
 async function main(): Promise<void> {
-  const { filePath, minSamples } = parseCliArgs(process.argv.slice(2));
+  const { filePath, minSamples, gate } = parseCliArgs(process.argv.slice(2));
   const summary = summarizeServerTimingJsonl(await readInput(filePath), { minSamples });
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-  if (summary.invalidLineCount > 0) process.exitCode = 2;
+  if (summary.invalidLineCount > 0 || (gate && !isServerTimingCoverageGateSatisfied(summary))) {
+    process.exitCode = 2;
+  }
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : null;

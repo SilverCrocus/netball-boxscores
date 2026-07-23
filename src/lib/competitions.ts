@@ -185,6 +185,11 @@ export type LiveFallbackCompetition = Prisma.CompetitionGetPayload<{
 }>;
 
 export const MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES = 32;
+export const LIVE_FALLBACK_COMPETITION_SNAPSHOT_OPTIONS = {
+  isolationLevel: 'RepeatableRead' as const,
+  maxWait: 1_000,
+  timeout: 5_000,
+};
 
 export { MIN_PUBLIC_EDITION_MATCHES, MIN_PUBLIC_EDITION_TEAMS };
 
@@ -228,24 +233,38 @@ export async function getPublicCompetitions(): Promise<CompetitionOption[]> {
 }
 
 /**
- * Resolve the newest ready edition for the no-live /live fallback. The
- * candidate set is bounded and route-shaped; readiness is still evaluated in
- * application code so a newer published shell cannot displace an older ready
- * edition. The selected projection is also sufficient for the later public
- * match access policy, avoiding a second edition-readiness query.
+ * Resolve the newest ready edition for the no-live /live fallback. Each page
+ * is bounded and route-shaped; readiness is still evaluated in application
+ * code so any number of newer published shells cannot displace an older ready
+ * edition. A repeatable-read transaction keeps cursor pages on one snapshot,
+ * while the selected projection remains sufficient for the later public match
+ * access policy and avoids a second edition-readiness query.
  */
 export async function loadLiveFallbackCompetition(): Promise<LiveFallbackCompetition | null> {
-  const candidates = await timedQuery(
-    'live_fallback_competition',
-    () => prisma.competition.findMany({
-      where: { publicationStatus: 'PUBLISHED' },
-      select: liveFallbackCompetitionSelect,
-      orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
-      take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
-    }),
-  );
+  return prisma.$transaction(async (transaction) => {
+    let cursor: { id: string } | undefined;
 
-  return candidates.find(isEditionPubliclyReady) ?? null;
+    for (;;) {
+      const candidates = await timedQuery(
+        'live_fallback_competition',
+        () => transaction.competition.findMany({
+          where: { publicationStatus: 'PUBLISHED' },
+          select: liveFallbackCompetitionSelect,
+          orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
+          take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
+          ...(cursor ? { cursor, skip: 1 } : {}),
+        }),
+      );
+
+      const ready = candidates.find(isEditionPubliclyReady);
+      if (ready) return ready;
+      if (candidates.length < MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES) return null;
+
+      const lastCandidate = candidates[candidates.length - 1];
+      if (!lastCandidate) return null;
+      cursor = { id: lastCandidate.id };
+    }
+  }, LIVE_FALLBACK_COMPETITION_SNAPSHOT_OPTIONS);
 }
 
 /**

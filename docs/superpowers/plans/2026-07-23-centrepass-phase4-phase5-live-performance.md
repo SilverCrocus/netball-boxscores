@@ -43,10 +43,14 @@ samples per reported group before treating p95 as decision-quality evidence.
 - `live-fallback-access-policy`
 
 The existing `server_operation_timing` event remains the total server render.
-It now also includes the request-local phase-duration map. Separate phase
-events make overlap visible; phase durations must not be added as if they were
-a single critical path when phases are concurrent. No URLs, arguments, SQL,
-IDs, payloads, credentials, or user data are emitted.
+It now also includes request-local `attributedDurationMs`, the interval-union
+wall duration covered by named phases, and `phaseOverlapDurationMs` as a
+diagnostic. The phase-duration map and separate phase events remain useful for
+per-phase p50/p95, but their durations must not be added as if they were a
+single critical path when phases are concurrent. The summarizer's coverage
+gate uses the operation-level union field and rejects missing, invalid, or
+impossible coverage. No URLs, arguments, SQL, IDs, payloads, credentials, or
+user data are emitted.
 
 The context is request-local. Concurrent renders cannot contribute queries,
 cache outcomes, or phase durations to one another. The JSONL summarizer reads
@@ -65,23 +69,29 @@ Before:
 After:
 
 1. Resolve active state and public access exactly as before.
-2. On the no-live branch, read at most 32 published competition candidates
-   using a route-shaped projection containing only identity, complete public
-   readiness inputs, and edition-level capability coverage.
+2. On the no-live branch, read a bounded page of 32 published competition
+   candidates using a route-shaped projection containing only identity,
+   complete public readiness inputs, and edition-level capability coverage.
 3. Select the newest candidate that passes the existing generic and strict
    Glasgow readiness function. A newer published but incomplete shell is
-   skipped deterministically.
+   skipped deterministically. If a complete page has no ready edition, a
+   deterministic id cursor advances to the next bounded page inside one
+   PostgreSQL `RepeatableRead` snapshot. There is no arbitrary overall cutoff,
+   so an older ready edition remains visible even after more than 32 newer
+   shells fail readiness.
 4. Read one scheduled and one completed candidate in parallel, each bounded by
    `findFirst` and the existing public-stage/result predicates.
 5. Reuse the selected policy projection in `resolvePublicMatchAccessBatch`,
    so no second edition-readiness query is needed.
 
-When a public competition exists, the fallback portion is therefore one
-bounded competition query plus two parallel candidate queries. If no public
-competition is ready, candidate reads are skipped and the existing empty-card
-behavior is rendered. The active/live query, one-live redirect, multi-live
-chooser, no-store polling route, and all score/capability fail-closed rules are
-unchanged.
+When a public competition exists on the normal path, the fallback portion is
+therefore one bounded competition-page read plus two parallel candidate
+queries. Pathological pages add only the same narrow, bounded read shape while
+earlier pages contain no ready edition; the transaction keeps those pages on
+one snapshot. If no public competition is ready, candidate reads are skipped
+and the existing empty-card behavior is rendered. The active/live query,
+one-live redirect, multi-live chooser, no-store polling route, and all
+score/capability fail-closed rules are unchanged.
 
 ## Correctness invariants
 
@@ -106,7 +116,8 @@ unchanged.
 - Phase 5 (this PR): bounded no-live fallback query-path reduction. Gate: a
   deployed exact-head sample shows `/live` p95 below 2.0s or at least 40%
   below a comparable topology baseline, with p50/p95 and sample metadata
-  reported separately. This PR has not deployed and cannot claim that gate.
+  reported separately. This PR has not been production-deployed and cannot
+  claim that gate from a non-production preview.
 - Phase 6: measured Standings read-model or query work only after exact
   attribution and safe invalidation evidence.
 - Phase 7: route transitions, prefetching, loading boundaries, and navigation
