@@ -113,16 +113,18 @@ Phase 5b enables Prisma PostgreSQL `relationJoins` and passes
 `relationLoadStrategy: 'join'` to the relation-heavy active/window, fallback
 competition, and next/latest reads. It does not cache Live state, change the
 logical query call shape, or relax publication/access/capability policy. The
-PostgreSQL 17 rehearsal observes emitted SQL with an instrumented Prisma client
-and requires two joined `LATERAL` competition-page statements per two-page
-cursor traversal, alongside RepeatableRead, selection, and repeated result
-parity checks. The real statement count after deployment must still be
-captured on a production-class topology; local mocks and named timing query
-counts are not substitutes. With the loaded policy projections on the normal
-no-live path, the expected data shape is five statements (active, window,
-competition, next, and latest), excluding transaction-control statements; a
-second cursor page adds one. Do not claim Phase 5 or 5b production acceptance
-until an exact deployed-head p50/p95 sample proves the gate.
+PostgreSQL 17 rehearsal runs the same fallback fixture and projection twice,
+once with Prisma's current `query` strategy and once with `join`, and observes
+actual emitted Prisma query events. On the current Prisma 6.19.3/PostgreSQL 17
+fixture, query mode emitted 16 query events / 12 data statements and join mode
+emitted 11 query events / 7 data statements; both selected the same older ready
+edition and produced identical serialized results. The count is executions,
+not unique SQL shapes; transaction-control and isolation-probe events are
+excluded from the data-statement total, and raw SQL is never logged. The
+production-class statement count must still be captured after deployment; the
+rehearsal result is not a promise that every relation becomes one statement.
+Do not claim Phase 5 or 5b production acceptance until an exact deployed-head
+p50/p95 sample proves the gate.
 
 ## Rollout and rollback
 

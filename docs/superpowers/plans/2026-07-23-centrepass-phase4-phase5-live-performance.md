@@ -134,10 +134,9 @@ score/capability fail-closed rules are unchanged.
 - Phase 5b (this PR): collapse relation round trips in the existing fresh Live
   query path with Prisma's PostgreSQL `relationLoadStrategy: 'join'`. The
   logical call shape and all policy boundaries remain unchanged. The gate is a
-  real PostgreSQL 17 rehearsal that observes the emitted SQL, proves the
-  cursor traversal still selects the older ready edition after 34 newer
-  unready shells, proves repeated result parity, and shows the relation-heavy
-  competition pages are emitted as joined `LATERAL` statements. Production
+  real PostgreSQL 17 rehearsal that observes emitted Prisma query events,
+  proves the cursor traversal still selects the older ready edition after 34
+  newer unready shells, and proves query/join result parity. Production
   acceptance remains pending a deployed exact-head measurement.
 - Phase 6: measured Standings read-model or query work only after exact
   attribution and safe invalidation evidence.
@@ -173,16 +172,17 @@ fresh reads and the existing logical fallback calls, but asks Prisma to use
 PostgreSQL joins and JSON aggregation for the relation-bearing queries.
 
 The loopback PostgreSQL 17 verifier uses a query-event Prisma client only for
-the rehearsal. It excludes transaction-control and isolation-probe events,
-then requires exactly two data statements containing `LATERAL` for each
-two-page fallback traversal (34 newer shells require a second page), while
-checking selection and complete result parity across repeated loads. No
+the rehearsal and runs the same fixture/projection in both `query` and `join`
+mode. It counts actual emitted query events, not unique SQL shapes; it excludes
+transaction-control and isolation-probe events from the data-statement count,
+and never logs raw SQL. The exact CI result for the 34-shell, two-page fixture
+was 16 query events / 12 data statements in query mode versus 11 query events /
+7 data statements in join mode, with identical selected IDs and serialized
+results. Join emitted one statement containing `LATERAL` in that run. No
 production or shared database is used by this proof. The exact emitted SQL
 count remains a CI/rehearsal result, not an estimate from named application
-timings. On the normal no-live path, the expected joined data shape is five
-statements: active candidates, the window, one competition page, and the two
-parallel fallback candidates. A second competition page adds one data
-statement; transaction-control statements are excluded from these counts.
+timings; production-class evidence must capture the actual statement count on
+the deployed topology.
 
 ## Rust decision
 
