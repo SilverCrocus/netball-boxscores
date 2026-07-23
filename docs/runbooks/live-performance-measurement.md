@@ -97,6 +97,56 @@ unattainable. Also report that `/api/live-status` has not materially regressed
 from its directional baseline near 1 second. Do not mark the gate met from
 local tests or a non-production preview.
 
+## Phase 5b relation-round-trip evidence
+
+The prior Phase 5 receipt at release
+`718f18b3b522f12bfbef42eea3f77cccb1c0a7d4` was a failed gate: 20 warm
+sequential `/live` requests measured p50 `3841.1ms` and p95 `3939.0ms`, only
+about 4.0% below the comparable `4101.5ms` p95 and above both acceptance
+thresholds. Separate before/after `pg_stat_statements` snapshots for a stable
+warm request showed 14 application SQL statements and approximately `0.835ms`
+combined PostgreSQL execution, while the stream trace showed an approximately
+3.65s gap before the Live Suspense boundary. This points to Prisma/Supavisor
+relation round-trip fan-out, not PostgreSQL execution time.
+
+Phase 5b enables Prisma PostgreSQL `relationJoins` and passes
+`relationLoadStrategy: 'join'` to the relation-heavy active/window, fallback
+competition, and next/latest reads. It does not cache Live state, change the
+logical query call shape, or relax publication/access/capability policy. The
+PostgreSQL 17 rehearsal runs the same fallback fixture and projection twice,
+once with Prisma's current `query` strategy and once with `join`, and observes
+actual emitted Prisma query events. On the current Prisma 6.19.3/PostgreSQL 17
+fixture, query mode emitted 16 query events / 12 data statements and join mode
+emitted 11 query events / 7 data statements; both selected the same older ready
+edition and produced identical serialized results. The count is executions,
+not unique SQL shapes; transaction-control and isolation-probe events are
+excluded from the data-statement total, and raw SQL is never logged. The
+production-class statement count must still be captured after deployment; the
+rehearsal result is not a promise that every relation becomes one statement.
+Do not claim Phase 5 or 5b production acceptance until an exact deployed-head
+p50/p95 sample proves the gate.
+
+The Live fallback policy projection keeps generic aggregate gates exact as
+scalar counts. For a Glasgow identity, it loads five ordered stage rows
+(four contract rows plus one overflow row) and 39 ordered match rows (38 plus
+one overflow row), while each loaded match retains its exact scalar slot count.
+The strict readiness evaluator also receives the exact stage count. Therefore a
+39th match, a fifth stage, or excess slots cannot be hidden by a child-array
+limit; generic editions are not made false-unready because their larger arrays
+are not used by the generic gate. The PostgreSQL rehearsal exercises this with
+a non-empty published Glasgow edition containing 39 matches and verifies that
+the older generic edition is still selected. Because the preceding analytics
+epoch rehearsal intentionally leaves the canonical Glasgow seed in the
+ephemeral database, this verifier requires that exact 12-team/37-match/74-slot
+baseline, snapshots its scalar identity and gate counts, adds only two
+namespaced matches, and proves cleanup restores the seed; it never inserts or
+deletes the canonical series or edition.
+
+The verifier requires a meaningful relation reduction, not merely any lower
+number: at least two data statements and at least 25% of the observed query
+mode count (rounded up). On the current 12-statement fixture this requires
+three statements, so the observed 12-to-7 result passes while 12-to-11 fails.
+
 ## Rollout and rollback
 
 After deployment, begin with sequential warm checks for `/live`, then perform

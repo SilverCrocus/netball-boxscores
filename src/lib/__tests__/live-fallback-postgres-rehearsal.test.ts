@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { assertEphemeralPostgres17Target } from '../../../scripts/verify-live-fallback-competition-postgres';
+import {
+  assertEphemeralPostgres17Target,
+  assertMeaningfulRelationReduction,
+} from '../../../scripts/verify-live-fallback-competition-postgres';
 
 const loopbackTarget = {
   CENTREPASS_EPHEMERAL_PG17_REHEARSAL: 'true',
@@ -21,5 +24,14 @@ describe('Live fallback PostgreSQL rehearsal guard', () => {
       ...loopbackTarget,
       DATABASE_URL: 'postgresql://remote.example/production',
     })).toThrow('must target loopback PostgreSQL');
+  });
+
+  it('requires a fixture-derived meaningful reduction rather than any lower count', () => {
+    expect(assertMeaningfulRelationReduction(12, 7)).toMatchObject({
+      reduction: 5,
+      minimumReduction: 3,
+    });
+    expect(() => assertMeaningfulRelationReduction(12, 11))
+      .toThrow('relation join reduction is not meaningful');
   });
 });

@@ -9,6 +9,14 @@ describe("Prisma Schema", () => {
     expect(fs.existsSync(schemaPath)).toBe(true);
   });
 
+  it("enables the PostgreSQL relation join strategy", () => {
+    const schema = fs.readFileSync(
+      path.join(process.cwd(), "prisma", "schema.prisma"),
+      "utf-8"
+    );
+    expect(schema).toContain('previewFeatures = ["relationJoins"]');
+  });
+
   it("schema is valid (prisma validate)", () => {
     const result = execSync("npx prisma validate", {
       encoding: "utf-8",

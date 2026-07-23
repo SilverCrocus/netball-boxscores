@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StageType } from '@prisma/client';
 
 const mocks = vi.hoisted(() => ({
   connection: vi.fn().mockResolvedValue(undefined),
@@ -16,6 +17,13 @@ vi.mock('@/lib/db', () => ({
 }));
 
 import {
+  GLASGOW_2026_EXPECTED_MATCH_COUNT,
+  GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT,
+  GLASGOW_2026_EXPECTED_STAGE_COUNT,
+  GLASGOW_2026_EXPECTED_TEAM_COUNT,
+  isEditionPubliclyReady,
+  LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT,
+  LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT,
   liveFallbackCompetitionSelect,
   loadLiveFallbackCompetition,
   MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
@@ -65,6 +73,8 @@ describe('competition directory query', () => {
     }));
     expect(competitionNavigationSelect).not.toHaveProperty('ruleset');
     expect(competitionNavigationSelect).not.toHaveProperty('dataCoverage');
+    expect(competitionOptionSelect.stages).not.toHaveProperty('take');
+    expect(competitionOptionSelect.matches).not.toHaveProperty('take');
   });
 
   it('keeps generic publication gates and Glasgow readiness semantics in the directory', async () => {
@@ -95,6 +105,7 @@ describe('competition directory query', () => {
     expect(mocks.findMany).toHaveBeenCalledWith({
       where: { publicationStatus: 'PUBLISHED' },
       select: liveFallbackCompetitionSelect,
+      relationLoadStrategy: 'join',
       orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
       take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
     });
@@ -105,7 +116,61 @@ describe('competition directory query', () => {
     expect(liveFallbackCompetitionSelect).not.toHaveProperty('ruleset');
     expect(liveFallbackCompetitionSelect).not.toHaveProperty('label');
     expect(liveFallbackCompetitionSelect).toHaveProperty('dataCoverage');
+    expect(liveFallbackCompetitionSelect._count.select).toMatchObject({
+      entries: { where: { status: 'ACTIVE' } },
+      matches: true,
+      stages: true,
+    });
+    expect(liveFallbackCompetitionSelect.stages).toMatchObject({
+      orderBy: [{ sequence: 'asc' }, { id: 'asc' }],
+      take: LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT,
+    });
+    expect(liveFallbackCompetitionSelect.matches).toMatchObject({
+      orderBy: { id: 'asc' },
+      take: LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT,
+    });
     expect(liveFallbackCompetitionSelect).toHaveProperty('stages');
+    expect(liveFallbackCompetitionSelect).toHaveProperty('matches');
+  });
+
+  it('keeps every exact Glasgow threshold and rejects each plus-one overflow', () => {
+    const exact = strictGlasgowCandidate();
+    expect(exact.matches.reduce((total, match) => total + match._count.slots, 0))
+      .toBe(GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT);
+    expect(isEditionPubliclyReady(exact)).toBe(true);
+    expect(isEditionPubliclyReady(strictGlasgowCandidate({ entries: GLASGOW_2026_EXPECTED_TEAM_COUNT + 1 })))
+      .toBe(false);
+    expect(isEditionPubliclyReady(strictGlasgowCandidate({ matches: GLASGOW_2026_EXPECTED_MATCH_COUNT + 1 })))
+      .toBe(false);
+    expect(isEditionPubliclyReady(strictGlasgowCandidate({ extraSlot: true }))).toBe(false);
+    expect(isEditionPubliclyReady(strictGlasgowCandidate({ stageCount: GLASGOW_2026_EXPECTED_STAGE_COUNT + 1 })))
+      .toBe(false);
+  });
+
+  it('rejects unexpected Glasgow stages and preserves generic editions above Glasgow sizes', () => {
+    expect(isEditionPubliclyReady(strictGlasgowCandidate({
+      stages: [
+        ...strictGlasgowStages(),
+        {
+          slug: 'unexpected-stage',
+          type: 'OTHER',
+          sequence: 5,
+          isPublished: true,
+          _count: { groups: 0, matches: 1 },
+        },
+      ],
+      stageCount: GLASGOW_2026_EXPECTED_STAGE_COUNT + 1,
+    }))).toBe(false);
+    expect(isEditionPubliclyReady({
+      id: 'generic-large',
+      slug: '2026',
+      publicationStatus: 'PUBLISHED',
+      series: { slug: 'suncorp-super-netball' },
+      _count: { entries: GLASGOW_2026_EXPECTED_TEAM_COUNT + 20, matches: GLASGOW_2026_EXPECTED_MATCH_COUNT + 20 },
+      stages: [],
+      matches: [],
+      importRuns: [],
+    })).toBe(true);
   });
 
   it('continues deterministic cursor pages when more than one page of newer shells is unready', async () => {
@@ -124,6 +189,7 @@ describe('competition directory query', () => {
     expect(mocks.findMany).toHaveBeenNthCalledWith(2, {
       where: { publicationStatus: 'PUBLISHED' },
       select: liveFallbackCompetitionSelect,
+      relationLoadStrategy: 'join',
       orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
       take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
       cursor: { id: 'glasgow-shell-31' },
@@ -221,5 +287,54 @@ function liveFallbackCandidate({ id, ready }: { id: string; ready: boolean }) {
     })),
     matches: Array.from({ length: 38 }, () => ({ _count: { slots: 2 } })),
     importRuns: ready ? [{ id: 'clean-import' }] : [],
+  };
+}
+
+function strictGlasgowStages() {
+  const definitions: Array<[string, StageType, number, number, number]> = [
+    ['pool-stage', 'POOL', 1, 2, 30],
+    ['classification', 'CLASSIFICATION', 2, 0, 4],
+    ['semi-finals', 'SEMI_FINALS', 3, 0, 2],
+    ['medal-matches', 'MEDAL_MATCHES', 4, 0, 2],
+  ];
+  return definitions.map(([slug, type, sequence, groups, matches]) => ({
+    slug,
+    type,
+    sequence,
+    isPublished: true,
+    _count: { groups, matches },
+  }));
+}
+
+function strictGlasgowCandidate(overrides: {
+  entries?: number;
+  matches?: number;
+  stageCount?: number;
+  stages?: Array<{
+    slug: string;
+    type: StageType;
+    sequence: number;
+    isPublished: boolean;
+    _count: { groups: number; matches: number };
+  }>;
+  extraSlot?: boolean;
+} = {}) {
+  const matches = overrides.matches ?? GLASGOW_2026_EXPECTED_MATCH_COUNT;
+  const matchEvidence = Array.from({ length: matches }, (_, index) => ({
+    _count: { slots: index === 0 && overrides.extraSlot ? 3 : 2 },
+  }));
+  return {
+    id: 'glasgow-strict',
+    slug: 'glasgow-2026',
+    publicationStatus: 'PUBLISHED' as const,
+    series: { slug: 'commonwealth-games-netball' },
+    _count: {
+      entries: overrides.entries ?? GLASGOW_2026_EXPECTED_TEAM_COUNT,
+      matches,
+      stages: overrides.stageCount ?? GLASGOW_2026_EXPECTED_STAGE_COUNT,
+    },
+    stages: overrides.stages ?? strictGlasgowStages(),
+    matches: matchEvidence,
+    importRuns: [{ id: 'clean-import' }],
   };
 }

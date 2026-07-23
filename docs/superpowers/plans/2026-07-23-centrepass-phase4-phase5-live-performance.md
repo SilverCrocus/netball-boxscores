@@ -125,11 +125,19 @@ score/capability fail-closed rules are unchanged.
 - Phase 4 (this PR): named attribution and reproducible p50/p95 summaries.
   Gate: at least 95% of normal successful `/live` server-render time is
   explainable by named phases, with overlap interpreted correctly.
-- Phase 5 (this PR): bounded no-live fallback query-path reduction. Gate: a
+- Phase 5a (the preceding implementation): bounded no-live fallback query-path
+  reduction. Gate: a
   deployed exact-head sample shows `/live` p95 below 2.0s or at least 40%
   below a comparable topology baseline, with p50/p95 and sample metadata
   reported separately. This PR has not been production-deployed and cannot
   claim that gate from a non-production preview.
+- Phase 5b (this PR): collapse relation round trips in the existing fresh Live
+  query path with Prisma's PostgreSQL `relationLoadStrategy: 'join'`. The
+  logical call shape and all policy boundaries remain unchanged. The gate is a
+  real PostgreSQL 17 rehearsal that observes emitted Prisma query events,
+  proves the cursor traversal still selects the older ready edition after 34
+  newer unready shells, and proves query/join result parity. Production
+  acceptance remains pending a deployed exact-head measurement.
 - Phase 6: measured Standings read-model or query work only after exact
   attribution and safe invalidation evidence.
 - Phase 7: route transitions, prefetching, loading boundaries, and navigation
@@ -144,6 +152,54 @@ Each later phase requires a captured exact release SHA, warm/cold state,
 sequential and controlled low-concurrency samples, route/query/phase p50 and
 p95, error/health results, and a rollback path before deployment.
 
+## Phase 5b evidence and query-round-trip diagnosis
+
+The exact production receipt for the previous Live optimization did not meet
+the Phase 5a target: at release
+`718f18b3b522f12bfbef42eea3f77cccb1c0a7d4`, 20 warm sequential `/live`
+requests produced p50 `3841.1ms` and p95 `3939.0ms`. Compared with the prior
+comparable p95 of `4101.5ms`, that is approximately 4.0% lower, not the
+required 40% reduction and not below 2.0s. These measurements are production
+evidence for the failed gate, not Phase 5b acceptance.
+
+The corrected before/after `pg_stat_statements` snapshots for a stable warm
+request show 14 application SQL statements and approximately `0.835ms`
+combined PostgreSQL execution. A stream trace shows an approximately 3.65s
+gap before the Live Suspense boundary. Together, these observations point to
+Prisma/Supavisor relation round-trip fan-out rather than PostgreSQL execution
+or application CPU as the dominant delay. The Phase 5b change therefore keeps
+fresh reads and the existing logical fallback calls, but asks Prisma to use
+PostgreSQL joins and JSON aggregation for the relation-bearing queries.
+
+The loopback PostgreSQL 17 verifier uses a query-event Prisma client only for
+the rehearsal and runs the same fixture/projection in both `query` and `join`
+mode. It counts actual emitted query events, not unique SQL shapes; it excludes
+transaction-control and isolation-probe events from the data-statement count,
+and never logs raw SQL. The exact CI result for the 34-shell, two-page fixture
+was 16 query events / 12 data statements in query mode versus 11 query events /
+7 data statements in join mode, with identical selected IDs and serialized
+results. Join emitted one statement containing `LATERAL` in that run. No
+production or shared database is used by this proof. The exact emitted SQL
+count remains a CI/rehearsal result, not an estimate from named application
+timings; production-class evidence must capture the actual statement count on
+the deployed topology.
+
+The route-shaped projection bounds only child evidence needed by the strict
+Glasgow policy: five ordered stage rows (four expected plus one overflow) and
+39 ordered match rows (38 expected plus one overflow). Team/match/stage
+aggregate counts remain scalar and exact, and each loaded match retains its
+exact slot count. A real rehearsal fixture includes a published Glasgow
+projection with 39 matches and 78 slots; it must be rejected while the older
+generic edition remains selected. Generic editions retain their existing
+minimum-count behavior even when they exceed Glasgow's shape. The verifier's
+meaningful-reduction gate requires at least two statements and at least 25% of
+query-mode data statements, rounded up; this is three for the observed
+12-statement fixture, so 12-to-7 passes and 12-to-11 does not. The preceding
+analytics epoch rehearsal leaves the canonical Glasgow seed at 12 teams, 37
+matches, and 74 slots; the verifier requires and snapshots that exact seed,
+adds only two namespaced matches, and verifies cleanup restores its scalar and
+gate state without inserting or deleting the canonical series or edition.
+
 ## Rust decision
 
 Rust or WASM does not address the currently observed dominant database,
@@ -155,7 +211,9 @@ Rust code or dependency.
 
 ## Rollback and release evidence
 
-Phase 5 can be rolled back by restoring the Live page to the prior full
+Phase 5b can be rolled back by removing the relation-join preview feature and
+the `relationLoadStrategy: 'join'` options, restoring the prior query strategy;
+no database rollback is involved. Phase 5 can be rolled back by restoring the Live page to the prior full
 directory resolver; no database rollback is involved. If the deployed exact
 head does not meet the measured gate, keep the PR unmerged and retain the
 attribution logs for diagnosis. A rollout should start with sequential warm
