@@ -39,6 +39,7 @@ vi.mock('next/cache', () => ({
 
 import {
   measureServerOperation,
+  measureServerPhase,
   timedQuery,
   trackedUnstableCache,
 } from '@/lib/server-timing';
@@ -78,6 +79,48 @@ describe('server timing instrumentation', () => {
     expect(operation?.durationMs).toEqual(expect.any(Number));
     expect(operation?.queryDurationMs).toEqual(expect.any(Number));
     expect(operation).not.toHaveProperty('url');
+  });
+
+  it('keeps named phase attribution isolated across concurrent route operations', async () => {
+    await Promise.all([
+      measureServerOperation('/live', 'live-render-a', async () => {
+        await measureServerPhase('live-active-state', async () => {
+          await Promise.resolve();
+        });
+        await measureServerPhase('live-fallback-candidates', async () => {
+          await Promise.resolve();
+        });
+      }),
+      measureServerOperation('/live', 'live-render-b', async () => {
+        await measureServerPhase('live-fallback-competition', async () => {
+          await Promise.resolve();
+        });
+        await measureServerPhase('live-fallback-access-policy', async () => {
+          await Promise.resolve();
+        });
+      }),
+    ]);
+
+    const events = infoSpy.mock.calls
+      .map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>);
+    const operations = events.filter((event: Record<string, unknown>) => event.event === 'server_operation_timing');
+    expect(operations.find((event: Record<string, unknown>) => event.operation === 'live-render-a')).toMatchObject({
+      route: '/live',
+      phases: {
+        'live-active-state': expect.any(Number),
+        'live-fallback-candidates': expect.any(Number),
+      },
+    });
+    expect(operations.find((event: Record<string, unknown>) => event.operation === 'live-render-b')).toMatchObject({
+      route: '/live',
+      phases: {
+        'live-fallback-competition': expect.any(Number),
+        'live-fallback-access-policy': expect.any(Number),
+      },
+    });
+    expect(operations.find((event: Record<string, unknown>) => event.operation === 'live-render-a')?.phases)
+      .not.toHaveProperty('live-fallback-competition');
+    expect(events.filter((event: Record<string, unknown>) => event.event === 'server_phase_timing')).toHaveLength(4);
   });
 
   it('records cache misses and hits using stable cache names only', async () => {

@@ -2,6 +2,15 @@ import { unstable_cache } from 'next/cache';
 
 export type CacheStatus = 'hit' | 'miss';
 
+export const SERVER_PHASE_NAMES = [
+  'live-active-state',
+  'live-fallback-competition',
+  'live-fallback-candidates',
+  'live-fallback-access-policy',
+] as const;
+
+export type ServerPhaseName = typeof SERVER_PHASE_NAMES[number];
+
 export interface CacheSnapshotMeasurement {
   rowCount: number;
   resultCount: number;
@@ -22,6 +31,7 @@ interface ServerTimingContext {
   queryDurationMs: number;
   connectionWaitMs: number;
   cache: Record<string, CacheStatus>;
+  phases: Partial<Record<ServerPhaseName, number>>;
 }
 
 interface CacheInvocationContext {
@@ -97,6 +107,7 @@ export async function measureServerOperation<T>(
     queryDurationMs: 0,
     connectionWaitMs: 0,
     cache: {},
+    phases: {},
   };
 
   const run = async () => {
@@ -112,11 +123,45 @@ export async function measureServerOperation<T>(
         queryDurationMs: roundedDuration(context.queryDurationMs),
         connectionWaitMs: roundedDuration(context.connectionWaitMs),
         cache: context.cache,
+        phases: Object.fromEntries(
+          Object.entries(context.phases).map(([phase, durationMs]) => [
+            phase,
+            roundedDuration(durationMs ?? 0),
+          ]),
+        ),
       });
     }
   };
 
   return timingContext ? timingContext.run(context, run) : run();
+}
+
+/**
+ * Measures one named wall-clock phase inside a route operation. Phase events
+ * are intentionally separate from query totals: independent phases can
+ * overlap, so their durations must not be mistaken for critical-path time.
+ */
+export async function measureServerPhase<T>(
+  phase: ServerPhaseName,
+  handler: () => Promise<T>,
+): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await handler();
+  } finally {
+    const durationMs = performance.now() - startedAt;
+    const context = timingContext?.getStore();
+    if (context) {
+      context.phases[phase] = (context.phases[phase] ?? 0) + durationMs;
+    }
+    productionLog({
+      event: 'server_phase_timing',
+      route: context?.route ?? 'unknown',
+      operation: context?.operation ?? phase,
+      phase,
+      durationMs: roundedDuration(durationMs),
+    });
+  }
 }
 
 /** Records a cache result on the current route operation without logging keys or arguments. */

@@ -12,6 +12,9 @@ vi.mock('@/lib/db', () => ({
 }));
 
 import {
+  liveFallbackCompetitionSelect,
+  loadLiveFallbackCompetition,
+  MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
   competitionNavigationSelect,
   competitionOptionSelect,
   getCompetitions,
@@ -72,6 +75,35 @@ describe('competition directory query', () => {
     await expect(getPublicCompetitionNavigationDirectory()).resolves.toEqual([]);
     expect(mocks.findMany).toHaveBeenCalledTimes(2);
   });
+
+  it('uses a bounded policy projection and skips a newer published but unready shell', async () => {
+    mocks.findMany.mockResolvedValueOnce([
+      liveFallbackCandidate({ id: 'glasgow-shell', ready: false }),
+      liveFallbackCandidate({ id: 'glasgow-ready', ready: true }),
+    ]);
+
+    await expect(loadLiveFallbackCompetition()).resolves.toMatchObject({
+      id: 'glasgow-ready',
+    });
+    expect(mocks.findMany).toHaveBeenCalledWith({
+      where: { publicationStatus: 'PUBLISHED' },
+      select: liveFallbackCompetitionSelect,
+      orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
+      take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
+    });
+    expect(liveFallbackCompetitionSelect).not.toHaveProperty('ruleset');
+    expect(liveFallbackCompetitionSelect).not.toHaveProperty('label');
+    expect(liveFallbackCompetitionSelect).toHaveProperty('dataCoverage');
+    expect(liveFallbackCompetitionSelect).toHaveProperty('stages');
+  });
+
+  it('returns no fallback competition when every bounded candidate fails strict readiness', async () => {
+    mocks.findMany.mockResolvedValueOnce([
+      liveFallbackCandidate({ id: 'glasgow-shell', ready: false }),
+    ]);
+
+    await expect(loadLiveFallbackCompetition()).resolves.toBeNull();
+  });
 });
 
 function navigationCandidate(overrides: {
@@ -112,6 +144,34 @@ function glasgowReadinessCandidate(id: string, ready: boolean) {
     slug: 'glasgow-2026',
     publicationStatus: 'PUBLISHED',
     series: { slug: 'commonwealth-games-netball' },
+    _count: { entries: 12, matches: 38 },
+    stages: [
+      ['pool-stage', 'POOL', 1, 2, 30],
+      ['classification', 'CLASSIFICATION', 2, 0, 4],
+      ['semi-finals', 'SEMI_FINALS', 3, 0, 2],
+      ['medal-matches', 'MEDAL_MATCHES', 4, 0, 2],
+    ].map(([slug, type, sequence, groups, matches]) => ({
+      slug,
+      type,
+      sequence,
+      isPublished: ready,
+      _count: { groups, matches },
+    })),
+    matches: Array.from({ length: 38 }, () => ({ _count: { slots: 2 } })),
+    importRuns: ready ? [{ id: 'clean-import' }] : [],
+  };
+}
+
+function liveFallbackCandidate({ id, ready }: { id: string; ready: boolean }) {
+  return {
+    id,
+    slug: 'glasgow-2026',
+    publicationStatus: 'PUBLISHED',
+    series: { slug: 'commonwealth-games-netball' },
+    dataCoverage: [
+      { capability: 'FINAL_SCORE', state: 'AVAILABLE' },
+      { capability: 'SUPER_SHOTS', state: 'AVAILABLE' },
+    ],
     _count: { entries: 12, matches: 38 },
     stages: [
       ['pool-stage', 'POOL', 1, 2, 30],

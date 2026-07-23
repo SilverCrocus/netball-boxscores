@@ -1,6 +1,12 @@
 import { connection } from 'next/server';
 import { cache } from 'react';
-import type { Prisma, PublicationStatus, StageType } from '@prisma/client';
+import type {
+  CoverageState,
+  DataCapability,
+  Prisma,
+  PublicationStatus,
+  StageType,
+} from '@prisma/client';
 import { prisma } from '@/lib/db';
 import {
   timedQuery,
@@ -121,6 +127,65 @@ export interface PublicEditionReadinessOption {
   importRuns: Array<{ id: string }>;
 }
 
+/**
+ * The smallest edition projection that the public match policy needs after a
+ * route has selected a candidate. It deliberately excludes labels, rulesets,
+ * and unrelated directory data while retaining the complete publication and
+ * capability inputs used by isEditionPubliclyReady and resolveEditionFeatures.
+ */
+export interface PublicEditionPolicyOption extends PublicEditionReadinessOption {
+  dataCoverage: Array<{
+    capability: DataCapability;
+    state: CoverageState;
+  }>;
+}
+
+export const liveFallbackCompetitionSelect = {
+  id: true,
+  slug: true,
+  publicationStatus: true,
+  series: { select: { slug: true } },
+  dataCoverage: {
+    where: { matchId: null },
+    select: { capability: true, state: true },
+  },
+  _count: {
+    select: {
+      entries: { where: { status: 'ACTIVE' } },
+      matches: true,
+    },
+  },
+  stages: {
+    orderBy: { sequence: 'asc' },
+    select: {
+      slug: true,
+      type: true,
+      sequence: true,
+      isPublished: true,
+      _count: { select: { groups: true, matches: true } },
+    },
+  },
+  matches: {
+    select: { _count: { select: { slots: true } } },
+  },
+  importRuns: {
+    where: {
+      sourceSystem: { key: 'glasgow-2026-public-data' },
+      status: 'SUCCEEDED',
+      dryRun: false,
+      issueCount: 0,
+    },
+    select: { id: true },
+    take: 1,
+  },
+} as const satisfies Prisma.CompetitionSelect;
+
+export type LiveFallbackCompetition = Prisma.CompetitionGetPayload<{
+  select: typeof liveFallbackCompetitionSelect;
+}>;
+
+export const MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES = 32;
+
 export { MIN_PUBLIC_EDITION_MATCHES, MIN_PUBLIC_EDITION_TEAMS };
 
 /**
@@ -160,6 +225,27 @@ export function isEditionPubliclyReady(edition: PublicEditionReadinessOption): b
 
 export async function getPublicCompetitions(): Promise<CompetitionOption[]> {
   return (await getCompetitions()).filter(isEditionPubliclyReady);
+}
+
+/**
+ * Resolve the newest ready edition for the no-live /live fallback. The
+ * candidate set is bounded and route-shaped; readiness is still evaluated in
+ * application code so a newer published shell cannot displace an older ready
+ * edition. The selected projection is also sufficient for the later public
+ * match access policy, avoiding a second edition-readiness query.
+ */
+export async function loadLiveFallbackCompetition(): Promise<LiveFallbackCompetition | null> {
+  const candidates = await timedQuery(
+    'live_fallback_competition',
+    () => prisma.competition.findMany({
+      where: { publicationStatus: 'PUBLISHED' },
+      select: liveFallbackCompetitionSelect,
+      orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
+      take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
+    }),
+  );
+
+  return candidates.find(isEditionPubliclyReady) ?? null;
 }
 
 /**

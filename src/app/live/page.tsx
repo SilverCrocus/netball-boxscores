@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getLiveState, liveMatchSelect, type LiveMatch } from '@/lib/live-state';
 import { prisma, excludeSimData } from '@/lib/db';
-import { resolveCompetition } from '@/lib/competitions';
+import { loadLiveFallbackCompetition } from '@/lib/competitions';
 import {
   publicHomepageMatchState,
 } from '@/lib/home-feed';
@@ -13,7 +13,11 @@ import {
   resolvePublicMatchAccessBatch,
   type PublicMatchAccessCandidate,
 } from '@/lib/public-match';
-import { measureServerOperation, timedQuery } from '@/lib/server-timing';
+import {
+  measureServerOperation,
+  measureServerPhase,
+  timedQuery,
+} from '@/lib/server-timing';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +26,13 @@ export default function LivePage() {
 }
 
 async function renderLivePage() {
-  const state = await getLiveState({
-    includeMatchDetails: true,
-    includeWindowCandidates: false,
-  });
+  const state = await measureServerPhase(
+    'live-active-state',
+    () => getLiveState({
+      includeMatchDetails: true,
+      includeWindowCandidates: false,
+    }),
+  );
 
   if (state.liveMatchIds.length === 1) {
     const liveMatch = state.liveMatches[0];
@@ -80,48 +87,59 @@ async function renderLivePage() {
     );
   }
 
-  const { competition } = await resolveCompetition();
+  const competition = await measureServerPhase(
+    'live-fallback-competition',
+    loadLiveFallbackCompetition,
+  );
   const baseWhere = competition
     ? { ...excludeSimData, competitionId: competition.id }
     : { ...excludeSimData };
   const now = new Date();
-  const [nextCandidate, latestCandidate] = await Promise.all([
-    timedQuery('live_next_match', () => prisma.match.findFirst({
-      where: {
-        ...baseWhere,
-        status: 'SCHEDULED',
-        scheduledAt: { gte: now },
-        OR: [
-          { stageId: null },
-          { stage: { is: { isPublished: true } } },
-        ],
-      },
-      select: liveMatchSelect,
-      orderBy: { scheduledAt: 'asc' },
-    })),
-    timedQuery('live_latest_match', () => prisma.match.findFirst({
-      where: {
-        ...baseWhere,
-        status: 'COMPLETED',
-        resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
-        OR: [
-          { stageId: null },
-          { stage: { is: { isPublished: true } } },
-        ],
-      },
-      select: liveMatchSelect,
-      orderBy: { scheduledAt: 'desc' },
-    })),
-  ]);
+  const [nextCandidate, latestCandidate] = competition
+    ? await measureServerPhase(
+      'live-fallback-candidates',
+      () => Promise.all([
+        timedQuery('live_next_match', () => prisma.match.findFirst({
+          where: {
+            ...baseWhere,
+            status: 'SCHEDULED',
+            scheduledAt: { gte: now },
+            OR: [
+              { stageId: null },
+              { stage: { is: { isPublished: true } } },
+            ],
+          },
+          select: liveMatchSelect,
+          orderBy: { scheduledAt: 'asc' },
+        })),
+        timedQuery('live_latest_match', () => prisma.match.findFirst({
+          where: {
+            ...baseWhere,
+            status: 'COMPLETED',
+            resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
+            OR: [
+              { stageId: null },
+              { stage: { is: { isPublished: true } } },
+            ],
+          },
+          select: liveMatchSelect,
+          orderBy: { scheduledAt: 'desc' },
+        })),
+      ]),
+    )
+    : [null, null] as const;
   const fallbackCandidates = [nextCandidate, latestCandidate].filter(
     (match): match is NonNullable<typeof nextCandidate> => match !== null,
   );
   const fallbackAccessById = fallbackCandidates.length > 0
-    ? await resolvePublicMatchAccessBatch(
-      fallbackCandidates.map((match) => match.id),
-      competition ? [competition] : undefined,
-      fallbackCandidates as unknown as PublicMatchAccessCandidate[],
-    ).catch(() => new Map())
+    ? await measureServerPhase(
+      'live-fallback-access-policy',
+      () => resolvePublicMatchAccessBatch(
+        fallbackCandidates.map((match) => match.id),
+        competition ? [competition] : undefined,
+        fallbackCandidates as unknown as PublicMatchAccessCandidate[],
+      ).catch(() => new Map()),
+    )
     : new Map();
   const nextAccess = nextCandidate ? fallbackAccessById.get(nextCandidate.id) ?? null : null;
   const latestAccess = latestCandidate ? fallbackAccessById.get(latestCandidate.id) ?? null : null;
