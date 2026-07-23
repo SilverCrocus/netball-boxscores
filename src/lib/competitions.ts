@@ -4,6 +4,7 @@ import type {
   CoverageState,
   DataCapability,
   Prisma,
+  PrismaClient,
   PublicationStatus,
   StageType,
 } from '@prisma/client';
@@ -240,8 +241,12 @@ export async function getPublicCompetitions(): Promise<CompetitionOption[]> {
  * while the selected projection remains sufficient for the later public match
  * access policy and avoids a second edition-readiness query.
  */
-export async function loadLiveFallbackCompetition(): Promise<LiveFallbackCompetition | null> {
-  return prisma.$transaction(async (transaction) => {
+export async function loadLiveFallbackCompetitionWithClient(
+  database: PrismaClient,
+  transactionProbe?: (transaction: Prisma.TransactionClient) => Promise<void>,
+): Promise<LiveFallbackCompetition | null> {
+  return database.$transaction(async (transaction) => {
+    await transactionProbe?.(transaction);
     let cursor: { id: string } | undefined;
 
     for (;;) {
@@ -265,6 +270,10 @@ export async function loadLiveFallbackCompetition(): Promise<LiveFallbackCompeti
       cursor = { id: lastCandidate.id };
     }
   }, LIVE_FALLBACK_COMPETITION_SNAPSHOT_OPTIONS);
+}
+
+export async function loadLiveFallbackCompetition(): Promise<LiveFallbackCompetition | null> {
+  return loadLiveFallbackCompetitionWithClient(prisma);
 }
 
 /**

@@ -43,14 +43,19 @@ samples per reported group before treating p95 as decision-quality evidence.
 - `live-fallback-access-policy`
 
 The existing `server_operation_timing` event remains the total server render.
-It now also includes request-local `attributedDurationMs`, the interval-union
-wall duration covered by named phases, and `phaseOverlapDurationMs` as a
-diagnostic. The phase-duration map and separate phase events remain useful for
-per-phase p50/p95, but their durations must not be added as if they were a
-single critical path when phases are concurrent. The summarizer's coverage
-gate uses the operation-level union field and rejects missing, invalid, or
-impossible coverage. No URLs, arguments, SQL, IDs, payloads, credentials, or
-user data are emitted.
+It now also includes a low-cardinality `outcome` (`success` or `error`),
+request-local `attributedDurationMs`, the interval-union wall duration covered
+by named phases, and `phaseOverlapDurationMs` as a diagnostic. The
+phase-duration map and separate phase events remain useful for per-phase
+p50/p95, but their durations must not be added as if they were a single
+critical path when phases are concurrent. The summarizer's coverage gate uses
+only explicit-success operation events and the operation-level union field;
+it rejects missing/unknown outcomes, nonpositive durations, missing coverage,
+and impossible coverage. Error count is reported separately. No URLs,
+arguments, SQL, IDs, payloads, credentials, or user data are emitted.
+
+The summarizer streams CLI input and enforces 16 MiB/100,000-line/1 MiB-line
+input caps plus 10,000 samples per group and 100,000 retained samples overall.
 
 The context is request-local. Concurrent renders cannot contribute queries,
 cache outcomes, or phase durations to one another. The JSONL summarizer reads
@@ -85,11 +90,14 @@ After:
    so no second edition-readiness query is needed.
 
 When a public competition exists on the normal path, the fallback portion is
-therefore one bounded competition-page read plus two parallel candidate
-queries. Pathological pages add only the same narrow, bounded read shape while
-earlier pages contain no ready edition; the transaction keeps those pages on
-one snapshot. If no public competition is ready, candidate reads are skipped
-and the existing empty-card behavior is rendered. The active/live query,
+therefore one logical Prisma competition-page loader call plus two parallel
+candidate queries. Nested relation loading can expand that logical page call
+into multiple PostgreSQL statements depending on Prisma's strategy, so
+production-class evidence must capture the actual SQL statement count.
+Pathological pages add only the same narrow, bounded read shape while earlier
+pages contain no ready edition; the transaction keeps those pages on one
+snapshot. If no public competition is ready, candidate reads are skipped and
+the existing empty-card behavior is rendered. The active/live query,
 one-live redirect, multi-live chooser, no-store polling route, and all
 score/capability fail-closed rules are unchanged.
 

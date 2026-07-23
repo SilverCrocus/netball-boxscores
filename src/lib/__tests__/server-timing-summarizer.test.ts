@@ -1,6 +1,12 @@
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_TIMING_INPUT_BYTES,
+  MAX_TIMING_LINE_BYTES,
+  MAX_TIMING_SAMPLES_PER_GROUP,
   isServerTimingCoverageGateSatisfied,
+  SummarizerLimitError,
   summarizeServerTimingJsonl,
 } from '../../../scripts/summarize-server-timing';
 
@@ -13,6 +19,7 @@ describe('server timing summarizer', () => {
         operation: 'live-page',
         durationMs: index + 1,
         attributedDurationMs: index + 1,
+        outcome: 'success',
       })),
       ...Array.from({ length: 20 }, (_, index) => JSON.stringify({
         event: 'server_phase_timing',
@@ -73,6 +80,7 @@ describe('server timing summarizer', () => {
         route: '/live',
         operation: 'live-page',
         durationMs: 100,
+        outcome: 'success',
       }),
       JSON.stringify({
         event: 'server_phase_timing',
@@ -119,6 +127,7 @@ describe('server timing summarizer', () => {
       operation: 'live-page',
       durationMs: 100,
       attributedDurationMs: 96,
+      outcome: 'success',
       phases: {
         'live-active-state': 60,
         'live-fallback-candidates': 36,
@@ -143,6 +152,7 @@ describe('server timing summarizer', () => {
       operation: 'live-page',
       durationMs: 100,
       attributedDurationMs: 100,
+      outcome: 'success',
       phases: {
         'live-active-state': 80,
         'live-fallback-candidates': 80,
@@ -161,6 +171,7 @@ describe('server timing summarizer', () => {
       route: '/live',
       operation: 'live-page',
       durationMs: 100,
+      outcome: 'success',
       phases: {
         'live-active-state': 80,
         'live-fallback-candidates': 80,
@@ -175,6 +186,7 @@ describe('server timing summarizer', () => {
       operation: 'live-page',
       durationMs: 100,
       attributedDurationMs: 160,
+      outcome: 'success',
     }), { minSamples: 1 });
     expect(impossible.coverageInvalidReasons).toEqual(['operation_coverage_exceeds_duration']);
     expect(isServerTimingCoverageGateSatisfied(impossible)).toBe(false);
@@ -184,5 +196,126 @@ describe('server timing summarizer', () => {
     expect(() => summarizeServerTimingJsonl('', { minSamples: 0 })).toThrow(
       'minSamples must be an integer between 1 and 10000',
     );
+  });
+
+  it('rejects nonpositive operation durations from the coverage denominator', () => {
+    const summary = summarizeServerTimingJsonl(
+      Array.from({ length: 20 }, () => JSON.stringify({
+        event: 'server_operation_timing',
+        route: '/live',
+        operation: 'live-page',
+        durationMs: 0,
+        attributedDurationMs: 0,
+        outcome: 'success',
+      })).join('\n'),
+    );
+
+    expect(summary).toMatchObject({
+      successSampleCount: 20,
+      coverageSampleCount: 0,
+      coverageInvalidCount: 20,
+      coverageInvalidReasons: ['nonpositive_operation_duration'],
+    });
+    expect(isServerTimingCoverageGateSatisfied(summary)).toBe(false);
+  });
+
+  it('counts failed renders separately and uses only explicit successes for acceptance', () => {
+    const errors = Array.from({ length: 20 }, () => JSON.stringify({
+      event: 'server_operation_timing',
+      route: '/live',
+      operation: 'live-page',
+      durationMs: 100,
+      attributedDurationMs: 100,
+      outcome: 'error',
+    }));
+    const errorSummary = summarizeServerTimingJsonl(errors.join('\n'));
+    expect(errorSummary).toMatchObject({
+      successSampleCount: 0,
+      errorSampleCount: 20,
+      coverageSampleCount: 0,
+    });
+    expect(isServerTimingCoverageGateSatisfied(errorSummary)).toBe(false);
+
+    const mixedSummary = summarizeServerTimingJsonl([
+      ...errors.slice(0, 2),
+      ...Array.from({ length: 20 }, () => JSON.stringify({
+        event: 'server_operation_timing',
+        route: '/live',
+        operation: 'live-page',
+        durationMs: 100,
+        attributedDurationMs: 100,
+        outcome: 'success',
+      })),
+    ].join('\n'));
+    expect(mixedSummary).toMatchObject({
+      successSampleCount: 20,
+      errorSampleCount: 2,
+      coverageSampleCount: 20,
+    });
+    expect(isServerTimingCoverageGateSatisfied(mixedSummary)).toBe(true);
+
+    const legacy = summarizeServerTimingJsonl(JSON.stringify({
+      event: 'server_operation_timing',
+      route: '/live',
+      operation: 'live-page',
+      durationMs: 100,
+      attributedDurationMs: 100,
+    }), { minSamples: 1 });
+    expect(legacy.outcomeInvalidReasons).toEqual(['missing_operation_outcome']);
+    expect(isServerTimingCoverageGateSatisfied(legacy)).toBe(false);
+  });
+
+  it('bounds direct input and retained quantile samples without echoing log content', () => {
+    expect(() => summarizeServerTimingJsonl('x'.repeat(MAX_TIMING_INPUT_BYTES + 1))).toThrowError(
+      SummarizerLimitError,
+    );
+    expect(() => summarizeServerTimingJsonl('x'.repeat(MAX_TIMING_LINE_BYTES + 1))).toThrowError(
+      SummarizerLimitError,
+    );
+    expect(() => summarizeServerTimingJsonl(
+      Array.from({ length: MAX_TIMING_SAMPLES_PER_GROUP + 1 }, () => JSON.stringify({
+        event: 'server_query_timing',
+        route: '/live',
+        operation: 'live-page',
+        name: 'live_next_match',
+        durationMs: 1,
+      })).join('\n'),
+    )).toThrowError(SummarizerLimitError);
+  });
+
+  it('exercises the CLI gate and bounded-input failure paths', () => {
+    const cli = path.resolve('scripts/summarize-server-timing.ts');
+    const tsx = path.resolve('node_modules/tsx/dist/cli.mjs');
+    const run = (input: string, args: string[] = []) => spawnSync(
+      process.execPath,
+      [tsx, cli, ...args],
+      { cwd: process.cwd(), input, encoding: 'utf8' },
+    );
+    const nonpositiveInput = Array.from({ length: 20 }, () => JSON.stringify({
+      event: 'server_operation_timing',
+      route: '/live',
+      operation: 'live-page',
+      durationMs: 0,
+      attributedDurationMs: 0,
+      outcome: 'success',
+    })).join('\n');
+    const nonpositive = run(nonpositiveInput, ['--require-coverage']);
+    expect(nonpositive.status).toBe(2);
+    expect(nonpositive.stdout).toContain('nonpositive_operation_duration');
+    expect(nonpositive.stdout).toContain('"coverageInvalidCount": 20');
+
+    const oversized = run('x'.repeat(MAX_TIMING_LINE_BYTES + 1));
+    expect(oversized.status).toBe(2);
+    expect(oversized.stdout).toContain('"code":"oversized_line"');
+
+    const sampleOverflow = run(Array.from({ length: MAX_TIMING_SAMPLES_PER_GROUP + 1 }, () => JSON.stringify({
+      event: 'server_query_timing',
+      route: '/live',
+      operation: 'live-page',
+      name: 'live_next_match',
+      durationMs: 1,
+    })).join('\n'));
+    expect(sampleOverflow.status).toBe(2);
+    expect(sampleOverflow.stdout).toContain('"code":"sample_cap_exceeded"');
   });
 });

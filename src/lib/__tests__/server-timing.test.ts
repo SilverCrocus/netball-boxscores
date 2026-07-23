@@ -15,7 +15,7 @@ const { cacheControls } = vi.hoisted(() => ({
 
 vi.mock('next/cache', () => ({
   unstable_cache: (loader: (...args: unknown[]) => Promise<unknown>) => {
-    const values = new Map<string, unknown>();
+    const values = new Map<string, string>();
     return async (...args: unknown[]) => {
       if (cacheControls.rejectBeforeLoader) {
         const error = cacheControls.rejectBeforeLoader;
@@ -25,14 +25,14 @@ vi.mock('next/cache', () => ({
       const key = JSON.stringify(args);
       if (!values.has(key)) {
         const value = await loader(...args);
-        values.set(key, value);
+        values.set(key, JSON.stringify(value));
         return value;
       }
       if (cacheControls.hitGate) {
         cacheControls.onHit?.();
         await cacheControls.hitGate.promise;
       }
-      return values.get(key);
+      return JSON.parse(values.get(key) as string);
     };
   },
 }));
@@ -73,6 +73,7 @@ describe('server timing instrumentation', () => {
       event: 'server_operation_timing',
       route: '/standings',
       operation: 'standings-page',
+      outcome: 'success',
       queryCount: 1,
       cache: {},
     });
@@ -201,6 +202,7 @@ describe('server timing instrumentation', () => {
     expect(events).toContainEqual(expect.objectContaining({
       event: 'server_operation_timing',
       operation: 'error-coverage',
+      outcome: 'error',
       durationMs: 60,
       attributedDurationMs: 50,
       phaseOverlapDurationMs: 0,

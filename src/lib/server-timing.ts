@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 
 export type CacheStatus = 'hit' | 'miss';
+export type ServerOperationOutcome = 'success' | 'error';
 
 export const SERVER_PHASE_NAMES = [
   'live-active-state',
@@ -161,8 +162,12 @@ export async function measureServerOperation<T>(
   };
 
   const run = async () => {
+    let outcome: ServerOperationOutcome = 'success';
     try {
       return await handler();
+    } catch (error) {
+      outcome = 'error';
+      throw error;
     } finally {
       const durationMs = Math.max(0, performance.now() - context.startedAt);
       const coverage = phaseCoverage(context, durationMs);
@@ -171,6 +176,7 @@ export async function measureServerOperation<T>(
         event: 'server_operation_timing',
         route,
         operation,
+        outcome,
         durationMs: roundedTotalMs,
         attributedDurationMs: Math.min(
           roundedTotalMs,

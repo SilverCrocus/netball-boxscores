@@ -130,6 +130,11 @@ jobs:
       - name: Execute analytics cache epoch invalidation rehearsal
         run: npx tsx scripts/rehearse-analytics-cache-epoch.ts
 
+      - name: Execute Live fallback cursor and RepeatableRead rehearsal
+        env:
+          CENTREPASS_EPHEMERAL_PG17_REHEARSAL: "true"
+        run: npx tsx scripts/verify-live-fallback-competition-postgres.ts
+
   glasgow-preview-rehearsal:
     name: Glasgow DRAFT preview rehearsal
     if: >-
