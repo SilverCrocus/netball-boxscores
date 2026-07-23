@@ -3,12 +3,18 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { getVisibleNavigationItems, isResolvedNavigationActive } from '@/lib/navigation';
+import {
+  getNavigationPrefetchPolicy,
+  getVisibleNavigationItems,
+  isResolvedNavigationActive,
+  type NavItem,
+} from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { GlobalEditionSelector } from '@/components/competition/GlobalEditionSelector';
 import { NavigationPendingIndicator } from '@/components/layout/NavigationPendingIndicator';
+import { IntentPrefetchLink } from '@/components/layout/IntentPrefetchLink';
 import type { EditionContextValue } from '@/lib/edition-context';
 import {
   editionAwareNavigationHref,
@@ -62,37 +68,15 @@ export function Sidebar({
         {navigationItems.map((item) => {
           const href = editionAwareNavigationHref(currentEdition, item.href);
           const active = isResolvedNavigationActive(pathname, item.href, href);
-          const isLiveItem = item.href === '/live';
           return (
-            <Link
+            <SidebarNavigationLink
               key={item.href}
+              item={item}
               href={href}
-              className={`flex items-center gap-4 py-3 pl-4 border-l-4 transition-all font-headline font-medium text-sm ${
-                active
-                  ? 'text-lime-400 border-lime-400 bg-slate-800/30'
-                  : 'text-slate-400 border-transparent hover:bg-slate-800'
-              }`}
-            >
-              <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
-              <span className="flex items-center gap-2">
-                {item.sidebarLabel ?? item.label}
-                {isLiveItem && hasLive && (
-                  <>
-                    <span aria-hidden="true" className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    <span className="sr-only">Match in progress</span>
-                  </>
-                )}
-                {isLiveItem && !hasLive && minutesUntilNext !== null && (
-                  <span aria-label={`Starts in ${minutesUntilNext} minutes`} className="text-[10px] text-lime-400 font-label font-bold uppercase">
-                    {minutesUntilNext}m
-                  </span>
-                )}
-              </span>
-              <NavigationPendingIndicator
-                label={item.sidebarLabel ?? item.label}
-                className="ml-auto mr-4"
-              />
-            </Link>
+              active={active}
+              hasLive={hasLive}
+              minutesUntilNext={minutesUntilNext}
+            />
           );
         })}
       </nav>
@@ -101,5 +85,64 @@ export function Sidebar({
         <AuthButton dark />
       </section>
     </aside>
+  );
+}
+
+function SidebarNavigationLink({
+  item,
+  href,
+  active,
+  hasLive,
+  minutesUntilNext,
+}: {
+  item: NavItem;
+  href: string;
+  active: boolean;
+  hasLive: boolean;
+  minutesUntilNext: number | null;
+}) {
+  const policy = getNavigationPrefetchPolicy(item.href);
+  const className = `flex items-center gap-4 py-3 pl-4 border-l-4 transition-all font-headline font-medium text-sm ${
+    active
+      ? 'text-lime-400 border-lime-400 bg-slate-800/30'
+      : 'text-slate-400 border-transparent hover:bg-slate-800'
+  }`;
+  const isLiveItem = item.href === '/live';
+  const content = (
+    <>
+      <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
+      <span className="flex items-center gap-2">
+        {item.sidebarLabel ?? item.label}
+        {isLiveItem && hasLive && (
+          <>
+            <span aria-hidden="true" className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="sr-only">Match in progress</span>
+          </>
+        )}
+        {isLiveItem && !hasLive && minutesUntilNext !== null && (
+          <span aria-label={`Starts in ${minutesUntilNext} minutes`} className="text-[10px] text-lime-400 font-label font-bold uppercase">
+            {minutesUntilNext}m
+          </span>
+        )}
+      </span>
+      <NavigationPendingIndicator
+        label={item.sidebarLabel ?? item.label}
+        className="ml-auto mr-4"
+      />
+    </>
+  );
+
+  if (policy === 'intent-full') {
+    return (
+      <IntentPrefetchLink href={href} policy={policy} className={className}>
+        {content}
+      </IntentPrefetchLink>
+    );
+  }
+
+  return (
+    <Link href={href} className={className}>
+      {content}
+    </Link>
   );
 }

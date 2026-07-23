@@ -177,7 +177,7 @@ function rankingHref(current: Record<string, string | undefined>, next: Record<s
 }
 
 function RankingTab({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
-  return <Link href={href} className={`rounded-xl px-4 py-3 font-headline text-sm font-bold ${active ? 'bg-secondary text-white' : 'bg-surface-container-high text-on-surface-variant'}`}>{children}</Link>;
+  return <Link prefetch={false} href={href} className={`rounded-xl px-4 py-3 font-headline text-sm font-bold ${active ? 'bg-secondary text-white' : 'bg-surface-container-high text-on-surface-variant'}`}>{children}</Link>;
 }
 
 function Filter({ label, children }: { label: string; children: React.ReactNode }) {

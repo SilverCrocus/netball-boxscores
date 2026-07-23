@@ -26,8 +26,8 @@ vi.mock('next-auth/react', () => ({
 }));
 
 vi.mock('next/link', () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({ children, href, prefetch, ...props }: { children: React.ReactNode; href: string; prefetch?: boolean; [key: string]: unknown }) => (
+    <a href={href} data-prefetch={prefetch === true ? 'true' : prefetch === false ? 'false' : 'default'} {...props}>{children}</a>
   ),
   useLinkStatus: () => ({ pending: false }),
 }));
@@ -231,5 +231,14 @@ describe('BottomNav', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
     expect(screen.queryByRole('link', { name: /^Ask CentrePass$/ })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Browse teams/ })).toBeInTheDocument();
+  });
+
+  it('uses intent prefetch only for analytics landings and keeps ordinary navigation automatic', () => {
+    render(<BottomNav analyticsEnabled askCentrePassEnabled />);
+
+    expect(screen.getByRole('link', { name: 'Rankings' })).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: 'Records' })).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: 'Live' })).toHaveAttribute('data-prefetch', 'default');
+    expect(screen.getByRole('link', { name: 'Standings' })).toHaveAttribute('data-prefetch', 'default');
   });
 });

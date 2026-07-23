@@ -5,6 +5,18 @@ export interface NavItem {
   sidebarLabel?: string;
 }
 
+export type NavigationPrefetchPolicy = 'none' | 'intent-full';
+
+const INTENT_FULL_PREFETCH_HREFS = new Set(['/rankings', '/records']);
+
+/**
+ * Only the two analytics entry points opt into a full prefetch after explicit
+ * user intent. Callers keep ordinary navigation links native for all others.
+ */
+export function getNavigationPrefetchPolicy(href: string): NavigationPrefetchPolicy {
+  return INTENT_FULL_PREFETCH_HREFS.has(href) ? 'intent-full' : 'none';
+}
+
 export function isActive(pathname: string, href: string): boolean {
   return pathname === href || (href !== '/' && pathname.startsWith(href));
 }

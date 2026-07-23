@@ -44,7 +44,7 @@ describe('RankingsPage dense links', () => {
     mocks.listAnalyticsEditions.mockResolvedValue([edition]);
   });
 
-  it('disables viewport prefetch for player result rows while retaining ranking tabs', async () => {
+  it('disables automatic prefetch for player result rows and ranking tabs', async () => {
     mocks.getPlayerRankingSnapshot.mockResolvedValue({
       request: { competitionId: edition.id, metricId: 'centrepass_impact' },
       methodVersion: 'rankings.v1',
@@ -62,7 +62,7 @@ describe('RankingsPage dense links', () => {
 
     render(await RankingsPage({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByRole('link', { name: 'Player rankings' })).toHaveAttribute('data-prefetch', 'default');
+    expect(screen.getByRole('link', { name: 'Player rankings' })).toHaveAttribute('data-prefetch', 'false');
     expect(screen.getByRole('link', { name: 'Player One' })).toHaveAttribute('data-prefetch', 'false');
   });
 
@@ -88,7 +88,7 @@ describe('RankingsPage dense links', () => {
 
     render(await RankingsPage({ searchParams: Promise.resolve({ view: 'teams' }) }));
 
-    expect(screen.getByRole('link', { name: 'Team power' })).toHaveAttribute('data-prefetch', 'default');
+    expect(screen.getByRole('link', { name: 'Team power' })).toHaveAttribute('data-prefetch', 'false');
     expect(screen.getByRole('link', { name: 'Team One' })).toHaveAttribute('data-prefetch', 'false');
   });
 });
