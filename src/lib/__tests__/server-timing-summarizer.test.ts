@@ -327,6 +327,67 @@ describe('server timing summarizer', () => {
     expect(state.returned).toBe(true);
   });
 
+  it('rejects maximum content plus a bare carriage return at EOF before callback', async () => {
+    const { source } = trackedSource([
+      Buffer.concat([Buffer.alloc(MAX_TIMING_LINE_BYTES, 0x78), Buffer.from('\r')]),
+    ]);
+    const lines: string[] = [];
+
+    await expect(scanTimingJsonl(source, (line) => {
+      lines.push(line);
+    })).rejects.toMatchObject({
+      name: 'SummarizerLimitError',
+      code: 'oversized_line',
+    });
+    expect(lines).toEqual([]);
+  });
+
+  it('accepts maximum content followed by CRLF as one maximum-length line', async () => {
+    const { source } = trackedSource([
+      Buffer.concat([Buffer.alloc(MAX_TIMING_LINE_BYTES, 0x78), Buffer.from('\r\n')]),
+    ]);
+    const lines: string[] = [];
+
+    await scanTimingJsonl(source, (line) => {
+      lines.push(line);
+    });
+
+    expect(lines).toEqual(['x'.repeat(MAX_TIMING_LINE_BYTES)]);
+  });
+
+  it('counts a non-delimiter carriage return as content at the line boundary', async () => {
+    const sentinel = Buffer.from('SENTINEL_SHOULD_NOT_BE_CONSUMED');
+    const { source, state } = trackedSource([
+      Buffer.alloc(MAX_TIMING_LINE_BYTES - 1, 0x78),
+      Buffer.from('\r'),
+      Buffer.from('z'),
+      sentinel,
+    ]);
+
+    await expect(scanTimingJsonl(source, () => {})).rejects.toMatchObject({
+      name: 'SummarizerLimitError',
+      code: 'oversized_line',
+    });
+    expect(state.consumed).toBe(3);
+    expect(state.destroyed).toBe(true);
+    expect(state.returned).toBe(true);
+  });
+
+  it('accepts CR and LF split across source chunks at the maximum boundary', async () => {
+    const { source } = trackedSource([
+      Buffer.alloc(MAX_TIMING_LINE_BYTES, 0x78),
+      Buffer.from('\r'),
+      Buffer.from('\n'),
+    ]);
+    const lines: string[] = [];
+
+    await scanTimingJsonl(source, (line) => {
+      lines.push(line);
+    });
+
+    expect(lines).toEqual(['x'.repeat(MAX_TIMING_LINE_BYTES)]);
+  });
+
   it('handles split CRLF, split UTF-8, empty lines, and a final unterminated line', async () => {
     const prefix = Buffer.from('{"event":"server_cache_timing","message":"');
     const emoji = Buffer.from('😀');
@@ -433,10 +494,13 @@ describe('server timing summarizer', () => {
     expect(nonpositive.stdout).toContain('nonpositive_operation_duration');
     expect(nonpositive.stdout).toContain('"coverageInvalidCount": 20');
 
-    const oversized = run('x'.repeat(MAX_TIMING_LINE_BYTES + 1));
+    const sensitiveMarker = 'SENSITIVE_MARKER_DO_NOT_ECHO';
+    const oversizedInput = `${'x'.repeat(MAX_TIMING_LINE_BYTES - sensitiveMarker.length)}${sensitiveMarker}x`;
+    const oversized = run(oversizedInput);
     expect(oversized.status).toBe(2);
     expect(oversized.stdout).toContain('"code":"oversized_line"');
-    expect(oversized.stdout).not.toContain('SENTINEL_SHOULD_NOT_BE_CONSUMED');
+    expect(oversized.stdout).not.toContain(sensitiveMarker);
+    expect(oversized.stderr).not.toContain(sensitiveMarker);
 
     const sampleOverflow = run(Array.from({ length: MAX_TIMING_SAMPLES_PER_GROUP + 1 }, () => JSON.stringify({
       event: 'server_query_timing',

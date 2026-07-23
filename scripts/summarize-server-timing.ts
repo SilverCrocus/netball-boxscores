@@ -467,12 +467,24 @@ export async function scanTimingJsonl(
   onLine: (line: string) => void | Promise<void>,
 ): Promise<void> {
   const iterator = source[Symbol.asyncIterator]();
-  const pendingLine = Buffer.allocUnsafe(MAX_TIMING_LINE_BYTES + 1);
+  const pendingLine = Buffer.allocUnsafe(MAX_TIMING_LINE_BYTES);
   let pendingLineBytes = 0;
+  let pendingCarriageReturn = false;
   let totalInputBytes = 0;
   let lineCount = 0;
 
-  const emitLine = async (stripTrailingCarriageReturn: boolean): Promise<void> => {
+  const appendByte = (byte: number): void => {
+    if (pendingLineBytes >= MAX_TIMING_LINE_BYTES) {
+      throw new SummarizerLimitError(
+        'oversized_line',
+        `timing input contains a line over the ${MAX_TIMING_LINE_BYTES}-byte limit`,
+      );
+    }
+    pendingLine[pendingLineBytes] = byte;
+    pendingLineBytes += 1;
+  };
+
+  const emitLine = async (): Promise<void> => {
     lineCount += 1;
     if (lineCount > MAX_TIMING_INPUT_LINES) {
       throw new SummarizerLimitError(
@@ -481,15 +493,7 @@ export async function scanTimingJsonl(
       );
     }
 
-    let lineBytes = pendingLineBytes;
-    if (
-      stripTrailingCarriageReturn
-      && lineBytes > 0
-      && pendingLine[lineBytes - 1] === 0x0d
-    ) {
-      lineBytes -= 1;
-    }
-    const line = pendingLine.subarray(0, lineBytes).toString('utf8');
+    const line = pendingLine.subarray(0, pendingLineBytes).toString('utf8');
     pendingLineBytes = 0;
     await onLine(line);
   };
@@ -511,26 +515,35 @@ export async function scanTimingJsonl(
       totalInputBytes += chunk.length;
 
       for (const byte of chunk) {
+        if (pendingCarriageReturn) {
+          pendingCarriageReturn = false;
+          if (byte === 0x0a) {
+            await emitLine();
+            continue;
+          }
+          appendByte(0x0d);
+        }
+
         if (byte === 0x0a) {
-          await emitLine(true);
+          await emitLine();
           continue;
         }
 
-        const isTrailingCarriageReturn = byte === 0x0d
-          && pendingLineBytes === MAX_TIMING_LINE_BYTES;
-        if (pendingLineBytes >= MAX_TIMING_LINE_BYTES && !isTrailingCarriageReturn) {
-          throw new SummarizerLimitError(
-            'oversized_line',
-            `timing input contains a line over the ${MAX_TIMING_LINE_BYTES}-byte limit`,
-          );
+        if (byte === 0x0d) {
+          pendingCarriageReturn = true;
+          continue;
         }
-        pendingLine[pendingLineBytes] = byte;
-        pendingLineBytes += 1;
+
+        appendByte(byte);
       }
     }
 
+    if (pendingCarriageReturn) {
+      pendingCarriageReturn = false;
+      appendByte(0x0d);
+    }
     if (pendingLineBytes > 0) {
-      await emitLine(false);
+      await emitLine();
     }
   } catch (error) {
     await stopTimingInput(source, iterator);
