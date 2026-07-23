@@ -3,12 +3,16 @@ import type { PublicationStatus, StageType } from '@prisma/client';
 export const MIN_PUBLIC_EDITION_TEAMS = 2;
 export const MIN_PUBLIC_EDITION_MATCHES = 1;
 
+export const GLASGOW_2026_EXPECTED_TEAM_COUNT = 12;
+export const GLASGOW_2026_EXPECTED_MATCH_COUNT = 38;
+export const GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT = 76;
+
 export const GLASGOW_2026_IDENTITY = {
   competitionSlug: 'commonwealth-games-netball',
   editionSlug: 'glasgow-2026',
 } as const;
 
-const GLASGOW_2026_EXPECTED_STAGES = [
+export const GLASGOW_2026_EXPECTED_STAGES = [
   { slug: 'pool-stage', type: 'POOL', sequence: 1, groupCount: 2, matchCount: 30 },
   { slug: 'classification', type: 'CLASSIFICATION', sequence: 2, groupCount: 0, matchCount: 4 },
   { slug: 'semi-finals', type: 'SEMI_FINALS', sequence: 3, groupCount: 0, matchCount: 2 },
@@ -20,6 +24,8 @@ const GLASGOW_2026_EXPECTED_STAGES = [
   groupCount: number;
   matchCount: number;
 }>;
+
+export const GLASGOW_2026_EXPECTED_STAGE_COUNT = GLASGOW_2026_EXPECTED_STAGES.length;
 
 export interface EditionStagePublicationReadinessInput {
   slug: string;
@@ -61,6 +67,7 @@ export interface GlasgowPublishedVisibilityInput {
   matchCount: number;
   matchSlotCount: number;
   cleanSuccessfulImportCount: number;
+  stageCount?: number;
   stages: EditionStagePublicationReadinessInput[];
 }
 
@@ -119,14 +126,18 @@ export function evaluateGlasgowPublishedVisibility(
   if (input.publicationStatus !== 'PUBLISHED') {
     blockers.push(`Glasgow 2026 public visibility requires PUBLISHED status; found ${input.publicationStatus}`);
   }
-  if (input.teamCount !== 12) {
-    blockers.push(`Glasgow 2026 requires exactly 12 participating teams; found ${input.teamCount}`);
+  if (input.teamCount !== GLASGOW_2026_EXPECTED_TEAM_COUNT) {
+    blockers.push(`Glasgow 2026 requires exactly ${GLASGOW_2026_EXPECTED_TEAM_COUNT} participating teams; found ${input.teamCount}`);
   }
-  if (input.matchCount !== 38) {
-    blockers.push(`Glasgow 2026 requires exactly 38 matches; found ${input.matchCount}`);
+  if (input.matchCount !== GLASGOW_2026_EXPECTED_MATCH_COUNT) {
+    blockers.push(`Glasgow 2026 requires exactly ${GLASGOW_2026_EXPECTED_MATCH_COUNT} matches; found ${input.matchCount}`);
   }
-  if (input.matchSlotCount !== 76) {
-    blockers.push(`Glasgow 2026 requires exactly 76 match slots; found ${input.matchSlotCount}`);
+  if (input.matchSlotCount !== GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT) {
+    blockers.push(`Glasgow 2026 requires exactly ${GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT} match slots; found ${input.matchSlotCount}`);
+  }
+  const stageCount = input.stageCount ?? input.stages.length;
+  if (stageCount !== GLASGOW_2026_EXPECTED_STAGE_COUNT) {
+    blockers.push(`Glasgow 2026 requires exactly ${GLASGOW_2026_EXPECTED_STAGE_COUNT} stages; found ${stageCount}`);
   }
   if (input.cleanSuccessfulImportCount < 1) {
     blockers.push('Glasgow 2026 requires a successful applied import with no recorded issues');
@@ -155,14 +166,14 @@ export function evaluateEditionPublicationReadiness(
     return { ready: blockers.length === 0, blockers };
   }
 
-  if (input.teamCount !== 12) {
-    blockers.push(`Glasgow 2026 requires exactly 12 participating teams; found ${input.teamCount}`);
+  if (input.teamCount !== GLASGOW_2026_EXPECTED_TEAM_COUNT) {
+    blockers.push(`Glasgow 2026 requires exactly ${GLASGOW_2026_EXPECTED_TEAM_COUNT} participating teams; found ${input.teamCount}`);
   }
-  if (input.matchCount !== 38) {
-    blockers.push(`Glasgow 2026 requires exactly 38 matches; found ${input.matchCount}`);
+  if (input.matchCount !== GLASGOW_2026_EXPECTED_MATCH_COUNT) {
+    blockers.push(`Glasgow 2026 requires exactly ${GLASGOW_2026_EXPECTED_MATCH_COUNT} matches; found ${input.matchCount}`);
   }
-  if (input.matchSlotCount !== 76) {
-    blockers.push(`Glasgow 2026 requires exactly 76 match slots; found ${input.matchSlotCount ?? 0}`);
+  if (input.matchSlotCount !== GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT) {
+    blockers.push(`Glasgow 2026 requires exactly ${GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT} match slots; found ${input.matchSlotCount ?? 0}`);
   }
   if (input.activeRosterCount !== 96) {
     blockers.push(`Glasgow 2026 requires exactly 96 active roster memberships; found ${input.activeRosterCount ?? 0}`);

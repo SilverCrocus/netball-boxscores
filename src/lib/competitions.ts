@@ -16,6 +16,10 @@ import {
 import {
   evaluateGlasgowPublishedVisibility,
   isGlasgow2026Identity,
+  GLASGOW_2026_EXPECTED_MATCH_COUNT,
+  GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT,
+  GLASGOW_2026_EXPECTED_STAGE_COUNT,
+  GLASGOW_2026_EXPECTED_TEAM_COUNT,
   MIN_PUBLIC_EDITION_MATCHES,
   MIN_PUBLIC_EDITION_TEAMS,
 } from '@/lib/edition-publication-readiness';
@@ -116,7 +120,7 @@ export interface PublicEditionReadinessOption {
   slug: string | null;
   publicationStatus: PublicationStatus;
   series: { slug: string } | null;
-  _count: { entries: number; matches: number };
+  _count: { entries: number; matches: number; stages?: number };
   stages: Array<{
     slug: string;
     type: StageType;
@@ -141,6 +145,15 @@ export interface PublicEditionPolicyOption extends PublicEditionReadinessOption 
   }>;
 }
 
+/**
+ * Glasgow's strict public contract supplies the exact scalar counts. The
+ * route-shaped child evidence reads one extra row so an overflow is observed
+ * and rejected instead of being silently truncated. Match slot counts remain
+ * scalar per loaded match, so they are never truncated by this projection.
+ */
+export const LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT = GLASGOW_2026_EXPECTED_STAGE_COUNT + 1;
+export const LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT = GLASGOW_2026_EXPECTED_MATCH_COUNT + 1;
+
 export const liveFallbackCompetitionSelect = {
   id: true,
   slug: true,
@@ -154,10 +167,12 @@ export const liveFallbackCompetitionSelect = {
     select: {
       entries: { where: { status: 'ACTIVE' } },
       matches: true,
+      stages: true,
     },
   },
   stages: {
-    orderBy: { sequence: 'asc' },
+    orderBy: [{ sequence: 'asc' }, { id: 'asc' }],
+    take: LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT,
     select: {
       slug: true,
       type: true,
@@ -167,6 +182,8 @@ export const liveFallbackCompetitionSelect = {
     },
   },
   matches: {
+    orderBy: { id: 'asc' },
+    take: LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT,
     select: { _count: { select: { slots: true } } },
   },
   importRuns: {
@@ -194,7 +211,14 @@ export const LIVE_FALLBACK_COMPETITION_SNAPSHOT_OPTIONS = {
 
 export type LiveRelationLoadStrategy = 'join' | 'query';
 
-export { MIN_PUBLIC_EDITION_MATCHES, MIN_PUBLIC_EDITION_TEAMS };
+export {
+  GLASGOW_2026_EXPECTED_MATCH_COUNT,
+  GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT,
+  GLASGOW_2026_EXPECTED_STAGE_COUNT,
+  GLASGOW_2026_EXPECTED_TEAM_COUNT,
+  MIN_PUBLIC_EDITION_MATCHES,
+  MIN_PUBLIC_EDITION_TEAMS,
+};
 
 /**
  * Public visibility is deliberately stricter than the editorial status flag.
@@ -220,6 +244,7 @@ export function isEditionPubliclyReady(edition: PublicEditionReadinessOption): b
     matchCount: edition._count.matches,
     matchSlotCount: edition.matches.reduce((total, match) => total + match._count.slots, 0),
     cleanSuccessfulImportCount: edition.importRuns.length,
+    stageCount: edition._count.stages,
     stages: edition.stages.map((stage) => ({
       slug: stage.slug,
       type: stage.type,

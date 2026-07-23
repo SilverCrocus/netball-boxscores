@@ -126,6 +126,22 @@ rehearsal result is not a promise that every relation becomes one statement.
 Do not claim Phase 5 or 5b production acceptance until an exact deployed-head
 p50/p95 sample proves the gate.
 
+The Live fallback policy projection keeps generic aggregate gates exact as
+scalar counts. For a Glasgow identity, it loads five ordered stage rows
+(four contract rows plus one overflow row) and 39 ordered match rows (38 plus
+one overflow row), while each loaded match retains its exact scalar slot count.
+The strict readiness evaluator also receives the exact stage count. Therefore a
+39th match, a fifth stage, or excess slots cannot be hidden by a child-array
+limit; generic editions are not made false-unready because their larger arrays
+are not used by the generic gate. The PostgreSQL rehearsal exercises this with
+a non-empty published Glasgow edition containing 39 matches and verifies that
+the older generic edition is still selected.
+
+The verifier requires a meaningful relation reduction, not merely any lower
+number: at least two data statements and at least 25% of the observed query
+mode count (rounded up). On the current 12-statement fixture this requires
+three statements, so the observed 12-to-7 result passes while 12-to-11 fails.
+
 ## Rollout and rollback
 
 After deployment, begin with sequential warm checks for `/live`, then perform

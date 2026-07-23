@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { pathToFileURL } from 'node:url';
+import {
+  GLASGOW_2026_EXPECTED_MATCH_COUNT,
+  GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT,
+  GLASGOW_2026_EXPECTED_STAGE_COUNT,
+  GLASGOW_2026_EXPECTED_TEAM_COUNT,
+} from '@/lib/edition-publication-readiness';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
@@ -40,17 +46,48 @@ export function assertEphemeralPostgres17Target(
 }
 
 interface RehearsalFixture {
-  seriesId: string;
+  seriesIds: string[];
   competitionIds: string[];
   stageIds: string[];
+  stageGroupIds: string[];
   matchIds: string[];
   teamIds: string[];
+  sourceSystemIds: string[];
+  importRunIds: string[];
+  glasgowOverflowCompetitionId: string;
 }
 
 interface LoaderSqlEvidence {
   queryEvents: number;
   dataStatements: number;
   joinedStatements: number;
+}
+
+export const MIN_MEANINGFUL_RELATION_REDUCTION_RATIO = 0.25;
+export const MIN_MEANINGFUL_RELATION_REDUCTION_DELTA = 2;
+
+export function assertMeaningfulRelationReduction(
+  queryDataStatements: number,
+  joinDataStatements: number,
+): { reduction: number; ratio: number; minimumReduction: number } {
+  if (!Number.isInteger(queryDataStatements) || !Number.isInteger(joinDataStatements)
+    || queryDataStatements <= 0 || joinDataStatements <= 0) {
+    throw new Error('[live-fallback-rehearsal] relation statement counts are not non-vacuous');
+  }
+  const reduction = queryDataStatements - joinDataStatements;
+  const ratio = reduction / queryDataStatements;
+  const minimumReduction = Math.max(
+    MIN_MEANINGFUL_RELATION_REDUCTION_DELTA,
+    Math.ceil(queryDataStatements * MIN_MEANINGFUL_RELATION_REDUCTION_RATIO),
+  );
+  if (joinDataStatements >= queryDataStatements
+    || reduction < minimumReduction
+    || ratio < MIN_MEANINGFUL_RELATION_REDUCTION_RATIO) {
+    throw new Error(
+      `[live-fallback-rehearsal] relation join reduction is not meaningful: query=${queryDataStatements}, join=${joinDataStatements}, reduction=${reduction}, ratio=${ratio.toFixed(3)}, requiredReduction=${minimumReduction}`,
+    );
+  }
+  return { reduction, ratio, minimumReduction };
 }
 
 function isLoaderDataStatement(query: string): boolean {
@@ -93,32 +130,62 @@ async function verifyPostgres17(
 async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
   const namespace = `live-fallback-${randomUUID()}`;
   const seriesId = `${namespace}-series`;
+  const glasgowSeriesId = `${namespace}-glasgow-series`;
   const readyCompetitionId = `${namespace}-ready`;
-  const stageId = `${namespace}-stage`;
+  const readyStageId = `${namespace}-stage`;
   const shellIds = Array.from({ length: 34 }, (_, index) => (
     `${namespace}-shell-${String(index).padStart(2, '0')}`
   ));
+  const glasgowOverflowCompetitionId = shellIds[0]!;
+  const glasgowStageIds = Array.from({ length: GLASGOW_2026_EXPECTED_STAGE_COUNT }, (_, index) => (
+    `${namespace}-glasgow-stage-${index + 1}`
+  ));
+  const glasgowStageGroupIds = Array.from({ length: 2 }, (_, index) => (
+    `${namespace}-glasgow-group-${index + 1}`
+  ));
   const competitionIds = [...shellIds, readyCompetitionId];
-  const teamIds = [`${namespace}-team-a`, `${namespace}-team-b`];
-  const matchId = `${namespace}-match`;
+  const readyTeamIds = [`${namespace}-team-a`, `${namespace}-team-b`];
+  const glasgowTeamIds = Array.from({ length: GLASGOW_2026_EXPECTED_TEAM_COUNT }, (_, index) => (
+    `${namespace}-glasgow-team-${String(index + 1).padStart(2, '0')}`
+  ));
+  const teamIds = [...readyTeamIds, ...glasgowTeamIds];
+  const readyMatchId = `${namespace}-match`;
+  const glasgowMatchIds = Array.from({ length: GLASGOW_2026_EXPECTED_MATCH_COUNT + 1 }, (_, index) => (
+    `${namespace}-glasgow-match-${String(index + 1).padStart(2, '0')}`
+  ));
+  const matchIds = [readyMatchId, ...glasgowMatchIds];
+  const sourceSystemId = `${namespace}-glasgow-source`;
+  const importRunId = `${namespace}-glasgow-import`;
 
   await prisma.$transaction(async (transaction) => {
-    await transaction.competitionSeries.create({
-      data: {
-        id: seriesId,
-        slug: `${namespace}-series`,
-        name: 'Live fallback PostgreSQL rehearsal series',
-        kind: 'LEAGUE',
-      },
+    await transaction.competitionSeries.createMany({
+      data: [
+        {
+          id: seriesId,
+          slug: `${namespace}-series`,
+          name: 'Live fallback PostgreSQL rehearsal series',
+          kind: 'LEAGUE',
+        },
+        {
+          id: glasgowSeriesId,
+          slug: 'commonwealth-games-netball',
+          name: 'Commonwealth Games Netball rehearsal series',
+          kind: 'TOURNAMENT',
+        },
+      ],
     });
 
     const shellData: Prisma.CompetitionCreateManyInput[] = shellIds.map((id, index) => ({
       id,
-      name: `Published unready shell ${index}`,
+      name: id === glasgowOverflowCompetitionId
+        ? 'Published Glasgow overflow shell'
+        : `Published unready shell ${index}`,
       season: 2030,
       seasonStart: index % 2 === 0 ? new Date('2030-01-01T00:00:00.000Z') : null,
-      seriesId,
-      slug: `shell-${String(index).padStart(2, '0')}`,
+      seriesId: id === glasgowOverflowCompetitionId ? glasgowSeriesId : seriesId,
+      slug: id === glasgowOverflowCompetitionId
+        ? 'glasgow-2026'
+        : `shell-${String(index).padStart(2, '0')}`,
       publicationStatus: 'PUBLISHED',
     }));
     await transaction.competition.createMany({ data: shellData });
@@ -135,7 +202,7 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
     });
     await transaction.stage.create({
       data: {
-        id: stageId,
+        id: readyStageId,
         competitionId: readyCompetitionId,
         slug: 'regular-season',
         name: 'Regular season',
@@ -144,26 +211,51 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
       },
     });
 
+    await transaction.stage.createMany({
+      data: [
+        { id: glasgowStageIds[0]!, competitionId: glasgowOverflowCompetitionId, slug: 'pool-stage', name: 'Pool stage', type: 'POOL', sequence: 1, isPublished: true },
+        { id: glasgowStageIds[1]!, competitionId: glasgowOverflowCompetitionId, slug: 'classification', name: 'Classification', type: 'CLASSIFICATION', sequence: 2, isPublished: true },
+        { id: glasgowStageIds[2]!, competitionId: glasgowOverflowCompetitionId, slug: 'semi-finals', name: 'Semi-finals', type: 'SEMI_FINALS', sequence: 3, isPublished: true },
+        { id: glasgowStageIds[3]!, competitionId: glasgowOverflowCompetitionId, slug: 'medal-matches', name: 'Medal matches', type: 'MEDAL_MATCHES', sequence: 4, isPublished: true },
+      ],
+    });
+    await transaction.stageGroup.createMany({
+      data: glasgowStageGroupIds.map((id, index) => ({
+        id,
+        stageId: glasgowStageIds[0]!,
+        slug: `pool-${String(index + 1)}`,
+        name: `Pool ${String.fromCharCode(65 + index)}`,
+        sequence: index + 1,
+      })),
+    });
+
     await transaction.team.createMany({
       data: [
         {
-          id: teamIds[0],
+          id: readyTeamIds[0]!,
           name: 'Rehearsal Team A',
           slug: `${namespace}-team-a`,
           abbreviation: 'RTA',
           competitionId: readyCompetitionId,
         },
         {
-          id: teamIds[1],
+          id: readyTeamIds[1]!,
           name: 'Rehearsal Team B',
           slug: `${namespace}-team-b`,
           abbreviation: 'RTB',
           competitionId: readyCompetitionId,
         },
+        ...glasgowTeamIds.map((id, index) => ({
+          id,
+          name: `Glasgow rehearsal team ${index + 1}`,
+          slug: `${namespace}-glasgow-team-${String(index + 1).padStart(2, '0')}`,
+          abbreviation: `G${String(index + 1).padStart(2, '0')}`,
+          competitionId: glasgowOverflowCompetitionId,
+        })),
       ],
     });
     await transaction.editionEntry.createMany({
-      data: teamIds.map((teamId, index) => ({
+      data: readyTeamIds.map((teamId, index) => ({
         id: `${namespace}-entry-${index}`,
         competitionId: readyCompetitionId,
         teamId,
@@ -172,29 +264,87 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
     });
     await transaction.match.create({
       data: {
-        id: matchId,
+        id: readyMatchId,
         competitionId: readyCompetitionId,
-        homeTeamId: teamIds[0],
-        awayTeamId: teamIds[1],
+        homeTeamId: readyTeamIds[0],
+        awayTeamId: readyTeamIds[1],
         venue: 'Rehearsal venue',
         scheduledAt: new Date('2029-02-01T00:00:00.000Z'),
         status: 'COMPLETED',
         resultQuality: 'OFFICIAL_FINAL',
-        stageId,
+        stageId: readyStageId,
       },
     });
-    const slotCount = await transaction.matchSlot.count({ where: { matchId } });
-    if (slotCount !== 2) {
+    await transaction.editionEntry.createMany({
+      data: glasgowTeamIds.map((teamId, index) => ({
+        id: `${namespace}-glasgow-entry-${String(index + 1).padStart(2, '0')}`,
+        competitionId: glasgowOverflowCompetitionId,
+        teamId,
+        status: 'ACTIVE',
+      })),
+    });
+    await transaction.match.createMany({
+      data: glasgowMatchIds.map((id, index) => {
+        const stageId = index < 31
+          ? glasgowStageIds[0]!
+          : index < 35
+            ? glasgowStageIds[1]!
+            : index < 37
+              ? glasgowStageIds[2]!
+              : glasgowStageIds[3]!;
+        return {
+          id,
+          competitionId: glasgowOverflowCompetitionId,
+          homeTeamId: glasgowTeamIds[index % glasgowTeamIds.length]!,
+          awayTeamId: glasgowTeamIds[(index + 1) % glasgowTeamIds.length]!,
+          venue: `Glasgow rehearsal venue ${index + 1}`,
+          scheduledAt: new Date(`2030-02-${String((index % 28) + 1).padStart(2, '0')}T00:00:00.000Z`),
+          status: 'COMPLETED' as const,
+          resultQuality: 'OFFICIAL_FINAL' as const,
+          stageId,
+          stageGroupId: index < 31 ? glasgowStageGroupIds[index % glasgowStageGroupIds.length]! : null,
+        };
+      }),
+    });
+    await transaction.sourceSystem.create({
+      data: {
+        id: sourceSystemId,
+        key: 'glasgow-2026-public-data',
+        name: 'Glasgow rehearsal public data',
+        kind: 'PUBLIC_PAGE',
+      },
+    });
+    await transaction.importRun.create({
+      data: {
+        id: importRunId,
+        sourceSystemId,
+        competitionId: glasgowOverflowCompetitionId,
+        trigger: 'MANUAL',
+        status: 'SUCCEEDED',
+        dryRun: false,
+        completedAt: new Date('2030-01-01T00:00:00.000Z'),
+        checksum: `${namespace}-checksum`,
+        issueCount: 0,
+      },
+    });
+    const readySlotCount = await transaction.matchSlot.count({ where: { matchId: readyMatchId } });
+    const glasgowSlotCount = await transaction.matchSlot.count({ where: { matchId: { in: glasgowMatchIds } } });
+    if (readySlotCount !== 2
+      || glasgowSlotCount !== GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT + 2) {
       throw new Error('[live-fallback-rehearsal] CP-01 did not create two match slots');
     }
   });
 
   return {
-    seriesId,
+    seriesIds: [seriesId, glasgowSeriesId],
     competitionIds,
-    stageIds: [stageId],
-    matchIds: [matchId],
+    stageIds: [readyStageId, ...glasgowStageIds],
+    stageGroupIds: glasgowStageGroupIds,
+    matchIds,
     teamIds,
+    sourceSystemIds: [sourceSystemId],
+    importRunIds: [importRunId],
+    glasgowOverflowCompetitionId,
   };
 }
 
@@ -205,11 +355,14 @@ async function cleanFixture(
   await prisma.$transaction(async (transaction) => {
     await transaction.matchSlot.deleteMany({ where: { matchId: { in: fixture.matchIds } } });
     await transaction.match.deleteMany({ where: { id: { in: fixture.matchIds } } });
+    await transaction.importRun.deleteMany({ where: { id: { in: fixture.importRunIds } } });
     await transaction.editionEntry.deleteMany({ where: { competitionId: { in: fixture.competitionIds } } });
     await transaction.team.deleteMany({ where: { id: { in: fixture.teamIds } } });
+    await transaction.stageGroup.deleteMany({ where: { id: { in: fixture.stageGroupIds } } });
     await transaction.stage.deleteMany({ where: { id: { in: fixture.stageIds } } });
     await transaction.competition.deleteMany({ where: { id: { in: fixture.competitionIds } } });
-    await transaction.competitionSeries.deleteMany({ where: { id: fixture.seriesId } });
+    await transaction.sourceSystem.deleteMany({ where: { id: { in: fixture.sourceSystemIds } } });
+    await transaction.competitionSeries.deleteMany({ where: { id: { in: fixture.seriesIds } } });
   });
 }
 
@@ -219,7 +372,13 @@ async function main(): Promise<void> {
   const prisma = new PrismaClient({
     log: [{ emit: 'event', level: 'query' }],
   });
-  const { loadLiveFallbackCompetitionWithClient } = await import('@/lib/competitions');
+  const {
+    isEditionPubliclyReady,
+    liveFallbackCompetitionSelect,
+    loadLiveFallbackCompetitionWithClient,
+    LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT,
+    LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT,
+  } = await import('@/lib/competitions');
   const serverVersion = await verifyPostgres17(prisma, PrismaRuntime);
   const fixture = await seedFixture(prisma);
   const queryEvents: string[] = [];
@@ -235,6 +394,23 @@ async function main(): Promise<void> {
         throw new Error('[live-fallback-rehearsal] loader transaction is not RepeatableRead');
       }
     };
+
+    const glasgowOverflow = await prisma.competition.findUnique({
+      where: { id: fixture.glasgowOverflowCompetitionId },
+      select: liveFallbackCompetitionSelect,
+      relationLoadStrategy: 'join',
+    });
+    if (!glasgowOverflow || glasgowOverflow.stages.length === 0 || glasgowOverflow.matches.length === 0) {
+      throw new Error('[live-fallback-rehearsal] strict Glasgow overflow projection was empty');
+    }
+    if (glasgowOverflow._count.matches !== GLASGOW_2026_EXPECTED_MATCH_COUNT + 1
+      || glasgowOverflow.matches.length !== LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT
+      || glasgowOverflow.stages.length > LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT) {
+      throw new Error('[live-fallback-rehearsal] strict Glasgow overflow evidence was not bounded as expected');
+    }
+    if (isEditionPubliclyReady(glasgowOverflow)) {
+      throw new Error('[live-fallback-rehearsal] Glasgow match overflow was incorrectly public-ready');
+    }
 
     const runLoader = async (relationLoadStrategy: 'join' | 'query') => {
       const start = queryEvents.length;
@@ -263,11 +439,10 @@ async function main(): Promise<void> {
     if (joinMode.sql.joinedStatements === 0) {
       throw new Error('[live-fallback-rehearsal] join strategy emitted no LATERAL SQL');
     }
-    if (joinMode.sql.dataStatements >= queryMode.sql.dataStatements) {
-      throw new Error(
-        `[live-fallback-rehearsal] relation join did not reduce physical statements: query=${queryMode.sql.dataStatements}, join=${joinMode.sql.dataStatements}`,
-      );
-    }
+    const reduction = assertMeaningfulRelationReduction(
+      queryMode.sql.dataStatements,
+      joinMode.sql.dataStatements,
+    );
 
     result = {
       event: 'live_fallback_postgres_rehearsal',
@@ -277,11 +452,19 @@ async function main(): Promise<void> {
       selectedOlderReadyEdition: true,
       joinQuerySelectionParity: true,
       joinQueryResultParity: true,
+      glasgowOverflowProjectionNonEmpty: true,
+      glasgowOverflowRejected: true,
+      glasgowOverflowMatchCount: glasgowOverflow._count.matches,
+      glasgowOverflowMatchEvidenceRows: glasgowOverflow.matches.length,
+      glasgowOverflowStageEvidenceRows: glasgowOverflow.stages.length,
       queryModeQueryEvents: queryMode.sql.queryEvents,
       joinModeQueryEvents: joinMode.sql.queryEvents,
       queryModeDataStatements: queryMode.sql.dataStatements,
       joinModeDataStatements: joinMode.sql.dataStatements,
       joinModeJoinedStatements: joinMode.sql.joinedStatements,
+      dataStatementReduction: reduction.reduction,
+      dataStatementReductionRatio: reduction.ratio,
+      minimumMeaningfulReduction: reduction.minimumReduction,
       fixtureCleaned: true,
     };
   } finally {

@@ -184,6 +184,18 @@ count remains a CI/rehearsal result, not an estimate from named application
 timings; production-class evidence must capture the actual statement count on
 the deployed topology.
 
+The route-shaped projection bounds only child evidence needed by the strict
+Glasgow policy: five ordered stage rows (four expected plus one overflow) and
+39 ordered match rows (38 expected plus one overflow). Team/match/stage
+aggregate counts remain scalar and exact, and each loaded match retains its
+exact slot count. A real rehearsal fixture includes a published Glasgow
+projection with 39 matches and 78 slots; it must be rejected while the older
+generic edition remains selected. Generic editions retain their existing
+minimum-count behavior even when they exceed Glasgow's shape. The verifier's
+meaningful-reduction gate requires at least two statements and at least 25% of
+query-mode data statements, rounded up; this is three for the observed
+12-statement fixture, so 12-to-7 passes and 12-to-11 does not.
+
 ## Rust decision
 
 Rust or WASM does not address the currently observed dominant database,
