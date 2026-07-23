@@ -15,7 +15,7 @@ const { cacheControls } = vi.hoisted(() => ({
 
 vi.mock('next/cache', () => ({
   unstable_cache: (loader: (...args: unknown[]) => Promise<unknown>) => {
-    const values = new Map<string, unknown>();
+    const values = new Map<string, string>();
     return async (...args: unknown[]) => {
       if (cacheControls.rejectBeforeLoader) {
         const error = cacheControls.rejectBeforeLoader;
@@ -25,20 +25,21 @@ vi.mock('next/cache', () => ({
       const key = JSON.stringify(args);
       if (!values.has(key)) {
         const value = await loader(...args);
-        values.set(key, value);
+        values.set(key, JSON.stringify(value));
         return value;
       }
       if (cacheControls.hitGate) {
         cacheControls.onHit?.();
         await cacheControls.hitGate.promise;
       }
-      return values.get(key);
+      return JSON.parse(values.get(key) as string);
     };
   },
 }));
 
 import {
   measureServerOperation,
+  measureServerPhase,
   timedQuery,
   trackedUnstableCache,
 } from '@/lib/server-timing';
@@ -72,12 +73,140 @@ describe('server timing instrumentation', () => {
       event: 'server_operation_timing',
       route: '/standings',
       operation: 'standings-page',
+      outcome: 'success',
       queryCount: 1,
       cache: {},
     });
     expect(operation?.durationMs).toEqual(expect.any(Number));
     expect(operation?.queryDurationMs).toEqual(expect.any(Number));
     expect(operation).not.toHaveProperty('url');
+  });
+
+  it('keeps named phase attribution isolated across concurrent route operations', async () => {
+    await Promise.all([
+      measureServerOperation('/live', 'live-render-a', async () => {
+        await measureServerPhase('live-active-state', async () => {
+          await Promise.resolve();
+        });
+        await measureServerPhase('live-fallback-candidates', async () => {
+          await Promise.resolve();
+        });
+      }),
+      measureServerOperation('/live', 'live-render-b', async () => {
+        await measureServerPhase('live-fallback-competition', async () => {
+          await Promise.resolve();
+        });
+        await measureServerPhase('live-fallback-access-policy', async () => {
+          await Promise.resolve();
+        });
+      }),
+    ]);
+
+    const events = infoSpy.mock.calls
+      .map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>);
+    const operations = events.filter((event: Record<string, unknown>) => event.event === 'server_operation_timing');
+    expect(operations.find((event: Record<string, unknown>) => event.operation === 'live-render-a')).toMatchObject({
+      route: '/live',
+      phases: {
+        'live-active-state': expect.any(Number),
+        'live-fallback-candidates': expect.any(Number),
+      },
+    });
+    expect(operations.find((event: Record<string, unknown>) => event.operation === 'live-render-b')).toMatchObject({
+      route: '/live',
+      phases: {
+        'live-fallback-competition': expect.any(Number),
+        'live-fallback-access-policy': expect.any(Number),
+      },
+    });
+    expect(operations.find((event: Record<string, unknown>) => event.operation === 'live-render-a')?.phases)
+      .not.toHaveProperty('live-fallback-competition');
+    expect(events.filter((event: Record<string, unknown>) => event.event === 'server_phase_timing')).toHaveLength(4);
+    for (const operation of operations) {
+      expect(operation.attributedDurationMs).toBeLessThanOrEqual(operation.durationMs as number);
+      expect(operation.phaseOverlapDurationMs).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('uses interval union rather than summed phase durations for overlapping coverage', async () => {
+    const clockValues = [0, 0, 20, 80, 100, 100];
+    vi.spyOn(performance, 'now').mockImplementation(() => clockValues.shift() ?? 100);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    await measureServerOperation('/live', 'overlapping-coverage', async () => {
+      const first = measureServerPhase('live-active-state', () => gate);
+      const second = measureServerPhase('live-fallback-candidates', () => gate);
+      release();
+      await Promise.all([first, second]);
+    });
+
+    const events = infoSpy.mock.calls
+      .map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>);
+    const operation = events.find((event: Record<string, unknown>) =>
+      event.event === 'server_operation_timing' && event.operation === 'overlapping-coverage');
+
+    expect(operation).toMatchObject({
+      durationMs: 100,
+      attributedDurationMs: 100,
+      phaseOverlapDurationMs: 60,
+      phases: {
+        'live-active-state': 80,
+        'live-fallback-candidates': 80,
+      },
+    });
+  });
+
+  it('does not double count nested phase intervals', async () => {
+    const clockValues = [0, 0, 10, 90, 100, 100];
+    vi.spyOn(performance, 'now').mockImplementation(() => clockValues.shift() ?? 100);
+
+    await measureServerOperation('/live', 'nested-coverage', async () => {
+      await measureServerPhase('live-active-state', async () => {
+        await measureServerPhase('live-fallback-candidates', async () => undefined);
+      });
+    });
+
+    const events = infoSpy.mock.calls
+      .map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>);
+    const operation = events.find((event: Record<string, unknown>) =>
+      event.event === 'server_operation_timing' && event.operation === 'nested-coverage');
+
+    expect(operation).toMatchObject({
+      durationMs: 100,
+      attributedDurationMs: 100,
+      phaseOverlapDurationMs: 80,
+      phases: {
+        'live-active-state': 100,
+        'live-fallback-candidates': 80,
+      },
+    });
+  });
+
+  it('records interval coverage on errors and rethrows the original error', async () => {
+    const clockValues = [0, 0, 50, 60];
+    vi.spyOn(performance, 'now').mockImplementation(() => clockValues.shift() ?? 60);
+    const originalError = new Error('phase failed');
+
+    await expect(
+      measureServerOperation('/live', 'error-coverage', () => measureServerPhase(
+        'live-active-state',
+        async () => { throw originalError; },
+      )),
+    ).rejects.toBe(originalError);
+
+    const events = infoSpy.mock.calls
+      .map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>);
+    expect(events).toContainEqual(expect.objectContaining({
+      event: 'server_operation_timing',
+      operation: 'error-coverage',
+      outcome: 'error',
+      durationMs: 60,
+      attributedDurationMs: 50,
+      phaseOverlapDurationMs: 0,
+    }));
   });
 
   it('records cache misses and hits using stable cache names only', async () => {

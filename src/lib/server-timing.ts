@@ -1,6 +1,16 @@
 import { unstable_cache } from 'next/cache';
 
 export type CacheStatus = 'hit' | 'miss';
+export type ServerOperationOutcome = 'success' | 'error';
+
+export const SERVER_PHASE_NAMES = [
+  'live-active-state',
+  'live-fallback-competition',
+  'live-fallback-candidates',
+  'live-fallback-access-policy',
+] as const;
+
+export type ServerPhaseName = typeof SERVER_PHASE_NAMES[number];
 
 export interface CacheSnapshotMeasurement {
   rowCount: number;
@@ -22,6 +32,8 @@ interface ServerTimingContext {
   queryDurationMs: number;
   connectionWaitMs: number;
   cache: Record<string, CacheStatus>;
+  phases: Partial<Record<ServerPhaseName, number>>;
+  phaseIntervals: Array<{ startedAt: number; endedAt: number }>;
 }
 
 interface CacheInvocationContext {
@@ -74,6 +86,54 @@ function roundedDuration(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+function phaseCoverage(
+  context: ServerTimingContext,
+  durationMs: number,
+): { attributedDurationMs: number; overlapDurationMs: number } {
+  if (durationMs <= 0 || context.phaseIntervals.length === 0) {
+    return { attributedDurationMs: 0, overlapDurationMs: 0 };
+  }
+
+  const operationEnd = context.startedAt + durationMs;
+  const intervals = context.phaseIntervals
+    .map(({ startedAt, endedAt }) => ({
+      startedAt: Math.max(context.startedAt, startedAt),
+      endedAt: Math.min(operationEnd, endedAt),
+    }))
+    .filter(({ startedAt, endedAt }) => endedAt >= startedAt)
+    .sort((left, right) => (
+      left.startedAt - right.startedAt || left.endedAt - right.endedAt
+    ));
+
+  let totalIntervalMs = 0;
+  let unionMs = 0;
+  let unionStart = 0;
+  let unionEnd = 0;
+
+  for (const interval of intervals) {
+    totalIntervalMs += interval.endedAt - interval.startedAt;
+    if (unionEnd <= unionStart) {
+      unionStart = interval.startedAt;
+      unionEnd = interval.endedAt;
+    } else if (interval.startedAt <= unionEnd) {
+      unionEnd = Math.max(unionEnd, interval.endedAt);
+    } else {
+      unionMs += unionEnd - unionStart;
+      unionStart = interval.startedAt;
+      unionEnd = interval.endedAt;
+    }
+  }
+  if (unionEnd > unionStart) unionMs += unionEnd - unionStart;
+
+  return {
+    attributedDurationMs: Math.min(durationMs, Math.max(0, unionMs)),
+    overlapDurationMs: Math.min(
+      durationMs,
+      Math.max(0, totalIntervalMs - unionMs),
+    ),
+  };
+}
+
 function productionLog(payload: Record<string, unknown>): void {
   if (process.env.NODE_ENV === 'production') {
     console.info(JSON.stringify(payload));
@@ -97,26 +157,80 @@ export async function measureServerOperation<T>(
     queryDurationMs: 0,
     connectionWaitMs: 0,
     cache: {},
+    phases: {},
+    phaseIntervals: [],
   };
 
   const run = async () => {
+    let outcome: ServerOperationOutcome = 'success';
     try {
       return await handler();
+    } catch (error) {
+      outcome = 'error';
+      throw error;
     } finally {
+      const durationMs = Math.max(0, performance.now() - context.startedAt);
+      const coverage = phaseCoverage(context, durationMs);
+      const roundedTotalMs = roundedDuration(durationMs);
       productionLog({
         event: 'server_operation_timing',
         route,
         operation,
-        durationMs: roundedDuration(performance.now() - context.startedAt),
+        outcome,
+        durationMs: roundedTotalMs,
+        attributedDurationMs: Math.min(
+          roundedTotalMs,
+          Math.max(0, roundedDuration(coverage.attributedDurationMs)),
+        ),
+        phaseOverlapDurationMs: Math.min(
+          roundedTotalMs,
+          Math.max(0, roundedDuration(coverage.overlapDurationMs)),
+        ),
         queryCount: context.queryCount,
         queryDurationMs: roundedDuration(context.queryDurationMs),
         connectionWaitMs: roundedDuration(context.connectionWaitMs),
         cache: context.cache,
+        phases: Object.fromEntries(
+          Object.entries(context.phases).map(([phase, durationMs]) => [
+            phase,
+            roundedDuration(durationMs ?? 0),
+          ]),
+        ),
       });
     }
   };
 
   return timingContext ? timingContext.run(context, run) : run();
+}
+
+/**
+ * Measures one named wall-clock phase inside a route operation. Phase events
+ * are intentionally separate from query totals: independent phases can
+ * overlap, so their durations must not be mistaken for critical-path time.
+ */
+export async function measureServerPhase<T>(
+  phase: ServerPhaseName,
+  handler: () => Promise<T>,
+): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await handler();
+  } finally {
+    const endedAt = performance.now();
+    const durationMs = endedAt - startedAt;
+    const context = timingContext?.getStore();
+    if (context) {
+      context.phases[phase] = (context.phases[phase] ?? 0) + durationMs;
+      context.phaseIntervals.push({ startedAt, endedAt });
+    }
+    productionLog({
+      event: 'server_phase_timing',
+      route: context?.route ?? 'unknown',
+      operation: context?.operation ?? phase,
+      phase,
+      durationMs: roundedDuration(durationMs),
+    });
+  }
 }
 
 /** Records a cache result on the current route operation without logging keys or arguments. */

@@ -5,18 +5,20 @@ const {
   findFirstMock,
   findManyMock,
   getLiveStateMock,
+  loadLiveFallbackCompetitionMock,
   redirectMock,
-  resolveCompetitionMock,
   resolvePublicMatchBatchMock,
   scoreCardPropsMock,
 } = vi.hoisted(() => ({
   findFirstMock: vi.fn(),
   findManyMock: vi.fn(),
   getLiveStateMock: vi.fn(),
+  loadLiveFallbackCompetitionMock: vi.fn(),
   redirectMock: vi.fn((href: string) => {
-    throw new Error(`NEXT_REDIRECT:${href}`);
+    const error = new Error(`NEXT_REDIRECT:${href}`);
+    Object.assign(error, { digest: `NEXT_REDIRECT;replace;${href}` });
+    throw error;
   }),
-  resolveCompetitionMock: vi.fn(),
   resolvePublicMatchBatchMock: vi.fn(),
   scoreCardPropsMock: vi.fn(),
 }));
@@ -27,7 +29,7 @@ vi.mock('@/lib/live-state', () => ({
   liveMatchSelect: {},
 }));
 vi.mock('@/lib/competitions', () => ({
-  resolveCompetition: resolveCompetitionMock,
+  loadLiveFallbackCompetition: loadLiveFallbackCompetitionMock,
 }));
 vi.mock('@/lib/db', () => ({
   excludeSimData: { isSimulated: false },
@@ -81,7 +83,7 @@ describe('LivePage', () => {
   beforeEach(() => {
     getLiveStateMock.mockReset();
     redirectMock.mockClear();
-    resolveCompetitionMock.mockReset().mockResolvedValue({ competition: { id: 'competition-2026' } });
+    loadLiveFallbackCompetitionMock.mockReset().mockResolvedValue({ id: 'competition-2026' });
     findFirstMock.mockReset();
     findManyMock.mockReset();
     scoreCardPropsMock.mockClear();
@@ -121,7 +123,7 @@ describe('LivePage', () => {
         ],
       }),
     }));
-    expect(resolveCompetitionMock).toHaveBeenCalledOnce();
+    expect(loadLiveFallbackCompetitionMock).toHaveBeenCalledOnce();
     expect(resolvePublicMatchBatchMock).toHaveBeenCalledOnce();
     expect(findFirstMock).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
@@ -196,20 +198,99 @@ describe('LivePage', () => {
     expect(screen.getByRole('heading', { name: 'Choose a live match' })).toBeInTheDocument();
     expect(screen.getByText('Card live-1')).toBeInTheDocument();
     expect(screen.getByText('Card live-2')).toBeInTheDocument();
-    expect(resolveCompetitionMock).not.toHaveBeenCalled();
+    expect(loadLiveFallbackCompetitionMock).not.toHaveBeenCalled();
     expect(findFirstMock).not.toHaveBeenCalled();
   });
 
-  it('redirects one public live match to its canonical edition URL', async () => {
+  it('redirects one public live match after recording a successful operation', async () => {
     getLiveStateMock.mockResolvedValue({
       liveMatches: [{ id: 'live-1', competitionId: 'ssn-2026' }],
       liveMatchIds: ['live-1'],
     });
 
-    await expect(LivePage()).rejects.toThrow(
-      'NEXT_REDIRECT:/match/live-1/live?edition=ssn-2026',
-    );
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('NODE_ENV', 'production');
+    try {
+      await expect(LivePage()).rejects.toMatchObject({
+        message: 'NEXT_REDIRECT:/match/live-1/live?edition=ssn-2026',
+        digest: 'NEXT_REDIRECT;replace;/match/live-1/live?edition=ssn-2026',
+      });
+      expect(redirectMock).toHaveBeenCalledWith('/match/live-1/live?edition=ssn-2026');
+      expect(findFirstMock).not.toHaveBeenCalled();
+      expect(loadLiveFallbackCompetitionMock).not.toHaveBeenCalled();
+
+      const operationEvents = infoSpy.mock.calls
+        .map(([payload]) => JSON.parse(String(payload)) as Record<string, unknown>)
+        .filter((event) => event.event === 'server_operation_timing');
+      expect(operationEvents).toHaveLength(1);
+      expect(operationEvents[0]).toMatchObject({
+        route: '/live',
+        operation: 'live-page',
+        outcome: 'success',
+      });
+    } finally {
+      infoSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps ordinary Live render failures as error outcomes and rethrows them', async () => {
+    const error = new Error('live render failed');
+    getLiveStateMock.mockRejectedValue(error);
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('NODE_ENV', 'production');
+    try {
+      await expect(LivePage()).rejects.toBe(error);
+      const operationEvents = infoSpy.mock.calls
+        .map(([payload]) => JSON.parse(String(payload)) as Record<string, unknown>)
+        .filter((event) => event.event === 'server_operation_timing');
+      expect(operationEvents).toHaveLength(1);
+      expect(operationEvents[0]).toMatchObject({
+        route: '/live',
+        operation: 'live-page',
+        outcome: 'error',
+      });
+    } finally {
+      infoSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('starts bounded next/latest fallback reads together after selecting a competition', async () => {
+    getLiveStateMock.mockResolvedValue({ liveMatches: [], liveMatchIds: [] });
+    const started: string[] = [];
+    const resolvers = new Map<string, (value: typeof fixture) => void>();
+    findFirstMock.mockImplementation(({ where }: { where: { status: string } }) => {
+      started.push(where.status);
+      return new Promise((resolve) => {
+        resolvers.set(where.status, resolve as (value: typeof fixture) => void);
+      });
+    });
+
+    const page = LivePage();
+    await vi.waitFor(() => expect(started).toHaveLength(2));
+    expect(started.toSorted()).toEqual(['COMPLETED', 'SCHEDULED']);
+
+    resolvers.get('SCHEDULED')?.(fixture);
+    resolvers.get('COMPLETED')?.({
+      ...fixture,
+      id: 'latest-result',
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+    });
+    render(await page);
+
+    expect(findFirstMock).toHaveBeenCalledTimes(2);
+    expect(findFirstMock.mock.calls.every(([query]) => query.select)).toBe(true);
+  });
+
+  it('does not load fallback matches when no public competition is ready', async () => {
+    getLiveStateMock.mockResolvedValue({ liveMatches: [], liveMatchIds: [] });
+    loadLiveFallbackCompetitionMock.mockResolvedValue(null);
+
+    render(await LivePage());
+
     expect(findFirstMock).not.toHaveBeenCalled();
-    expect(resolveCompetitionMock).not.toHaveBeenCalled();
+    expect(screen.getByText('No completed result is available yet.')).toBeInTheDocument();
   });
 });

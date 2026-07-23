@@ -9,6 +9,7 @@ import { excludeSimData, prisma } from '@/lib/db';
 import {
   isEditionPubliclyReady,
   type CompetitionOption,
+  type PublicEditionPolicyOption,
 } from '@/lib/competitions';
 import {
   isFinalFixture,
@@ -147,7 +148,7 @@ export type PublicMatchAccessCandidate = Prisma.MatchGetPayload<{
  */
 export async function resolvePublicMatchAccessBatch(
   matchIds: readonly string[],
-  loadedEditions?: readonly CompetitionOption[],
+  loadedEditions?: readonly PublicEditionPolicyOption[],
   loadedMatches?: readonly PublicMatchAccessCandidate[],
 ): Promise<ReadonlyMap<string, PublicMatchAccess>> {
   const uniqueIds = [...new Set(matchIds)];
@@ -180,7 +181,7 @@ export async function resolvePublicMatchAccessBatch(
     () => prisma.competition.findMany({
       where: { id: { in: competitionIds } },
       select: publicReadinessSelect,
-    }) as Promise<CompetitionOption[]>,
+    }) as Promise<PublicEditionPolicyOption[]>,
   );
   const readyEditions = new Map(
     editions

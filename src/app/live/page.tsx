@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
+import type { ReactElement } from 'react';
 import { getLiveState, liveMatchSelect, type LiveMatch } from '@/lib/live-state';
 import { prisma, excludeSimData } from '@/lib/db';
-import { resolveCompetition } from '@/lib/competitions';
+import { loadLiveFallbackCompetition } from '@/lib/competitions';
 import {
   publicHomepageMatchState,
 } from '@/lib/home-feed';
@@ -13,23 +14,43 @@ import {
   resolvePublicMatchAccessBatch,
   type PublicMatchAccessCandidate,
 } from '@/lib/public-match';
-import { measureServerOperation, timedQuery } from '@/lib/server-timing';
+import {
+  measureServerOperation,
+  measureServerPhase,
+  timedQuery,
+} from '@/lib/server-timing';
 
 export const dynamic = 'force-dynamic';
 
-export default function LivePage() {
-  return measureServerOperation('/live', 'live-page', renderLivePage);
+type LivePageRenderResult =
+  | { kind: 'redirect'; href: string }
+  | { kind: 'content'; content: ReactElement };
+
+export default async function LivePage() {
+  const result = await measureServerOperation<LivePageRenderResult>(
+    '/live',
+    'live-page',
+    renderLivePage,
+  );
+  if (result.kind === 'redirect') redirect(result.href);
+  return result.content;
 }
 
-async function renderLivePage() {
-  const state = await getLiveState({
-    includeMatchDetails: true,
-    includeWindowCandidates: false,
-  });
+async function renderLivePage(): Promise<LivePageRenderResult> {
+  const state = await measureServerPhase(
+    'live-active-state',
+    () => getLiveState({
+      includeMatchDetails: true,
+      includeWindowCandidates: false,
+    }),
+  );
 
   if (state.liveMatchIds.length === 1) {
     const liveMatch = state.liveMatches[0];
-    redirect(matchHref(liveMatch.id, liveMatch.competitionId, 'live'));
+    return {
+      kind: 'redirect',
+      href: matchHref(liveMatch.id, liveMatch.competitionId, 'live'),
+    };
   }
 
   if (state.liveMatchIds.length > 1) {
@@ -59,7 +80,7 @@ async function renderLivePage() {
       access?.status === 'LIVE' && hasResolvedMatchTeams(match) ? [{ match, access }] : []
     ));
 
-    return (
+    return { kind: 'content', content: (
       <div className="mx-auto max-w-7xl">
         <p className="font-label text-sm font-bold uppercase tracking-widest text-secondary">Live Hub</p>
         <h1 className="mt-2 font-headline text-4xl font-black uppercase tracking-tighter text-primary md:text-6xl">
@@ -77,58 +98,69 @@ async function renderLivePage() {
           ))}
         </div>
       </div>
-    );
+    ) };
   }
 
-  const { competition } = await resolveCompetition();
+  const competition = await measureServerPhase(
+    'live-fallback-competition',
+    loadLiveFallbackCompetition,
+  );
   const baseWhere = competition
     ? { ...excludeSimData, competitionId: competition.id }
     : { ...excludeSimData };
   const now = new Date();
-  const [nextCandidate, latestCandidate] = await Promise.all([
-    timedQuery('live_next_match', () => prisma.match.findFirst({
-      where: {
-        ...baseWhere,
-        status: 'SCHEDULED',
-        scheduledAt: { gte: now },
-        OR: [
-          { stageId: null },
-          { stage: { is: { isPublished: true } } },
-        ],
-      },
-      select: liveMatchSelect,
-      orderBy: { scheduledAt: 'asc' },
-    })),
-    timedQuery('live_latest_match', () => prisma.match.findFirst({
-      where: {
-        ...baseWhere,
-        status: 'COMPLETED',
-        resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
-        OR: [
-          { stageId: null },
-          { stage: { is: { isPublished: true } } },
-        ],
-      },
-      select: liveMatchSelect,
-      orderBy: { scheduledAt: 'desc' },
-    })),
-  ]);
+  const [nextCandidate, latestCandidate] = competition
+    ? await measureServerPhase(
+      'live-fallback-candidates',
+      () => Promise.all([
+        timedQuery('live_next_match', () => prisma.match.findFirst({
+          where: {
+            ...baseWhere,
+            status: 'SCHEDULED',
+            scheduledAt: { gte: now },
+            OR: [
+              { stageId: null },
+              { stage: { is: { isPublished: true } } },
+            ],
+          },
+          select: liveMatchSelect,
+          orderBy: { scheduledAt: 'asc' },
+        })),
+        timedQuery('live_latest_match', () => prisma.match.findFirst({
+          where: {
+            ...baseWhere,
+            status: 'COMPLETED',
+            resultQuality: { in: ['UNOFFICIAL_FINAL', 'OFFICIAL_FINAL', 'CORRECTED'] },
+            OR: [
+              { stageId: null },
+              { stage: { is: { isPublished: true } } },
+            ],
+          },
+          select: liveMatchSelect,
+          orderBy: { scheduledAt: 'desc' },
+        })),
+      ]),
+    )
+    : [null, null] as const;
   const fallbackCandidates = [nextCandidate, latestCandidate].filter(
     (match): match is NonNullable<typeof nextCandidate> => match !== null,
   );
   const fallbackAccessById = fallbackCandidates.length > 0
-    ? await resolvePublicMatchAccessBatch(
-      fallbackCandidates.map((match) => match.id),
-      competition ? [competition] : undefined,
-      fallbackCandidates as unknown as PublicMatchAccessCandidate[],
-    ).catch(() => new Map())
+    ? await measureServerPhase(
+      'live-fallback-access-policy',
+      () => resolvePublicMatchAccessBatch(
+        fallbackCandidates.map((match) => match.id),
+        competition ? [competition] : undefined,
+        fallbackCandidates as unknown as PublicMatchAccessCandidate[],
+      ).catch(() => new Map()),
+    )
     : new Map();
   const nextAccess = nextCandidate ? fallbackAccessById.get(nextCandidate.id) ?? null : null;
   const latestAccess = latestCandidate ? fallbackAccessById.get(latestCandidate.id) ?? null : null;
   const nextMatch = nextCandidate && nextAccess ? nextCandidate : null;
   const latestResult = latestCandidate && latestAccess ? latestCandidate : null;
 
-  return (
+  return { kind: 'content', content: (
     <div className="mx-auto max-w-7xl">
       <section className="kinetic-gradient overflow-hidden rounded-2xl px-6 py-12 text-white shadow-2xl md:px-12 md:py-16">
         <p className="font-label text-sm font-bold uppercase tracking-widest text-secondary-fixed">Live Hub</p>
@@ -175,5 +207,5 @@ async function renderLivePage() {
         </section>
       </div>
     </div>
-  );
+  ) };
 }
