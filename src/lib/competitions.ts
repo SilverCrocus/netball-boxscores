@@ -16,6 +16,7 @@ import {
 import {
   evaluateGlasgowPublishedVisibility,
   isGlasgow2026Identity,
+  GLASGOW_2026_IDENTITY,
   GLASGOW_2026_EXPECTED_MATCH_COUNT,
   GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT,
   GLASGOW_2026_EXPECTED_STAGE_COUNT,
@@ -352,6 +353,12 @@ export const standingsDirectorySelect = {
     },
   },
   stages: {
+    where: {
+      competition: {
+        slug: GLASGOW_2026_IDENTITY.editionSlug,
+        series: { slug: GLASGOW_2026_IDENTITY.competitionSlug },
+      },
+    },
     orderBy: [{ sequence: 'asc' }, { id: 'asc' }],
     take: LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT,
     select: {
@@ -363,6 +370,12 @@ export const standingsDirectorySelect = {
     },
   },
   matches: {
+    where: {
+      competition: {
+        slug: GLASGOW_2026_IDENTITY.editionSlug,
+        series: { slug: GLASGOW_2026_IDENTITY.competitionSlug },
+      },
+    },
     orderBy: { id: 'asc' },
     take: LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT,
     select: { _count: { select: { slots: true } } },

@@ -36,10 +36,15 @@ must capture both explicitly.
 Phase 6 keeps the fresh publication/readiness gate in front of the canonical
 standings cache. The cached pool projection uses the versioned
 `tournament_standings` namespace, `revalidate: 60`, and the `standings` tag.
-The cache is bounded to 60 seconds of staleness for StageStanding content, but
-it can never bypass the fresh edition resolution that rejects unpublishing,
-identity changes, or readiness revocation. Pre-event rows retain null
-standings and deterministic seed order; zeros are never fabricated.
+This is Next's stale-while-revalidate guidance, not a hard TTL or a maximum
+staleness guarantee: after the threshold Next may serve the current value while
+refreshing in the background, and a failed refresh can leave that value stale
+longer while retries continue. The fresh `resolveEdition()` gate still runs
+before cache access and rejects unpublishing, identity changes, or readiness
+revocation. Pre-event rows retain null standings and deterministic seed order;
+zeros are never fabricated. Production remeasurement must exercise cold, warm,
+post-threshold stale/background-refresh, and refresh-failure behavior when it
+is observable; this PR does not claim a strict content-freshness bound.
 
 The legacy fresh selector retains request-only React memoization between
 `generateMetadata` and the page, but its `cache:false` loader now uses one
@@ -181,13 +186,19 @@ score/capability fail-closed rules are unchanged.
 - Phase 6 (this PR): cache canonical tournament pool standings behind the
   fresh edition/readiness gate and collapse the legacy fresh directory into
   one bounded joined projection. The PostgreSQL 17 rehearsal must prove
-  projection parity for pre-event and populated pool tables, one miss/zero
-  warm pool-data reads, exact/adversarial Glasgow readiness, and an actual
-  directory statement reduction. The later deployed acceptance gate is zero
+  projection parity for pre-event and populated pool tables, a clearly labeled
+  JSON/cache emulation with one loader miss and zero warm pool-data reads,
+  exact/adversarial Glasgow readiness, normalized legacy/fresh directory
+  selection parity, and an actual directory statement reduction. That
+  emulation does not prove Next `unstable_cache` or SWR behavior; actual
+  production cache behavior is a mandatory deployment/remeasurement gate. The
+  later deployed acceptance gate is zero
   HTTP errors with health/readiness 200, cached TTFB p50 below 500ms, warm
   full-response p95 below 1.5s, and at least 20% p95 improvement against both
   formal baselines (legacy <=925.638ms; canonical <=1097.349ms). Cold and
-  expiry misses are expected, and this PR does not claim that deployed gate.
+  post-threshold SWR responses are expected; production evidence must record
+  whether the response was stale/background-refreshing and whether refresh
+  failure was observable. This PR does not claim that deployed gate.
 - Phase 7: route transitions, prefetching, loading boundaries, and navigation
   UX after client/server traces identify a real transition bottleneck.
 - Optional Phase 8: a gated Rust/WASM proof of concept only if production

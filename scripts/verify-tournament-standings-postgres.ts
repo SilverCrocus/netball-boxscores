@@ -24,6 +24,17 @@ interface PoolFixture {
   matchId: string;
 }
 
+interface DirectoryFixture {
+  seriesIds: string[];
+  competitionIds: string[];
+  stageIds: string[];
+  groupIds: string[];
+  teamIds: string[];
+  entryIds: string[];
+  matchIds: string[];
+  slotIds: string[];
+}
+
 interface CanonicalGlasgowFixture {
   competitionId: string;
   addedMatchIds: string[];
@@ -197,6 +208,134 @@ async function cleanPoolFixture(prisma: PrismaClient, fixture: PoolFixture): Pro
   });
 }
 
+async function seedGenericDirectoryFixtures(
+  prisma: PrismaClient,
+  count = 40,
+): Promise<DirectoryFixture> {
+  const namespace = `phase6-directory-${randomUUID()}`;
+  const seriesIds = Array.from({ length: count }, (_, index) => `${namespace}-series-${index + 1}`);
+  const competitionIds = Array.from({ length: count }, (_, index) => `${namespace}-edition-${index + 1}`);
+  const stageIds = Array.from({ length: count }, (_, index) => `${namespace}-stage-${index + 1}`);
+  const groupIds = Array.from({ length: count }, (_, index) => `${namespace}-group-${index + 1}`);
+  const teamIds = Array.from({ length: count * 2 }, (_, index) => `${namespace}-team-${index + 1}`);
+  const entryIds = Array.from({ length: count * 2 }, (_, index) => `${namespace}-entry-${index + 1}`);
+  const matchIds = Array.from({ length: count }, (_, index) => `${namespace}-match-${index + 1}`);
+  const slotIds = matchIds.flatMap((matchId) => [`${matchId}-a`, `${matchId}-b`]);
+
+  await prisma.$transaction(async (transaction) => {
+    await transaction.competitionSeries.createMany({
+      data: seriesIds.map((id, index) => ({
+        id,
+        slug: `${namespace}-series-${index + 1}`,
+        name: `Phase 6 directory rehearsal series ${index + 1}`,
+        kind: 'TOURNAMENT' as const,
+      })),
+    });
+    await transaction.competition.createMany({
+      data: competitionIds.map((id, index) => ({
+        id,
+        name: `Phase 6 directory rehearsal edition ${index + 1}`,
+        season: 2100 + count - index,
+        seasonStart: new Date(Date.UTC(2100 + count - index, 0, 1)),
+        seriesId: seriesIds[index],
+        slug: `${namespace}-edition-${index + 1}`,
+        publicationStatus: 'PUBLISHED' as const,
+      })),
+    });
+    await transaction.stage.createMany({
+      data: stageIds.map((id, index) => ({
+        id,
+        competitionId: competitionIds[index]!,
+        slug: 'pool-stage',
+        name: 'Pool Stage',
+        type: 'POOL' as const,
+        sequence: 1,
+        isPublished: true,
+      })),
+    });
+    await transaction.stageGroup.createMany({
+      data: groupIds.map((id, index) => ({
+        id,
+        stageId: stageIds[index]!,
+        slug: 'pool-a',
+        name: 'Pool A',
+        sequence: 1,
+      })),
+    });
+    await transaction.team.createMany({
+      data: teamIds.map((id, index) => {
+        const editionIndex = Math.floor(index / 2);
+        return {
+          id,
+          name: `Phase 6 Directory Team ${index + 1}`,
+          slug: `${namespace}-team-${index + 1}`,
+          abbreviation: `D${String(index + 1).padStart(3, '0')}`,
+          competitionId: competitionIds[editionIndex]!,
+        };
+      }),
+    });
+    await transaction.editionEntry.createMany({
+      data: entryIds.map((id, index) => {
+        const editionIndex = Math.floor(index / 2);
+        return {
+          id,
+          competitionId: competitionIds[editionIndex]!,
+          teamId: teamIds[index]!,
+          primaryGroupId: groupIds[editionIndex]!,
+          status: 'ACTIVE' as const,
+          seed: (index % 2) + 1,
+          displayName: `Phase 6 Directory Team ${index + 1}`,
+        };
+      }),
+    });
+    await transaction.match.createMany({
+      data: matchIds.map((id, index) => ({
+        id,
+        competitionId: competitionIds[index]!,
+        stageId: stageIds[index]!,
+        stageGroupId: groupIds[index]!,
+        venue: 'Phase 6 directory rehearsal venue',
+        scheduledAt: new Date(Date.UTC(2100 + count - index, 1, 1)),
+        status: 'SCHEDULED' as const,
+      })),
+    });
+    await transaction.matchSlot.createMany({
+      data: matchIds.flatMap((matchId, index) => [
+        {
+          id: `${matchId}-a`,
+          matchId,
+          side: 'A' as const,
+          sourceType: 'TEAM' as const,
+          resolvedEntryId: entryIds[index * 2]!,
+        },
+        {
+          id: `${matchId}-b`,
+          matchId,
+          side: 'B' as const,
+          sourceType: 'TEAM' as const,
+          resolvedEntryId: entryIds[index * 2 + 1]!,
+        },
+      ]),
+    });
+  });
+
+  return { seriesIds, competitionIds, stageIds, groupIds, teamIds, entryIds, matchIds, slotIds };
+}
+
+async function cleanDirectoryFixtures(prisma: PrismaClient, fixture: DirectoryFixture): Promise<void> {
+  await prisma.$transaction(async (transaction) => {
+    await transaction.stageStanding.deleteMany({ where: { stageId: { in: fixture.stageIds } } });
+    await transaction.matchSlot.deleteMany({ where: { id: { in: fixture.slotIds } } });
+    await transaction.match.deleteMany({ where: { id: { in: fixture.matchIds } } });
+    await transaction.editionEntry.deleteMany({ where: { id: { in: fixture.entryIds } } });
+    await transaction.stageGroup.deleteMany({ where: { id: { in: fixture.groupIds } } });
+    await transaction.stage.deleteMany({ where: { id: { in: fixture.stageIds } } });
+    await transaction.team.deleteMany({ where: { id: { in: fixture.teamIds } } });
+    await transaction.competition.deleteMany({ where: { id: { in: fixture.competitionIds } } });
+    await transaction.competitionSeries.deleteMany({ where: { id: { in: fixture.seriesIds } } });
+  });
+}
+
 async function seedCanonicalGlasgowExactAndOverflow(
   prisma: PrismaClient,
 ): Promise<CanonicalGlasgowFixture> {
@@ -303,6 +442,8 @@ async function main(): Promise<void> {
   const {
     loadFreshStandingsCompetitionDirectoryWithClient,
     loadPublicCompetitionNavigationDirectoryWithClient,
+    LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT,
+    LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT,
   } = await import('@/lib/competitions');
   const {
     getTournamentPoolStandingsUncachedWithClient,
@@ -311,12 +452,14 @@ async function main(): Promise<void> {
   const queryEvents: QueryEvent[] = [];
   prisma.$on('query', (event) => queryEvents.push(event));
   let poolFixture: PoolFixture | null = null;
+  let directoryFixture: DirectoryFixture | null = null;
   let glasgowFixture: CanonicalGlasgowFixture | null = null;
   let result: Record<string, unknown> | null = null;
 
   try {
     const serverVersion = await verifyPostgres17(prisma);
     poolFixture = await seedPoolFixture(prisma);
+    directoryFixture = await seedGenericDirectoryFixtures(prisma);
 
     const directoryLegacyStart = queryEvents.length;
     const legacyDirectory = await loadPublicCompetitionNavigationDirectoryWithClient(prisma);
@@ -329,6 +472,15 @@ async function main(): Promise<void> {
     const freshDirectoryEvidence = captureEvidence(queryEvents.slice(directoryFreshStart));
     invariant(freshDirectory.some((edition) => edition.id === poolFixture!.competitionId),
       'fresh standings directory omitted the generic rehearsal edition');
+    const legacySelectedIds = legacyDirectory.map((edition) => edition.id);
+    const freshSelectedIds = freshDirectory.map((edition) => edition.id);
+    invariant(JSON.stringify(legacySelectedIds) === JSON.stringify(freshSelectedIds),
+      'legacy and fresh directory selected ID order diverged');
+    const genericFreshRows = freshDirectory.filter((edition) =>
+      directoryFixture!.competitionIds.includes(edition.id));
+    invariant(genericFreshRows.length === directoryFixture!.competitionIds.length
+      && genericFreshRows.every((edition) => edition.stages.length === 0 && edition.matches.length === 0),
+    'fresh directory attached Glasgow evidence to a generic edition');
     invariant(freshDirectoryEvidence.joinedStatements >= 1,
       'fresh standings directory did not emit a joined relation projection');
     const directoryReduction = assertMeaningfulStandingsDirectoryReduction(
@@ -386,33 +538,44 @@ async function main(): Promise<void> {
       && preEventBytes !== populatedBytes,
     'pool standings projections were not byte-stable and distinct across the result transition');
 
-    const cacheStore = new Map<string, string>();
-    let cacheLoaderCalls = 0;
-    const cachedReader = async (competitionId: string) => {
+    // This deliberately emulates only JSON serialization and loader reuse. It
+    // does not exercise Next's unstable_cache or its SWR implementation.
+    const jsonCacheEmulationStore = new Map<string, string>();
+    let jsonCacheEmulationLoaderCalls = 0;
+    const jsonCacheEmulationReader = async (competitionId: string) => {
       const key = JSON.stringify([competitionId, 'tournament-standings-v1']);
-      const stored = cacheStore.get(key);
+      const stored = jsonCacheEmulationStore.get(key);
       if (stored !== undefined) return JSON.parse(stored) as typeof populated;
-      cacheLoaderCalls += 1;
+      jsonCacheEmulationLoaderCalls += 1;
       const value = await getTournamentPoolStandingsUncachedWithClient(prisma, competitionId);
-      cacheStore.set(key, JSON.stringify(value));
+      jsonCacheEmulationStore.set(key, JSON.stringify(value));
       return value;
     };
-    const cachedMissStart = queryEvents.length;
-    const cachedCold = await cachedReader(poolFixture.competitionId);
-    const cachedMissEvidence = captureEvidence(queryEvents.slice(cachedMissStart));
-    const cachedWarmStart = queryEvents.length;
-    const cachedWarm = await cachedReader(poolFixture.competitionId);
-    const cachedWarmEvidence = captureEvidence(queryEvents.slice(cachedWarmStart));
-    invariant(JSON.stringify(cachedCold) === JSON.stringify(cachedWarm)
-      && cacheLoaderCalls === 1
-      && cachedMissEvidence.dataStatements === 1
-      && cachedWarmEvidence.dataStatements === 0,
-    'canonical cache miss/warm pool query contract failed');
+    const jsonCacheEmulationMissStart = queryEvents.length;
+    const jsonCacheEmulationCold = await jsonCacheEmulationReader(poolFixture.competitionId);
+    const jsonCacheEmulationMissEvidence = captureEvidence(queryEvents.slice(jsonCacheEmulationMissStart));
+    const jsonCacheEmulationWarmStart = queryEvents.length;
+    const jsonCacheEmulationWarm = await jsonCacheEmulationReader(poolFixture.competitionId);
+    const jsonCacheEmulationWarmEvidence = captureEvidence(queryEvents.slice(jsonCacheEmulationWarmStart));
+    invariant(JSON.stringify(jsonCacheEmulationCold) === JSON.stringify(jsonCacheEmulationWarm)
+      && jsonCacheEmulationLoaderCalls === 1
+      && jsonCacheEmulationMissEvidence.dataStatements === 1
+      && jsonCacheEmulationWarmEvidence.dataStatements === 0,
+    'JSON cache emulation miss/warm pool query contract failed');
 
     glasgowFixture = await seedCanonicalGlasgowExactAndOverflow(prisma);
+    const exactLegacyDirectory = await loadPublicCompetitionNavigationDirectoryWithClient(prisma);
     const exactDirectory = await loadFreshStandingsCompetitionDirectoryWithClient(prisma);
-    invariant(exactDirectory.some((edition) => edition.series?.slug === 'commonwealth-games-netball'
-      && edition.slug === 'glasgow-2026'),
+    invariant(JSON.stringify(exactLegacyDirectory.map((edition) => edition.id))
+      === JSON.stringify(exactDirectory.map((edition) => edition.id)),
+    'legacy and fresh directory selected ID order diverged after Glasgow became ready');
+    const exactGlasgow = exactDirectory.find((edition) => edition.id === glasgowFixture!.competitionId);
+    invariant(exactGlasgow
+      && exactGlasgow.stages.length <= LIVE_FALLBACK_GLASGOW_STAGE_EVIDENCE_LIMIT
+      && exactGlasgow.matches.length <= LIVE_FALLBACK_GLASGOW_MATCH_EVIDENCE_LIMIT,
+    'exact Glasgow readiness projection exceeded its evidence bounds');
+    invariant(exactGlasgow.series?.slug === 'commonwealth-games-netball'
+      && exactGlasgow.slug === 'glasgow-2026',
     'exact Glasgow readiness projection was not visible');
     const overflowStart = queryEvents.length;
     await prisma.$transaction(async (transaction) => {
@@ -462,10 +625,20 @@ async function main(): Promise<void> {
       populatedProjectionParity: JSON.stringify(populated) === populatedBytes,
       preEventJoinedDataStatements: preEventEvidence.joinedStatements,
       populatedJoinedDataStatements: populatedEvidence.joinedStatements,
-      cachedMissPoolDataStatements: cachedMissEvidence.dataStatements,
-      cachedWarmPoolDataStatements: cachedWarmEvidence.dataStatements,
-      cachedLoaderCalls: cacheLoaderCalls,
-      populatedCacheProjectionParity: JSON.stringify(cachedCold) === populatedBytes,
+      cacheEvidenceMode: 'json-cache-emulation-only',
+      productionNextCacheExercised: false,
+      jsonCacheEmulationMissPoolDataStatements: jsonCacheEmulationMissEvidence.dataStatements,
+      jsonCacheEmulationWarmPoolDataStatements: jsonCacheEmulationWarmEvidence.dataStatements,
+      jsonCacheEmulationLoaderCalls: jsonCacheEmulationLoaderCalls,
+      jsonCacheEmulationProjectionParity: JSON.stringify(jsonCacheEmulationCold) === populatedBytes,
+      directoryGenericEditionCount: directoryFixture.competitionIds.length,
+      directoryGenericEvidenceRows: genericFreshRows.reduce(
+        (total, edition) => total + edition.stages.length + edition.matches.length,
+        0,
+      ),
+      directorySelectedIdOrderParity: true,
+      directoryExactStageEvidenceRows: exactGlasgow.stages.length,
+      directoryExactMatchEvidenceRows: exactGlasgow.matches.length,
       exactGlasgowReadinessVisible: true,
       glasgowOverflowRejected: true,
       fixtureNamespaceCleaned: true,
@@ -473,6 +646,7 @@ async function main(): Promise<void> {
     };
   } finally {
     if (glasgowFixture) await cleanCanonicalGlasgowFixture(prisma, glasgowFixture);
+    if (directoryFixture) await cleanDirectoryFixtures(prisma, directoryFixture);
     if (poolFixture) await cleanPoolFixture(prisma, poolFixture);
     await prisma.$disconnect();
   }

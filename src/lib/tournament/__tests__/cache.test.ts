@@ -27,7 +27,7 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
-describe('tournament standings durable cache boundary', () => {
+describe('tournament standings Next cache wrapper wiring (JSON cache emulation)', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv('NODE_ENV', 'production');
@@ -35,7 +35,9 @@ describe('tournament standings durable cache boundary', () => {
     mocks.reset();
   });
 
-  it('uses one timed pool read on a miss and no pool read after JSON cache rehydration', async () => {
+  it('emulates one loader read on a miss and no read after JSON cache rehydration', async () => {
+    // This test proves the wrapper key/options and JSON-safe result boundary;
+    // production Next SWR behavior is a deployment/remeasurement gate.
     const { getTournamentPoolStandings } = await import('../service');
     mocks.findFirst.mockResolvedValue({
       id: 'pool-stage',

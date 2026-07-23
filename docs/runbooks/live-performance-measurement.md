@@ -167,11 +167,23 @@ claims that local or preview measurements satisfy them.
 
 The canonical route resolves the edition and its complete public readiness
 freshly on every request before reading the `tournament_standings` cache. The
-pool read is cached for 60 seconds with the `standings` tag; expiry misses are
-expected. A warm hit must produce no `tournament_pool_standings_rows` query,
-while a miss produces one joined read. StageStanding rows are projected as
-published values when present and remain null in pre-event seed order when
-absent. Never manufacture zero statistics.
+pool read uses `revalidate: 60` with the `standings` tag as Next's
+stale-while-revalidate guidance, not as a hard TTL or maximum staleness bound.
+After the threshold, a request may receive the current value immediately while
+Next refreshes in the background; a failed refresh can leave that value stale
+longer and be retried. A warm hit must produce no
+`tournament_pool_standings_rows` query, while a miss produces one joined read.
+Production evidence must separately exercise cold, warm, post-threshold
+stale/background-refresh, and refresh-failure behavior when observable. The
+fresh edition/readiness check still fails closed before cache access. StageStanding
+rows are projected as published values when present and remain null in
+pre-event seed order when absent. Never manufacture zero statistics.
+
+The PostgreSQL rehearsal's miss/warm section is intentionally a JSON/cache
+emulation of loader invocation and serialization parity; it is not a Next
+`unstable_cache` or SWR proof. The production acceptance packet must use an
+exact deployed build and real requests to verify cold, warm, post-threshold
+stale/background-refresh, and observable refresh-failure behavior.
 
 The legacy fresh selector is request-memoized so metadata and page rendering
 share one result. Its `cache:false` path uses one joined, bounded projection:
