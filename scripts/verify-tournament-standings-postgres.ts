@@ -153,8 +153,6 @@ async function seedPoolFixture(prisma: PrismaClient): Promise<PoolFixture> {
       data: {
         id: matchId,
         competitionId,
-        homeTeamId: teamIds[0],
-        awayTeamId: teamIds[1],
         stageId,
         stageGroupId: groupId,
         venue: 'Phase 6 rehearsal venue',
@@ -240,8 +238,6 @@ async function seedCanonicalGlasgowExactAndOverflow(
       data: {
         id: matchId,
         competitionId: canonical.id,
-        homeTeamId: canonical.teams[index % canonical.teams.length]!.id,
-        awayTeamId: canonical.teams[(index + 1) % canonical.teams.length]!.id,
         stageId: medalStage.id,
         venue: 'Phase 6 Glasgow rehearsal venue',
         scheduledAt: new Date(`2026-08-${String(20 + index).padStart(2, '0')}T00:00:00.000Z`),
