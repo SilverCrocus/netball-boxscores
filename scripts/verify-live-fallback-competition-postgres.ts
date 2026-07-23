@@ -156,24 +156,35 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
   const matchIds = [readyMatchId, ...glasgowMatchIds];
   const sourceSystemId = `${namespace}-glasgow-source`;
   const importRunId = `${namespace}-glasgow-import`;
+  const seriesIds = [seriesId];
+  let glasgowSeriesDatabaseId = glasgowSeriesId;
 
   await prisma.$transaction(async (transaction) => {
-    await transaction.competitionSeries.createMany({
-      data: [
-        {
-          id: seriesId,
-          slug: `${namespace}-series`,
-          name: 'Live fallback PostgreSQL rehearsal series',
-          kind: 'LEAGUE',
-        },
-        {
+    await transaction.competitionSeries.create({
+      data: {
+        id: seriesId,
+        slug: `${namespace}-series`,
+        name: 'Live fallback PostgreSQL rehearsal series',
+        kind: 'LEAGUE',
+      },
+    });
+    const canonicalGlasgowSeries = await transaction.competitionSeries.findUnique({
+      where: { slug: 'commonwealth-games-netball' },
+      select: { id: true },
+    });
+    if (canonicalGlasgowSeries) {
+      glasgowSeriesDatabaseId = canonicalGlasgowSeries.id;
+    } else {
+      await transaction.competitionSeries.create({
+        data: {
           id: glasgowSeriesId,
           slug: 'commonwealth-games-netball',
           name: 'Commonwealth Games Netball rehearsal series',
           kind: 'TOURNAMENT',
         },
-      ],
-    });
+      });
+      seriesIds.push(glasgowSeriesId);
+    }
 
     const shellData: Prisma.CompetitionCreateManyInput[] = shellIds.map((id, index) => ({
       id,
@@ -182,7 +193,7 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
         : `Published unready shell ${index}`,
       season: 2030,
       seasonStart: index % 2 === 0 ? new Date('2030-01-01T00:00:00.000Z') : null,
-      seriesId: id === glasgowOverflowCompetitionId ? glasgowSeriesId : seriesId,
+      seriesId: id === glasgowOverflowCompetitionId ? glasgowSeriesDatabaseId : seriesId,
       slug: id === glasgowOverflowCompetitionId
         ? 'glasgow-2026'
         : `shell-${String(index).padStart(2, '0')}`,
@@ -336,7 +347,7 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
   });
 
   return {
-    seriesIds: [seriesId, glasgowSeriesId],
+    seriesIds,
     competitionIds,
     stageIds: [readyStageId, ...glasgowStageIds],
     stageGroupIds: glasgowStageGroupIds,
