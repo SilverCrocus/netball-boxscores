@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import type { ReactElement } from 'react';
 import { getLiveState, liveMatchSelect, type LiveMatch } from '@/lib/live-state';
 import { prisma, excludeSimData } from '@/lib/db';
 import { loadLiveFallbackCompetition } from '@/lib/competitions';
@@ -21,11 +22,21 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export default function LivePage() {
-  return measureServerOperation('/live', 'live-page', renderLivePage);
+type LivePageRenderResult =
+  | { kind: 'redirect'; href: string }
+  | { kind: 'content'; content: ReactElement };
+
+export default async function LivePage() {
+  const result = await measureServerOperation<LivePageRenderResult>(
+    '/live',
+    'live-page',
+    renderLivePage,
+  );
+  if (result.kind === 'redirect') redirect(result.href);
+  return result.content;
 }
 
-async function renderLivePage() {
+async function renderLivePage(): Promise<LivePageRenderResult> {
   const state = await measureServerPhase(
     'live-active-state',
     () => getLiveState({
@@ -36,7 +47,10 @@ async function renderLivePage() {
 
   if (state.liveMatchIds.length === 1) {
     const liveMatch = state.liveMatches[0];
-    redirect(matchHref(liveMatch.id, liveMatch.competitionId, 'live'));
+    return {
+      kind: 'redirect',
+      href: matchHref(liveMatch.id, liveMatch.competitionId, 'live'),
+    };
   }
 
   if (state.liveMatchIds.length > 1) {
@@ -66,7 +80,7 @@ async function renderLivePage() {
       access?.status === 'LIVE' && hasResolvedMatchTeams(match) ? [{ match, access }] : []
     ));
 
-    return (
+    return { kind: 'content', content: (
       <div className="mx-auto max-w-7xl">
         <p className="font-label text-sm font-bold uppercase tracking-widest text-secondary">Live Hub</p>
         <h1 className="mt-2 font-headline text-4xl font-black uppercase tracking-tighter text-primary md:text-6xl">
@@ -84,7 +98,7 @@ async function renderLivePage() {
           ))}
         </div>
       </div>
-    );
+    ) };
   }
 
   const competition = await measureServerPhase(
@@ -146,7 +160,7 @@ async function renderLivePage() {
   const nextMatch = nextCandidate && nextAccess ? nextCandidate : null;
   const latestResult = latestCandidate && latestAccess ? latestCandidate : null;
 
-  return (
+  return { kind: 'content', content: (
     <div className="mx-auto max-w-7xl">
       <section className="kinetic-gradient overflow-hidden rounded-2xl px-6 py-12 text-white shadow-2xl md:px-12 md:py-16">
         <p className="font-label text-sm font-bold uppercase tracking-widest text-secondary-fixed">Live Hub</p>
@@ -193,5 +207,5 @@ async function renderLivePage() {
         </section>
       </div>
     </div>
-  );
+  ) };
 }

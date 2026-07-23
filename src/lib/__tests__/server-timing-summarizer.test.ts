@@ -6,9 +6,36 @@ import {
   MAX_TIMING_LINE_BYTES,
   MAX_TIMING_SAMPLES_PER_GROUP,
   isServerTimingCoverageGateSatisfied,
+  scanTimingJsonl,
   SummarizerLimitError,
+  summarizeServerTimingReadable,
   summarizeServerTimingJsonl,
+  type TimingInputSource,
 } from '../../../scripts/summarize-server-timing';
+
+function trackedSource(chunks: readonly (Buffer | string)[]) {
+  const state = { consumed: 0, destroyed: false, returned: false };
+  let index = 0;
+  const source = {
+    [Symbol.asyncIterator]() {
+      return {
+        next: async () => {
+          if (index >= chunks.length) return { done: true, value: undefined as never };
+          state.consumed += 1;
+          return { done: false, value: chunks[index++] };
+        },
+        return: async () => {
+          state.returned = true;
+          return { done: true, value: undefined as never };
+        },
+      };
+    },
+    destroy: () => {
+      state.destroyed = true;
+    },
+  } as TimingInputSource;
+  return { source, state };
+}
 
 describe('server timing summarizer', () => {
   it('reports deterministic p50/p95 values for route, phase, and query groups', () => {
@@ -283,6 +310,108 @@ describe('server timing summarizer', () => {
     )).toThrowError(SummarizerLimitError);
   });
 
+  it('scans bounded chunks before retaining an oversized unterminated line', async () => {
+    const sentinel = Buffer.from('SENTINEL_SHOULD_NOT_BE_CONSUMED');
+    const { source, state } = trackedSource([
+      Buffer.alloc(700 * 1024, 0x78),
+      Buffer.alloc(700 * 1024, 0x79),
+      sentinel,
+    ]);
+
+    await expect(scanTimingJsonl(source, () => {})).rejects.toMatchObject({
+      name: 'SummarizerLimitError',
+      code: 'oversized_line',
+    });
+    expect(state.consumed).toBe(2);
+    expect(state.destroyed).toBe(true);
+    expect(state.returned).toBe(true);
+  });
+
+  it('handles split CRLF, split UTF-8, empty lines, and a final unterminated line', async () => {
+    const prefix = Buffer.from('{"event":"server_cache_timing","message":"');
+    const emoji = Buffer.from('😀');
+    const suffix = Buffer.from('"}\r\n{"event":"server_cache_timing"}');
+    const input = Buffer.concat([prefix, emoji, suffix]);
+    const splitAt = prefix.length + 1;
+    const { source } = trackedSource([
+      Buffer.concat([Buffer.from('\n\r\n'), input.subarray(0, splitAt)]),
+      input.subarray(splitAt),
+    ]);
+    const lines: string[] = [];
+
+    await scanTimingJsonl(source, (line) => {
+      lines.push(line);
+    });
+
+    expect(lines).toEqual([
+      '',
+      '',
+      '{"event":"server_cache_timing","message":"😀"}',
+      '{"event":"server_cache_timing"}',
+    ]);
+
+    const finalLine = JSON.stringify({
+      event: 'server_query_timing',
+      route: '/live',
+      operation: 'live-page',
+      name: 'live_next_match',
+      durationMs: 1,
+    });
+    const summary = await summarizeServerTimingReadable(
+      trackedSource([Buffer.from(finalLine)]).source,
+      { minSamples: 1 },
+    );
+    expect(summary.queries).toMatchObject([{
+      name: 'live_next_match',
+      count: 1,
+    }]);
+  });
+
+  it('stops and preserves the original source error without echoing input', async () => {
+    const sourceError = new Error('upstream stream failed');
+    const state = { destroyed: false, returned: false };
+    const source = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async () => {
+            throw sourceError;
+          },
+          return: async () => {
+            state.returned = true;
+            return { done: true, value: undefined as never };
+          },
+        };
+      },
+      destroy: () => {
+        state.destroyed = true;
+      },
+    } as TimingInputSource;
+
+    await expect(scanTimingJsonl(source, () => {})).rejects.toBe(sourceError);
+    expect(state.destroyed).toBe(true);
+    expect(state.returned).toBe(true);
+  });
+
+  it('rejects the total byte cap before requesting another source chunk', async () => {
+    const first = Buffer.alloc(MAX_TIMING_INPUT_BYTES, 0x78);
+    for (let offset = MAX_TIMING_LINE_BYTES - 1; offset < first.length; offset += MAX_TIMING_LINE_BYTES) {
+      first[offset] = 0x0a;
+    }
+    const { source, state } = trackedSource([
+      first,
+      Buffer.from('x'),
+      Buffer.from('SENTINEL_SHOULD_NOT_BE_CONSUMED'),
+    ]);
+
+    await expect(scanTimingJsonl(source, () => {})).rejects.toMatchObject({
+      name: 'SummarizerLimitError',
+      code: 'input_byte_limit',
+    });
+    expect(state.consumed).toBe(2);
+    expect(state.destroyed).toBe(true);
+    expect(state.returned).toBe(true);
+  });
+
   it('exercises the CLI gate and bounded-input failure paths', () => {
     const cli = path.resolve('scripts/summarize-server-timing.ts');
     const tsx = path.resolve('node_modules/tsx/dist/cli.mjs');
@@ -307,6 +436,7 @@ describe('server timing summarizer', () => {
     const oversized = run('x'.repeat(MAX_TIMING_LINE_BYTES + 1));
     expect(oversized.status).toBe(2);
     expect(oversized.stdout).toContain('"code":"oversized_line"');
+    expect(oversized.stdout).not.toContain('SENTINEL_SHOULD_NOT_BE_CONSUMED');
 
     const sampleOverflow = run(Array.from({ length: MAX_TIMING_SAMPLES_PER_GROUP + 1 }, () => JSON.stringify({
       event: 'server_query_timing',

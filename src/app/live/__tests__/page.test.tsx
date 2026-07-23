@@ -15,7 +15,9 @@ const {
   getLiveStateMock: vi.fn(),
   loadLiveFallbackCompetitionMock: vi.fn(),
   redirectMock: vi.fn((href: string) => {
-    throw new Error(`NEXT_REDIRECT:${href}`);
+    const error = new Error(`NEXT_REDIRECT:${href}`);
+    Object.assign(error, { digest: `NEXT_REDIRECT;replace;${href}` });
+    throw error;
   }),
   resolvePublicMatchBatchMock: vi.fn(),
   scoreCardPropsMock: vi.fn(),
@@ -200,17 +202,58 @@ describe('LivePage', () => {
     expect(findFirstMock).not.toHaveBeenCalled();
   });
 
-  it('redirects one public live match to its canonical edition URL', async () => {
+  it('redirects one public live match after recording a successful operation', async () => {
     getLiveStateMock.mockResolvedValue({
       liveMatches: [{ id: 'live-1', competitionId: 'ssn-2026' }],
       liveMatchIds: ['live-1'],
     });
 
-    await expect(LivePage()).rejects.toThrow(
-      'NEXT_REDIRECT:/match/live-1/live?edition=ssn-2026',
-    );
-    expect(findFirstMock).not.toHaveBeenCalled();
-    expect(loadLiveFallbackCompetitionMock).not.toHaveBeenCalled();
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('NODE_ENV', 'production');
+    try {
+      await expect(LivePage()).rejects.toMatchObject({
+        message: 'NEXT_REDIRECT:/match/live-1/live?edition=ssn-2026',
+        digest: 'NEXT_REDIRECT;replace;/match/live-1/live?edition=ssn-2026',
+      });
+      expect(redirectMock).toHaveBeenCalledWith('/match/live-1/live?edition=ssn-2026');
+      expect(findFirstMock).not.toHaveBeenCalled();
+      expect(loadLiveFallbackCompetitionMock).not.toHaveBeenCalled();
+
+      const operationEvents = infoSpy.mock.calls
+        .map(([payload]) => JSON.parse(String(payload)) as Record<string, unknown>)
+        .filter((event) => event.event === 'server_operation_timing');
+      expect(operationEvents).toHaveLength(1);
+      expect(operationEvents[0]).toMatchObject({
+        route: '/live',
+        operation: 'live-page',
+        outcome: 'success',
+      });
+    } finally {
+      infoSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps ordinary Live render failures as error outcomes and rethrows them', async () => {
+    const error = new Error('live render failed');
+    getLiveStateMock.mockRejectedValue(error);
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('NODE_ENV', 'production');
+    try {
+      await expect(LivePage()).rejects.toBe(error);
+      const operationEvents = infoSpy.mock.calls
+        .map(([payload]) => JSON.parse(String(payload)) as Record<string, unknown>)
+        .filter((event) => event.event === 'server_operation_timing');
+      expect(operationEvents).toHaveLength(1);
+      expect(operationEvents[0]).toMatchObject({
+        route: '/live',
+        operation: 'live-page',
+        outcome: 'error',
+      });
+    } finally {
+      infoSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
   });
 
   it('starts bounded next/latest fallback reads together after selecting a competition', async () => {

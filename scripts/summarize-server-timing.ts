@@ -1,6 +1,5 @@
 import { createReadStream } from 'node:fs';
 import path from 'node:path';
-import { createInterface } from 'node:readline';
 import { pathToFileURL } from 'node:url';
 import { SERVER_PHASE_NAMES } from '@/lib/server-timing';
 
@@ -92,6 +91,12 @@ interface CoverageGroup {
 
 export interface SummarizeOptions {
   minSamples?: number;
+}
+
+export type TimingInputChunk = Uint8Array | string;
+
+export interface TimingInputSource extends AsyncIterable<TimingInputChunk> {
+  destroy?: (error?: Error) => unknown;
 }
 
 function isRecord(value: unknown): value is TimingEvent {
@@ -436,6 +441,103 @@ class SummaryAccumulator {
   }
 }
 
+async function stopTimingInput(
+  source: TimingInputSource,
+  iterator: AsyncIterator<TimingInputChunk>,
+): Promise<void> {
+  try {
+    source.destroy?.();
+  } catch {
+    // Preserve the original scanner/stream error.
+  }
+  try {
+    await iterator.return?.();
+  } catch {
+    // Preserve the original scanner/stream error.
+  }
+}
+
+/**
+ * Scans a JSONL byte stream without allowing an unterminated line to grow
+ * beyond its cap. Bytes stay intact until a complete line is available, so
+ * UTF-8 sequences split across source chunks are decoded only once.
+ */
+export async function scanTimingJsonl(
+  source: TimingInputSource,
+  onLine: (line: string) => void | Promise<void>,
+): Promise<void> {
+  const iterator = source[Symbol.asyncIterator]();
+  const pendingLine = Buffer.allocUnsafe(MAX_TIMING_LINE_BYTES + 1);
+  let pendingLineBytes = 0;
+  let totalInputBytes = 0;
+  let lineCount = 0;
+
+  const emitLine = async (stripTrailingCarriageReturn: boolean): Promise<void> => {
+    lineCount += 1;
+    if (lineCount > MAX_TIMING_INPUT_LINES) {
+      throw new SummarizerLimitError(
+        'input_line_limit',
+        `timing input exceeds the ${MAX_TIMING_INPUT_LINES}-line limit`,
+      );
+    }
+
+    let lineBytes = pendingLineBytes;
+    if (
+      stripTrailingCarriageReturn
+      && lineBytes > 0
+      && pendingLine[lineBytes - 1] === 0x0d
+    ) {
+      lineBytes -= 1;
+    }
+    const line = pendingLine.subarray(0, lineBytes).toString('utf8');
+    pendingLineBytes = 0;
+    await onLine(line);
+  };
+
+  try {
+    while (true) {
+      const next = await iterator.next();
+      if (next.done) break;
+
+      const chunk = typeof next.value === 'string'
+        ? Buffer.from(next.value, 'utf8')
+        : Buffer.from(next.value);
+      if (chunk.length > MAX_TIMING_INPUT_BYTES - totalInputBytes) {
+        throw new SummarizerLimitError(
+          'input_byte_limit',
+          `timing input exceeds the ${MAX_TIMING_INPUT_BYTES}-byte limit`,
+        );
+      }
+      totalInputBytes += chunk.length;
+
+      for (const byte of chunk) {
+        if (byte === 0x0a) {
+          await emitLine(true);
+          continue;
+        }
+
+        const isTrailingCarriageReturn = byte === 0x0d
+          && pendingLineBytes === MAX_TIMING_LINE_BYTES;
+        if (pendingLineBytes >= MAX_TIMING_LINE_BYTES && !isTrailingCarriageReturn) {
+          throw new SummarizerLimitError(
+            'oversized_line',
+            `timing input contains a line over the ${MAX_TIMING_LINE_BYTES}-byte limit`,
+          );
+        }
+        pendingLine[pendingLineBytes] = byte;
+        pendingLineBytes += 1;
+      }
+    }
+
+    if (pendingLineBytes > 0) {
+      await emitLine(false);
+    }
+  } catch (error) {
+    await stopTimingInput(source, iterator);
+    throw error;
+  }
+}
+
 function summarizeGroups(
   groups: Map<string, TimingGroup>,
   minSamples: number,
@@ -491,15 +593,6 @@ function summarizeLines(
   return accumulator.finish();
 }
 
-async function summarizeAsyncLines(
-  lines: AsyncIterable<string>,
-  options: SummarizeOptions,
-): Promise<ServerTimingSummary> {
-  const accumulator = createAccumulator(options);
-  for await (const line of lines) accumulator.addLine(line);
-  return accumulator.finish();
-}
-
 export function summarizeServerTimingJsonl(
   input: string,
   options: SummarizeOptions = {},
@@ -512,6 +605,15 @@ export function summarizeServerTimingJsonl(
     );
   }
   return summarizeLines(input.split(/\r?\n/), options, inputBytes);
+}
+
+export async function summarizeServerTimingReadable(
+  source: TimingInputSource,
+  options: SummarizeOptions = {},
+): Promise<ServerTimingSummary> {
+  const accumulator = createAccumulator(options, 0);
+  await scanTimingJsonl(source, (line) => accumulator.addLine(line));
+  return accumulator.finish();
 }
 
 export function isServerTimingCoverageGateSatisfied(summary: ServerTimingSummary): boolean {
@@ -534,11 +636,9 @@ async function summarizeCliInput(
   const input = filePath
     ? createReadStream(path.resolve(filePath))
     : process.stdin;
-  const lines = createInterface({ input, crlfDelay: Infinity });
   try {
-    return await summarizeAsyncLines(lines, options);
+    return await summarizeServerTimingReadable(input, options);
   } finally {
-    lines.close();
     if (filePath) input.destroy();
   }
 }

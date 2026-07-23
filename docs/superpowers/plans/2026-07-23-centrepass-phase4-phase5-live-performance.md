@@ -56,6 +56,10 @@ arguments, SQL, IDs, payloads, credentials, or user data are emitted.
 
 The summarizer streams CLI input and enforces 16 MiB/100,000-line/1 MiB-line
 input caps plus 10,000 samples per group and 100,000 retained samples overall.
+Its chunk-level byte scanner stops/destroys file or stdin input before an
+oversized unterminated line is retained and decodes split UTF-8 only after a
+bounded line completes. The normal one-live redirect is issued after the
+measured handler succeeds, while genuine render failures remain error outcomes.
 
 The context is request-local. Concurrent renders cannot contribute queries,
 cache outcomes, or phase durations to one another. The JSONL summarizer reads

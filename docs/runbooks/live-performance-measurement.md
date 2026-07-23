@@ -21,6 +21,9 @@ duration; overlapping and nested phases are counted once. Its
 `phaseOverlapDurationMs` field is diagnostic only. Use the total operation
 duration for route latency, the operation-level union for the coverage gate,
 and individual phase events for per-phase attribution.
+The normal one-live `/live` redirect is resolved by the measured handler and
+issued afterward, so that framework control-flow exception is not misclassified
+as a failed render; real handler/query/render exceptions remain `error`.
 
 ## Sample method
 
@@ -64,10 +67,13 @@ The `phaseCoverage` section reports p50/p95 union coverage and the percentage
 of samples at or above the 95% explainability threshold; it never reconstructs
 coverage by summing phases.
 
-The CLI parses stdin/files line by line and fails closed before unbounded
-retention: input is capped at 16 MiB and 100,000 lines, each line at 1 MiB,
-each group at 10,000 retained samples, and all retained samples at 100,000.
-Limit failures return a stable reason without echoing log content.
+The CLI scans stdin/files in bounded byte chunks rather than using a line
+reader that can retain an unterminated line. It counts total input and current
+line bytes as chunks arrive, stops/destroys the source as soon as a cap is
+crossed, and decodes UTF-8 only after a complete line is bounded. Input is
+capped at 16 MiB and 100,000 lines, each line at 1 MiB, each group at 10,000
+retained samples, and all retained samples at 100,000. Limit failures return a
+stable reason without echoing log content.
 
 One logical Prisma competition-page loader call is not necessarily one
 PostgreSQL statement: nested relation loading can expand into multiple SQL
