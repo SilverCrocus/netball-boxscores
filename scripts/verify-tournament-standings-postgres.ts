@@ -319,9 +319,8 @@ async function main(): Promise<void> {
     const directoryLegacyStart = queryEvents.length;
     const legacyDirectory = await loadPublicCompetitionNavigationDirectoryWithClient(prisma);
     const legacyDirectoryEvidence = captureEvidence(queryEvents.slice(directoryLegacyStart));
-    invariant(legacyDirectory.some((edition) => edition.series?.slug === 'commonwealth-games-netball'
-      && edition.slug === 'glasgow-2026'),
-    'legacy directory A/B did not include the canonical Glasgow strict candidate');
+    invariant(legacyDirectory.some((edition) => edition.id === poolFixture!.competitionId),
+      'legacy directory A/B did not include the generic rehearsal edition');
 
     const directoryFreshStart = queryEvents.length;
     const freshDirectory = await loadFreshStandingsCompetitionDirectoryWithClient(prisma);
