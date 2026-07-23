@@ -133,6 +133,7 @@ export function GlobalSearch({ dark = false, onNavigate, askCentrePassEnabled = 
       {askCentrePassEnabled && (
         <Link
           href="/explore"
+          prefetch={false}
           onClick={onNavigate}
           className={`mt-2 flex min-h-9 items-center gap-2 rounded-lg px-2 font-label text-xs font-bold ${dark ? 'text-lime-300 hover:bg-slate-800' : 'text-secondary hover:bg-surface-container-low'}`}
         >
