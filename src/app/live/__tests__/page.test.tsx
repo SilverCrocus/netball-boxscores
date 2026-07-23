@@ -122,6 +122,7 @@ describe('LivePage', () => {
           { stage: { is: { isPublished: true } } },
         ],
       }),
+      relationLoadStrategy: 'join',
     }));
     expect(loadLiveFallbackCompetitionMock).toHaveBeenCalledOnce();
     expect(resolvePublicMatchBatchMock).toHaveBeenCalledOnce();
@@ -133,6 +134,7 @@ describe('LivePage', () => {
           { stage: { is: { isPublished: true } } },
         ],
       }),
+      relationLoadStrategy: 'join',
     }));
   });
 
@@ -282,6 +284,7 @@ describe('LivePage', () => {
 
     expect(findFirstMock).toHaveBeenCalledTimes(2);
     expect(findFirstMock.mock.calls.every(([query]) => query.select)).toBe(true);
+    expect(findFirstMock.mock.calls.every(([query]) => query.relationLoadStrategy === 'join')).toBe(true);
   });
 
   it('does not load fallback matches when no public competition is ready', async () => {

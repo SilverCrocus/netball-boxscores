@@ -124,6 +124,7 @@ describe('getLiveState', () => {
     expect(findManyMock.mock.calls[0]?.[0]).toMatchObject({
       where: expect.objectContaining({ status: 'LIVE' }),
       select: publicMatchBatchSelectMock,
+      relationLoadStrategy: 'join',
       orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
       take: MAX_LIVE_STATE_CANDIDATES,
     });
@@ -133,6 +134,7 @@ describe('getLiveState', () => {
         scheduledAt: expect.any(Object),
       }),
       select: publicMatchBatchSelectMock,
+      relationLoadStrategy: 'join',
       orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
       take: MAX_LIVE_STATE_CANDIDATES,
     });
@@ -248,6 +250,7 @@ describe('getLiveState', () => {
     expect(findManyMock.mock.calls[0]?.[0]).toMatchObject({
       where: expect.objectContaining({ status: 'LIVE' }),
       select: publicMatchBatchSelectMock,
+      relationLoadStrategy: 'join',
       take: MAX_LIVE_STATE_CANDIDATES,
     });
     expect(findManyMock.mock.calls[1]?.[0]).toMatchObject({
@@ -256,6 +259,7 @@ describe('getLiveState', () => {
         scheduledAt: expect.any(Object),
       }),
       select: publicMatchBatchSelectMock,
+      relationLoadStrategy: 'join',
       take: MAX_LIVE_STATE_CANDIDATES,
     });
     expect(resolvePublicMatchBatchMock).toHaveBeenCalledWith(

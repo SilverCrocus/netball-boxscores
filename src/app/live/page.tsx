@@ -62,6 +62,7 @@ async function renderLivePage(): Promise<LivePageRenderResult> {
         () => prisma.match.findMany({
           where: { id: { in: state.liveMatchIds } },
           select: liveMatchSelect,
+          relationLoadStrategy: 'join',
           orderBy: { scheduledAt: 'asc' },
         }) as unknown as Promise<LiveMatch[]>,
       );
@@ -124,6 +125,7 @@ async function renderLivePage(): Promise<LivePageRenderResult> {
             ],
           },
           select: liveMatchSelect,
+          relationLoadStrategy: 'join',
           orderBy: { scheduledAt: 'asc' },
         })),
         timedQuery('live_latest_match', () => prisma.match.findFirst({
@@ -137,6 +139,7 @@ async function renderLivePage(): Promise<LivePageRenderResult> {
             ],
           },
           select: liveMatchSelect,
+          relationLoadStrategy: 'join',
           orderBy: { scheduledAt: 'desc' },
         })),
       ]),

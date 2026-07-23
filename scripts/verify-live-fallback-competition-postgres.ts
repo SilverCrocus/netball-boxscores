@@ -47,6 +47,41 @@ interface RehearsalFixture {
   teamIds: string[];
 }
 
+interface LoaderSqlEvidence {
+  queryEvents: number;
+  dataStatements: number;
+  joinedStatements: number;
+}
+
+function isLoaderDataStatement(query: string): boolean {
+  const normalized = query.trim().toUpperCase();
+  if (!normalized) return false;
+  if (/^(BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE|SET|DISCARD)\b/.test(normalized)) {
+    return false;
+  }
+  return !normalized.includes('CURRENT_SETTING(');
+}
+
+function assertJoinedLoaderSql(queryEvents: string[]): LoaderSqlEvidence {
+  const dataStatements = queryEvents.filter(isLoaderDataStatement);
+  const joinedStatements = dataStatements.filter((query) => /\bLATERAL\b/i.test(query));
+  if (dataStatements.length !== 2) {
+    throw new Error(
+      `[live-fallback-rehearsal] expected two joined competition-page statements, observed ${dataStatements.length}`,
+    );
+  }
+  if (joinedStatements.length !== dataStatements.length) {
+    throw new Error(
+      '[live-fallback-rehearsal] relationJoins did not produce LATERAL SQL for every competition-page statement',
+    );
+  }
+  return {
+    queryEvents: queryEvents.length,
+    dataStatements: dataStatements.length,
+    joinedStatements: joinedStatements.length,
+  };
+}
+
 async function verifyPostgres17(
   prisma: PrismaClient,
   sql: typeof import('@prisma/client').Prisma,
@@ -190,11 +225,15 @@ async function cleanFixture(
 
 async function main(): Promise<void> {
   assertEphemeralPostgres17Target();
-  const { Prisma: PrismaRuntime } = await import('@prisma/client');
-  const { prisma } = await import('@/lib/db');
+  const { PrismaClient, Prisma: PrismaRuntime } = await import('@prisma/client');
+  const prisma = new PrismaClient({
+    log: [{ emit: 'event', level: 'query' }],
+  });
   const { loadLiveFallbackCompetitionWithClient } = await import('@/lib/competitions');
   const serverVersion = await verifyPostgres17(prisma, PrismaRuntime);
   const fixture = await seedFixture(prisma);
+  const queryEvents: string[] = [];
+  prisma.$on('query', (event) => queryEvents.push(event.query));
   let result: Record<string, unknown> | null = null;
 
   try {
@@ -207,13 +246,22 @@ async function main(): Promise<void> {
       }
     };
 
-    const first = await loadLiveFallbackCompetitionWithClient(prisma, transactionProbe);
-    const second = await loadLiveFallbackCompetitionWithClient(prisma, transactionProbe);
-    if (first?.id !== `${fixture.competitionIds[fixture.competitionIds.length - 1]}`) {
+    const runLoader = async () => {
+      const start = queryEvents.length;
+      const selected = await loadLiveFallbackCompetitionWithClient(prisma, transactionProbe);
+      const sql = assertJoinedLoaderSql(queryEvents.slice(start));
+      return { selected, sql };
+    };
+    const first = await runLoader();
+    const second = await runLoader();
+    if (first.selected?.id !== `${fixture.competitionIds[fixture.competitionIds.length - 1]}`) {
       throw new Error('[live-fallback-rehearsal] older ready edition was not selected');
     }
-    if (second?.id !== first.id) {
+    if (second.selected?.id !== first.selected?.id) {
       throw new Error('[live-fallback-rehearsal] repeated cursor traversal changed selection');
+    }
+    if (JSON.stringify(second.selected) !== JSON.stringify(first.selected)) {
+      throw new Error('[live-fallback-rehearsal] joined loader result changed across identical reads');
     }
 
     result = {
@@ -223,6 +271,9 @@ async function main(): Promise<void> {
       newerPublishedUnreadyEditions: 34,
       selectedOlderReadyEdition: true,
       repeatedSelectionStable: true,
+      repeatedResultParity: true,
+      joinedCompetitionPageStatementsPerLoad: [first.sql, second.sql].map((sql) => sql.dataStatements),
+      joinedSqlStatementsPerLoad: [first.sql, second.sql].map((sql) => sql.joinedStatements),
       fixtureCleaned: true,
     };
   } finally {

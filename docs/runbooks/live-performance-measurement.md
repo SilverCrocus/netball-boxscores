@@ -97,6 +97,33 @@ unattainable. Also report that `/api/live-status` has not materially regressed
 from its directional baseline near 1 second. Do not mark the gate met from
 local tests or a non-production preview.
 
+## Phase 5b relation-round-trip evidence
+
+The prior Phase 5 receipt at release
+`718f18b3b522f12bfbef42eea3f77cccb1c0a7d4` was a failed gate: 20 warm
+sequential `/live` requests measured p50 `3841.1ms` and p95 `3939.0ms`, only
+about 4.0% below the comparable `4101.5ms` p95 and above both acceptance
+thresholds. Separate before/after `pg_stat_statements` snapshots for a stable
+warm request showed 14 application SQL statements and approximately `0.835ms`
+combined PostgreSQL execution, while the stream trace showed an approximately
+3.65s gap before the Live Suspense boundary. This points to Prisma/Supavisor
+relation round-trip fan-out, not PostgreSQL execution time.
+
+Phase 5b enables Prisma PostgreSQL `relationJoins` and passes
+`relationLoadStrategy: 'join'` to the relation-heavy active/window, fallback
+competition, and next/latest reads. It does not cache Live state, change the
+logical query call shape, or relax publication/access/capability policy. The
+PostgreSQL 17 rehearsal observes emitted SQL with an instrumented Prisma client
+and requires two joined `LATERAL` competition-page statements per two-page
+cursor traversal, alongside RepeatableRead, selection, and repeated result
+parity checks. The real statement count after deployment must still be
+captured on a production-class topology; local mocks and named timing query
+counts are not substitutes. With the loaded policy projections on the normal
+no-live path, the expected data shape is five statements (active, window,
+competition, next, and latest), excluding transaction-control statements; a
+second cursor page adds one. Do not claim Phase 5 or 5b production acceptance
+until an exact deployed-head p50/p95 sample proves the gate.
+
 ## Rollout and rollback
 
 After deployment, begin with sequential warm checks for `/live`, then perform

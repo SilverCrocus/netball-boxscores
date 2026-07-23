@@ -255,6 +255,7 @@ export async function loadLiveFallbackCompetitionWithClient(
         () => transaction.competition.findMany({
           where: { publicationStatus: 'PUBLISHED' },
           select: liveFallbackCompetitionSelect,
+          relationLoadStrategy: 'join',
           orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
           take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
           ...(cursor ? { cursor, skip: 1 } : {}),

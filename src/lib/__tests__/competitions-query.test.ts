@@ -95,6 +95,7 @@ describe('competition directory query', () => {
     expect(mocks.findMany).toHaveBeenCalledWith({
       where: { publicationStatus: 'PUBLISHED' },
       select: liveFallbackCompetitionSelect,
+      relationLoadStrategy: 'join',
       orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
       take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
     });
@@ -124,6 +125,7 @@ describe('competition directory query', () => {
     expect(mocks.findMany).toHaveBeenNthCalledWith(2, {
       where: { publicationStatus: 'PUBLISHED' },
       select: liveFallbackCompetitionSelect,
+      relationLoadStrategy: 'join',
       orderBy: [{ season: 'desc' }, { seasonStart: 'desc' }, { id: 'desc' }],
       take: MAX_LIVE_FALLBACK_COMPETITION_CANDIDATES,
       cursor: { id: 'glasgow-shell-31' },
