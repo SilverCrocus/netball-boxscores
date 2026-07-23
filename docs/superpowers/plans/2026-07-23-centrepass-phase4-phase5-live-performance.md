@@ -194,7 +194,11 @@ generic edition remains selected. Generic editions retain their existing
 minimum-count behavior even when they exceed Glasgow's shape. The verifier's
 meaningful-reduction gate requires at least two statements and at least 25% of
 query-mode data statements, rounded up; this is three for the observed
-12-statement fixture, so 12-to-7 passes and 12-to-11 does not.
+12-statement fixture, so 12-to-7 passes and 12-to-11 does not. The preceding
+analytics epoch rehearsal leaves the canonical Glasgow seed at 12 teams, 37
+matches, and 74 slots; the verifier requires and snapshots that exact seed,
+adds only two namespaced matches, and verifies cleanup restores its scalar and
+gate state without inserting or deleting the canonical series or edition.
 
 ## Rust decision
 

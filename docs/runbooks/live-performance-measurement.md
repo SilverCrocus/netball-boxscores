@@ -135,7 +135,12 @@ The strict readiness evaluator also receives the exact stage count. Therefore a
 limit; generic editions are not made false-unready because their larger arrays
 are not used by the generic gate. The PostgreSQL rehearsal exercises this with
 a non-empty published Glasgow edition containing 39 matches and verifies that
-the older generic edition is still selected.
+the older generic edition is still selected. Because the preceding analytics
+epoch rehearsal intentionally leaves the canonical Glasgow seed in the
+ephemeral database, this verifier requires that exact 12-team/37-match/74-slot
+baseline, snapshots its scalar identity and gate counts, adds only two
+namespaced matches, and proves cleanup restores the seed; it never inserts or
+deletes the canonical series or edition.
 
 The verifier requires a meaningful relation reduction, not merely any lower
 number: at least two data statements and at least 25% of the observed query

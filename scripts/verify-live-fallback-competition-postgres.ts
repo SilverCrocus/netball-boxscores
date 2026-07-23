@@ -3,9 +3,10 @@ import path from 'node:path';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { pathToFileURL } from 'node:url';
 import {
+  GLASGOW_2026_IDENTITY,
   GLASGOW_2026_EXPECTED_MATCH_COUNT,
   GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT,
-  GLASGOW_2026_EXPECTED_STAGE_COUNT,
+  GLASGOW_2026_EXPECTED_STAGES,
   GLASGOW_2026_EXPECTED_TEAM_COUNT,
 } from '@/lib/edition-publication-readiness';
 
@@ -55,6 +56,27 @@ interface RehearsalFixture {
   sourceSystemIds: string[];
   importRunIds: string[];
   glasgowOverflowCompetitionId: string;
+  glasgowEditionSnapshot: GlasgowEditionSnapshot;
+}
+
+interface GlasgowEditionSnapshot {
+  id: string;
+  name: string;
+  season: number;
+  seasonStart: Date | null;
+  seriesId: string | null;
+  slug: string | null;
+  label: string | null;
+  sourceTimezone: string;
+  rulesetId: string | null;
+  publicationStatus: string;
+  publishedAt: Date | null;
+  teamCount: number;
+  activeEntryCount: number;
+  stageCount: number;
+  matchCount: number;
+  matchSlotCount: number;
+  importCount: number;
 }
 
 interface LoaderSqlEvidence {
@@ -130,36 +152,131 @@ async function verifyPostgres17(
 async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
   const namespace = `live-fallback-${randomUUID()}`;
   const seriesId = `${namespace}-series`;
-  const glasgowSeriesId = `${namespace}-glasgow-series`;
   const readyCompetitionId = `${namespace}-ready`;
   const readyStageId = `${namespace}-stage`;
   const shellIds = Array.from({ length: 34 }, (_, index) => (
     `${namespace}-shell-${String(index).padStart(2, '0')}`
   ));
-  const glasgowOverflowCompetitionId = shellIds[0]!;
-  const glasgowStageIds = Array.from({ length: GLASGOW_2026_EXPECTED_STAGE_COUNT }, (_, index) => (
-    `${namespace}-glasgow-stage-${index + 1}`
-  ));
-  const glasgowStageGroupIds = Array.from({ length: 2 }, (_, index) => (
-    `${namespace}-glasgow-group-${index + 1}`
-  ));
   const competitionIds = [...shellIds, readyCompetitionId];
   const readyTeamIds = [`${namespace}-team-a`, `${namespace}-team-b`];
-  const glasgowTeamIds = Array.from({ length: GLASGOW_2026_EXPECTED_TEAM_COUNT }, (_, index) => (
-    `${namespace}-glasgow-team-${String(index + 1).padStart(2, '0')}`
-  ));
-  const teamIds = [...readyTeamIds, ...glasgowTeamIds];
   const readyMatchId = `${namespace}-match`;
-  const glasgowMatchIds = Array.from({ length: GLASGOW_2026_EXPECTED_MATCH_COUNT + 1 }, (_, index) => (
+  const glasgowMatchIds = Array.from({ length: 2 }, (_, index) => (
     `${namespace}-glasgow-match-${String(index + 1).padStart(2, '0')}`
   ));
   const matchIds = [readyMatchId, ...glasgowMatchIds];
-  const sourceSystemId = `${namespace}-glasgow-source`;
-  const importRunId = `${namespace}-glasgow-import`;
   const seriesIds = [seriesId];
-  let glasgowSeriesDatabaseId = glasgowSeriesId;
+  let glasgowEditionSnapshot: GlasgowEditionSnapshot | null = null;
 
   await prisma.$transaction(async (transaction) => {
+    const canonicalGlasgowEdition = await transaction.competition.findFirst({
+      where: {
+        series: { slug: GLASGOW_2026_IDENTITY.competitionSlug },
+        slug: GLASGOW_2026_IDENTITY.editionSlug,
+      },
+      select: {
+        id: true,
+        name: true,
+        season: true,
+        seasonStart: true,
+        seriesId: true,
+        slug: true,
+        label: true,
+        sourceTimezone: true,
+        rulesetId: true,
+        publicationStatus: true,
+        publishedAt: true,
+        series: { select: { id: true, slug: true } },
+        teams: { orderBy: { id: 'asc' }, select: { id: true } },
+        entries: {
+          where: { status: 'ACTIVE' },
+          orderBy: { id: 'asc' },
+          select: { teamId: true },
+        },
+        stages: {
+          orderBy: [{ sequence: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            slug: true,
+            type: true,
+            sequence: true,
+            isPublished: true,
+            _count: { select: { groups: true, matches: true } },
+          },
+        },
+        matches: { orderBy: { id: 'asc' }, select: { id: true } },
+        _count: { select: { stages: true } },
+      },
+    });
+    if (!canonicalGlasgowEdition) {
+      throw new Error('[live-fallback-rehearsal] canonical Glasgow seed edition is missing');
+    }
+    const canonicalMatchSlotCount = await transaction.matchSlot.count({
+      where: { match: { competitionId: canonicalGlasgowEdition.id } },
+    });
+    const canonicalImportCount = await transaction.importRun.count({
+      where: {
+        competitionId: canonicalGlasgowEdition.id,
+        sourceSystem: { key: 'glasgow-2026-public-data' },
+        status: 'SUCCEEDED',
+        dryRun: false,
+        issueCount: 0,
+      },
+    });
+    const stageBySlug = new Map(canonicalGlasgowEdition.stages.map((stage) => [stage.slug, stage]));
+    const expectedStageShape = GLASGOW_2026_EXPECTED_STAGES.every((expected) => {
+      const stage = stageBySlug.get(expected.slug);
+      const expectedBaselineMatchCount = expected.slug === 'medal-matches'
+        ? expected.matchCount - 1
+        : expected.matchCount;
+      return stage?.type === expected.type
+        && stage.sequence === expected.sequence
+        && stage.isPublished
+        && stage._count.groups === expected.groupCount
+        && stage._count.matches === expectedBaselineMatchCount;
+    });
+    const activeTeamIds = canonicalGlasgowEdition.entries.map((entry) => entry.teamId);
+    const uniqueActiveTeamIds = new Set(activeTeamIds);
+    if (canonicalGlasgowEdition.series?.slug !== GLASGOW_2026_IDENTITY.competitionSlug
+      || canonicalGlasgowEdition.series.id !== canonicalGlasgowEdition.seriesId
+      || canonicalGlasgowEdition.publicationStatus !== 'PUBLISHED'
+      || canonicalGlasgowEdition.season !== 2026
+      || canonicalGlasgowEdition.teams.length !== GLASGOW_2026_EXPECTED_TEAM_COUNT
+      || canonicalGlasgowEdition.entries.length !== GLASGOW_2026_EXPECTED_TEAM_COUNT
+      || uniqueActiveTeamIds.size !== GLASGOW_2026_EXPECTED_TEAM_COUNT
+      || canonicalGlasgowEdition.stages.length !== GLASGOW_2026_EXPECTED_STAGES.length
+      || canonicalGlasgowEdition._count.stages !== GLASGOW_2026_EXPECTED_STAGES.length
+      || canonicalGlasgowEdition.matches.length !== GLASGOW_2026_EXPECTED_MATCH_COUNT - 1
+      || canonicalMatchSlotCount !== GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT - 2
+      || canonicalImportCount !== 1
+      || !expectedStageShape) {
+      throw new Error('[live-fallback-rehearsal] canonical Glasgow seed is not the isolated 37-match baseline');
+    }
+    const stageIdsBySlug = new Map(canonicalGlasgowEdition.stages.map((stage) => [stage.slug, stage.id]));
+    for (const expected of GLASGOW_2026_EXPECTED_STAGES) {
+      if (!stageIdsBySlug.has(expected.slug)) {
+        throw new Error(`[live-fallback-rehearsal] canonical Glasgow seed is missing ${expected.slug}`);
+      }
+    }
+    glasgowEditionSnapshot = {
+      id: canonicalGlasgowEdition.id,
+      name: canonicalGlasgowEdition.name,
+      season: canonicalGlasgowEdition.season,
+      seasonStart: canonicalGlasgowEdition.seasonStart,
+      seriesId: canonicalGlasgowEdition.seriesId,
+      slug: canonicalGlasgowEdition.slug,
+      label: canonicalGlasgowEdition.label,
+      sourceTimezone: canonicalGlasgowEdition.sourceTimezone,
+      rulesetId: canonicalGlasgowEdition.rulesetId,
+      publicationStatus: canonicalGlasgowEdition.publicationStatus,
+      publishedAt: canonicalGlasgowEdition.publishedAt,
+      teamCount: canonicalGlasgowEdition.teams.length,
+      activeEntryCount: canonicalGlasgowEdition.entries.length,
+      stageCount: canonicalGlasgowEdition.stages.length,
+      matchCount: canonicalGlasgowEdition.matches.length,
+      matchSlotCount: canonicalMatchSlotCount,
+      importCount: canonicalImportCount,
+    };
+
     await transaction.competitionSeries.create({
       data: {
         id: seriesId,
@@ -168,35 +285,14 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
         kind: 'LEAGUE',
       },
     });
-    const canonicalGlasgowSeries = await transaction.competitionSeries.findUnique({
-      where: { slug: 'commonwealth-games-netball' },
-      select: { id: true },
-    });
-    if (canonicalGlasgowSeries) {
-      glasgowSeriesDatabaseId = canonicalGlasgowSeries.id;
-    } else {
-      await transaction.competitionSeries.create({
-        data: {
-          id: glasgowSeriesId,
-          slug: 'commonwealth-games-netball',
-          name: 'Commonwealth Games Netball rehearsal series',
-          kind: 'TOURNAMENT',
-        },
-      });
-      seriesIds.push(glasgowSeriesId);
-    }
 
     const shellData: Prisma.CompetitionCreateManyInput[] = shellIds.map((id, index) => ({
       id,
-      name: id === glasgowOverflowCompetitionId
-        ? 'Published Glasgow overflow shell'
-        : `Published unready shell ${index}`,
+      name: `Published unready shell ${index}`,
       season: 2030,
       seasonStart: index % 2 === 0 ? new Date('2030-01-01T00:00:00.000Z') : null,
-      seriesId: id === glasgowOverflowCompetitionId ? glasgowSeriesDatabaseId : seriesId,
-      slug: id === glasgowOverflowCompetitionId
-        ? 'glasgow-2026'
-        : `shell-${String(index).padStart(2, '0')}`,
+      seriesId,
+      slug: `shell-${String(index).padStart(2, '0')}`,
       publicationStatus: 'PUBLISHED',
     }));
     await transaction.competition.createMany({ data: shellData });
@@ -222,24 +318,6 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
       },
     });
 
-    await transaction.stage.createMany({
-      data: [
-        { id: glasgowStageIds[0]!, competitionId: glasgowOverflowCompetitionId, slug: 'pool-stage', name: 'Pool stage', type: 'POOL', sequence: 1, isPublished: true },
-        { id: glasgowStageIds[1]!, competitionId: glasgowOverflowCompetitionId, slug: 'classification', name: 'Classification', type: 'CLASSIFICATION', sequence: 2, isPublished: true },
-        { id: glasgowStageIds[2]!, competitionId: glasgowOverflowCompetitionId, slug: 'semi-finals', name: 'Semi-finals', type: 'SEMI_FINALS', sequence: 3, isPublished: true },
-        { id: glasgowStageIds[3]!, competitionId: glasgowOverflowCompetitionId, slug: 'medal-matches', name: 'Medal matches', type: 'MEDAL_MATCHES', sequence: 4, isPublished: true },
-      ],
-    });
-    await transaction.stageGroup.createMany({
-      data: glasgowStageGroupIds.map((id, index) => ({
-        id,
-        stageId: glasgowStageIds[0]!,
-        slug: `pool-${String(index + 1)}`,
-        name: `Pool ${String.fromCharCode(65 + index)}`,
-        sequence: index + 1,
-      })),
-    });
-
     await transaction.team.createMany({
       data: [
         {
@@ -256,13 +334,6 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
           abbreviation: 'RTB',
           competitionId: readyCompetitionId,
         },
-        ...glasgowTeamIds.map((id, index) => ({
-          id,
-          name: `Glasgow rehearsal team ${index + 1}`,
-          slug: `${namespace}-glasgow-team-${String(index + 1).padStart(2, '0')}`,
-          abbreviation: `G${String(index + 1).padStart(2, '0')}`,
-          competitionId: glasgowOverflowCompetitionId,
-        })),
       ],
     });
     await transaction.editionEntry.createMany({
@@ -286,76 +357,50 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
         stageId: readyStageId,
       },
     });
-    await transaction.editionEntry.createMany({
-      data: glasgowTeamIds.map((teamId, index) => ({
-        id: `${namespace}-glasgow-entry-${String(index + 1).padStart(2, '0')}`,
-        competitionId: glasgowOverflowCompetitionId,
-        teamId,
-        status: 'ACTIVE',
-      })),
-    });
     await transaction.match.createMany({
       data: glasgowMatchIds.map((id, index) => {
-        const stageId = index < 31
-          ? glasgowStageIds[0]!
-          : index < 35
-            ? glasgowStageIds[1]!
-            : index < 37
-              ? glasgowStageIds[2]!
-              : glasgowStageIds[3]!;
+        const stageId = index === 0
+          ? stageIdsBySlug.get('medal-matches')!
+          : stageIdsBySlug.get('classification')!;
+        const teamIds = activeTeamIds;
         return {
           id,
-          competitionId: glasgowOverflowCompetitionId,
-          homeTeamId: glasgowTeamIds[index % glasgowTeamIds.length]!,
-          awayTeamId: glasgowTeamIds[(index + 1) % glasgowTeamIds.length]!,
+          competitionId: canonicalGlasgowEdition.id,
+          homeTeamId: teamIds[index % teamIds.length]!,
+          awayTeamId: teamIds[(index + 1) % teamIds.length]!,
           venue: `Glasgow rehearsal venue ${index + 1}`,
-          scheduledAt: new Date(`2030-02-${String((index % 28) + 1).padStart(2, '0')}T00:00:00.000Z`),
+          scheduledAt: new Date(`2026-08-${String(index + 15).padStart(2, '0')}T00:00:00.000Z`),
           status: 'COMPLETED' as const,
-          resultQuality: 'OFFICIAL_FINAL' as const,
+          resultQuality: 'UNKNOWN' as const,
           stageId,
-          stageGroupId: index < 31 ? glasgowStageGroupIds[index % glasgowStageGroupIds.length]! : null,
+          stageGroupId: null,
         };
       }),
     });
-    await transaction.sourceSystem.create({
-      data: {
-        id: sourceSystemId,
-        key: 'glasgow-2026-public-data',
-        name: 'Glasgow rehearsal public data',
-        kind: 'PUBLIC_PAGE',
-      },
-    });
-    await transaction.importRun.create({
-      data: {
-        id: importRunId,
-        sourceSystemId,
-        competitionId: glasgowOverflowCompetitionId,
-        trigger: 'MANUAL',
-        status: 'SUCCEEDED',
-        dryRun: false,
-        completedAt: new Date('2030-01-01T00:00:00.000Z'),
-        checksum: `${namespace}-checksum`,
-        issueCount: 0,
-      },
-    });
+    const addedSlotCount = await transaction.matchSlot.count({ where: { matchId: { in: glasgowMatchIds } } });
     const readySlotCount = await transaction.matchSlot.count({ where: { matchId: readyMatchId } });
-    const glasgowSlotCount = await transaction.matchSlot.count({ where: { matchId: { in: glasgowMatchIds } } });
     if (readySlotCount !== 2
-      || glasgowSlotCount !== GLASGOW_2026_EXPECTED_MATCH_SLOT_COUNT + 2) {
+      || addedSlotCount !== 4) {
       throw new Error('[live-fallback-rehearsal] CP-01 did not create two match slots');
     }
   });
 
+  const capturedGlasgowEdition = glasgowEditionSnapshot as GlasgowEditionSnapshot | null;
+  if (!capturedGlasgowEdition) {
+    throw new Error('[live-fallback-rehearsal] canonical Glasgow snapshot was not captured');
+  }
+
   return {
     seriesIds,
     competitionIds,
-    stageIds: [readyStageId, ...glasgowStageIds],
-    stageGroupIds: glasgowStageGroupIds,
+    stageIds: [readyStageId],
+    stageGroupIds: [],
     matchIds,
-    teamIds,
-    sourceSystemIds: [sourceSystemId],
-    importRunIds: [importRunId],
-    glasgowOverflowCompetitionId,
+    teamIds: readyTeamIds,
+    sourceSystemIds: [],
+    importRunIds: [],
+    glasgowOverflowCompetitionId: capturedGlasgowEdition.id,
+    glasgowEditionSnapshot: capturedGlasgowEdition,
   };
 }
 
@@ -374,6 +419,65 @@ async function cleanFixture(
     await transaction.competition.deleteMany({ where: { id: { in: fixture.competitionIds } } });
     await transaction.sourceSystem.deleteMany({ where: { id: { in: fixture.sourceSystemIds } } });
     await transaction.competitionSeries.deleteMany({ where: { id: { in: fixture.seriesIds } } });
+
+    const restored = await transaction.competition.findUnique({
+      where: { id: fixture.glasgowEditionSnapshot.id },
+      select: {
+        id: true,
+        name: true,
+        season: true,
+        seasonStart: true,
+        seriesId: true,
+        slug: true,
+        label: true,
+        sourceTimezone: true,
+        rulesetId: true,
+        publicationStatus: true,
+        publishedAt: true,
+        _count: {
+          select: {
+            teams: true,
+            entries: { where: { status: 'ACTIVE' } },
+            stages: true,
+            matches: true,
+          },
+        },
+      },
+    });
+    const snapshot = fixture.glasgowEditionSnapshot;
+    const scalarStateRestored = restored !== null
+      && restored.id === snapshot.id
+      && restored.name === snapshot.name
+      && restored.season === snapshot.season
+      && restored.seasonStart?.getTime() === snapshot.seasonStart?.getTime()
+      && restored.seriesId === snapshot.seriesId
+      && restored.slug === snapshot.slug
+      && restored.label === snapshot.label
+      && restored.sourceTimezone === snapshot.sourceTimezone
+      && restored.rulesetId === snapshot.rulesetId
+      && restored.publicationStatus === snapshot.publicationStatus
+      && restored.publishedAt?.getTime() === snapshot.publishedAt?.getTime()
+      && restored._count.teams === snapshot.teamCount
+      && restored._count.entries === snapshot.activeEntryCount
+      && restored._count.stages === snapshot.stageCount
+      && restored._count.matches === snapshot.matchCount;
+    const restoredMatchSlotCount = await transaction.matchSlot.count({
+      where: { match: { competitionId: snapshot.id } },
+    });
+    const restoredImportCount = await transaction.importRun.count({
+      where: {
+        competitionId: snapshot.id,
+        sourceSystem: { key: 'glasgow-2026-public-data' },
+        status: 'SUCCEEDED',
+        dryRun: false,
+        issueCount: 0,
+      },
+    });
+    if (!scalarStateRestored
+      || restoredMatchSlotCount !== snapshot.matchSlotCount
+      || restoredImportCount !== snapshot.importCount) {
+      throw new Error('[live-fallback-rehearsal] canonical Glasgow seed was not restored after cleanup');
+    }
   });
 }
 
@@ -465,6 +569,10 @@ async function main(): Promise<void> {
       joinQueryResultParity: true,
       glasgowOverflowProjectionNonEmpty: true,
       glasgowOverflowRejected: true,
+      canonicalGlasgowSeedReused: true,
+      canonicalGlasgowSeedRestored: true,
+      canonicalGlasgowBaselineMatchCount: fixture.glasgowEditionSnapshot.matchCount,
+      canonicalGlasgowBaselineMatchSlotCount: fixture.glasgowEditionSnapshot.matchSlotCount,
       glasgowOverflowMatchCount: glasgowOverflow._count.matches,
       glasgowOverflowMatchEvidenceRows: glasgowOverflow.matches.length,
       glasgowOverflowStageEvidenceRows: glasgowOverflow.stages.length,
