@@ -1,4 +1,4 @@
-# CentrePass Phase 4-6 Live Performance Plan
+# CentrePass Phase 4-7 Live Performance Plan
 
 ## Decision
 
@@ -10,6 +10,10 @@ access, capability, and freshness policy as the authority.
 This work does not enable Cache Components, add a materialized view, create a
 persistent read model, add a database index, change `/api/live-status`, or
 cache changing live state.
+
+Phase 7 keeps navigation as a client-only concern. It changes when Next is
+allowed to prefetch analytics destinations, not what any route loads or how
+freshness and publication are evaluated.
 
 ## Phase 6 standings baseline and decision
 
@@ -55,6 +59,49 @@ exactly 12 teams, 38 matches, 76 slots, four expected published stages, and a
 clean applied import. Scalar counts and the overflow row make missing,
 unexpected, unpublished, or +1 evidence fail closed; generic editions retain
 their existing minimum gates even when larger than Glasgow.
+
+## Phase 7 navigation intent-prefetch contract
+
+The measured production baseline at exact deployed main
+`42031ec32ba025d7d33c1560d83f1a3cf03bc409` used five click-to-new-heading
+samples per edge after warmup:
+
+| Transition | p50 | p95 |
+| --- | ---: | ---: |
+| Records -> Rankings | 1.383s | 1.764s |
+| Rankings -> canonical Glasgow Standings | 0.018s | 0.020s |
+| Standings -> Live | 1.806s | 1.845s |
+| Live -> Records | 1.269s | 1.662s |
+
+The initial Records render eagerly prefetched most sidebar destinations,
+often twice. Records -> Rankings also produced unnecessary auth/sign-in and
+rankings-subview RSC traffic. Phase 7 addresses that request amplification
+without changing route loaders, database queries, cache TTLs, publication
+checks, or URL construction.
+
+`src/lib/navigation.ts` defines two explicit policies: `none` and
+`intent-full`. Only the exact `/rankings` and `/records` sidebar/bottom-nav
+destinations use `intent-full`, and those links begin with `prefetch={false}`.
+The native Next `Link` wrapper enables `prefetch={true}` only after
+pointer/mouse entry, keyboard focus, or touch start. Other Sidebar/BottomNav
+destinations remain ordinary native Next links with default automatic/partial
+prefetch; Live and Standings never receive the full-prefetch policy. Save-Data,
+slow-2g, and 2g connections remain disabled; an unavailable connection API
+also fails closed. Live remains request-time fresh and Standings retains its
+fresh publication/readiness gate. Auth links and Rankings `view=players` /
+`view=teams` tabs explicitly suppress automatic prefetch. Hrefs, modifier-key
+behavior, active styling, pending announcements, accessibility, and
+edition-aware canonical Standings links remain unchanged.
+
+The production acceptance gate requires an exact deployed SHA, health/readiness
+200, desktop 1440x900 and mobile 390x844 runs, one excluded warmup followed by
+20 samples per transition, and no accessibility, console, hydration, or data
+parity regressions. Records -> Rankings and Live -> Records must improve p95
+by at least 25%; Standings and Live must regress by no more than 10%; navigation
+acknowledgement p95 must remain below 150ms; initial navigation-prefetch
+requests or bytes must fall by at least 40%; Save-Data/2G must produce zero
+analytics prefetch before click; and no idle auth or rankings-subview prefetch
+may occur. Local tests and a non-production build do not claim this gate.
 
 ## Measured baseline
 
@@ -199,8 +246,13 @@ score/capability fail-closed rules are unchanged.
   post-threshold SWR responses are expected; production evidence must record
   whether the response was stale/background-refreshing and whether refresh
   failure was observable. This PR does not claim that deployed gate.
-- Phase 7: route transitions, prefetching, loading boundaries, and navigation
-  UX after client/server traces identify a real transition bottleneck.
+- Phase 7 (this PR): intent-scoped navigation prefetching. Only exact
+  `/rankings` and `/records` links upgrade from `prefetch={false}` after
+  pointer, focus, or touch intent; ordinary Live/Standings navigation keeps
+  Next's default behavior. Gate: the exact deployed acceptance run above must
+  meet its transition, acknowledgement, prefetch-volume, constrained-network,
+  and accessibility/data-parity thresholds. Local and preview evidence cannot
+  claim this production gate.
 - Optional Phase 8: a gated Rust/WASM proof of concept only if production
   profiles show a specific CPU-bound pure function dominating after database
   and network work. Entry requires a stable benchmark corpus; exit should
@@ -273,7 +325,10 @@ Rust code or dependency.
 Phase 5b can be rolled back by removing the relation-join preview feature and
 the `relationLoadStrategy: 'join'` options, restoring the prior query strategy;
 no database rollback is involved. Phase 5 can be rolled back by restoring the Live page to the prior full
-directory resolver; no database rollback is involved. If the deployed exact
+directory resolver; no database rollback is involved. Phase 7 is also a
+code-only rollback: remove the intent wrapper and policy usage, restoring the
+prior native navigation-link behavior; no data, cache, or schema rollback is
+involved. If the deployed exact
 head does not meet the measured gate, keep the PR unmerged and retain the
 attribution logs for diagnosis. A rollout should start with sequential warm
 requests, then a controlled low-concurrency probe while watching health,

@@ -3,11 +3,16 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { getVisibleNavigationItems, isResolvedNavigationActive } from '@/lib/navigation';
+import {
+  getNavigationPrefetchPolicy,
+  getVisibleNavigationItems,
+  isResolvedNavigationActive,
+} from '@/lib/navigation';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { NavigationPendingIndicator } from '@/components/layout/NavigationPendingIndicator';
+import { IntentPrefetchLink } from '@/components/layout/IntentPrefetchLink';
 import type { EditionContextValue } from '@/lib/edition-context';
 import {
   editionAwareNavigationHref,
@@ -218,16 +223,14 @@ export function BottomNav({
         const href = editionAwareNavigationHref(currentEdition, item.href);
         const active = isResolvedNavigationActive(pathname, item.href, href);
         const isLiveItem = item.href === '/live';
-        return (
-          <Link
-            key={item.href}
-            href={href}
-            className={`relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 transition-all ${
-              active
-                ? 'bg-lime-500 text-slate-950 scale-105'
-                : 'text-slate-500 hover:bg-slate-800'
-            }`}
-          >
+        const policy = getNavigationPrefetchPolicy(item.href);
+        const className = `relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 transition-all ${
+          active
+            ? 'bg-lime-500 text-slate-950 scale-105'
+            : 'text-slate-500 hover:bg-slate-800'
+        }`;
+        const content = (
+          <>
             <span
               aria-hidden="true"
               className="material-symbols-outlined"
@@ -253,6 +256,20 @@ export function BottomNav({
               label={item.label}
               className="absolute left-1 top-1"
             />
+          </>
+        );
+        return policy === 'intent-full' ? (
+          <IntentPrefetchLink
+            key={item.href}
+            href={href}
+            policy={policy}
+            className={className}
+          >
+            {content}
+          </IntentPrefetchLink>
+        ) : (
+          <Link key={item.href} href={href} className={className}>
+            {content}
           </Link>
         );
       })}

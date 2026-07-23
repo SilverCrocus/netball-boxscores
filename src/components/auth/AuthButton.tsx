@@ -37,6 +37,7 @@ export function AuthButton({ dark = false, onNavigate }: AuthButtonProps) {
         <div className="grid grid-cols-2 gap-2">
           <Link
             href="/settings"
+            prefetch={false}
             onClick={onNavigate}
             className={`min-h-10 rounded-lg border border-outline-variant/30 px-3 py-2 text-center font-label text-xs font-bold ${strongText}`}
           >
@@ -57,6 +58,7 @@ export function AuthButton({ dark = false, onNavigate }: AuthButtonProps) {
   return (
     <Link
       href="/auth/signin"
+      prefetch={false}
       onClick={onNavigate}
       className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-secondary-fixed px-4 font-label text-xs font-bold uppercase tracking-wider text-on-secondary-fixed transition-colors hover:bg-secondary-fixed-dim"
     >
