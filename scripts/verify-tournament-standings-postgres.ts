@@ -234,33 +234,35 @@ async function seedCanonicalGlasgowExactAndOverflow(
   ]);
 
   const addMatch = async (matchId: string, index: number) => {
-    await prisma.match.create({
-      data: {
-        id: matchId,
-        competitionId: canonical.id,
-        stageId: medalStage.id,
-        venue: 'Phase 6 Glasgow rehearsal venue',
-        scheduledAt: new Date(`2026-08-${String(20 + index).padStart(2, '0')}T00:00:00.000Z`),
-        status: 'SCHEDULED',
-      },
-    });
-    await prisma.matchSlot.createMany({
-      data: [
-        {
-          id: `${matchId}-a`,
-          matchId,
-          side: 'A',
-          sourceType: 'TEAM',
-          resolvedEntryId: canonical.entries[index % canonical.entries.length]!.id,
+    await prisma.$transaction(async (transaction) => {
+      await transaction.match.create({
+        data: {
+          id: matchId,
+          competitionId: canonical.id,
+          stageId: medalStage.id,
+          venue: 'Phase 6 Glasgow rehearsal venue',
+          scheduledAt: new Date(`2026-08-${String(20 + index).padStart(2, '0')}T00:00:00.000Z`),
+          status: 'SCHEDULED',
         },
-        {
-          id: `${matchId}-b`,
-          matchId,
-          side: 'B',
-          sourceType: 'TEAM',
-          resolvedEntryId: canonical.entries[(index + 1) % canonical.entries.length]!.id,
-        },
-      ],
+      });
+      await transaction.matchSlot.createMany({
+        data: [
+          {
+            id: `${matchId}-a`,
+            matchId,
+            side: 'A',
+            sourceType: 'TEAM',
+            resolvedEntryId: canonical.entries[index % canonical.entries.length]!.id,
+          },
+          {
+            id: `${matchId}-b`,
+            matchId,
+            side: 'B',
+            sourceType: 'TEAM',
+            resolvedEntryId: canonical.entries[(index + 1) % canonical.entries.length]!.id,
+          },
+        ],
+      });
     });
   };
 
@@ -413,27 +415,31 @@ async function main(): Promise<void> {
       && edition.slug === 'glasgow-2026'),
     'exact Glasgow readiness projection was not visible');
     const overflowStart = queryEvents.length;
-    await prisma.match.create({
-      data: {
-        id: glasgowFixture.addedMatchIds[1]!,
-        competitionId: glasgowFixture.competitionId,
-        venue: 'Phase 6 Glasgow overflow venue',
-        scheduledAt: new Date('2026-08-22T00:00:00.000Z'),
-        status: 'SCHEDULED',
-        stageId: (await prisma.stage.findFirst({
-          where: { competitionId: glasgowFixture.competitionId, slug: 'medal-matches' },
-          select: { id: true },
-        }))!.id,
-      },
-    });
-    await prisma.matchSlot.createMany({
-      data: glasgowFixture.addedSlotIds.slice(2).map((id, index) => ({
-        id,
-        matchId: glasgowFixture!.addedMatchIds[1]!,
-        side: index === 0 ? 'A' as const : 'B' as const,
-        sourceType: 'UNRESOLVED' as const,
-        sourceLabel: 'Phase 6 overflow',
-      })),
+    await prisma.$transaction(async (transaction) => {
+      const medalStage = await transaction.stage.findFirst({
+        where: { competitionId: glasgowFixture!.competitionId, slug: 'medal-matches' },
+        select: { id: true },
+      });
+      invariant(medalStage, 'canonical Glasgow medal stage disappeared before overflow fixture');
+      await transaction.match.create({
+        data: {
+          id: glasgowFixture!.addedMatchIds[1]!,
+          competitionId: glasgowFixture!.competitionId,
+          venue: 'Phase 6 Glasgow overflow venue',
+          scheduledAt: new Date('2026-08-22T00:00:00.000Z'),
+          status: 'SCHEDULED',
+          stageId: medalStage.id,
+        },
+      });
+      await transaction.matchSlot.createMany({
+        data: glasgowFixture!.addedSlotIds.slice(2).map((id, index) => ({
+          id,
+          matchId: glasgowFixture!.addedMatchIds[1]!,
+          side: index === 0 ? 'A' as const : 'B' as const,
+          sourceType: 'UNRESOLVED' as const,
+          sourceLabel: 'Phase 6 overflow',
+        })),
+      });
     });
     const overflowDirectory = await loadFreshStandingsCompetitionDirectoryWithClient(prisma);
     const overflowEvidence = captureEvidence(queryEvents.slice(overflowStart));
