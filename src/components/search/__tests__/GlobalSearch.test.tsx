@@ -1,10 +1,19 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { GlobalSearch } from '../GlobalSearch';
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: pushMock }) }));
+
+vi.mock('next/link', () => ({
+  default: ({ children, href, prefetch, ...props }: { children: ReactNode; href: string; prefetch?: boolean; [key: string]: unknown }) => (
+    <a href={href} data-prefetch={prefetch === true ? 'true' : prefetch === false ? 'false' : 'default'} {...props}>
+      {children}
+    </a>
+  ),
+}));
 
 describe('GlobalSearch', () => {
   beforeEach(() => {
@@ -69,7 +78,9 @@ describe('GlobalSearch', () => {
 
   it('keeps entity search separate while linking to Ask CentrePass', () => {
     render(<GlobalSearch askCentrePassEnabled />);
-    expect(screen.getByRole('link', { name: /Ask CentrePass about statistics/ })).toHaveAttribute('href', '/explore');
+    const askLink = screen.getByRole('link', { name: /Ask CentrePass about statistics/ });
+    expect(askLink).toHaveAttribute('href', '/explore');
+    expect(askLink).toHaveAttribute('data-prefetch', 'false');
   });
 
   it('removes the Ask entry point when the server disables it', () => {
