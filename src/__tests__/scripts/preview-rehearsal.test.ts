@@ -294,6 +294,7 @@ describe('Glasgow preview workflow', () => {
       'run: npx tsx scripts/rehearse-complete-prisma-migrations.ts',
       'run: npx tsx scripts/verify-preview-migrations.ts',
       'run: npx tsx scripts/rehearse-analytics-cache-epoch.ts',
+      'run: npm run verify:standings-postgres',
     ]);
     expect(rehearsal).toContain('name: centrepass-preview-rehearsal');
     expect(rehearsal).toContain('image: postgres:17');

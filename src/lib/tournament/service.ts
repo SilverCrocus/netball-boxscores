@@ -1,4 +1,4 @@
-import type { StageType } from '@prisma/client';
+import type { Prisma, PrismaClient, StageType } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { CompetitionOption } from '@/lib/competitions';
 import { formatMatchStage } from '@/lib/match-label';
@@ -6,6 +6,7 @@ import {
   canExposePublicMatchScore,
   resolvePublicMatchAccessBatch,
 } from '@/lib/public-match';
+import { timedQuery, trackedUnstableCache } from '@/lib/server-timing';
 import type {
   TournamentBracketMatch,
   TournamentBracketSide,
@@ -138,58 +139,77 @@ export async function getTournamentPools(
   };
 }
 
-export async function getTournamentPoolStandings(
-  competitionId: string,
-): Promise<TournamentStandingsOverview | null> {
-  const poolStage = await prisma.stage.findFirst({
-    where: {
-      competitionId,
-      type: 'POOL',
-      isPublished: true,
-    },
+const tournamentPoolStandingsSelect = {
+  id: true,
+  name: true,
+  groups: {
     orderBy: { sequence: 'asc' },
     select: {
       id: true,
+      slug: true,
       name: true,
-      groups: {
-        orderBy: { sequence: 'asc' },
+      sequence: true,
+      primaryEntries: {
+        where: { status: 'ACTIVE' },
         select: {
           id: true,
-          slug: true,
-          name: true,
-          sequence: true,
-          primaryEntries: {
-            where: { status: 'ACTIVE' },
-            select: {
-              id: true,
-              seed: true,
-              displayName: true,
-              team: { select: TEAM_SELECT },
-            },
-          },
-          standings: {
-            orderBy: { rank: 'asc' },
-            select: {
-              id: true,
-              editionEntryId: true,
-              rank: true,
-              played: true,
-              wins: true,
-              losses: true,
-              draws: true,
-              goalsFor: true,
-              goalsAgainst: true,
-              goalPercentage: true,
-              points: true,
-            },
-          },
+          seed: true,
+          displayName: true,
+          team: { select: TEAM_SELECT },
+        },
+      },
+      standings: {
+        orderBy: { rank: 'asc' },
+        select: {
+          id: true,
+          editionEntryId: true,
+          rank: true,
+          played: true,
+          wins: true,
+          losses: true,
+          draws: true,
+          goalsFor: true,
+          goalsAgainst: true,
+          goalPercentage: true,
+          points: true,
         },
       },
     },
-  });
+  },
+} as const;
 
-  if (!poolStage) return null;
+type TournamentPoolStandingsRows = Prisma.StageGetPayload<{
+  select: typeof tournamentPoolStandingsSelect;
+}> | null;
 
+export async function loadTournamentPoolStandingsRowsWithClient(
+  database: PrismaClient,
+  competitionId: string,
+): Promise<TournamentPoolStandingsRows> {
+  return timedQuery(
+    'tournament_pool_standings_rows',
+    () => database.stage.findFirst({
+      where: {
+        competitionId,
+        type: 'POOL',
+        isPublished: true,
+      },
+      orderBy: { sequence: 'asc' },
+      select: tournamentPoolStandingsSelect,
+      relationLoadStrategy: 'join',
+    }),
+  );
+}
+
+export async function loadTournamentPoolStandingsRows(
+  competitionId: string,
+) {
+  return loadTournamentPoolStandingsRowsWithClient(prisma, competitionId);
+}
+
+function projectTournamentPoolStandings(
+  poolStage: NonNullable<TournamentPoolStandingsRows>,
+): TournamentStandingsOverview {
   const pools: TournamentPoolStandings[] = poolStage.groups.map((group) => {
     const standingsByEntry = new Map(
       group.standings.map((standing) => [standing.editionEntryId, standing]),
@@ -241,6 +261,46 @@ export async function getTournamentPoolStandings(
     hasAnyStandings: pools.some((pool) => pool.hasStandings),
     pools,
   };
+}
+
+const loadTournamentPoolStandings = async (
+  competitionId: string,
+): Promise<TournamentStandingsOverview | null> => {
+  const poolStage = await loadTournamentPoolStandingsRows(competitionId);
+  return poolStage ? projectTournamentPoolStandings(poolStage) : null;
+};
+
+export async function getTournamentPoolStandingsUncachedWithClient(
+  database: PrismaClient,
+  competitionId: string,
+): Promise<TournamentStandingsOverview | null> {
+  const poolStage = await loadTournamentPoolStandingsRowsWithClient(database, competitionId);
+  return poolStage ? projectTournamentPoolStandings(poolStage) : null;
+}
+
+const cachedTournamentPoolStandings = process.env.NODE_ENV === 'test'
+  ? loadTournamentPoolStandings
+  : trackedUnstableCache(
+      'tournament_standings',
+      loadTournamentPoolStandings,
+      ['tournament-standings-v1'],
+      {
+        revalidate: 60,
+        tags: ['standings'],
+      },
+    );
+
+export async function getTournamentPoolStandings(
+  competitionId: string,
+): Promise<TournamentStandingsOverview | null> {
+  return cachedTournamentPoolStandings(competitionId);
+}
+
+/** Uncached loader retained for fresh/readiness fallbacks and deterministic tests. */
+export async function getTournamentPoolStandingsUncached(
+  competitionId: string,
+): Promise<TournamentStandingsOverview | null> {
+  return getTournamentPoolStandingsUncachedWithClient(prisma, competitionId);
 }
 
 interface BracketTeamInput {

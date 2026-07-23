@@ -46,6 +46,20 @@ const navigationCandidate = {
     kind: 'TOURNAMENT',
   },
   _count: { entries: 12, matches: 38 },
+  stages: [
+    ['pool-stage', 'POOL', 1, 2, 30],
+    ['classification', 'CLASSIFICATION', 2, 0, 4],
+    ['semi-finals', 'SEMI_FINALS', 3, 0, 2],
+    ['medal-matches', 'MEDAL_MATCHES', 4, 0, 2],
+  ].map(([slug, type, sequence, groups, matches]) => ({
+    slug,
+    type,
+    sequence,
+    isPublished: true,
+    _count: { groups, matches },
+  })),
+  matches: Array.from({ length: 38 }, () => ({ _count: { slots: 2 } })),
+  importRuns: [{ id: 'clean-import' }],
 };
 const readinessCandidate = {
   id: 'glasgow-2026',
@@ -76,7 +90,7 @@ describe('Standings fresh directory request memoization', () => {
     standingFindManyMock.mockReset().mockResolvedValue([]);
   });
 
-  it('shares one fresh directory and one strict readiness read across metadata and page', async () => {
+  it('shares one fresh joined directory across metadata and page', async () => {
     const [metadata, page] = await Promise.all([
       generateMetadata(props),
       StandingsPage(props),
@@ -84,8 +98,15 @@ describe('Standings fresh directory request memoization', () => {
 
     expect(metadata.title).toBe('2026 SSN Standings');
     expect(page).toBeTruthy();
-    expect(competitionFindManyMock).toHaveBeenCalledTimes(2);
-    expect(competitionFindManyMock.mock.calls.filter(([args]) => args.where?.id)).toHaveLength(1);
+    expect(competitionFindManyMock).toHaveBeenCalledOnce();
+    expect(competitionFindManyMock.mock.calls[0]?.[0]).toMatchObject({
+      relationLoadStrategy: 'join',
+      select: expect.objectContaining({
+        stages: expect.objectContaining({ take: 5 }),
+        matches: expect.objectContaining({ take: 39 }),
+      }),
+    });
+    expect(competitionFindManyMock.mock.calls.filter(([args]) => args.where?.id)).toHaveLength(0);
     expect(standingFindManyMock).toHaveBeenCalledOnce();
     expect(cacheMock).toHaveBeenCalled();
   });
