@@ -158,26 +158,10 @@ async function seedFixture(prisma: PrismaClient): Promise<RehearsalFixture> {
         stageId,
       },
     });
-    await transaction.matchSlot.createMany({
-      data: [
-        {
-          id: `${namespace}-slot-a`,
-          matchId,
-          side: 'A',
-          sourceType: 'TEAM',
-          resolvedEntryId: `${namespace}-entry-0`,
-          resolvedAt: new Date('2029-02-01T00:00:00.000Z'),
-        },
-        {
-          id: `${namespace}-slot-b`,
-          matchId,
-          side: 'B',
-          sourceType: 'TEAM',
-          resolvedEntryId: `${namespace}-entry-1`,
-          resolvedAt: new Date('2029-02-01T00:00:00.000Z'),
-        },
-      ],
-    });
+    const slotCount = await transaction.matchSlot.count({ where: { matchId } });
+    if (slotCount !== 2) {
+      throw new Error('[live-fallback-rehearsal] CP-01 did not create two match slots');
+    }
   });
 
   return {
