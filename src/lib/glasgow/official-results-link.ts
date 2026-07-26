@@ -4,6 +4,7 @@ import {
   londonMatchTimePrefix,
   type OfficialFeedObservation,
 } from '@/lib/glasgow/official-feed';
+import { canonicalGlasgowTeamCode } from '@/lib/glasgow/team-codes';
 
 export const GLASGOW_2026_DETAILED_RESULTS_ORIGIN =
   'https://crs-cg2026.glasgow2026.com';
@@ -95,8 +96,10 @@ export async function resolveOfficialGlasgowLiveCentreUrl(
 
   const candidates = observations.filter((observation) => (
     londonMatchTimePrefix(observation.startDate) === matchTimePrefix
-    && observation.sideAOrganisationCode === input.homeTeamAbbreviation
-    && observation.sideBOrganisationCode === input.awayTeamAbbreviation
+    && canonicalGlasgowTeamCode(observation.sideAOrganisationCode)
+      === canonicalGlasgowTeamCode(input.homeTeamAbbreviation)
+    && canonicalGlasgowTeamCode(observation.sideBOrganisationCode)
+      === canonicalGlasgowTeamCode(input.awayTeamAbbreviation)
   ));
   if (candidates.length !== 1) return null;
 

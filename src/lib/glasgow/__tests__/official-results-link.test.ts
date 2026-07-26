@@ -66,6 +66,56 @@ describe('official Glasgow detailed-results links', () => {
     expect(fetchObservations).toHaveBeenCalledWith('2026-07-26');
   });
 
+  it.each([
+    {
+      providerHome: 'MAW',
+      providerAway: 'WAL',
+      storedHome: 'MWI',
+      storedAway: 'WAL',
+    },
+    {
+      providerHome: 'WAL',
+      providerAway: 'MAW',
+      storedHome: 'WAL',
+      storedAway: 'MWI',
+    },
+    {
+      providerHome: 'TGA',
+      providerAway: 'SCO',
+      storedHome: 'TON',
+      storedAway: 'SCO',
+    },
+    {
+      providerHome: 'SCO',
+      providerAway: 'TGA',
+      storedHome: 'SCO',
+      storedAway: 'TON',
+    },
+  ])(
+    'normalizes official aliases for $providerHome vs $providerAway',
+    async ({
+      providerHome,
+      providerAway,
+      storedHome,
+      storedAway,
+    }) => {
+      await expect(resolveOfficialGlasgowLiveCentreUrl({
+        scheduledAt: new Date(observation.startDate),
+        homeTeamAbbreviation: storedHome,
+        awayTeamAbbreviation: storedAway,
+      }, {
+        fetchObservations: vi.fn().mockResolvedValue([{
+          ...observation,
+          sideAOrganisationCode: providerHome,
+          sideBOrganisationCode: providerAway,
+        }]),
+      })).resolves.toBe(
+        'https://crs-cg2026.glasgow2026.com/#/team-players/NBL/W/'
+          + 'TEAM7-------------/GPA-/000400--',
+      );
+    },
+  );
+
   it('fails closed when the provider response is missing or ambiguous', async () => {
     const input = {
       scheduledAt: new Date('2026-07-26T10:00:00Z'),

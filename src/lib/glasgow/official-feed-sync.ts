@@ -26,6 +26,7 @@ import {
   broadcastMatchStatus,
   broadcastScoreUpdate,
 } from '@/lib/socket-server';
+import { canonicalGlasgowTeamCode } from '@/lib/glasgow/team-codes';
 
 const GLASGOW_SOURCE_KEY = 'glasgow-2026-public-data';
 const GLASGOW_EDITION_SLUG = 'glasgow-2026';
@@ -33,13 +34,6 @@ const GLASGOW_SERIES_SLUG = 'commonwealth-games-netball';
 const MAX_BACKFILL_DATES = 14;
 const HISTORICAL_CORRECTION_SWEEP_INTERVAL_MS = 15 * 60 * 1_000;
 const EXPECTED_RESULT_GRACE_MS = 15 * 60 * 1_000;
-const OFFICIAL_TEAM_CODE_ALIASES: Readonly<Record<string, string>> = {
-  // The source bundle uses ISO-style codes while the official feed uses
-  // Commonwealth Games organisation codes for these two teams.
-  MAW: 'MWI',
-  TGA: 'TON',
-};
-
 export type OfficialGlasgowSyncStatus =
   | 'success'
   | 'empty'
@@ -194,10 +188,6 @@ function latestResultsChecksum(
   return null;
 }
 
-function mappedTeamExternalId(providerCode: string): string {
-  return OFFICIAL_TEAM_CODE_ALIASES[providerCode] ?? providerCode;
-}
-
 export function planOfficialGlasgowUpdates(
   observations: readonly OfficialFeedObservation[],
   mappedMatches: readonly CurrentMappedMatch[],
@@ -255,8 +245,12 @@ export function planOfficialGlasgowUpdates(
       continue;
     }
 
-    const sideAExternalId = mappedTeamExternalId(observation.sideAOrganisationCode);
-    const sideBExternalId = mappedTeamExternalId(observation.sideBOrganisationCode);
+    const sideAExternalId = canonicalGlasgowTeamCode(
+      observation.sideAOrganisationCode,
+    );
+    const sideBExternalId = canonicalGlasgowTeamCode(
+      observation.sideBOrganisationCode,
+    );
     const sideATeamId = teamIdByExternalId.get(sideAExternalId);
     const sideBTeamId = teamIdByExternalId.get(sideBExternalId);
     if (!sideATeamId || !sideBTeamId || sideATeamId === sideBTeamId) {
