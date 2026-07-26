@@ -5,6 +5,70 @@ export const MIN_ENFORCED_NAVIGATION_SAMPLES = 20;
 export type NavigationProfile = 'desktop' | 'mobile';
 export type NavigationInteraction = 'pointer' | 'touch' | 'keyboard';
 export type GateStatus = 'pass' | 'fail' | 'observe';
+export type NavigationTransitionId =
+  | 'records-to-rankings'
+  | 'rankings-to-standings'
+  | 'standings-to-live'
+  | 'live-to-records';
+export type NavigationSampleLabel = 'warmup' | `measured-${number}`;
+export type NavigationSampleFailureStage =
+  | 'source_navigation'
+  | 'source_heading'
+  | 'probe_install'
+  | 'link_discovery'
+  | 'intent_activation'
+  | 'intent_settlement'
+  | 'navigation_activation'
+  | 'destination_url'
+  | 'destination_heading'
+  | 'post_ready_observation';
+
+const NAVIGATION_SAMPLE_FAILURE_REASONS = {
+  source_navigation: 'source_navigation_failed',
+  source_heading: 'source_heading_unavailable',
+  probe_install: 'probe_install_failed',
+  link_discovery: 'navigation_link_unavailable',
+  intent_activation: 'intent_activation_failed',
+  intent_settlement: 'intent_settlement_failed',
+  navigation_activation: 'navigation_activation_failed',
+  destination_url: 'destination_url_unavailable',
+  destination_heading: 'destination_heading_unavailable',
+  post_ready_observation: 'post_ready_observation_failed',
+} as const satisfies Record<NavigationSampleFailureStage, string>;
+
+export type NavigationSampleFailureReason =
+  typeof NAVIGATION_SAMPLE_FAILURE_REASONS[NavigationSampleFailureStage];
+
+export interface NavigationSampleFailureContext {
+  readonly profile: NavigationProfile;
+  readonly interaction: NavigationInteraction;
+  readonly transitionId: NavigationTransitionId;
+  readonly sample: NavigationSampleLabel;
+  readonly stage: NavigationSampleFailureStage;
+  readonly reason: NavigationSampleFailureReason;
+}
+
+type NavigationSampleFailureInput =
+  Omit<NavigationSampleFailureContext, 'reason'>;
+
+export class NavigationSampleMonitorError extends Error {
+  readonly context: NavigationSampleFailureContext;
+
+  constructor(input: NavigationSampleFailureInput) {
+    super('A navigation sample could not be completed.');
+    this.name = 'NavigationSampleMonitorError';
+    this.context = Object.freeze({
+      ...input,
+      reason: NAVIGATION_SAMPLE_FAILURE_REASONS[input.stage],
+    });
+  }
+}
+
+export function navigationSampleLabel(
+  sampleNumber: number,
+): NavigationSampleLabel {
+  return sampleNumber === 0 ? 'warmup' : `measured-${sampleNumber}`;
+}
 
 export interface NavigationPerformanceBudgets {
   routeP95Ms: number;
@@ -62,6 +126,8 @@ export interface NavigationSummary {
   intentTargetRscSettled: number;
   intentTargetRscCompleted: number;
   intentTargetRscSized: number;
+  intentRequestSamples: number;
+  intentSettledSamples: number;
   consumedIntentSamples: number;
   postClickTargetRscRequests: number;
   consoleErrors: number;
@@ -159,6 +225,17 @@ export interface NavigationMonitorFailure {
     | 'browser_monitor_failed'
     | 'unknown_monitor_failure';
   message: string;
+  context?: NavigationSampleFailureContext;
+}
+
+export interface NavigationMonitorErrorReport {
+  schema: typeof NAVIGATION_PERFORMANCE_SCHEMA;
+  status: 'error';
+  startedAt: string;
+  completedAt: string;
+  reason: NavigationMonitorFailure['code'];
+  message: string;
+  context?: NavigationSampleFailureContext;
 }
 
 function rounded(value: number): number {
@@ -202,6 +279,13 @@ export function calculateNavigationTiming(
 export function classifyNavigationMonitorFailure(
   error: unknown,
 ): NavigationMonitorFailure {
+  if (error instanceof NavigationSampleMonitorError) {
+    return {
+      code: 'navigation_sample_failed',
+      message: 'A navigation sample could not be completed.',
+      context: error.context,
+    };
+  }
   const message = error instanceof Error ? error.message : '';
   if (
     message.startsWith('Samples must be ')
@@ -255,6 +339,49 @@ export function classifyNavigationMonitorFailure(
     code: 'unknown_monitor_failure',
     message: 'The navigation monitor ended unexpectedly.',
   };
+}
+
+export function createNavigationMonitorErrorReport(
+  startedAt: string,
+  completedAt: string,
+  error: unknown,
+): NavigationMonitorErrorReport {
+  const failure = classifyNavigationMonitorFailure(error);
+  return {
+    schema: NAVIGATION_PERFORMANCE_SCHEMA,
+    status: 'error',
+    startedAt,
+    completedAt,
+    reason: failure.code,
+    message: failure.message,
+    ...(failure.context ? { context: failure.context } : {}),
+  };
+}
+
+export function renderNavigationMonitorErrorMarkdown(
+  report: NavigationMonitorErrorReport,
+): string {
+  const lines = [
+    '# CentrePass navigation performance',
+    '',
+    `**MONITOR ERROR** — ${report.message}`,
+    '',
+    `Reason: \`${report.reason}\``,
+  ];
+  if (report.context) {
+    lines.push(
+      '',
+      '## Navigation sample context',
+      '',
+      `- Profile: \`${report.context.profile}\``,
+      `- Interaction: \`${report.context.interaction}\``,
+      `- Transition: \`${report.context.transitionId}\``,
+      `- Sample: \`${report.context.sample}\``,
+      `- Stage: \`${report.context.stage}\``,
+      `- Failure reason: \`${report.context.reason}\``,
+    );
+  }
+  return `${lines.join('\n')}\n`;
 }
 
 export function nearestRank(values: readonly number[], percentile: number): number {
@@ -320,6 +447,13 @@ export function summarizeNavigationSamples(
           (total, sample) => total + sample.intentTargetRscSized,
           0,
         ),
+        intentRequestSamples: group.filter(
+          (sample) => sample.intentTargetRscRequests > 0,
+        ).length,
+        intentSettledSamples: group.filter((sample) => (
+          sample.intentTargetRscRequests > 0
+          && sample.intentTargetRscSettled === sample.intentTargetRscRequests
+        )).length,
         consumedIntentSamples: group.filter((sample) => (
           sample.intentTargetRscRequests > 0
           && sample.intentTargetRscCompleted === sample.intentTargetRscRequests
@@ -376,8 +510,10 @@ function hasCompleteIdlePrefetchEvidence(
 ): boolean {
   return (
     measurement.settledRscRequests === measurement.emittedRscRequests
-    && measurement.completedRscRequests === measurement.emittedRscRequests
+    && measurement.completedRscRequests + measurement.benignAbortedRscRequests
+      === measurement.emittedRscRequests
     && measurement.sizedRscRequests === measurement.completedRscRequests
+    && measurement.unexpectedRequestFailures === 0
   );
 }
 
@@ -436,16 +572,22 @@ export function evaluateNavigationPerformance({
       message: `${label} recorded ${summary.unexpectedRequestFailures} unexpected request failure(s) and ${summary.serverErrors} HTTP 5xx response(s)`,
     });
 
-    const shouldRequireConsumedIntentPrefetch = (
+    const shouldRequireIntentPrefetchEvidence = (
       summary.profile === 'desktop'
       && ['pointer', 'keyboard'].includes(summary.interaction)
       && ['records-to-rankings', 'live-to-records'].includes(summary.transitionId)
     );
-    if (shouldRequireConsumedIntentPrefetch) {
+    if (shouldRequireIntentPrefetchEvidence) {
+      const hasCompleteIntentPrefetchEvidence = (
+        summary.intentRequestSamples === summary.count
+        && summary.intentSettledSamples === summary.count
+        && summary.intentTargetRscCompleted > 0
+        && summary.intentTargetRscSized === summary.intentTargetRscCompleted
+      );
       gates.push({
         id: `intent-prefetch:${label}`,
-        status: summary.consumedIntentSamples === summary.count ? 'pass' : 'fail',
-        message: `${label} consumed a completed and sized target intent prefetch in ${summary.consumedIntentSamples}/${summary.count} sample(s)`,
+        status: hasCompleteIntentPrefetchEvidence ? 'pass' : 'fail',
+        message: `${label} emitted intent requests in ${summary.intentRequestSamples}/${summary.count} sample(s), settled ${summary.intentTargetRscSettled}/${summary.intentTargetRscRequests} before click across ${summary.intentSettledSamples}/${summary.count} sample(s), completed ${summary.intentTargetRscCompleted} successful target RSC request(s), and sized ${summary.intentTargetRscSized}/${summary.intentTargetRscCompleted} completed request(s)`,
       });
       gates.push({
         id: `post-click-rsc:${label}`,
@@ -458,7 +600,7 @@ export function evaluateNavigationPerformance({
   gates.push({
     id: 'idle-prefetch-evidence',
     status: hasCompleteIdlePrefetchEvidence(idlePrefetch) ? 'pass' : 'fail',
-    message: `${idlePrefetch.route} settled ${idlePrefetch.settledRscRequests}/${idlePrefetch.emittedRscRequests}, completed ${idlePrefetch.completedRscRequests}/${idlePrefetch.emittedRscRequests}, and sized ${idlePrefetch.sizedRscRequests}/${idlePrefetch.completedRscRequests} idle RSC request(s)`,
+    message: `${idlePrefetch.route} settled ${idlePrefetch.settledRscRequests}/${idlePrefetch.emittedRscRequests}; terminal outcomes were ${idlePrefetch.completedRscRequests} completed + ${idlePrefetch.benignAbortedRscRequests} benignly aborted = ${idlePrefetch.completedRscRequests + idlePrefetch.benignAbortedRscRequests}/${idlePrefetch.emittedRscRequests}; sized ${idlePrefetch.sizedRscRequests}/${idlePrefetch.completedRscRequests} completed request(s), with ${idlePrefetch.unexpectedRequestFailures} unexpected failure(s)`,
   });
   gates.push({
     id: 'idle-prefetch-requests',
@@ -469,17 +611,17 @@ export function evaluateNavigationPerformance({
   });
   gates.push({
     id: 'idle-prefetch-bytes',
-    status: idlePrefetch.completedRscBytes === null
-      ? 'observe'
-      : !hasCompleteIdlePrefetchEvidence(idlePrefetch)
-        ? 'fail'
+    status: !hasCompleteIdlePrefetchEvidence(idlePrefetch)
+      ? 'fail'
+      : idlePrefetch.completedRscBytes === null
+        ? 'observe'
       : idlePrefetch.completedRscBytes <= budgets.maxIdleRscBytes
         ? 'pass'
         : 'fail',
-    message: idlePrefetch.completedRscBytes === null
-      ? `${idlePrefetch.route} response-body byte sizes were unavailable`
-      : !hasCompleteIdlePrefetchEvidence(idlePrefetch)
-        ? `${idlePrefetch.route} response-body byte evidence is incomplete`
+    message: !hasCompleteIdlePrefetchEvidence(idlePrefetch)
+      ? `${idlePrefetch.route} response-body byte evidence is incomplete`
+      : idlePrefetch.completedRscBytes === null
+        ? `${idlePrefetch.route} response-body byte sizes were unavailable`
       : `${idlePrefetch.route} completed ${idlePrefetch.completedRscBytes} idle RSC response-body bytes (budget ${budgets.maxIdleRscBytes})`,
   });
   gates.push({
@@ -523,8 +665,8 @@ export function renderNavigationPerformanceMarkdown(
     '',
     '## Navigation samples',
     '',
-    '| Profile | Interaction | Transition | Samples | Route p50 | Route p95 | Ack p95 | Intent RSC req/done/sized | Post-click target RSC | Runtime/network errors | Known CSP noise |',
-    '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Profile | Interaction | Transition | Samples | Route p50 | Route p95 | Ack p95 | Intent samples emitted/settled | Intent RSC req/settled/done/sized | Post-click target RSC | Runtime/network errors | Known CSP noise |',
+    '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
   ];
 
   for (const summary of report.summaries) {
@@ -535,7 +677,7 @@ export function renderNavigationPerformanceMarkdown(
       + summary.serverErrors
     );
     lines.push(
-      `| ${summary.profile} | ${summary.interaction} | ${summary.transitionId} | ${summary.count} | ${summary.durationP50Ms}ms | ${summary.durationP95Ms}ms | ${summary.acknowledgementP95Ms}ms | ${summary.intentTargetRscRequests}/${summary.intentTargetRscCompleted}/${summary.intentTargetRscSized} | ${summary.postClickTargetRscRequests} | ${errors} | ${summary.ignoredKnownConsoleErrors} |`,
+      `| ${summary.profile} | ${summary.interaction} | ${summary.transitionId} | ${summary.count} | ${summary.durationP50Ms}ms | ${summary.durationP95Ms}ms | ${summary.acknowledgementP95Ms}ms | ${summary.intentRequestSamples}/${summary.intentSettledSamples} | ${summary.intentTargetRscRequests}/${summary.intentTargetRscSettled}/${summary.intentTargetRscCompleted}/${summary.intentTargetRscSized} | ${summary.postClickTargetRscRequests} | ${errors} | ${summary.ignoredKnownConsoleErrors} |`,
     );
   }
 

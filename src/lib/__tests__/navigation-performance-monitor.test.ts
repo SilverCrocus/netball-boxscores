@@ -3,11 +3,15 @@ import {
   DEFAULT_NAVIGATION_PERFORMANCE_BUDGETS,
   MIN_ENFORCED_NAVIGATION_SAMPLES,
   NAVIGATION_PERFORMANCE_SCHEMA,
+  NavigationSampleMonitorError,
   calculateNavigationTiming,
   classifyNavigationMonitorFailure,
   countPreClickTargetRscRequests,
+  createNavigationMonitorErrorReport,
   evaluateNavigationPerformance,
+  navigationSampleLabel,
   nearestRank,
+  renderNavigationMonitorErrorMarkdown,
   renderNavigationPerformanceMarkdown,
   shouldFailNavigationMonitor,
   summarizeNavigationSamples,
@@ -72,6 +76,12 @@ describe('navigation performance monitor policy', () => {
     expect(() => nearestRank(values, 0)).toThrow(
       'Percentile must be greater than zero and at most one',
     );
+  });
+
+  it('labels excluded warmups and measured sample ordinals stably', () => {
+    expect(navigationSampleLabel(0)).toBe('warmup');
+    expect(navigationSampleLabel(1)).toBe('measured-1');
+    expect(navigationSampleLabel(20)).toBe('measured-20');
   });
 
   it('treats a fast route commit as acknowledgement when no pending UI paints', () => {
@@ -147,13 +157,103 @@ describe('navigation performance monitor policy', () => {
       summaries,
       configuredSamples: 1,
       idlePrefetch: idle({
+        emittedRscRequests: 0,
+        settledRscRequests: 0,
+        completedRscRequests: 0,
+        sizedRscRequests: 0,
         completedRscBytes: null,
       }),
       policyContracts: [],
     });
 
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence')?.status)
+      .toBe('pass');
     expect(gates.find((gate) => gate.id === 'idle-prefetch-bytes')?.status)
       .toBe('observe');
+  });
+
+  it('accepts production-shaped idle evidence with only benign aborts and zero bytes', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: 1,
+      idlePrefetch: idle({
+        emittedRscRequests: 8,
+        settledRscRequests: 8,
+        completedRscRequests: 0,
+        sizedRscRequests: 0,
+        completedRscBytes: 0,
+        benignAbortedRscRequests: 8,
+      }),
+      policyContracts: [],
+    });
+
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence'))
+      .toMatchObject({
+        status: 'pass',
+        message: expect.stringContaining('8 benignly aborted'),
+      });
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-bytes'))
+      .toMatchObject({
+        status: 'pass',
+        message: expect.stringContaining('completed 0 idle RSC response-body bytes'),
+      });
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-network-errors')?.status)
+      .toBe('pass');
+  });
+
+  it('accepts mixed completed and benignly aborted idle terminal outcomes', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: 1,
+      idlePrefetch: idle({
+        emittedRscRequests: 2,
+        settledRscRequests: 2,
+        completedRscRequests: 1,
+        sizedRscRequests: 1,
+        completedRscBytes: 512,
+        benignAbortedRscRequests: 1,
+      }),
+      policyContracts: [],
+    });
+
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence')?.status)
+      .toBe('pass');
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-bytes')?.status)
+      .toBe('pass');
+  });
+
+  it('keeps HTTP 5xx separate from otherwise complete idle evidence', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: 1,
+      idlePrefetch: idle({ serverErrors: 1 }),
+      policyContracts: [],
+    });
+
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence')?.status)
+      .toBe('pass');
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-network-errors')?.status)
+      .toBe('fail');
+  });
+
+  it('fails unsized completed idle responses even when byte sizes are unavailable', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: 1,
+      idlePrefetch: idle({
+        emittedRscRequests: 2,
+        settledRscRequests: 2,
+        completedRscRequests: 2,
+        sizedRscRequests: 1,
+        completedRscBytes: null,
+      }),
+      policyContracts: [],
+    });
+
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence')?.status)
+      .toBe('fail');
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-bytes')?.status)
+      .toBe('fail');
   });
 
   it('fails incomplete idle evidence while emitted RSC requests remain unsettled', () => {
@@ -176,20 +276,23 @@ describe('navigation performance monitor policy', () => {
       .toBe('fail');
   });
 
-  it('fails idle evidence when a completed RSC response was not sized', () => {
+  it('fails idle evidence for a non-benign request failure', () => {
     const gates = evaluateNavigationPerformance({
       summaries: summarizeNavigationSamples([sample()]),
       configuredSamples: 1,
       idlePrefetch: idle({
         emittedRscRequests: 2,
         settledRscRequests: 2,
-        completedRscRequests: 2,
+        completedRscRequests: 1,
         sizedRscRequests: 1,
+        unexpectedRequestFailures: 1,
       }),
       policyContracts: [],
     });
 
     expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence')?.status)
+      .toBe('fail');
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-network-errors')?.status)
       .toBe('fail');
   });
 
@@ -213,56 +316,94 @@ describe('navigation performance monitor policy', () => {
       .toBe('fail');
   });
 
-  it('requires a completed and sized target intent prefetch in every consumed-intent sample', () => {
-    const missingIntent = summarizeNavigationSamples([
+  it('accepts production-shaped intent evidence with redundant warm-cache aborts', () => {
+    const samples = Array.from({ length: 20 }, (_, index) => (
       sample({
-        intentTargetRscRequests: 0,
-        intentTargetRscSettled: 0,
-        intentTargetRscCompleted: 0,
-        intentTargetRscSized: 0,
-      }),
-      sample({
-        sample: 2,
+        sample: index + 1,
         intentTargetRscRequests: 2,
         intentTargetRscSettled: 2,
-        intentTargetRscCompleted: 2,
-        intentTargetRscSized: 2,
-      }),
-    ]);
-    const unsettledIntent = summarizeNavigationSamples([
-      sample({
-        intentTargetRscRequests: 1,
-        intentTargetRscSettled: 0,
-        intentTargetRscCompleted: 0,
-        intentTargetRscSized: 0,
-      }),
-    ]);
-    const failedIntent = summarizeNavigationSamples([
-      sample({
-        intentTargetRscRequests: 1,
-        intentTargetRscSettled: 1,
-        intentTargetRscCompleted: 0,
-        intentTargetRscSized: 0,
-      }),
-    ]);
-    const unsizedIntent = summarizeNavigationSamples([
-      sample({
-        intentTargetRscRequests: 1,
-        intentTargetRscSettled: 1,
-        intentTargetRscCompleted: 1,
-        intentTargetRscSized: 0,
-      }),
-    ]);
+        intentTargetRscCompleted: index === 0 ? 1 : 0,
+        intentTargetRscSized: index === 0 ? 1 : 0,
+      })
+    ));
+    const summaries = summarizeNavigationSamples(samples);
+    const gates = evaluateNavigationPerformance({
+      summaries,
+      configuredSamples: 20,
+      idlePrefetch: idle(),
+      policyContracts: [],
+    });
 
-    for (const summaries of [
-      missingIntent,
-      unsettledIntent,
-      failedIntent,
-      unsizedIntent,
-    ]) {
+    expect(summaries[0]).toMatchObject({
+      count: 20,
+      intentRequestSamples: 20,
+      intentSettledSamples: 20,
+      intentTargetRscRequests: 40,
+      intentTargetRscSettled: 40,
+      intentTargetRscCompleted: 1,
+      intentTargetRscSized: 1,
+      consumedIntentSamples: 0,
+    });
+    expect(gates.find((gate) => gate.id.startsWith('intent-prefetch:')))
+      .toMatchObject({
+        status: 'pass',
+        message: expect.stringContaining(
+          'settled 40/40 before click across 20/20 sample(s)',
+        ),
+      });
+    expect(gates.find((gate) => gate.id.startsWith('post-click-rsc:'))?.status)
+      .toBe('pass');
+
+    const postClickGates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples(samples.map((entry, index) => (
+        index === 19 ? { ...entry, postClickTargetRscRequests: 1 } : entry
+      ))),
+      configuredSamples: 20,
+      idlePrefetch: idle(),
+      policyContracts: [],
+    });
+    expect(postClickGates.find((gate) => gate.id.startsWith('intent-prefetch:'))?.status)
+      .toBe('pass');
+    expect(postClickGates.find((gate) => gate.id.startsWith('post-click-rsc:'))?.status)
+      .toBe('fail');
+  });
+
+  it('rejects incomplete production-shaped intent evidence', () => {
+    const valid = Array.from({ length: 20 }, (_, index) => (
+      sample({
+        sample: index + 1,
+        intentTargetRscRequests: 2,
+        intentTargetRscSettled: 2,
+        intentTargetRscCompleted: index === 0 ? 1 : 0,
+        intentTargetRscSized: index === 0 ? 1 : 0,
+      })
+    ));
+    const invalidGroups = [
+      valid.map((entry, index) => index === 19 ? {
+        ...entry,
+        intentTargetRscRequests: 0,
+        intentTargetRscSettled: 0,
+      } : entry),
+      valid.map((entry, index) => index === 19 ? {
+        ...entry,
+        intentTargetRscSettled: 1,
+      } : entry),
+      valid.map((entry) => ({
+        ...entry,
+        intentTargetRscCompleted: 0,
+        intentTargetRscSized: 0,
+      })),
+      valid.map((entry) => ({
+        ...entry,
+        intentTargetRscSized: 0,
+      })),
+    ];
+
+    for (const samples of invalidGroups) {
+      const summaries = summarizeNavigationSamples(samples);
       const gates = evaluateNavigationPerformance({
         summaries,
-        configuredSamples: summaries[0]?.count ?? 1,
+        configuredSamples: 20,
         idlePrefetch: idle(),
         policyContracts: [],
       });
@@ -336,6 +477,88 @@ describe('navigation performance monitor policy', () => {
     expect(JSON.stringify(failure)).not.toContain('_rsc');
   });
 
+  it.each([
+    ['source_navigation', 'source_navigation_failed'],
+    ['source_heading', 'source_heading_unavailable'],
+    ['probe_install', 'probe_install_failed'],
+    ['link_discovery', 'navigation_link_unavailable'],
+    ['intent_activation', 'intent_activation_failed'],
+    ['intent_settlement', 'intent_settlement_failed'],
+    ['navigation_activation', 'navigation_activation_failed'],
+    ['destination_url', 'destination_url_unavailable'],
+    ['destination_heading', 'destination_heading_unavailable'],
+    ['post_ready_observation', 'post_ready_observation_failed'],
+  ] as const)('maps the %s stage to stable reason %s', (stage, reason) => {
+    const error = new NavigationSampleMonitorError({
+      profile: 'mobile',
+      interaction: 'touch',
+      transitionId: 'standings-to-live',
+      sample: 'warmup',
+      stage,
+    });
+
+    expect(classifyNavigationMonitorFailure(error).context).toMatchObject({
+      sample: 'warmup',
+      stage,
+      reason,
+    });
+  });
+
+  it('retains allowlisted sample context without leaking raw diagnostic text', () => {
+    const rawDiagnostic = new Error(
+      "locator('main h1[data-private=\"player-987\"]') timed out at "
+      + 'https://example.test/match/private-id?_rsc=secret&player=987'
+      + '\n# markdown-injection\u001b[31m',
+    );
+    const error = new NavigationSampleMonitorError({
+      profile: 'desktop',
+      interaction: 'keyboard',
+      transitionId: 'live-to-records',
+      sample: 'measured-7',
+      stage: 'destination_heading',
+    });
+    error.stack = rawDiagnostic.message;
+    (error as Error & { cause?: unknown }).cause = rawDiagnostic;
+
+    const failure = classifyNavigationMonitorFailure(error);
+    const report = createNavigationMonitorErrorReport(
+      '2026-07-26T00:00:00.000Z',
+      '2026-07-26T00:00:01.000Z',
+      error,
+    );
+    const json = JSON.stringify(report);
+    const markdown = renderNavigationMonitorErrorMarkdown(report);
+    const stderr = `Navigation performance monitor failed (${failure.code}): ${failure.message}`;
+
+    expect(failure).toEqual({
+      code: 'navigation_sample_failed',
+      message: 'A navigation sample could not be completed.',
+      context: {
+        profile: 'desktop',
+        interaction: 'keyboard',
+        transitionId: 'live-to-records',
+        sample: 'measured-7',
+        stage: 'destination_heading',
+        reason: 'destination_heading_unavailable',
+      },
+    });
+    expect(report.context).toEqual(failure.context);
+    expect(markdown).toContain('- Sample: `measured-7`');
+    expect(markdown).toContain('- Stage: `destination_heading`');
+    expect(markdown).toContain(
+      '- Failure reason: `destination_heading_unavailable`',
+    );
+    for (const output of [json, markdown, stderr]) {
+      expect(output).not.toContain('https://example.test');
+      expect(output).not.toContain('_rsc');
+      expect(output).not.toContain('private-id');
+      expect(output).not.toContain('player-987');
+      expect(output).not.toContain('locator(');
+      expect(output).not.toContain('markdown-injection');
+      expect(output).not.toContain('\u001b');
+    }
+  });
+
   it('reports the known analytics CSP message without treating it as a regression', () => {
     const summaries = summarizeNavigationSamples([
       sample({ ignoredKnownConsoleErrors: 2 }),
@@ -384,6 +607,9 @@ describe('navigation performance monitor policy', () => {
     const markdown = renderNavigationPerformanceMarkdown(report);
     expect(markdown).toContain('PASS (report-only budgets)');
     expect(markdown).toContain('`abc123`');
+    expect(markdown).toContain('Intent samples emitted/settled');
+    expect(markdown).toContain('Intent RSC req/settled/done/sized');
     expect(markdown).toContain('| desktop | pointer | records-to-rankings |');
+    expect(markdown).toContain('| 1/1 | 1/1/1/1 |');
   });
 });

@@ -14,8 +14,9 @@ The monitor:
 - never signs in, changes data, clears production caches, or calls admin routes;
 - records path groups only, never query strings, entity IDs, cookies, bodies,
   credentials, or user data;
-- records Next.js RSC `ERR_ABORTED` teardown events separately, while still
-  requiring consumed-intent and idle-byte evidence to complete successfully;
+- records Next.js RSC `ERR_ABORTED` teardown events separately, accepts them as
+  accounted idle settlements, and still requires all intent and idle requests
+  to reach a valid terminal outcome;
   and
 - records the existing Google Tag Manager CSP rejection as known diagnostic
   noise while continuing to fail on every other browser console or page error.
@@ -29,8 +30,8 @@ The primary matrix uses one excluded warmup and 20 measured samples:
 
 | Profile | Interaction | Transitions |
 | --- | --- | --- |
-| Desktop 1440x900 | real pointer hover, completed and sized intent opportunity, click | Records → Rankings → canonical Standings → Live → Records |
-| Desktop 1440x900 | keyboard focus, completed and sized intent opportunity, Enter | Records → Rankings and Live → Records |
+| Desktop 1440x900 | real pointer hover; every sample emits and settles intent traffic; the group completes and sizes at least one target response; click | Records → Rankings → canonical Standings → Live → Records |
+| Desktop 1440x900 | keyboard focus; every sample emits and settles intent traffic; the group completes and sizes at least one target response; Enter | Records → Rankings and Live → Records |
 | Mobile 390x844 | touch tap | Records → Rankings → canonical Standings → Live → Records |
 
 The monitor discovers the canonical published Standings URL from the visible
@@ -57,15 +58,19 @@ The checked-in initial budgets are:
 - route-switch p95 at or below 2,000 ms;
 - visible acknowledgement or completed navigation p95 at or below 150 ms;
 - no browser runtime errors, unexpected same-origin request failures, or 5xx;
-- zero target RSC requests after a successfully completed and sized
-  pointer/keyboard intent prefetch;
+- zero target RSC requests after a valid settled pointer/keyboard intent group;
 - no more than eight idle RSC requests from a clean Records load; and
 - no more than 20,000 completed idle RSC response-body bytes.
 
 The byte budget includes limited headroom above the accepted navigation audit.
-If Playwright cannot expose a transfer size after otherwise complete evidence,
-the byte result is `OBSERVE`, not an invented zero. Unsettled, failed, or
-partially sized idle requests invalidate the evidence and fail the run.
+An idle request may either complete successfully or end in a known benign
+`ERR_ABORTED` teardown. Bytes are counted only for completed responses; partial
+transfer before an abort is not measured, so an all-benign-abort observation
+legitimately records zero completed response-body bytes. Unsettled requests,
+unexpected failures, or unsized completed responses invalidate the evidence and
+fail the run. If byte sizes are unavailable after otherwise complete evidence,
+the byte result is `OBSERVE`, not an invented zero. HTTP 5xx remains a separate
+network gate.
 
 Route, acknowledgement, idle-request-count, and idle-byte budget misses are
 report-only during the initial observation window. Endpoint, release, browser,
@@ -90,6 +95,11 @@ Manual inputs:
 
 Every run adds a Markdown summary and retains JSON/Markdown evidence for 30
 days. Scheduled work is single-flight and never cancels an in-progress run.
+If a navigation sample fails, both error artifacts retain only its allowlisted
+profile, interaction, transition, warmup/measured sample label, failure stage,
+and stable reason. Raw URLs, query strings, selectors, entity identifiers,
+browser error text, stacks, and causes are never written to the artifacts or
+stderr.
 
 ## Local read-only run
 
@@ -123,8 +133,8 @@ operation timing separate:
 - slow navigation plus fast server timing points toward transfer/render work;
 - slow server operations point toward route/data work;
 - extra idle traffic points toward prefetch policy;
-- post-click target RSC after completed intent points toward segment-cache or
-  prefetch consumption; and
+- post-click target RSC after a valid settled intent group points toward
+  segment-cache or prefetch consumption; and
 - low sample counts or a release mismatch invalidate the comparison.
 
 Record baseline and enforcement decisions in
