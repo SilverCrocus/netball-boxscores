@@ -120,6 +120,35 @@ function liveDetailPayload() {
   };
 }
 
+function scheduledBreakDetailPayload() {
+  const payload = liveDetailPayload();
+  payload.phaseResults[0].unitStatus = null as unknown as string;
+  payload.phaseResults[0].startDate = '2026-07-26T10:00:00Z';
+  payload.phaseResults[0].endDate = '2026-07-26T11:45:00Z';
+  payload.phaseResults[0].versus.teamResult[0] = competitor({
+    id: 'australia-result',
+    code: 'NBLWTEAM7-------------GPA-000400--',
+    phaseCode: 'GPA-',
+    resultStatus: 'SCHEDULED_BREAK',
+    result: '35',
+    competitorCode: 'NBLWTEAM7---AUS01',
+    organisationId: 'australia',
+    organisationCode: 'AUS',
+  });
+  payload.phaseResults[0].versus.teamResult[1] = competitor({
+    id: 'england-result',
+    code: 'NBLWTEAM7-------------GPA-000400--',
+    phaseCode: 'GPA-',
+    resultStatus: 'SCHEDULED_BREAK',
+    result: '24',
+    startOrder: '2',
+    competitorCode: 'NBLWTEAM7---ENG01',
+    organisationId: 'england',
+    organisationCode: 'ENG',
+  });
+  return payload;
+}
+
 describe('Commonwealth Sport Glasgow 2026 official feed', () => {
   it('defaults on only for a production worker and preserves the kill switch', () => {
     expect(isOfficialGlasgowFeedEnabled({
@@ -185,6 +214,96 @@ describe('Commonwealth Sport Glasgow 2026 official feed', () => {
       sideBScore: 53,
     })]);
     expect(observations[0].detailRequestUrl).toBe(officialPhaseDetailUrl(liveRequest!));
+  });
+
+  it('keeps an official scheduled-break score live when discovery statuses are transiently null', async () => {
+    const breakSessions = structuredClone(liveSessionsPayload);
+    breakSessions.sessions[0].status = 'UPCOMING';
+    breakSessions.sessions[0].sessionEventPhases[0].status =
+      null as unknown as string;
+    breakSessions.sessions[0].sessionEventPhases[1].status = 'COMPLETE';
+
+    const breakDetail = scheduledBreakDetailPayload();
+    const completedDetail = liveDetailPayload();
+    completedDetail.phaseResults[0].unitStatus = 'COMPLETE';
+    for (const team of completedDetail.phaseResults[0].versus.teamResult) {
+      team.resultStatus = 'OFFICIAL';
+    }
+    completedDetail.phaseResults[0].versus.teamResult[0].result = '56';
+    completedDetail.phaseResults[0].versus.teamResult[1].result = '47';
+
+    const fetchImpl = vi.fn(async (input: string) => {
+      const url = new URL(input);
+      if (url.pathname.endsWith('/sessions')) {
+        return new Response(JSON.stringify(breakSessions));
+      }
+      return new Response(JSON.stringify(
+        url.searchParams.get('phaseCode') === 'GPA-'
+          ? breakDetail
+          : completedDetail,
+      ));
+    });
+
+    await expect(fetchOfficialObservationsForDate('2026-07-26', { fetchImpl }))
+      .resolves.toEqual([
+        expect.objectContaining({
+          providerMatchCode: LIVE_MATCH_CODE,
+          status: 'COMPLETED',
+          resultQuality: 'OFFICIAL_FINAL',
+          sideAOrganisationCode: 'WAL',
+          sideBOrganisationCode: 'SCO',
+          sideAScore: 47,
+          sideBScore: 56,
+        }),
+        expect.objectContaining({
+          providerMatchCode: 'NBLWTEAM7-------------GPA-000400--',
+          status: 'LIVE',
+          resultQuality: 'PROVISIONAL',
+          sideAOrganisationCode: 'AUS',
+          sideBOrganisationCode: 'ENG',
+          sideAScore: 35,
+          sideBScore: 24,
+        }),
+      ]);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejects every broader or malformed null break state', () => {
+    const breakRequest = request({
+      phaseCode: 'GPA-',
+      phaseStatus: null,
+      phaseStartDate: '2026-07-26T10:00:00Z',
+    });
+
+    const mixed = scheduledBreakDetailPayload();
+    mixed.phaseResults[0].versus.teamResult[1].resultStatus = 'RUNNING';
+    expect(() => parseOfficialDetailPayload(mixed, breakRequest))
+      .toThrow('must contain two SCHEDULED_BREAK results');
+
+    const missingScore = scheduledBreakDetailPayload();
+    missingScore.phaseResults[0].versus.teamResult[0].result =
+      null as unknown as string;
+    expect(() => parseOfficialDetailPayload(missingScore, breakRequest))
+      .toThrow('result must be a non-negative integer');
+
+    const wrongResultType = scheduledBreakDetailPayload();
+    wrongResultType.phaseResults[0].versus.teamResult[0].resultType = 'TIME';
+    expect(() => parseOfficialDetailPayload(wrongResultType, breakRequest))
+      .toThrow('resultType must be POINTS');
+
+    const wrongIdentity = scheduledBreakDetailPayload();
+    wrongIdentity.phaseResults[0].versus.teamResult[0].eventCode = 'OTHER';
+    expect(() => parseOfficialDetailPayload(wrongIdentity, breakRequest))
+      .toThrow('eventCode does not match the detail request');
+
+    expect(() => parseOfficialDetailPayload(
+      scheduledBreakDetailPayload(),
+      request({
+        phaseCode: 'GPA-',
+        phaseStatus: 'LIVE',
+        phaseStartDate: '2026-07-26T10:00:00Z',
+      }),
+    )).toThrow('only when the selected phase status is also null');
   });
 
   it('converts COMPLETE + OFFICIAL results and handles multiple phaseResults', () => {
