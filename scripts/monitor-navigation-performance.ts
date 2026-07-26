@@ -12,10 +12,14 @@ import {
 import {
   DEFAULT_NAVIGATION_PERFORMANCE_BUDGETS,
   NAVIGATION_PERFORMANCE_SCHEMA,
+  NavigationSampleMonitorError,
   calculateNavigationTiming,
   classifyNavigationMonitorFailure,
   countPreClickTargetRscRequests,
+  createNavigationMonitorErrorReport,
   evaluateNavigationPerformance,
+  navigationSampleLabel,
+  renderNavigationMonitorErrorMarkdown,
   renderNavigationPerformanceMarkdown,
   shouldFailNavigationMonitor,
   summarizeNavigationSamples,
@@ -25,6 +29,9 @@ import {
   type NavigationPerformanceReport,
   type NavigationProfile,
   type NavigationSample,
+  type NavigationSampleFailureContext,
+  type NavigationSampleFailureStage,
+  type NavigationTransitionId,
   type PolicyContractMeasurement,
   type ProductionEndpointEvidence,
 } from '@/lib/navigation-performance-monitor';
@@ -46,7 +53,7 @@ type LogicalDestination = 'live' | 'standings' | 'rankings' | 'records';
 type NetworkPhase = 'source' | 'intent' | 'post-click' | 'idle' | 'done';
 
 interface TransitionDefinition {
-  id: string;
+  id: NavigationTransitionId;
   sourcePath: string;
   sourceDestination: LogicalDestination;
   targetDestination: LogicalDestination;
@@ -99,6 +106,24 @@ interface ProbeWindow extends Window {
     acknowledgementMs: number | null;
     observer: MutationObserver;
   };
+}
+
+type NavigationSampleIdentity = Pick<
+  NavigationSampleFailureContext,
+  'profile' | 'interaction' | 'transitionId' | 'sample'
+>;
+
+type NavigationSampleStageRunner = <T>(
+  stage: NavigationSampleFailureStage,
+  operation: () => Promise<T> | T,
+) => Promise<T>;
+
+async function runOptionalNavigationSampleStage<T>(
+  stageRunner: NavigationSampleStageRunner | undefined,
+  stage: NavigationSampleFailureStage,
+  operation: () => Promise<T> | T,
+): Promise<T> {
+  return stageRunner ? stageRunner(stage, operation) : operation();
 }
 
 function argumentValue(name: string): string | undefined {
@@ -526,19 +551,30 @@ async function gotoSource(
   baseUrl: URL,
   sourcePath: string,
   sourceDestination: LogicalDestination,
+  stageRunner?: NavigationSampleStageRunner,
 ): Promise<void> {
-  const response = await page.goto(new URL(sourcePath, baseUrl).toString(), {
-    waitUntil: 'domcontentloaded',
-    timeout: PAGE_TIMEOUT_MS,
-  });
-  if (!response || response.status() >= 400) {
-    throw new Error(`Source route ${sourcePath} returned ${response?.status() ?? 'no response'}`);
-  }
-  const current = new URL(page.url());
-  if (!isLogicalDestination(current.pathname, sourceDestination)) {
-    throw new Error(`Source route ${sourcePath} resolved to an unexpected path`);
-  }
-  await waitForHeading(page);
+  await runOptionalNavigationSampleStage(
+    stageRunner,
+    'source_navigation',
+    async () => {
+      const response = await page.goto(new URL(sourcePath, baseUrl).toString(), {
+        waitUntil: 'domcontentloaded',
+        timeout: PAGE_TIMEOUT_MS,
+      });
+      if (!response || response.status() >= 400) {
+        throw new Error(`Source route ${sourcePath} returned ${response?.status() ?? 'no response'}`);
+      }
+      const current = new URL(page.url());
+      if (!isLogicalDestination(current.pathname, sourceDestination)) {
+        throw new Error(`Source route ${sourcePath} resolved to an unexpected path`);
+      }
+    },
+  );
+  await runOptionalNavigationSampleStage(
+    stageRunner,
+    'source_heading',
+    () => waitForHeading(page),
+  );
 }
 
 async function findVisibleNavigationLink(
@@ -666,13 +702,20 @@ function waitForDestinationReady(
   page: Page,
   destination: LogicalDestination,
   sourceHeading: string,
+  stageRunner: NavigationSampleStageRunner,
 ): Promise<number> {
   const ready = (async () => {
-    await page.waitForURL(
-      (url) => isLogicalDestination(url.pathname, destination),
-      { timeout: PAGE_TIMEOUT_MS },
+    await stageRunner(
+      'destination_url',
+      () => page.waitForURL(
+        (url) => isLogicalDestination(url.pathname, destination),
+        { timeout: PAGE_TIMEOUT_MS },
+      ),
     );
-    await waitForHeading(page, sourceHeading);
+    await stageRunner(
+      'destination_heading',
+      () => waitForHeading(page, sourceHeading),
+    );
     return nodePerformance.now();
   })();
   // If the interaction itself fails before this promise is awaited, the page
@@ -688,6 +731,7 @@ async function performInteraction(
   interaction: NavigationInteraction,
   observer: PageObserver,
   destination: LogicalDestination,
+  stageRunner: NavigationSampleStageRunner,
 ): Promise<{
   intentPrefetchWaitMs: number;
   durationMs: number;
@@ -697,30 +741,49 @@ async function performInteraction(
   intentTargetRscCompleted: number;
   intentTargetRscSized: number;
 }> {
-  const link = await findVisibleNavigationLink(
-    page,
-    baseUrl,
-    destination,
+  const link = await stageRunner(
+    'link_discovery',
+    () => findVisibleNavigationLink(
+      page,
+      baseUrl,
+      destination,
+    ),
   );
   let intentPrefetchWaitMs = 0;
 
   if (interaction === 'pointer') {
     observer.setPhase('intent');
-    await link.hover({ timeout: PAGE_TIMEOUT_MS });
-    intentPrefetchWaitMs = await waitForIntentPrefetch(observer);
+    await stageRunner(
+      'intent_activation',
+      () => link.hover({ timeout: PAGE_TIMEOUT_MS }),
+    );
+    intentPrefetchWaitMs = await stageRunner(
+      'intent_settlement',
+      () => waitForIntentPrefetch(observer),
+    );
   } else if (interaction === 'keyboard') {
     observer.setPhase('intent');
-    await link.focus();
-    intentPrefetchWaitMs = await waitForIntentPrefetch(observer);
+    await stageRunner('intent_activation', () => link.focus());
+    intentPrefetchWaitMs = await stageRunner(
+      'intent_settlement',
+      () => waitForIntentPrefetch(observer),
+    );
   }
 
-  const sourceHeading = await waitForHeading(page);
+  const sourceHeading = await stageRunner(
+    'source_heading',
+    () => waitForHeading(page),
+  );
   const destinationReady = waitForDestinationReady(
     page,
     destination,
     sourceHeading,
+    stageRunner,
   );
-  await startAcknowledgementProbe(page);
+  await stageRunner(
+    'probe_install',
+    () => startAcknowledgementProbe(page),
+  );
   const navigationStartedAt = nodePerformance.now();
   const intentEvidence = {
     intentTargetRscRequests: observer.counters.intentTargetRscRequests,
@@ -729,13 +792,15 @@ async function performInteraction(
     intentTargetRscSized: observer.counters.intentTargetRscSized,
   };
   observer.setPhase('post-click');
-  if (interaction === 'pointer') {
-    await link.click({ timeout: PAGE_TIMEOUT_MS });
-  } else if (interaction === 'keyboard') {
-    await link.press('Enter', { timeout: PAGE_TIMEOUT_MS });
-  } else {
-    await link.tap({ timeout: PAGE_TIMEOUT_MS });
-  }
+  await stageRunner('navigation_activation', async () => {
+    if (interaction === 'pointer') {
+      await link.click({ timeout: PAGE_TIMEOUT_MS });
+    } else if (interaction === 'keyboard') {
+      await link.press('Enter', { timeout: PAGE_TIMEOUT_MS });
+    } else {
+      await link.tap({ timeout: PAGE_TIMEOUT_MS });
+    }
+  });
 
   const destinationReadyAt = await destinationReady;
   const acknowledgementMs = await readAcknowledgementTiming(page);
@@ -747,7 +812,10 @@ async function performInteraction(
   // Keep observing briefly after readiness for hydration failures and late
   // network activity without adding this window to route or acknowledgement
   // timing.
-  await page.waitForTimeout(POST_READY_OBSERVATION_MS);
+  await stageRunner(
+    'post_ready_observation',
+    () => page.waitForTimeout(POST_READY_OBSERVATION_MS),
+  );
   observer.setPhase('done');
   return {
     intentPrefetchWaitMs,
@@ -764,24 +832,61 @@ async function runNavigationSample(
   interaction: NavigationInteraction,
   sampleNumber: number,
 ): Promise<NavigationSample> {
-  const page = await context.newPage();
-  const observer = createPageObserver(page, baseUrl, transition.targetDestination);
+  const identity: NavigationSampleIdentity = {
+    profile,
+    interaction,
+    transitionId: transition.id,
+    sample: navigationSampleLabel(sampleNumber),
+  };
+  let currentStage: NavigationSampleFailureStage = 'source_navigation';
+  const stageRunner: NavigationSampleStageRunner = async (
+    stage,
+    operation,
+  ) => {
+    currentStage = stage;
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof NavigationSampleMonitorError) throw error;
+      throw new NavigationSampleMonitorError({ ...identity, stage });
+    }
+  };
+  let page: Page | null = null;
+  let primaryError: unknown;
   try {
+    const samplePage = await stageRunner(
+      'source_navigation',
+      () => context.newPage(),
+    );
+    page = samplePage;
+    const observer = await stageRunner(
+      'probe_install',
+      () => createPageObserver(
+        samplePage,
+        baseUrl,
+        transition.targetDestination,
+      ),
+    );
     await gotoSource(
-      page,
+      samplePage,
       baseUrl,
       transition.sourcePath,
       transition.sourceDestination,
+      stageRunner,
     );
-    await installAcknowledgementProbe(page);
+    await stageRunner(
+      'probe_install',
+      () => installAcknowledgementProbe(samplePage),
+    );
     const interactionResult = await performInteraction(
-      page,
+      samplePage,
       baseUrl,
       interaction,
       observer,
       transition.targetDestination,
+      stageRunner,
     );
-    await observer.flush();
+    await stageRunner('post_ready_observation', () => observer.flush());
 
     return {
       transitionId: transition.id,
@@ -806,12 +911,22 @@ async function runNavigationSample(
       serverErrors: observer.counters.serverErrors,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown sample failure';
-    throw new Error(
-      `${profile}/${interaction}/${transition.id} sample ${sampleNumber}: ${message}`,
-    );
+    primaryError = error;
+    if (error instanceof NavigationSampleMonitorError) throw error;
+    throw new NavigationSampleMonitorError({ ...identity, stage: currentStage });
   } finally {
-    await page.close();
+    if (page) {
+      try {
+        await page.close();
+      } catch {
+        if (!primaryError) {
+          throw new NavigationSampleMonitorError({
+            ...identity,
+            stage: 'post_ready_observation',
+          });
+        }
+      }
+    }
   }
 }
 
@@ -1026,15 +1141,11 @@ async function writeMonitorError(
   const outputDirectory = configuration?.outputDirectory
     ?? path.resolve(DEFAULT_OUTPUT_DIRECTORY);
   await mkdir(outputDirectory, { recursive: true });
-  const failure = classifyNavigationMonitorFailure(error);
-  const payload = {
-    schema: NAVIGATION_PERFORMANCE_SCHEMA,
-    status: 'error',
+  const payload = createNavigationMonitorErrorReport(
     startedAt,
-    completedAt: new Date().toISOString(),
-    reason: failure.code,
-    message: failure.message,
-  };
+    new Date().toISOString(),
+    error,
+  );
   await Promise.all([
     writeFile(
       path.join(outputDirectory, 'navigation-performance-error.json'),
@@ -1043,7 +1154,7 @@ async function writeMonitorError(
     ),
     writeFile(
       path.join(outputDirectory, 'navigation-performance-error.md'),
-      `# CentrePass navigation performance\n\n**MONITOR ERROR** — ${failure.message}\n\nReason: \`${failure.code}\`\n`,
+      renderNavigationMonitorErrorMarkdown(payload),
       'utf8',
     ),
   ]);
