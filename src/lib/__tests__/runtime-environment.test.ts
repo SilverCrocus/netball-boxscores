@@ -50,15 +50,30 @@ describe('runtime environment validation', () => {
     ]));
   });
 
-  it('requires the worker and an explicit source URL when the Glasgow feed is enabled', () => {
+  it('uses the reviewed source by default and requires a worker when explicitly enabled', () => {
     expect(validateRuntimeEnvironment({
       ...productionEnvironment,
       WORKER_ENABLED: 'false',
       GLASGOW_LIVE_FEED_ENABLED: 'true',
     })).toEqual(expect.arrayContaining([
       'GLASGOW_LIVE_FEED_ENABLED requires WORKER_ENABLED=true',
-      'GLASGOW_LIVE_FEED_BASE_URL is required when the Glasgow live feed is enabled',
     ]));
+  });
+
+  it('allows an explicit production kill switch without requiring a worker', () => {
+    expect(validateRuntimeEnvironment({
+      ...productionEnvironment,
+      WORKER_ENABLED: 'false',
+      GLASGOW_LIVE_FEED_ENABLED: 'false',
+    })).toEqual([]);
+  });
+
+  it('does not default-enable the feed for a production-built pull-request preview', () => {
+    expect(validateRuntimeEnvironment({
+      ...productionEnvironment,
+      DATABASE_ENVIRONMENT: 'staging',
+      IS_PULL_REQUEST: 'true',
+    })).toEqual([]);
   });
 
   it('pins an enabled production feed to the reviewed Commonwealth Sport origin', () => {

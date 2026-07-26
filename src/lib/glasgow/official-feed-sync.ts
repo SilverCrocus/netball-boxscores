@@ -7,7 +7,9 @@ import type {
 import { prisma } from '@/lib/db';
 import {
   fetchOfficialObservationsForDate,
+  isOfficialGlasgowFeedEnabled,
   londonMatchTimePrefix,
+  officialGlasgowFeedBaseUrl,
   officialSessionsUrl,
   type OfficialFeedObservation,
 } from '@/lib/glasgow/official-feed';
@@ -407,7 +409,7 @@ async function broadcastCanonicalMatch(
 export async function syncOfficialGlasgowResults(
   dependencies: OfficialGlasgowSyncDependencies = {},
 ): Promise<OfficialGlasgowSyncResult> {
-  if (process.env.GLASGOW_LIVE_FEED_ENABLED !== 'true') {
+  if (!isOfficialGlasgowFeedEnabled()) {
     return { status: 'empty', matchesProcessed: 0, issues: [] };
   }
 
@@ -415,14 +417,7 @@ export async function syncOfficialGlasgowResults(
   const now = (dependencies.now ?? (() => new Date()))();
   const retrievedAt = new Date(now);
   const fetchForDate = dependencies.fetchForDate ?? fetchOfficialObservationsForDate;
-  const baseUrl = process.env.GLASGOW_LIVE_FEED_BASE_URL;
-  if (!baseUrl) {
-    return {
-      status: 'error',
-      matchesProcessed: 0,
-      issues: ['GLASGOW_LIVE_FEED_BASE_URL is required when the feed is enabled'],
-    };
-  }
+  const baseUrl = officialGlasgowFeedBaseUrl();
 
   const issues: string[] = [];
   try {

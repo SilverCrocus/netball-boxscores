@@ -15,7 +15,10 @@ discovers sessions for a Europe/London date, then requests the matching phase
 details. Calls are server-side, uncached, time-bounded, response-size-bounded,
 and limited to two concurrent detail requests.
 
-Render must deploy these exact non-secret values:
+Production workers on the production database default to the reviewed feed
+even when an existing Render service has not synchronized its Blueprint
+variables. Pull-request previews and non-production databases remain off by
+default. The Blueprint still declares these exact non-secret values:
 
 | Variable | Production value | Purpose |
 | --- | --- | --- |
@@ -23,11 +26,11 @@ Render must deploy these exact non-secret values:
 | `GLASGOW_LIVE_FEED_ENABLED` | `true` | Enables only the Glasgow official-feed adapter |
 | `GLASGOW_LIVE_FEED_BASE_URL` | `https://api.commonwealthsport.com/cwg-schedule/v1/cwg` | Pins the reviewed upstream API base |
 
-Only exact lowercase `true` enables either flag. Runtime validation rejects an
-enabled Glasgow feed when the worker or base URL is missing, and rejects a base
-URL containing credentials. The worker polls immediately at startup. Once a
-match is live, its normal live cadence is 30 seconds; there is no separate
-manual scheduler.
+An explicit `GLASGOW_LIVE_FEED_ENABLED=false` is the emergency kill switch.
+Runtime validation rejects an enabled Glasgow feed without a worker, any
+unreviewed production base URL, or a URL containing credentials. The worker
+polls immediately at startup. Once a match is live, its normal live cadence is
+30 seconds; there is no separate manual scheduler.
 
 ## Discovery, backfill, and identity
 

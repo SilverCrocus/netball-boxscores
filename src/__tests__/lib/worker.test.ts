@@ -207,6 +207,54 @@ describe('Worker', () => {
     expect(recordPoll).toHaveBeenCalledWith('success', 2);
   });
 
+  it('enables Glasgow automatically for the production worker', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('WORKER_ENABLED', 'true');
+    vi.stubEnv('DATABASE_ENVIRONMENT', 'production');
+    vi.stubEnv('IS_PULL_REQUEST', 'false');
+    vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', '');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const { pollAllSources } = await import('@/lib/worker');
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+      fixture: [],
+      matchDetails: new Map(),
+      pollLogIds: [],
+      matchPollLogIds: new Map(),
+      detailFetchErrors: 0,
+    });
+    glasgowFeedMocks.syncOfficialGlasgowResults.mockResolvedValue({
+      status: 'empty',
+      matchesProcessed: 0,
+    });
+
+    await pollAllSources();
+
+    expect(glasgowFeedMocks.syncOfficialGlasgowResults).toHaveBeenCalledOnce();
+  });
+
+  it('does not default-enable Glasgow for a production-built preview worker', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('WORKER_ENABLED', 'true');
+    vi.stubEnv('DATABASE_ENVIRONMENT', 'production');
+    vi.stubEnv('IS_PULL_REQUEST', 'true');
+    vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', 'true');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const { pollAllSources } = await import('@/lib/worker');
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+      fixture: [],
+      matchDetails: new Map(),
+      pollLogIds: [],
+      matchPollLogIds: new Map(),
+      detailFetchErrors: 0,
+    });
+
+    await pollAllSources();
+
+    expect(glasgowFeedMocks.syncOfficialGlasgowResults).not.toHaveBeenCalled();
+  });
+
   it('does not hide a thrown Glasgow failure behind Champion Data success', async () => {
     vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', 'true');
     const { ingestFromChampionData } = await import('@/lib/ingestion');

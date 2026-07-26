@@ -20,6 +20,7 @@ services:
         value: "true"
       - key: GLASGOW_LIVE_FEED_ENABLED
         value: "true"
+        previewValue: "false"
       - key: GLASGOW_LIVE_FEED_BASE_URL
         value: https://api.commonwealthsport.com/cwg-schedule/v1/cwg
       - key: DATABASE_ENVIRONMENT
