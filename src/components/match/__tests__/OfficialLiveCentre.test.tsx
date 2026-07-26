@@ -12,7 +12,7 @@ describe('OfficialLiveCentre', () => {
     expect(screen.getByRole('heading', {
       name: 'Official Glasgow 2026 live centre',
     })).toBeInTheDocument();
-    expect(screen.getByText('Live official data')).toBeInTheDocument();
+    expect(screen.getByText('Official data')).toBeInTheDocument();
 
     const frame = screen.getByTitle(
       'Official Glasgow 2026 player statistics and play-by-play',
@@ -27,10 +27,10 @@ describe('OfficialLiveCentre', () => {
     );
   });
 
-  it('labels completed match data without claiming that it is live', () => {
+  it('uses status-neutral provider copy that cannot become stale at full time', () => {
     render(<OfficialLiveCentre src={src} isLive={false} />);
 
-    expect(screen.getByText('Official match data')).toBeInTheDocument();
+    expect(screen.getByText('Official data')).toBeInTheDocument();
     expect(screen.queryByText('Live official data')).not.toBeInTheDocument();
   });
 });

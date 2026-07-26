@@ -23,7 +23,7 @@ export function OfficialLiveCentre({
                 Official Glasgow 2026 live centre
               </h2>
               <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ring-1 ring-inset ring-white/25">
-                {isLive ? 'Live official data' : 'Official match data'}
+                Official data
               </span>
             </div>
             <p className="max-w-3xl text-sm leading-6 text-violet-50">
