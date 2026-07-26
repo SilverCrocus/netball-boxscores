@@ -167,6 +167,130 @@ describe('production smoke', () => {
     expect(renderProductionSmokeMarkdown(evidence)).toContain('**PASS** (10/10)');
   });
 
+  it('accepts an exact owning-edition redirect serialized into streamed HTML', async () => {
+    const fallback = healthyFetch();
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname !== `/match/${SSN_MATCH_ID}`) return fallback(input, init);
+      return htmlResponse(
+        `<meta id="__next-page-redirect" http-equiv="refresh" `
+        + `content="1;url=/match/${SSN_MATCH_ID}?edition=${SSN_EDITION_ID}"/>`,
+      );
+    }) as typeof fetch;
+
+    const evidence = await executeProductionSmoke({
+      baseUrl: 'https://www.centrepass.io',
+      expectedCommit: COMMIT,
+      phase: 'published',
+      timeoutMs: 100,
+      retries: 0,
+    }, fetchImpl);
+
+    expect(evidence.summary.passed).toBe(true);
+    expect(evidence.checks.find(
+      (check) => check.name === 'Canonical match-edition redirect',
+    )).toMatchObject({
+      passed: true,
+      request: { status: 200 },
+      observed: 'HTTP 200; streamed owning edition redirect verified',
+    });
+  });
+
+  it('rejects a streamed redirect to a different match', async () => {
+    const fallback = healthyFetch();
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname !== `/match/${SSN_MATCH_ID}`) return fallback(input, init);
+      return htmlResponse(
+        `<meta id="__next-page-redirect" http-equiv="refresh" `
+        + `content="1;url=/match/other-match?edition=${SSN_EDITION_ID}"/>`,
+      );
+    }) as typeof fetch;
+
+    const evidence = await executeProductionSmoke({
+      baseUrl: 'https://www.centrepass.io',
+      expectedCommit: COMMIT,
+      phase: 'published',
+      timeoutMs: 100,
+      retries: 0,
+    }, fetchImpl);
+
+    expect(evidence.checks.find(
+      (check) => check.name === 'Canonical match-edition redirect',
+    )).toMatchObject({
+      passed: false,
+      error: 'redirected to an unexpected origin or path',
+    });
+  });
+
+  it('rejects credentials in a streamed redirect target', async () => {
+    const fallback = healthyFetch();
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname !== `/match/${SSN_MATCH_ID}`) return fallback(input, init);
+      return htmlResponse(
+        `<meta id="__next-page-redirect" http-equiv="refresh" `
+        + `content="1;url=https://user:secret@www.centrepass.io/match/${SSN_MATCH_ID}`
+        + `?edition=${SSN_EDITION_ID}"/>`,
+      );
+    }) as typeof fetch;
+
+    const evidence = await executeProductionSmoke({
+      baseUrl: 'https://www.centrepass.io',
+      expectedCommit: COMMIT,
+      phase: 'published',
+      timeoutMs: 100,
+      retries: 0,
+    }, fetchImpl);
+
+    expect(evidence.checks.find(
+      (check) => check.name === 'Canonical match-edition redirect',
+    )).toMatchObject({
+      passed: false,
+      error: 'redirect target must not contain credentials',
+    });
+  });
+
+  it.each([
+    [
+      'an HTML comment',
+      `<!-- <meta id="__next-page-redirect" http-equiv="refresh" `
+      + `content="1;url=/match/${SSN_MATCH_ID}?edition=${SSN_EDITION_ID}"/> -->`,
+    ],
+    [
+      'a script string',
+      `<script>const marker = '<meta id="__next-page-redirect" http-equiv="refresh" `
+      + `content="1;url=/match/${SSN_MATCH_ID}?edition=${SSN_EDITION_ID}"/>';</script>`,
+    ],
+    [
+      'data attributes',
+      `<meta data-id="__next-page-redirect" data-http-equiv="refresh" `
+      + `data-content="1;url=/match/${SSN_MATCH_ID}?edition=${SSN_EDITION_ID}"/>`,
+    ],
+  ])('rejects redirect-like text in %s', async (_label, markup) => {
+    const fallback = healthyFetch();
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname !== `/match/${SSN_MATCH_ID}`) return fallback(input, init);
+      return htmlResponse(markup);
+    }) as typeof fetch;
+
+    const evidence = await executeProductionSmoke({
+      baseUrl: 'https://www.centrepass.io',
+      expectedCommit: COMMIT,
+      phase: 'published',
+      timeoutMs: 100,
+      retries: 0,
+    }, fetchImpl);
+
+    expect(evidence.checks.find(
+      (check) => check.name === 'Canonical match-edition redirect',
+    )).toMatchObject({
+      passed: false,
+      error: 'redirect has no Location target',
+    });
+  });
+
   it('verifies the pre-feature baseline and fail-closed routes', async () => {
     const evidence = await executeProductionSmoke({
       baseUrl: 'https://www.centrepass.io',

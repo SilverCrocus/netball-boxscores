@@ -215,7 +215,7 @@ describe('Worker', () => {
     );
   });
 
-  it('starts the Glasgow sync without waiting for Champion Data to finish', async () => {
+  it('does not overlap Glasgow database work with Champion Data', async () => {
     vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', 'true');
     const { ingestFromChampionData } = await import('@/lib/ingestion');
     const { recordPoll } = await import('@/lib/worker-health');
@@ -243,8 +243,9 @@ describe('Worker', () => {
     const pollPromise = pollAllSources();
 
     await vi.waitFor(() => {
-      expect(glasgowFeedMocks.syncOfficialGlasgowResults).toHaveBeenCalledOnce();
+      expect(ingestFromChampionData).toHaveBeenCalledOnce();
     });
+    expect(glasgowFeedMocks.syncOfficialGlasgowResults).not.toHaveBeenCalled();
     expect(recordPoll).not.toHaveBeenCalled();
 
     releaseChampionData();
@@ -252,6 +253,7 @@ describe('Worker', () => {
       status: 'success',
       matchesProcessed: 2,
     });
+    expect(glasgowFeedMocks.syncOfficialGlasgowResults).toHaveBeenCalledOnce();
     expect(recordPoll).toHaveBeenCalledOnce();
     expect(recordPoll).toHaveBeenCalledWith('success', 2);
   });
