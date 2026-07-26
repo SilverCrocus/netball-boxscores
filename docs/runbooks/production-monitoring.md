@@ -63,6 +63,32 @@ for ten minutes, memory stays above 85% for ten minutes, or the process restarts
 unexpectedly. Record actual baselines and refine thresholds after the first
 stable production window; do not silently weaken them during an incident.
 
+## Daily navigation regression monitor
+
+After the monitor workflow is merged to the default branch,
+`.github/workflows/navigation-performance.yml` runs a sequential, read-only
+browser journey each day. It covers Live, canonical Standings, Rankings, and
+Records on desktop and mobile and retains JSON/Markdown evidence for 30 days.
+
+Review:
+
+- exact release identity, health, and readiness;
+- sample sufficiency and warmup exclusion;
+- route-switch and acknowledgement p50/p95;
+- idle and post-intent React Server Component traffic;
+- Save-Data and 2G prefetch behavior; and
+- browser, same-origin request, and HTTP 5xx errors.
+
+A release mismatch, health/readiness failure, browser failure, or missing
+evidence invalidates the run and must be investigated. Performance-budget
+misses remain report-only for the first 7–14 stable days. Enable enforcement
+only after the distributions and decision are recorded in
+[`../performance.md`](../performance.md).
+
+Do not increase samples or concurrency and call this a load test. Follow
+[`navigation-performance-monitoring.md`](navigation-performance-monitoring.md)
+for the matrix, budgets, manual invocation, and evidence interpretation.
+
 ## Supabase checks
 
 For project `iqnhnlttvnvkwrqvnrna`, inspect Database Reports/logs, connection

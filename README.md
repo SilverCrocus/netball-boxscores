@@ -1,131 +1,147 @@
 # CentrePass
 
-Live scores, box scores, standings, fixtures, team profiles, and player profiles for the Suncorp Super Netball league.
+CentrePass is a multi-competition netball results application for live scores,
+fixtures, results, standings, brackets, teams, players, rankings, records, and
+deterministic statistical questions.
 
-**Live at [centrepass.io](https://centrepass.io)**
+Production: [www.centrepass.io](https://www.centrepass.io)
 
-## Tech Stack
+## Current stack
 
-- **Framework:** Next.js 16 (App Router) with custom Express server
-- **Runtime:** Node.js 24.14.1 on Render
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS 4
-- **Database:** Supabase PostgreSQL via Prisma 6.x
-- **Real-time:** Socket.io (live scores + stats)
-- **Auth:** NextAuth.js
-- **Hosting:** Render (Oregon region)
-- **Testing:** Vitest
+- Next.js 16.2.11 App Router and React 19
+- Custom Express 5 server with Socket.IO 4
+- Node.js 24.14.1
+- Supabase PostgreSQL through Prisma 6.19.3
+- NextAuth 4
+- Tailwind CSS 4
+- Render Starter in Oregon
+- Vitest, Testing Library, production smoke checks, and Playwright monitoring
 
-## Data Sources
+See [the architecture overview](docs/architecture.md) for the current domain,
+data flow, security boundaries, route groups, and sources of truth.
 
-- **Champion Data** — Match fixtures, scores, and player statistics (free JSON endpoints)
-- **TheSportsDB** — Team badges, player photos, and biographies
+## Local development
 
-## Getting Started
+Requirements:
 
-```bash
-# Install dependencies
-npm install
+- Node.js 24
+- a disposable local PostgreSQL database
 
-# Push schema to database
-npx prisma db push
-
-# Seed with real SSN data
-npx tsx prisma/seed.ts
-
-# Start dev server
+```sh
+cp .env.example .env
+npm ci
+npm run db:migrate:deploy
+npm run db:seed
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). Seeding is optional and
+must be used only with a disposable local database.
 
-The background polling worker is disabled unless `WORKER_ENABLED=true` is set.
-A normal development start therefore serves the application without polling
-Champion Data or writing live updates.
+Keep these safe defaults:
 
-### Safe worktree development
+```dotenv
+DATABASE_ENVIRONMENT=local
+WORKER_ENABLED=false
+ALLOW_SHARED_PRODUCTION_DB_WRITES=false
+ANALYTICS_FEATURES_ENABLED=false
+ASK_CENTREPASS_ENABLED=false
+```
 
-Use a unique port and a disposable local/test database for every worktree. Do
-not copy the production database URL into a feature worktree.
+Never copy production or shared database credentials into a feature worktree.
+Give each worktree its own database, port, and matching `NEXTAUTH_URL`:
 
-```bash
+```sh
 PORT=3101 NEXTAUTH_URL=http://localhost:3101 npm run dev
 ```
 
-Set both `DATABASE_URL` and `DIRECT_URL` to the worktree's disposable database,
-and mark it with `DATABASE_ENVIRONMENT=local` (or `development`, `test`, or
-`staging`). Keep `WORKER_ENABLED=false` unless that worktree specifically owns
-polling. A non-production worker marked against `DATABASE_ENVIRONMENT=production`
-will refuse to start unless `ALLOW_SHARED_PRODUCTION_DB_WRITES=true` is also set;
-that acknowledgement is exceptional and should not be used for ordinary
-development.
+When a local database is temporarily unavailable, localhost can use the
+read-only hosted score API for supported public views:
 
-### Deterministic statistical queries
+```dotenv
+CENTREPASS_PREVIEW_DATA_MODE=upstream
+CENTREPASS_UPSTREAM_ORIGIN=https://www.centrepass.io
+```
 
-`POST /api/stats/query` accepts `{ "question": "..." }` and converts supported
-netball questions into the finite `QuerySpecV1` contract. It never executes SQL
-generated from user text. The endpoint requires `STATS_RATE_LIMIT_SECRET` in
-production; only daily-rotating HMAC client keys and one-way question hashes are
-stored in private analytics telemetry.
+This mode is ignored in production and is not a substitute for database-backed
+development or migration testing.
 
-The application timeout limits the HTTP request but does not cancel an already
-running database statement. Production must therefore retain the analytics
-database role's two-second `statement_timeout` as the database-side backstop.
+## Everyday commands
 
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server (with hot reload) |
-| `npm run build` | Production build |
-| `npm start` | Start production server |
-| `npm test` | Run tests |
-| `npm run db:push` | Push Prisma schema to database |
-| `npm run db:seed` | Seed database with real API data |
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` | Generate Prisma Client and build the production application |
+| `npm start` | Start the production server locally |
+| `npm run check` | Run lint, type checking, and the full test suite |
+| `npm run lint` | Run ESLint |
+| `npm run typecheck` | Run TypeScript without emitting files |
+| `npm test` | Run Vitest once |
+| `npm run smoke:server-startup` | Verify production server startup behavior |
+| `npm run smoke:production` | Run the governed, read-only production smoke suite |
+| `npm run monitor:navigation` | Measure public navigation in a sequential browser journey |
+| `npm run summarize:server-timing` | Summarize bounded server-timing JSONL evidence |
+| `npm run db:migrate:deploy` | Run the guarded Prisma migration deploy flow |
+| `npm run db:seed` | Seed a disposable local database |
 | `npm run db:studio` | Open Prisma Studio |
+| `npm run db:push` | Push schema only to a disposable local database |
 
-## Live Game Simulation
+Production smoke, import, publication, and database commands have additional
+target and evidence requirements. Follow the relevant runbook rather than
+running them from this table alone.
 
-A dev-only simulation system lets you test the live scores pipeline without waiting for a real match.
+## Live simulation
 
-```bash
-# 1. Enable simulation in .env
+The development-only simulator exercises the real ingestion, database, and
+Socket.IO pipeline without waiting for a live match.
+
+Use it only with a disposable database:
+
+```dotenv
+DATABASE_ENVIRONMENT=local
 SIMULATION_MODE=true
 WORKER_ENABLED=true
-DATABASE_ENVIRONMENT=local
-
-# 2. Start dev server
-npm run dev
-
-# 3. Open admin panel
-# http://localhost:3000/admin/sim
+ALLOW_SHARED_PRODUCTION_DB_WRITES=false
 ```
 
-The simulation creates temporary matches (round 99), generates realistic scoring data through the real worker pipeline, and broadcasts via Socket.io. Orphaned data is auto-cleaned on startup.
+Start the server and open
+[http://localhost:3000/admin/sim](http://localhost:3000/admin/sim). Production
+and staging are rejected, and normal development remains write-free in the
+background because the worker is disabled by default.
 
-Simulation still uses the same polling worker as live ingestion, so both
-`SIMULATION_MODE=true` and `WORKER_ENABLED=true` are required. Run it only with
-a disposable database marked `DATABASE_ENVIRONMENT=local`, `development`, or
-`test`; staging and production are always rejected, even when shared production
-writes were explicitly acknowledged. If the worker is disabled, simulation
-routes and startup cleanup remain disabled as well, so a normal development
-start performs no simulation writes.
+## Data and query boundaries
 
-**Production safeguards:** Simulation is blocked in production at three levels — server routes refuse to mount, the engine refuses to create matches, and the Champion Data client refuses to redirect to sim endpoints.
+- Champion Data is the primary fixture, result, and live-stat source.
+- TheSportsDB may enrich team and player media or biography fields.
+- Governed competition imports preserve source, mapping, validation, receipt,
+  checksum, and coverage evidence.
+- Missing capability data stays unavailable; it is never represented as zero.
+- `POST /api/stats/query` parses supported questions into the finite
+  `QuerySpecV1` contract. It never executes SQL generated from user text.
 
-## Project Structure
+## Documentation
 
-```
-src/
-  app/              # Next.js App Router pages
-  components/       # React components (ui/, player/, match/)
-  lib/              # Server utilities (db, worker, simulation, etc.)
-  types/            # TypeScript type definitions
-prisma/
-  schema.prisma     # Database schema
-  seed.ts           # Real data seeder
-server.ts           # Custom Express + Socket.io server
-scripts/            # Maintenance scripts
-stitch-designs/     # UI design prototypes (HTML + screenshots)
-docs/               # Design specs and implementation plans
+Start at [docs/README.md](docs/README.md):
+
+- [Architecture](docs/architecture.md)
+- [Performance status and roadmap](docs/performance.md)
+- [Production release runbook](docs/runbooks/production-release.md)
+- [Production monitoring](docs/runbooks/production-monitoring.md)
+- [Navigation performance monitoring](docs/runbooks/navigation-performance-monitoring.md)
+
+Files under `docs/history/` are point-in-time evidence, not current operating
+instructions. The code, Prisma migrations, `render.yaml`, workflows, and live
+health/readiness responses take precedence if documentation drifts.
+
+## Repository map
+
+```text
+src/app/          Next.js pages and route handlers
+src/components/   Shared application UI
+src/lib/          Data access, policy, worker, analytics, and runtime modules
+prisma/           Schema, migrations, and seed data
+scripts/          Verification, monitoring, import, and maintenance tools
+docs/             Current architecture, performance, and operational guidance
+server.ts         Express, Next.js, Socket.IO, and worker launcher
+render.yaml       Production service contract
 ```

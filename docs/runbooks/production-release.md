@@ -282,25 +282,10 @@ The commit-bound baseline smoke must pass before feature enablement or the
 first Glasgow DRAFT write; it also proves Glasgow and feature routes fail
 closed while their switches are off.
 
-### Historical PR-preview migration incident
-
-The applying automatic Render PR #52 preview was the pre-guard,
-`e9a252d`-era deployment at approximately 15:31 Sydney time. It inherited the
-base service's production database credentials, its inherited
-`preDeployCommand` ran `npm run db:migrate:deploy`, and it applied the
-additive migration `20260722000000_add_analytics_cache_epoch` to production.
-The production ledger records completion at `2026-07-22 05:31:39.151698+00`
-(approximately 15:31:39 Sydney); the Render preview log identified the pooler
-target and reported 15 migrations with no pending migrations. This mutation was
-not performed manually by the release-preparation lane, is additive and
-ledger-clean, and must remain in the release ledger.
-
-`1fb85fd`, created later at approximately 19:59 Sydney time, contained the
-later `0e7fbb76...` migration bytes and only observed/verified preview behavior;
-it could not have applied the production ledger row carrying checksum
-`1f7d2690...`. The migration guard arrived in `0895da8` and subsequent Render
-PR previews must show its low-cardinality skip message without invoking
-Prisma. Do not attempt a rollback.
+The point-in-time account of the 2026-07-22 Render preview migration is kept in
+[`../history/2026-07-22-render-preview-migration-incident.md`](../history/2026-07-22-render-preview-migration-incident.md).
+It explains why the preview guard is permanent, but it is not current release
+evidence.
 
 The Blueprint's Render health check is `/api/health`; liveness alone is not a
 release pass. `/api/readiness` must also return `200` and `status=ready`.
@@ -344,6 +329,12 @@ npm run smoke:production -- \
 ```
 
 Complete the manual mobile/auth/accessibility checklist in
-[`production-smoke.md`](production-smoke.md), then begin
-[`production-monitoring.md`](production-monitoring.md). Any critical failure
-invokes [`production-rollback.md`](production-rollback.md).
+[`production-smoke.md`](production-smoke.md). For a release that changes public
+navigation or route performance, manually run the exact-release, 20-sample
+workflow described in
+[`navigation-performance-monitoring.md`](navigation-performance-monitoring.md)
+and attach its JSON/Markdown evidence. Keep budgets report-only until the
+recorded observation window is complete.
+
+Then begin [`production-monitoring.md`](production-monitoring.md). Any critical
+failure invokes [`production-rollback.md`](production-rollback.md).

@@ -1,0 +1,99 @@
+name: Production navigation performance
+
+on:
+  schedule:
+    # 19:17 UTC is 05:17 or 06:17 in Sydney, outside normal traffic peaks.
+    - cron: "17 19 * * *"
+  workflow_dispatch:
+    inputs:
+      expected_release_sha:
+        description: Exact production SHA; defaults to the checked-out main SHA
+        required: false
+        type: string
+      samples:
+        description: Measured samples per transition after one excluded warmup
+        required: true
+        default: "20"
+        type: string
+      enforce_budgets:
+        description: Fail the job when a performance budget is missed
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-navigation-performance
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Sequential production browser monitor
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PERF_BASE_URL: https://www.centrepass.io
+      PERF_EXPECTED_RELEASE_SHA: ${{ inputs.expected_release_sha || github.sha }}
+      PERF_SAMPLES: ${{ inputs.samples || '20' }}
+      PERF_ENFORCE_BUDGETS: ${{ inputs.enforce_budgets || 'false' }}
+      PERF_OUTPUT_DIRECTORY: .artifacts/performance-regression
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Validate monitor sample policy
+        shell: bash
+        run: |
+          if [[ ! "$PERF_SAMPLES" =~ ^[0-9]+$ ]] || (( PERF_SAMPLES < 1 || PERF_SAMPLES > 50 )); then
+            echo "Samples must be an integer between 1 and 50."
+            exit 1
+          fi
+          if [[ "$PERF_ENFORCE_BUDGETS" == "true" ]] && (( PERF_SAMPLES < 20 )); then
+            echo "Budget enforcement requires at least 20 samples per transition."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install the Chromium monitor runtime
+        run: npx playwright install chromium --with-deps
+
+      - name: Measure production navigation
+        run: npm run monitor:navigation
+
+      - name: Add the report to the workflow summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          report=".artifacts/performance-regression/navigation-performance.md"
+          error_report=".artifacts/performance-regression/navigation-performance-error.md"
+          if [[ -f "$report" ]]; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ -f "$error_report" ]]; then
+            cat "$error_report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "# CentrePass navigation performance" >> "$GITHUB_STEP_SUMMARY"
+            echo "The monitor ended before it could create an evidence report." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload navigation evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: navigation-performance-${{ github.run_id }}
+          path: .artifacts/performance-regression/
+          if-no-files-found: error
+          retention-days: 30

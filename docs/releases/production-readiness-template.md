@@ -126,7 +126,7 @@ absent or any evidence is missing, decision is `NO-GO` for Glasgow publication.
 
 ## Monitoring and handoff
 
-### Phase 2 analytics memory gate
+### Analytics memory gate
 
 Run the post-deploy probe in two stages. First make sequential warm requests to
 `/rankings` and `/records` and confirm the expected warm-cache timings. Only
@@ -148,6 +148,27 @@ production from this repository's release-preparation lane.
 - Render metrics/log evidence and monitoring owner:
 - headroom decision: `PASS` / `BLOCKED`
 
+### Navigation regression monitor
+
+Use
+[`../runbooks/navigation-performance-monitoring.md`](../runbooks/navigation-performance-monitoring.md).
+The monitor is sequential and read-only; it is not a load test.
+
+- Scheduled/manual workflow URL:
+- Exact deployed release SHA:
+- Observation window:
+- Measured samples per group:
+- Desktop pointer p50/p95:
+- Desktop keyboard p50/p95:
+- Mobile touch p50/p95:
+- Acknowledgement p50/p95:
+- Idle RSC request/byte evidence:
+- Save-Data and 2G policy result:
+- Browser/request/HTTP 5xx errors:
+- Budget mode: `REPORT-ONLY` / `ENFORCED`
+- JSON/Markdown artifact location and retention:
+- Result/decision:
+
 - Monitoring owner/window:
 - Render logs/metrics result:
 - Supabase reports/advisors result:
@@ -157,32 +178,9 @@ production from this repository's release-preparation lane.
 - Remaining caveats:
 - Final decision/status:
 
-## Historical mutation ledger correction
-
-The applying automatic Render PR #52 preview was the pre-guard,
-`e9a252d`-era deployment at approximately 15:31 Sydney time. It inherited the
-base service's production database credentials and executed the inherited
-`preDeployCommand` before the migration guard existed. Render applied
-`20260722000000_add_analytics_cache_epoch` to production; the production
-ledger records completion at `2026-07-22 05:31:39.151698+00`. Record the exact
-Render preview deployment/log evidence and the production ledger read here.
-This was an automatic preview-side mutation, not a manual production action
-from this lane. It was additive and ledger-clean; do not claim that no
-production mutation occurred and do not attempt rollback.
-
-`1fb85fd`, created later at approximately 19:59 Sydney time, contained the
-later `0e7fbb76...` migration bytes and only observed/verified preview
-behavior; it could not have applied the production ledger row carrying
-checksum `1f7d2690...`. The migration guard arrived in `0895da8`; future PR
-previews must show the guard-skip evidence and must not invoke Prisma.
-
-- historical Render PR preview service: `srv-d9g5akn7f7vs73eqt52g`
-- historical preview URL: `https://centrepass-pr-52.onrender.com`
-- historical base service: `srv-d71t7iaa214c73eaqmcg`
-- historical mutation migration:
-- historical Render pre-deploy evidence:
-- production ledger evidence:
-- next preview guard-skip log evidence:
+Historical release evidence, including the 2026-07-22 preview migration
+incident, lives under [`../history/`](../history/) and must not be copied
+forward as proof for a new release.
 
 ## Exact rollback instructions
 

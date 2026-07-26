@@ -1,6 +1,16 @@
 # Analytics and Ask CentrePass database roles
 
-CentrePass analytics live in the private `analytics` Postgres schema. Supabase's Data API exposes `public` by default; do not add `analytics` to the project's exposed-schema setting. The migration revokes implicit `PUBLIC`, `anon`, `authenticated`, and `service_role` access. Any future Data API route must receive an explicit, reviewed grant alongside its RLS policy.
+CentrePass analytics live in the private `analytics` Postgres schema. A
+Supabase project may be configured to expose `public` through the Data API, but
+schema exposure, PostgreSQL grants, and RLS are separate controls. New tables
+also must not be assumed to receive automatic Data API access. Verify the
+project's actual exposed schemas and effective privileges instead of relying on
+a platform default.
+
+Do not add `analytics` to the exposed-schema setting. The migration revokes
+implicit `PUBLIC`, `anon`, `authenticated`, and `service_role` access. Any
+future Data API route must receive an explicit, reviewed grant alongside its
+RLS policy.
 
 The reviewed views use PostgreSQL's owner-run view behavior inside that private schema. This lets the server-side analytics login query a deliberately small surface without receiving `SELECT` on source tables. If a view is ever moved into an exposed schema, redesign its access policy and use `security_invoker = true` before release.
 
@@ -176,4 +186,9 @@ Record execution time, buffers, and row estimates. Add materialized views only a
 - `ASK_CENTREPASS_ENABLED=false` disables Ask CentrePass while leaving other analytics available. `ANALYTICS_FEATURES_ENABLED=false` disables the complete analytics surface and implicitly disables Ask CentrePass.
 - Neither kill switch removes snapshots, record history, telemetry, or invalidation state.
 
-References: [Supabase Row Level Security and views](https://supabase.com/docs/guides/database/postgres/row-level-security) and [Supabase custom schemas](https://supabase.com/docs/guides/api/using-custom-schemas).
+References:
+
+- [Supabase Data API security](https://supabase.com/docs/guides/database/secure-data)
+- [Supabase Prisma troubleshooting and pooler guidance](https://supabase.com/docs/guides/database/prisma/prisma-troubleshooting)
+- [Supabase custom schemas](https://supabase.com/docs/guides/api/using-custom-schemas)
+- [Supabase 2026 Data API exposure change](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically)

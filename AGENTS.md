@@ -10,3 +10,17 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Documentation
+
+- Start at `docs/README.md`.
+- Treat `docs/architecture.md` and `docs/performance.md` as the current
+  architecture and performance overviews.
+- Files under `docs/history/` are historical evidence, not operating
+  instructions.
+- Verify prose against `package.json`, `render.yaml`, Prisma migrations, route
+  files, workflows, and live health/readiness evidence.
+- Remove completed one-off plans instead of creating a competing source of
+  truth. Git history retains them.
+- Do not include generated `graphify-out/` changes in a feature branch unless
+  the task explicitly requires them.
