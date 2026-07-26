@@ -23,8 +23,8 @@ narrow telemetry/rate-limit credential is `STATS_OPERATIONS_DATABASE_URL`.
 | `DRAFT_PREVIEW_ENABLED` | fail-closed Glasgow DRAFT preview gate; unset/empty/`false` disables, exact lowercase `true` enables only for bounded QA | no | release owner; set `false` normally and after every QA window |
 | `DRAFT_PREVIEW_OPERATOR_IDS` | comma-separated stable NextAuth user IDs; configured only for approved QA operators and removed after QA | controlled | auth/release owner; rotate on operator/access change and remove after the bounded window |
 | `WORKER_ENABLED` | `true` in normal production; `false` only for documented containment | no | operations owner; readiness intentionally degrades while false |
-| `GLASGOW_LIVE_FEED_ENABLED` | `true` for automatic official Glasgow score ingestion; exact lowercase boolean; requires the worker | no | results/operations owner; disable only for documented Glasgow-feed containment |
-| `GLASGOW_LIVE_FEED_BASE_URL` | exact reviewed Commonwealth Sport API base `https://api.commonwealthsport.com/cwg-schedule/v1/cwg`; required while enabled; no URL credentials | no | results/application owner; reviewed provider change |
+| `GLASGOW_LIVE_FEED_ENABLED` | `true` for automatic official Glasgow score ingestion; a production worker on the production database also defaults on when absent; exact lowercase boolean; PR previews are always off | no | results/operations owner; set `false` only for documented Glasgow-feed containment |
+| `GLASGOW_LIVE_FEED_BASE_URL` | optional override pinned in production to `https://api.commonwealthsport.com/cwg-schedule/v1/cwg`; the same reviewed URL is compiled as the default; no URL credentials | no | results/application owner; reviewed provider change |
 | `ALLOW_SHARED_PRODUCTION_DB_WRITES` | `false` (or unset, which fails closed); prefer explicit `false` in production | no | operations owner; changing to true is prohibited without a separate reviewed incident plan |
 | `NEXTAUTH_SECRET` | generated high-entropy NextAuth secret | yes | auth owner; rotate with forced session invalidation plan |
 | `NEXTAUTH_URL` | exact public HTTPS origin | no | auth/release owner; verify after domain change |
@@ -50,8 +50,10 @@ not be used against production.
   overrides must agree with the exact parameter contract below.
 - The four database roles/URLs are not interchangeable.
 - Both feature flags fail closed. Ask cannot be enabled while analytics is off.
-- Normal production is `WORKER_ENABLED=true`,
-  `GLASGOW_LIVE_FEED_ENABLED=true`,
+- Normal production is `WORKER_ENABLED=true`; the Blueprint explicitly sets
+  `GLASGOW_LIVE_FEED_ENABLED=true` while production safely defaults on if that
+  variable has not synchronized. Pull-request previews are always off.
+  Production also requires
   `DATABASE_ENVIRONMENT=production`,
   `ALLOW_SHARED_PRODUCTION_DB_WRITES=false`.
 - `/api/readiness` is the authoritative runtime probe for URL presence,

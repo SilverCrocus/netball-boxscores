@@ -1,3 +1,9 @@
+import {
+  COMMONWEALTH_SPORT_CWG_BASE_URL,
+  isOfficialGlasgowFeedEnabled,
+  officialGlasgowFeedBaseUrl,
+} from '@/lib/glasgow/official-feed';
+
 const BOOLEAN_VARIABLES = [
   'WORKER_ENABLED',
   'ALLOW_SHARED_PRODUCTION_DB_WRITES',
@@ -6,13 +12,11 @@ const BOOLEAN_VARIABLES = [
   'ASK_CENTREPASS_ENABLED',
   'DRAFT_PREVIEW_ENABLED',
   'GLASGOW_LIVE_FEED_ENABLED',
+  'IS_PULL_REQUEST',
 ] as const;
 
 const PLACEHOLDER = /(generate|replace|change[- _]?me|example|placeholder|ci-only)/i;
 const STABLE_USER_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._:-]{0,126}[A-Za-z0-9])?$/;
-const GLASGOW_PRODUCTION_FEED_URL =
-  'https://api.commonwealthsport.com/cwg-schedule/v1/cwg';
-
 export type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 
 function validUrl(value: string | undefined, protocols: readonly string[]): URL | null {
@@ -74,15 +78,14 @@ export function validateRuntimeEnvironment(
   if (env.ASK_CENTREPASS_ENABLED === 'true' && env.ANALYTICS_FEATURES_ENABLED !== 'true') {
     errors.push('ASK_CENTREPASS_ENABLED requires ANALYTICS_FEATURES_ENABLED=true');
   }
-  if (env.GLASGOW_LIVE_FEED_ENABLED === 'true') {
+  if (isOfficialGlasgowFeedEnabled(env)) {
     if (env.WORKER_ENABLED !== 'true') {
       errors.push('GLASGOW_LIVE_FEED_ENABLED requires WORKER_ENABLED=true');
     }
-    if (!env.GLASGOW_LIVE_FEED_BASE_URL?.trim()) {
-      errors.push('GLASGOW_LIVE_FEED_BASE_URL is required when the Glasgow live feed is enabled');
-    } else if (
+    if (
       production
-      && env.GLASGOW_LIVE_FEED_BASE_URL.trim() !== GLASGOW_PRODUCTION_FEED_URL
+      && officialGlasgowFeedBaseUrl(env)
+        !== COMMONWEALTH_SPORT_CWG_BASE_URL
     ) {
       errors.push('GLASGOW_LIVE_FEED_BASE_URL must equal the reviewed Commonwealth Sport production URL');
     }

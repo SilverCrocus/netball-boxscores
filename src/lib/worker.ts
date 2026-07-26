@@ -29,6 +29,7 @@ import { resolvePublicMatchAccess } from '@/lib/public-match';
 import { runSerializableTransaction } from '@/lib/serializable-transaction';
 import { safeErrorMessage } from '@/lib/safe-logging';
 import { syncOfficialGlasgowResults } from '@/lib/glasgow/official-feed-sync';
+import { isOfficialGlasgowFeedEnabled } from '@/lib/glasgow/official-feed';
 
 // ── Polling intervals ──
 
@@ -630,7 +631,7 @@ export async function pollAllSources(): Promise<WorkerPollOutcome> {
     await pollChampionData({ recordHealth: false }),
   ];
 
-  if (process.env.GLASGOW_LIVE_FEED_ENABLED === 'true') {
+  if (isOfficialGlasgowFeedEnabled()) {
     try {
       const glasgow = await syncOfficialGlasgowResults();
       if (

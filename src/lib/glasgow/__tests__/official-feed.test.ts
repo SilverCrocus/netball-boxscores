@@ -5,7 +5,9 @@ import {
   fetchOfficialObservationsForDate,
   fetchOfficialSessions,
   GLASGOW_2026_COMPETITION_ID,
+  isOfficialGlasgowFeedEnabled,
   londonMatchTimePrefix,
+  officialGlasgowFeedBaseUrl,
   officialPhaseDetailUrl,
   officialSessionsUrl,
   parseOfficialDetailPayload,
@@ -119,6 +121,39 @@ function liveDetailPayload() {
 }
 
 describe('Commonwealth Sport Glasgow 2026 official feed', () => {
+  it('defaults on only for a production worker and preserves the kill switch', () => {
+    expect(isOfficialGlasgowFeedEnabled({
+      NODE_ENV: 'production',
+      WORKER_ENABLED: 'true',
+      DATABASE_ENVIRONMENT: 'production',
+    })).toBe(true);
+    expect(isOfficialGlasgowFeedEnabled({
+      NODE_ENV: 'production',
+      WORKER_ENABLED: 'true',
+      DATABASE_ENVIRONMENT: 'production',
+      GLASGOW_LIVE_FEED_ENABLED: 'false',
+    })).toBe(false);
+    expect(isOfficialGlasgowFeedEnabled({
+      NODE_ENV: 'test',
+      WORKER_ENABLED: 'true',
+      DATABASE_ENVIRONMENT: 'production',
+    })).toBe(false);
+    expect(isOfficialGlasgowFeedEnabled({
+      NODE_ENV: 'production',
+      WORKER_ENABLED: 'true',
+      DATABASE_ENVIRONMENT: 'staging',
+    })).toBe(false);
+    expect(isOfficialGlasgowFeedEnabled({
+      NODE_ENV: 'production',
+      WORKER_ENABLED: 'true',
+      DATABASE_ENVIRONMENT: 'production',
+      IS_PULL_REQUEST: 'true',
+      GLASGOW_LIVE_FEED_ENABLED: 'true',
+    })).toBe(false);
+    expect(officialGlasgowFeedBaseUrl({}))
+      .toBe(COMMONWEALTH_SPORT_CWG_BASE_URL);
+  });
+
   it('parses the current Wales/Scotland-shaped LIVE result and orders sides numerically', () => {
     const sessions = parseOfficialSessionsPayload(liveSessionsPayload);
     const requests = buildOfficialPhaseRequests(sessions);

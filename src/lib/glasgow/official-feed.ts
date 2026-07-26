@@ -5,6 +5,34 @@ export const GLASGOW_2026_COMPETITION_ID =
 export const GLASGOW_NETBALL_DISCIPLINE_CODE = 'NBL';
 export const OFFICIAL_FEED_TIMEOUT_MS = 10_000;
 
+type OfficialFeedEnvironment = Readonly<
+  Record<string, string | undefined>
+>;
+
+export function isOfficialGlasgowFeedEnabled(
+  env: OfficialFeedEnvironment = process.env,
+): boolean {
+  if (
+    env.IS_PULL_REQUEST !== undefined
+    && env.IS_PULL_REQUEST !== ''
+    && env.IS_PULL_REQUEST !== 'false'
+  ) {
+    return false;
+  }
+  if (env.GLASGOW_LIVE_FEED_ENABLED === 'true') return true;
+  if (env.GLASGOW_LIVE_FEED_ENABLED === 'false') return false;
+  return env.NODE_ENV === 'production'
+    && env.WORKER_ENABLED === 'true'
+    && env.DATABASE_ENVIRONMENT?.trim().toLowerCase() === 'production';
+}
+
+export function officialGlasgowFeedBaseUrl(
+  env: OfficialFeedEnvironment = process.env,
+): string {
+  return env.GLASGOW_LIVE_FEED_BASE_URL?.trim()
+    || COMMONWEALTH_SPORT_CWG_BASE_URL;
+}
+
 const MAX_RESPONSE_BYTES = 1_000_000;
 const MAX_SESSIONS = 200;
 const MAX_PHASES_PER_SESSION = 32;
