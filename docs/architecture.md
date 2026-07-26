@@ -32,6 +32,7 @@ flowchart LR
     P --> D["Prisma and scoped PostgreSQL clients"]
     D --> S["Supabase PostgreSQL"]
     C["Champion Data"] --> W["Polling worker"]
+    F["Commonwealth Sport"] --> W
     W --> I["Ingest, validate, process"]
     I --> S
     I --> O["Socket.IO updates"]
@@ -101,10 +102,12 @@ transactional writer changes canonical data. Import runs preserve source
 snapshots, mappings, validation issues, mutation rows, checksums, and coverage
 declarations.
 
-Glasgow 2026 uses the stricter manual workflow documented in the Glasgow
-runbooks. Production mutations require a fresh action-bound target guard,
-private refs-only evidence, a matching recorded preview, and explicit
-confirmation. Publication is separate from import.
+Glasgow 2026 foundation import and publication use the stricter guarded manual
+workflow documented in the Glasgow runbooks. After publication, the worker
+polls the official Commonwealth Sport feed for score-only live and completed
+results. Those writes reuse the governed transactional results service and
+record scheduled import receipts; the guarded manual results flow remains an
+emergency fallback. Publication is separate from import.
 
 ## Public application surfaces
 

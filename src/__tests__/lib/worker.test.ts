@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const glasgowFeedMocks = vi.hoisted(() => ({
+  syncOfficialGlasgowResults: vi.fn().mockResolvedValue({
+    status: 'empty' as const,
+    matchesProcessed: 0,
+  }),
+}));
+
 vi.mock('@/lib/db', () => {
   const transactionClient = {
     playerMatchStats: { findMany: vi.fn() },
@@ -34,6 +41,8 @@ vi.mock('@/lib/live-state', () => ({
 vi.mock('@/lib/ingestion', () => ({
   ingestFromChampionData: vi.fn(),
 }));
+
+vi.mock('@/lib/glasgow/official-feed-sync', () => glasgowFeedMocks);
 
 vi.mock('@/lib/processing', () => ({
   validateMatchData: vi.fn(),
@@ -74,6 +83,7 @@ describe('Worker', () => {
     vi.clearAllMocks();
     // Most worker unit tests exercise one source; a dedicated test below covers finals.
     vi.stubEnv('SSN_FINALS_COMPETITION_ID', '12949');
+    vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', '');
     const { prisma } = await import('@/lib/db');
     const processing = await import('@/lib/processing');
     vi.mocked(prisma.team.findMany).mockResolvedValue([]);
@@ -124,7 +134,7 @@ describe('Worker', () => {
   it('should return 30s for live matches', async () => {
     vi.stubEnv('SIMULATION_MODE', '');
     const { getPollingInterval } = await import('@/lib/worker');
-    expect(getPollingInterval(true, true, false)).toBe(10_000);
+    expect(getPollingInterval(true, true, false)).toBe(30_000);
   });
 
   it('should return 1min for pre-match', async () => {
@@ -149,6 +159,81 @@ describe('Worker', () => {
     vi.stubEnv('SIMULATION_MODE', 'true');
     const { getPollingInterval } = await import('@/lib/worker');
     expect(getPollingInterval(true, true, false)).toBe(2_000);
+  });
+
+  it('records one Champion Data outcome when the Glasgow feed is disabled', async () => {
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const { recordPoll } = await import('@/lib/worker-health');
+    const { pollAllSources } = await import('@/lib/worker');
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+      fixture: [],
+      matchDetails: new Map(),
+      pollLogIds: [],
+      matchPollLogIds: new Map(),
+      detailFetchErrors: 0,
+    });
+
+    const outcome = await pollAllSources();
+
+    expect(glasgowFeedMocks.syncOfficialGlasgowResults).not.toHaveBeenCalled();
+    expect(outcome).toEqual({ status: 'empty', matchesProcessed: 0 });
+    expect(recordPoll).toHaveBeenCalledOnce();
+    expect(recordPoll).toHaveBeenCalledWith('empty', 0);
+  });
+
+  it('aggregates a successful enabled Glasgow sync into one health record', async () => {
+    vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', 'true');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const { recordPoll } = await import('@/lib/worker-health');
+    const { pollAllSources } = await import('@/lib/worker');
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+      fixture: [],
+      matchDetails: new Map(),
+      pollLogIds: [],
+      matchPollLogIds: new Map(),
+      detailFetchErrors: 0,
+    });
+    glasgowFeedMocks.syncOfficialGlasgowResults.mockResolvedValue({
+      status: 'success',
+      matchesProcessed: 2,
+    });
+
+    const outcome = await pollAllSources();
+
+    expect(outcome).toEqual({ status: 'success', matchesProcessed: 2 });
+    expect(recordPoll).toHaveBeenCalledOnce();
+    expect(recordPoll).toHaveBeenCalledWith('success', 2);
+  });
+
+  it('does not hide a thrown Glasgow failure behind Champion Data success', async () => {
+    vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', 'true');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const { recordPoll } = await import('@/lib/worker-health');
+    const { pollAllSources } = await import('@/lib/worker');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(ingestFromChampionData).mockResolvedValue({
+      fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+      fixture: [{ matchId: 101 } as never],
+      matchDetails: new Map(),
+      pollLogIds: [],
+      matchPollLogIds: new Map(),
+      detailFetchErrors: 0,
+    });
+    glasgowFeedMocks.syncOfficialGlasgowResults.mockRejectedValue(
+      new Error('failed at https://worker:not-a-real-secret@official.example/results'),
+    );
+
+    const outcome = await pollAllSources();
+
+    expect(outcome).toEqual({ status: 'error', matchesProcessed: 0 });
+    expect(recordPoll).toHaveBeenCalledOnce();
+    expect(recordPoll).toHaveBeenCalledWith('error', 0);
+    const logged = errorSpy.mock.calls.flat().join(' ');
+    expect(logged).toContain('https://[redacted]@official.example/results');
+    expect(logged).not.toContain('not-a-real-secret');
+    errorSpy.mockRestore();
   });
 
   it('redacts credential-bearing URLs from ingestion errors', async () => {

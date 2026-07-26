@@ -5,8 +5,8 @@ export interface ScoreUpdatePayload {
   revision?: string;
   homeScore: number;
   awayScore: number;
-  currentQuarter: number;
-  currentTime: string;
+  currentQuarter: number | null;
+  currentTime: string | null;
 }
 
 export interface StatsUpdatePayload {
@@ -33,8 +33,8 @@ export interface MatchStatusPayload {
   matchId: string;
   revision?: string;
   status: 'LIVE' | 'COMPLETED';
-  quarter: number;
-  time: string;
+  quarter: number | null;
+  time: string | null;
 }
 
 export interface ScoreFlowAddPayload {

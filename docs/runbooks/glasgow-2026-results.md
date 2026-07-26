@@ -1,8 +1,11 @@
 # Glasgow 2026 results import runbook
 
-The results importer is the only supported manual workflow for changing a
-published Glasgow match. It is intentionally narrower than the foundation
-importer and cannot create teams, players, entries, or matches.
+The results importer is the only supported **manual** workflow for changing a
+published Glasgow match. Routine scores use the automatic official feed in
+[`glasgow-2026-live-feed.md`](glasgow-2026-live-feed.md); use this guarded path
+only as an emergency fallback after disabling that feed. It is intentionally
+narrower than the foundation importer and cannot create teams, players,
+entries, or matches.
 
 ## Input contract
 

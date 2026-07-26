@@ -224,16 +224,25 @@ describe('live match route safety', () => {
     },
   );
 
-  it('refuses completed-page realtime when no public detail capability remains', async () => {
+  it('renders completed score-only coverage and keeps correction replay enabled', async () => {
     findUniqueMock.mockResolvedValue(detailedMatch('COMPLETED'));
     resolvePublicMatchMock.mockResolvedValue(publicAccess('COMPLETED', ['FINAL_SCORE']));
 
-    await expect(LiveGamePage({
+    render(await LiveGamePage({
       params: Promise.resolve({ matchId: 'glasgow-match-1' }),
       searchParams: Promise.resolve({ edition: 'glasgow-2026' }),
-    })).rejects.toThrow('REDIRECT:/match/glasgow-match-1?edition=glasgow-2026');
+    }));
 
-    expect(liveClientPropsMock).not.toHaveBeenCalled();
+    expect(liveClientPropsMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      match: expect.objectContaining({ status: 'COMPLETED' }),
+      realtimeEnabled: true,
+      capabilities: expect.objectContaining({
+        playerBoxScore: false,
+        scoreFlow: false,
+        matchEvents: false,
+      }),
+    }));
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it('does not serialize roster stats, periods, or events without their capabilities', async () => {

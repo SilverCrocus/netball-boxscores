@@ -377,7 +377,12 @@ describe('player and match broadcasts', () => {
 
     expect(broadcastScoreUpdate).toHaveBeenCalledWith(
       'match-1',
-      expect.objectContaining({ homeScore: 60, awayScore: 39, currentQuarter: 4 }),
+      expect.objectContaining({
+        homeScore: 60,
+        awayScore: 39,
+        currentQuarter: 4,
+        currentTime: '0',
+      }),
       expect.anything(),
       '2026-07-25T09:00:01.000Z',
     );
@@ -390,6 +395,41 @@ describe('player and match broadcasts', () => {
     expect(broadcastStatEventsSnapshot).toHaveBeenCalledWith(
       'match-1',
       { matchId: 'match-1', events: [] },
+      expect.anything(),
+      '2026-07-25T09:00:01.000Z',
+    );
+  });
+
+  it('keeps score-only completion period and clock fields unknown', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(
+      ['FINAL_SCORE'],
+      'COMPLETED',
+    ));
+    mockMatchFindUnique.mockResolvedValue({
+      status: 'COMPLETED',
+      homeScore: 47,
+      awayScore: 56,
+      currentQuarter: null,
+      sourceUpdatedAt: new Date('2026-07-25T09:00:01Z'),
+    } as never);
+
+    await broadcastCompletion(
+      'match-1',
+      47,
+      56,
+      null,
+      '2026-07-25T09:00:01.000Z',
+    );
+
+    expect(broadcastMatchStatus).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({ status: 'COMPLETED', quarter: null, time: null }),
+      expect.anything(),
+      '2026-07-25T09:00:01.000Z',
+    );
+    expect(broadcastScoreUpdate).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({ currentQuarter: null, currentTime: null }),
       expect.anything(),
       '2026-07-25T09:00:01.000Z',
     );

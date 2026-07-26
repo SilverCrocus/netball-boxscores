@@ -25,8 +25,8 @@ interface LiveScoreHeroProps {
   liveScore?: {
     homeScore: number;
     awayScore: number;
-    currentQuarter: number;
-    currentTime: string;
+    currentQuarter: number | null;
+    currentTime: string | null;
   } | null;
   matchStatus?: { status: 'LIVE' | 'COMPLETED' } | null;
   quarters?: QuarterData[];
@@ -214,7 +214,11 @@ export function LiveScoreHero({
                   : isFullTime
                     ? 'Full Time'
                     : <>
-                        {(quarter ?? 0) > 4 ? 'ET' : `Q${quarter}`} {time && `\u2022 ${formatGameClock(time, quarter)}`}
+                        {quarter === null || quarter === undefined
+                          ? 'Live'
+                          : quarter > 4
+                            ? 'ET'
+                            : `Q${quarter}`} {time && `\u2022 ${formatGameClock(time, quarter)}`}
                       </>
                 }
               </span>

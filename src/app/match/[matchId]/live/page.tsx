@@ -148,14 +148,10 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
   if (!match || !publicAccess || !hasResolvedMatchTeams(match)) return notFound();
 
   const features = publicAccess.features;
-  const hasLiveDetail = features.playerBoxScore.available
-    || features.scoreFlow.available
-    || features.matchEvents.available;
   const canRenderLiveSurface = isPublicMatchLiveOrFinal(publicAccess)
     && (match.status === 'LIVE'
       || isFinalFixture(match.status, match.resultQuality))
-    && features.finalScore.available
-    && hasLiveDetail;
+    && features.finalScore.available;
   if (!canRenderLiveSurface) {
     redirect(matchHref(match.id, match.competitionId));
   }
@@ -260,7 +256,7 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
     }}
     // Completed public pages remain subscribed so a later official correction
     // or inferred reopen can replace the SSR snapshot. The socket server still
-    // rechecks publication and every required capability before joining/emitting.
+    // rechecks publication and score capability before joining/emitting.
     realtimeEnabled={canRenderLiveSurface}
   />;
 }

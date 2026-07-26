@@ -450,7 +450,7 @@ export async function broadcastCompletion(
   matchId: string,
   homeScore: number,
   awayScore: number,
-  finalQuarter: number,
+  finalQuarter: number | null,
   expectedRevision?: Date | string | null,
 ): Promise<void> {
   // Parameters remain for compatibility with existing call sites, but the
@@ -479,19 +479,20 @@ export async function broadcastCompletion(
     || (expected && canonical.sourceUpdatedAt?.toISOString() !== expected)
   ) return;
   const canonicalQuarter = canonical.currentQuarter ?? finalQuarter;
+  const canonicalTime = canonicalQuarter === null ? null : '0';
 
   await broadcastMatchStatus(matchId, {
     matchId,
     status: 'COMPLETED',
     quarter: canonicalQuarter,
-    time: '0',
+    time: canonicalTime,
   }, access, expectedRevision);
   await broadcastScoreUpdate(matchId, {
     matchId,
     homeScore: canonical.homeScore,
     awayScore: canonical.awayScore,
     currentQuarter: canonicalQuarter,
-    currentTime: '0',
+    currentTime: canonicalTime,
   }, access, expectedRevision);
   await broadcastScoreFlowDelta(matchId, access, expectedRevision);
   await broadcastCanonicalPlayerStats(matchId, access, expectedRevision);

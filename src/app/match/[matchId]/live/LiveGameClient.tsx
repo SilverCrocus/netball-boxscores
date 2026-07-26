@@ -470,6 +470,19 @@ export function LiveGameClient({
         awayBreakdown={awayBreakdown}
       />
 
+      {!capabilities.lineups
+        && !capabilities.playerBoxScore
+        && !capabilities.scoreFlow
+        && !capabilities.matchEvents && (
+        <p
+          role="status"
+          className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
+        >
+          Official live score coverage. Detailed player and play-by-play statistics
+          are not supplied by this feed.
+        </p>
+      )}
+
       {capabilities.scoreFlow && <ScoreProgressChart
         scoreFlow={allScoreFlow}
         homeTeam={match.homeTeam}

@@ -23,6 +23,8 @@ narrow telemetry/rate-limit credential is `STATS_OPERATIONS_DATABASE_URL`.
 | `DRAFT_PREVIEW_ENABLED` | fail-closed Glasgow DRAFT preview gate; unset/empty/`false` disables, exact lowercase `true` enables only for bounded QA | no | release owner; set `false` normally and after every QA window |
 | `DRAFT_PREVIEW_OPERATOR_IDS` | comma-separated stable NextAuth user IDs; configured only for approved QA operators and removed after QA | controlled | auth/release owner; rotate on operator/access change and remove after the bounded window |
 | `WORKER_ENABLED` | `true` in normal production; `false` only for documented containment | no | operations owner; readiness intentionally degrades while false |
+| `GLASGOW_LIVE_FEED_ENABLED` | `true` for automatic official Glasgow score ingestion; exact lowercase boolean; requires the worker | no | results/operations owner; disable only for documented Glasgow-feed containment |
+| `GLASGOW_LIVE_FEED_BASE_URL` | exact reviewed Commonwealth Sport API base `https://api.commonwealthsport.com/cwg-schedule/v1/cwg`; required while enabled; no URL credentials | no | results/application owner; reviewed provider change |
 | `ALLOW_SHARED_PRODUCTION_DB_WRITES` | `false` (or unset, which fails closed); prefer explicit `false` in production | no | operations owner; changing to true is prohibited without a separate reviewed incident plan |
 | `NEXTAUTH_SECRET` | generated high-entropy NextAuth secret | yes | auth owner; rotate with forced session invalidation plan |
 | `NEXTAUTH_URL` | exact public HTTPS origin | no | auth/release owner; verify after domain change |
@@ -49,6 +51,7 @@ not be used against production.
 - The four database roles/URLs are not interchangeable.
 - Both feature flags fail closed. Ask cannot be enabled while analytics is off.
 - Normal production is `WORKER_ENABLED=true`,
+  `GLASGOW_LIVE_FEED_ENABLED=true`,
   `DATABASE_ENVIRONMENT=production`,
   `ALLOW_SHARED_PRODUCTION_DB_WRITES=false`.
 - `/api/readiness` is the authoritative runtime probe for URL presence,

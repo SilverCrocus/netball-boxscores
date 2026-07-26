@@ -166,6 +166,33 @@ describe('LiveGameClient', () => {
     expect(roundText).toBeInTheDocument();
   });
 
+  it('explains score-only official coverage without rendering unavailable detail', () => {
+    render(<LiveGameClient
+      match={{
+        ...mockMatch,
+        currentQuarter: null,
+        currentTime: null,
+        homeTeam: { ...mockMatch.homeTeam, players: [] },
+        awayTeam: { ...mockMatch.awayTeam, players: [] },
+      }}
+      capabilities={{
+        periodScores: false,
+        playerBoxScore: false,
+        matchEvents: false,
+        scoreFlow: false,
+        superShots: false,
+        lineups: false,
+      }}
+    />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Official live score coverage');
+    expect(screen.getByText('Live')).toBeInTheDocument();
+    expect(screen.queryByText('Qnull')).not.toBeInTheDocument();
+    expect(screen.queryByText('Key Match Stats')).not.toBeInTheDocument();
+    expect(screen.queryByText('Live Feed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Live Lineups')).not.toBeInTheDocument();
+  });
+
   it('treats empty canonical snapshots as tombstones for SSR collections and stats', () => {
     socketState.current = {
       ...emptySocketState(),

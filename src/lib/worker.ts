@@ -28,11 +28,12 @@ import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 import { resolvePublicMatchAccess } from '@/lib/public-match';
 import { runSerializableTransaction } from '@/lib/serializable-transaction';
 import { safeErrorMessage } from '@/lib/safe-logging';
+import { syncOfficialGlasgowResults } from '@/lib/glasgow/official-feed-sync';
 
 // ── Polling intervals ──
 
 const POLL_SIM = 2_000;
-const POLL_LIVE = 10_000;
+const POLL_LIVE = 30_000;
 const POLL_PRE_MATCH = 60_000;
 const POLL_MATCH_DAY = 120_000;
 const POLL_OFF_SEASON = 3_600_000;
@@ -160,7 +161,31 @@ async function filterSupersededFixtureObservation(
 
 // ── Main poll cycle ──
 
-export async function pollChampionData(): Promise<void> {
+export type WorkerPollStatus = 'success' | 'empty' | 'partial' | 'error';
+
+export interface WorkerPollOutcome {
+  status: WorkerPollStatus;
+  matchesProcessed: number;
+}
+
+interface PollChampionDataOptions {
+  recordHealth?: boolean;
+}
+
+function completePoll(
+  outcome: WorkerPollOutcome,
+  recordHealth: boolean,
+): WorkerPollOutcome {
+  if (recordHealth) {
+    recordPoll(outcome.status, outcome.matchesProcessed);
+  }
+  return outcome;
+}
+
+export async function pollChampionData(
+  options: PollChampionDataOptions = {},
+): Promise<WorkerPollOutcome> {
+  const shouldRecordHealth = options.recordHealth ?? true;
   try {
     const COMP_ID = parseInt(process.env.SSN_COMPETITION_ID ?? '12949', 10);
     const FINALS_COMP_ID = parseInt(process.env.SSN_FINALS_COMPETITION_ID ?? '12950', 10);
@@ -210,11 +235,15 @@ export async function pollChampionData(): Promise<void> {
 
     if (fixture.length === 0 && matchDetails.size === 0) {
       if (sourceFetchErrors === competitionIds.length) {
-        recordPoll('error', 0);
-        return;
+        return completePoll(
+          { status: 'error', matchesProcessed: 0 },
+          shouldRecordHealth,
+        );
       }
-      recordPoll('empty', 0);
-      return;
+      return completePoll(
+        { status: 'empty', matchesProcessed: 0 },
+        shouldRecordHealth,
+      );
     }
 
     // Load DB lookups for validation
@@ -560,18 +589,75 @@ export async function pollChampionData(): Promise<void> {
       broadcastedCompletions.add(final.matchId);
     }
 
-    recordPoll(
-      detailFetchErrors > 0
+    const status: WorkerPollStatus = detailFetchErrors > 0
       || sourceFetchErrors > 0
       || finalization.failedMatchIds.length > 0
         ? 'partial'
-        : 'success',
-      matchesProcessed,
+        : 'success';
+    return completePoll(
+      { status, matchesProcessed },
+      shouldRecordHealth,
     );
   } catch (error) {
     console.error('[Worker] Poll error:', safeErrorMessage(error));
-    recordPoll('error', 0);
+    return completePoll(
+      { status: 'error', matchesProcessed: 0 },
+      shouldRecordHealth,
+    );
   }
+}
+
+function aggregatePollOutcomes(
+  outcomes: WorkerPollOutcome[],
+): WorkerPollOutcome {
+  const matchesProcessed = outcomes.reduce(
+    (total, outcome) => total + outcome.matchesProcessed,
+    0,
+  );
+  let status: WorkerPollStatus = 'empty';
+  if (outcomes.some((outcome) => outcome.status === 'error')) {
+    status = 'error';
+  } else if (outcomes.some((outcome) => outcome.status === 'partial')) {
+    status = 'partial';
+  } else if (outcomes.some((outcome) => outcome.status === 'success')) {
+    status = 'success';
+  }
+  return { status, matchesProcessed };
+}
+
+export async function pollAllSources(): Promise<WorkerPollOutcome> {
+  const outcomes: WorkerPollOutcome[] = [
+    await pollChampionData({ recordHealth: false }),
+  ];
+
+  if (process.env.GLASGOW_LIVE_FEED_ENABLED === 'true') {
+    try {
+      const glasgow = await syncOfficialGlasgowResults();
+      if (
+        (glasgow.status === 'partial' || glasgow.status === 'error')
+        && glasgow.issues.length > 0
+      ) {
+        console.error(
+          `[Worker] Glasgow official feed ${glasgow.status}:`,
+          glasgow.issues.map((issue) => safeErrorMessage(issue)).join('; '),
+        );
+      }
+      outcomes.push({
+        status: glasgow.status,
+        matchesProcessed: glasgow.matchesProcessed,
+      });
+    } catch (error) {
+      console.error(
+        '[Worker] Glasgow official feed sync failed:',
+        safeErrorMessage(error),
+      );
+      outcomes.push({ status: 'error', matchesProcessed: 0 });
+    }
+  }
+
+  const outcome = aggregatePollOutcomes(outcomes);
+  recordPoll(outcome.status, outcome.matchesProcessed);
+  return outcome;
 }
 
 // ── Scheduling ──
@@ -599,7 +685,7 @@ async function scheduleNextPoll(): Promise<void> {
   setCurrentInterval(interval);
 
   pollTimer = setTimeout(async () => {
-    await pollChampionData();
+    await pollAllSources();
     await scheduleNextPoll();
   }, interval);
 }
@@ -608,7 +694,7 @@ export async function startWorker(): Promise<void> {
   if (isRunning) return;
   isRunning = true;
   console.log('[Worker] Starting background worker');
-  await pollChampionData();
+  await pollAllSources();
   scheduleNextPoll();
 }
 
