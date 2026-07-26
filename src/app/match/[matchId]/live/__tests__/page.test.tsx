@@ -6,6 +6,7 @@ const {
   liveClientPropsMock,
   notFoundMock,
   redirectMock,
+  resolveOfficialLiveCentreUrlMock,
   resolvePublicMatchMock,
 } = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
@@ -16,6 +17,7 @@ const {
   redirectMock: vi.fn((href: string) => {
     throw new Error(`REDIRECT:${href}`);
   }),
+  resolveOfficialLiveCentreUrlMock: vi.fn(),
   resolvePublicMatchMock: vi.fn(),
 }));
 
@@ -75,6 +77,10 @@ function detailedMatch(status: 'LIVE' | 'COMPLETED') {
     currentQuarter: status === 'LIVE' ? 1 : null,
     currentTime: status === 'LIVE' ? '05:00' : null,
     stage: { name: 'Pool Stage' },
+    competition: {
+      slug: 'glasgow-2026',
+      series: { slug: 'commonwealth-games-netball' },
+    },
     homeTeam: {
       id: 'australia', name: 'Australia', abbreviation: 'AUS', logoUrl: null, primaryColor: null,
       editionEntries: [{
@@ -115,6 +121,9 @@ vi.mock('@/lib/public-match', async (importOriginal) => ({
 vi.mock('@/lib/win-probability', () => ({
   computeTeamStrengthPrior: vi.fn().mockResolvedValue(null),
 }));
+vi.mock('@/lib/glasgow/official-results-link', () => ({
+  resolveOfficialGlasgowLiveCentreUrl: resolveOfficialLiveCentreUrlMock,
+}));
 vi.mock('../LiveGameClient', () => ({
   LiveGameClient: (props: {
     match: {
@@ -148,6 +157,7 @@ describe('live match route safety', () => {
     liveClientPropsMock.mockClear();
     notFoundMock.mockClear();
     redirectMock.mockClear();
+    resolveOfficialLiveCentreUrlMock.mockReset().mockResolvedValue(null);
   });
 
   it('returns an unsupported scheduled fixture to its canonical match page', async () => {
@@ -243,6 +253,28 @@ describe('live match route safety', () => {
       }),
     }));
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it('automatically embeds the official detailed match view for Glasgow fixtures', async () => {
+    const officialUrl = 'https://crs-cg2026.glasgow2026.com/#/team-players/'
+      + 'NBL/W/TEAM7-------------/GPA-/000400--';
+    findUniqueMock.mockResolvedValue(detailedMatch('LIVE'));
+    resolvePublicMatchMock.mockResolvedValue(publicAccess('LIVE', ['FINAL_SCORE']));
+    resolveOfficialLiveCentreUrlMock.mockResolvedValue(officialUrl);
+
+    render(await LiveGamePage({
+      params: Promise.resolve({ matchId: 'glasgow-match-1' }),
+      searchParams: Promise.resolve({ edition: 'glasgow-2026' }),
+    }));
+
+    expect(resolveOfficialLiveCentreUrlMock).toHaveBeenCalledWith({
+      scheduledAt: new Date('2026-07-25T08:00:00Z'),
+      homeTeamAbbreviation: 'AUS',
+      awayTeamAbbreviation: 'ENG',
+    });
+    expect(screen.getByTitle(
+      'Official Glasgow 2026 player statistics and play-by-play',
+    )).toHaveAttribute('src', officialUrl);
   });
 
   it('does not serialize roster stats, periods, or events without their capabilities', async () => {
