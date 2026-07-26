@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { chmod, lstat, mkdir, open, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { JSDOM } from 'jsdom';
 
 const SMOKE_VERSION = 'centrepass-production-smoke.v1';
 const DEFAULT_TIMEOUT_MS = 8_000;
@@ -373,6 +374,27 @@ function isoTimestamp(value: unknown): boolean {
     && !Number.isNaN(Date.parse(value));
 }
 
+function streamedRedirectLocation(body: string): string | null {
+  const dom = new JSDOM(body);
+  try {
+    for (const meta of dom.window.document.querySelectorAll('meta')) {
+      if (
+        meta.getAttribute('id') !== '__next-page-redirect'
+        || meta.getAttribute('http-equiv')?.toLowerCase() !== 'refresh'
+      ) {
+        continue;
+      }
+      const refresh = meta
+        .getAttribute('content')
+        ?.match(/^\s*\d+(?:\.\d+)?\s*;\s*url=(.+?)\s*$/i);
+      return refresh?.[1] ?? null;
+    }
+    return null;
+  } finally {
+    dom.window.close();
+  }
+}
+
 async function check(
   context: CheckContext,
   input: {
@@ -645,14 +667,29 @@ export async function executeProductionSmoke(
       name: 'Canonical match-edition redirect',
       path: redirectPath,
       redirect: 'manual',
-      expected: `HTTP 307/308 redirect to the same match with edition=${discoveredSsnMatch.competitionId}`,
+      expected: `HTTP 307/308 or streamed HTTP 200 redirect to the same match with edition=${discoveredSsnMatch.competitionId}`,
       assert(result) {
-        if (![307, 308].includes(result.response.status)) {
-          throw new Error(`expected HTTP 307/308, received ${result.response.status}`);
+        let rawLocation: string | null = null;
+        let observed: string;
+        if ([307, 308].includes(result.response.status)) {
+          rawLocation = result.response.headers.get('location');
+          observed = `HTTP ${result.response.status}; owning edition redirect verified`;
+        } else if (
+          result.response.status === 200
+          && result.response.headers.get('content-type')?.toLowerCase().includes('text/html')
+        ) {
+          rawLocation = streamedRedirectLocation(result.body);
+          observed = 'HTTP 200; streamed owning edition redirect verified';
+        } else {
+          throw new Error(
+            `expected HTTP 307/308 or streamed HTTP 200 redirect, received ${result.response.status}`,
+          );
         }
-        const rawLocation = result.response.headers.get('location');
-        if (!rawLocation) throw new Error('redirect has no Location header');
+        if (!rawLocation) throw new Error('redirect has no Location target');
         const location = new URL(rawLocation, context.baseUrl);
+        if (location.username || location.password) {
+          throw new Error('redirect target must not contain credentials');
+        }
         if (location.origin !== context.baseUrl.origin
           || location.pathname !== `/match/${encodeURIComponent(discoveredSsnMatch.id)}`) {
           throw new Error('redirected to an unexpected origin or path');
@@ -660,7 +697,7 @@ export async function executeProductionSmoke(
         if (location.searchParams.get('edition') !== discoveredSsnMatch.competitionId) {
           throw new Error('redirected to an unexpected edition');
         }
-        return `HTTP ${result.response.status}; owning edition redirect verified`;
+        return observed;
       },
     }));
   } else {
@@ -668,7 +705,7 @@ export async function executeProductionSmoke(
       name: 'Canonical match-edition redirect',
       method: 'GET',
       path: '/match/<DISCOVERED_SSN_MATCH>?edition=glasgow-2026',
-      expected: 'HTTP 307/308 redirect to the owning SSN edition',
+      expected: 'HTTP 307/308 or streamed HTTP 200 redirect to the owning SSN edition',
       passed: false,
       observed: 'not attempted',
       request: requestEvidence(),

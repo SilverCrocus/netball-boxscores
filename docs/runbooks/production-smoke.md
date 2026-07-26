@@ -39,8 +39,9 @@ JSON and Markdown evidence. It checks:
   while their publication/feature controls are off;
 - in `published`, Glasgow renders schedule context and `/rankings`, `/records`,
   `/compare/players`, `/explore` all render;
-- a deliberately stale match-edition query redirects `307/308` to the owning
-  canonical SSN edition.
+- a deliberately stale match-edition query redirects to the owning canonical
+  SSN edition, either through an HTTP `307/308` or Next.js streamed redirect
+  metadata when response headers have already started.
 
 Each check records only allowlisted evidence: expected/observed state, HTTP
 status, attempts, latency, content type, same-origin final path/redirect path,
