@@ -56,6 +56,10 @@ function healthyFetch(phase: 'baseline' | 'published' = 'published'): typeof fet
             lastPollAt: '2026-07-16T23:59:55.000Z',
             lastPollStatus: 'success',
             currentIntervalMs: 10_000,
+            pollInProgress: false,
+            pollStartedAt: null,
+            pollElapsedMs: null,
+            maxActivePollMs: 180_000,
           },
           analytics: phase === 'published'
             ? { enabled: true, state: 'healthy', satisfiesReadiness: true }
@@ -204,6 +208,10 @@ describe('production smoke', () => {
           lastPollAt: '2026-07-16T23:59:55.000Z',
           lastPollStatus: 'success',
           currentIntervalMs: 10_000,
+          pollInProgress: false,
+          pollStartedAt: null,
+          pollElapsedMs: null,
+          maxActivePollMs: 180_000,
         },
         analytics: { enabled: false, state: 'disabled', satisfiesReadiness: true },
         statsOperations: { enabled: false, state: 'disabled', satisfiesReadiness: true },
@@ -249,6 +257,10 @@ describe('production smoke', () => {
           lastPollAt: '2026-07-16T23:59:55.000Z',
           lastPollStatus: 'success',
           currentIntervalMs: 10_000,
+          pollInProgress: false,
+          pollStartedAt: null,
+          pollElapsedMs: null,
+          maxActivePollMs: 180_000,
         },
         analytics: { enabled: true, state: 'healthy', satisfiesReadiness: true },
         statsOperations: { enabled: true, state: 'healthy', satisfiesReadiness: true },
@@ -274,8 +286,29 @@ describe('production smoke', () => {
     ['wrong poll status', { lastPollStatus: 'failed' }, 'lastPollStatus'],
     ['missing interval', { currentIntervalMs: undefined }, 'currentIntervalMs'],
     ['missing poll time', { lastPollAt: undefined }, 'lastPollAt is not a valid'],
+    ['missing progress state', { pollInProgress: undefined }, 'pollInProgress'],
     ['stale poll', { lastPollAt: '2026-07-16T23:59:30.000Z' }, 'lastPollAt is stale'],
     ['future poll', { lastPollAt: '2026-07-17T00:00:01.000Z' }, 'lastPollAt is stale'],
+    [
+      'late active poll',
+      {
+        lastPollAt: '2026-07-16T23:59:30.000Z',
+        pollInProgress: true,
+        pollStartedAt: '2026-07-16T23:59:55.000Z',
+        pollElapsedMs: 5_000,
+      },
+      'active poll is stale',
+    ],
+    [
+      'expired active poll',
+      {
+        lastPollAt: '2026-07-16T23:56:30.000Z',
+        pollInProgress: true,
+        pollStartedAt: '2026-07-16T23:56:45.000Z',
+        pollElapsedMs: 195_000,
+      },
+      'active poll is stale',
+    ],
   ])('rejects worker readiness when %s', async (_label, override, expectedError) => {
     const fallback = healthyFetch();
     const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -297,6 +330,10 @@ describe('production smoke', () => {
             lastPollAt: '2026-07-16T23:59:55.000Z',
             lastPollStatus: 'empty',
             currentIntervalMs: 10_000,
+            pollInProgress: false,
+            pollStartedAt: null,
+            pollElapsedMs: null,
+            maxActivePollMs: 180_000,
             ...override,
           },
           analytics: { enabled: true, state: 'healthy', satisfiesReadiness: true },
@@ -315,6 +352,52 @@ describe('production smoke', () => {
       passed: false,
       error: expect.stringContaining(expectedError),
     });
+  });
+
+  it('accepts a bounded active poll that started while the prior result was fresh', async () => {
+    const fallback = healthyFetch();
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname !== '/api/readiness') return fallback(input, init);
+      return jsonResponse({
+        status: 'ready',
+        type: 'readiness',
+        timestamp: '2026-07-17T00:00:00.000Z',
+        checks: {
+          database: { ok: true },
+          worker: {
+            ok: true,
+            enabled: true,
+            required: true,
+            state: 'healthy',
+            satisfiesReadiness: true,
+            isHealthy: true,
+            lastPollAt: '2026-07-16T23:59:30.000Z',
+            lastPollStatus: 'success',
+            currentIntervalMs: 10_000,
+            pollInProgress: true,
+            pollStartedAt: '2026-07-16T23:59:45.000Z',
+            pollElapsedMs: 15_000,
+            maxActivePollMs: 180_000,
+          },
+          analytics: { enabled: true, state: 'healthy', satisfiesReadiness: true },
+          statsOperations: { enabled: true, state: 'healthy', satisfiesReadiness: true },
+        },
+      });
+    }) as typeof fetch;
+
+    const evidence = await executeProductionSmoke({
+      baseUrl: 'https://www.centrepass.io',
+      expectedCommit: COMMIT,
+      phase: 'published',
+      timeoutMs: 100,
+      retries: 0,
+    }, fetchImpl);
+
+    expect(evidence.summary.passed).toBe(true);
+    expect(evidence.checks.find(
+      (check) => check.name === 'Readiness and scoped database boundaries',
+    )).toMatchObject({ passed: true });
   });
 
   it('fails closed on oversized bodies without retaining body samples', async () => {

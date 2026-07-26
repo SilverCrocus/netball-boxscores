@@ -52,7 +52,7 @@ export async function GET(): Promise<NextResponse> {
   const rateLimitSecretConfigured = !features.askCentrePassEnabled
     || statsRateLimitSecretConfigured();
 
-  const [database, analyticsProbe, operationsProbe, workerHealth] = await Promise.all([
+  const [database, analyticsProbe, operationsProbe] = await Promise.all([
     probeDatabase(prisma),
     features.analyticsEnabled && analyticsConfigured
       ? probeAnalyticsDatabaseBoundary()
@@ -60,8 +60,8 @@ export async function GET(): Promise<NextResponse> {
     features.askCentrePassEnabled && operationsConfigured
       ? probeStatsOperationsDatabaseBoundary()
       : Promise.resolve(null),
-    Promise.resolve(getWorkerHealth()),
   ]);
+  const workerHealth = getWorkerHealth();
   const workerStartup = getWorkerStartupDecision();
   const workerIsHealthy = workerStartup.state === 'enabled' && workerHealth.isHealthy;
   const workerSatisfiesReadiness = workerStartup.state === 'enabled'
@@ -160,6 +160,10 @@ export async function GET(): Promise<NextResponse> {
         lastPollAt: workerHealth.lastPollAt,
         lastPollStatus: workerHealth.lastPollStatus,
         currentIntervalMs: workerHealth.currentIntervalMs,
+        pollInProgress: workerHealth.pollInProgress,
+        pollStartedAt: workerHealth.pollStartedAt,
+        pollElapsedMs: workerHealth.pollElapsedMs,
+        maxActivePollMs: workerHealth.maxActivePollMs,
       },
     },
   }, {

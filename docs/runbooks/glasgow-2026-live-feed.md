@@ -129,11 +129,14 @@ curl --fail-with-body --silent --show-error \
   https://www.centrepass.io/api/worker-health
 ```
 
-Require the deployed release identity, readiness `200`, a fresh worker
-`lastPollAt`, `currentIntervalMs=30000` while live, and a last poll status of
-`success` or `empty`. `partial` and `error` require immediate log and receipt
-inspection. Confirm the public `/live` and match live page show the committed
-score and the score-only disclosure when detailed capabilities are absent.
+Require the deployed release identity, readiness `200`,
+`currentIntervalMs=30000` while live, and a last poll status of `success` or
+`empty`. The prior `lastPollAt` may age past two intervals only while
+`pollInProgress=true`, the poll began before that result expired, and
+`pollElapsedMs` remains below `maxActivePollMs`. `partial`, `error`, or an
+expired active poll require immediate log and receipt inspection. Confirm the
+public `/live` and match live page show the committed score and the score-only
+disclosure when detailed capabilities are absent.
 Use `ImportRun`, `SourceSnapshot`, and `ImportMutation` evidence to reconcile
 the official observation; do not repair rows with direct SQL.
 
