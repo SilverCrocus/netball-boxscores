@@ -9,6 +9,7 @@ import {
   evaluateNavigationPerformance,
   nearestRank,
   renderNavigationPerformanceMarkdown,
+  shouldFailNavigationMonitor,
   summarizeNavigationSamples,
   validateNavigationPerformanceSamplePolicy,
   type IdlePrefetchMeasurement,
@@ -49,6 +50,8 @@ function sample(
     intentPrefetchWaitMs: 100,
     intentTargetRscRequests: 1,
     intentTargetRscSettled: 1,
+    intentTargetRscCompleted: 1,
+    intentTargetRscSized: 1,
     postClickTargetRscRequests: 0,
     consoleErrors: 0,
     ignoredKnownConsoleErrors: 0,
@@ -210,20 +213,53 @@ describe('navigation performance monitor policy', () => {
       .toBe('fail');
   });
 
-  it('requires a settled target intent prefetch in every consumed-intent sample', () => {
+  it('requires a completed and sized target intent prefetch in every consumed-intent sample', () => {
     const missingIntent = summarizeNavigationSamples([
-      sample({ intentTargetRscRequests: 0, intentTargetRscSettled: 0 }),
+      sample({
+        intentTargetRscRequests: 0,
+        intentTargetRscSettled: 0,
+        intentTargetRscCompleted: 0,
+        intentTargetRscSized: 0,
+      }),
       sample({
         sample: 2,
         intentTargetRscRequests: 2,
         intentTargetRscSettled: 2,
+        intentTargetRscCompleted: 2,
+        intentTargetRscSized: 2,
       }),
     ]);
     const unsettledIntent = summarizeNavigationSamples([
-      sample({ intentTargetRscRequests: 1, intentTargetRscSettled: 0 }),
+      sample({
+        intentTargetRscRequests: 1,
+        intentTargetRscSettled: 0,
+        intentTargetRscCompleted: 0,
+        intentTargetRscSized: 0,
+      }),
+    ]);
+    const failedIntent = summarizeNavigationSamples([
+      sample({
+        intentTargetRscRequests: 1,
+        intentTargetRscSettled: 1,
+        intentTargetRscCompleted: 0,
+        intentTargetRscSized: 0,
+      }),
+    ]);
+    const unsizedIntent = summarizeNavigationSamples([
+      sample({
+        intentTargetRscRequests: 1,
+        intentTargetRscSettled: 1,
+        intentTargetRscCompleted: 1,
+        intentTargetRscSized: 0,
+      }),
     ]);
 
-    for (const summaries of [missingIntent, unsettledIntent]) {
+    for (const summaries of [
+      missingIntent,
+      unsettledIntent,
+      failedIntent,
+      unsizedIntent,
+    ]) {
       const gates = evaluateNavigationPerformance({
         summaries,
         configuredSamples: summaries[0]?.count ?? 1,
@@ -233,6 +269,38 @@ describe('navigation performance monitor policy', () => {
       expect(gates.find((gate) => gate.id.startsWith('intent-prefetch:'))?.status)
         .toBe('fail');
     }
+  });
+
+  it('fails report-only runs when idle-prefetch evidence is incomplete', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: 1,
+      idlePrefetch: idle({
+        emittedRscRequests: 2,
+        settledRscRequests: 1,
+        completedRscRequests: 1,
+        sizedRscRequests: 1,
+      }),
+      policyContracts: [],
+    });
+
+    expect(shouldFailNavigationMonitor(gates, false)).toBe(true);
+  });
+
+  it('keeps a route-budget-only miss nonfatal in report-only mode', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([
+        sample({ durationMs: 2_100 }),
+      ]),
+      configuredSamples: 1,
+      idlePrefetch: idle(),
+      policyContracts: [],
+    });
+
+    expect(gates.filter((gate) => gate.status === 'fail').map(({ id }) => id))
+      .toEqual(['route-p95:desktop/pointer/records-to-rankings']);
+    expect(shouldFailNavigationMonitor(gates, false)).toBe(false);
+    expect(shouldFailNavigationMonitor(gates, true)).toBe(true);
   });
 
   it('allows one-sample report-only diagnostics but rejects undersized enforcement', () => {

@@ -14,8 +14,9 @@ The monitor:
 - never signs in, changes data, clears production caches, or calls admin routes;
 - records path groups only, never query strings, entity IDs, cookies, bodies,
   credentials, or user data;
-- treats Next.js RSC `ERR_ABORTED` teardown events as diagnostic, not as product
-  failures, while retaining their count; and
+- records Next.js RSC `ERR_ABORTED` teardown events separately, while still
+  requiring consumed-intent and idle-byte evidence to complete successfully;
+  and
 - records the existing Google Tag Manager CSP rejection as known diagnostic
   noise while continuing to fail on every other browser console or page error.
 
@@ -28,8 +29,8 @@ The primary matrix uses one excluded warmup and 20 measured samples:
 
 | Profile | Interaction | Transitions |
 | --- | --- | --- |
-| Desktop 1440x900 | real pointer hover, completed intent opportunity, click | Records → Rankings → canonical Standings → Live → Records |
-| Desktop 1440x900 | keyboard focus, completed intent opportunity, Enter | Records → Rankings and Live → Records |
+| Desktop 1440x900 | real pointer hover, completed and sized intent opportunity, click | Records → Rankings → canonical Standings → Live → Records |
+| Desktop 1440x900 | keyboard focus, completed and sized intent opportunity, Enter | Records → Rankings and Live → Records |
 | Mobile 390x844 | touch tap | Records → Rankings → canonical Standings → Live → Records |
 
 The monitor discovers the canonical published Standings URL from the visible
@@ -44,6 +45,11 @@ It also performs:
 - browser console, page error, same-origin request failure, HTTP 5xx, health,
   readiness, and release-identity checks.
 
+Route timing stops when both the logical destination URL and a new meaningful
+visible main heading are ready. A separate 250 ms post-ready observation
+window captures late hydration and network errors without inflating route or
+acknowledgement timing.
+
 ## Budgets
 
 The checked-in initial budgets are:
@@ -51,19 +57,22 @@ The checked-in initial budgets are:
 - route-switch p95 at or below 2,000 ms;
 - visible acknowledgement or completed navigation p95 at or below 150 ms;
 - no browser runtime errors, unexpected same-origin request failures, or 5xx;
-- zero target RSC requests after a completed pointer/keyboard intent prefetch;
+- zero target RSC requests after a successfully completed and sized
+  pointer/keyboard intent prefetch;
 - no more than eight idle RSC requests from a clean Records load; and
 - no more than 20,000 completed idle RSC response-body bytes.
 
 The byte budget includes limited headroom above the accepted navigation audit.
-If Playwright cannot expose a transfer size, the byte result is `OBSERVE`, not
-an invented zero or a failure.
+If Playwright cannot expose a transfer size after otherwise complete evidence,
+the byte result is `OBSERVE`, not an invented zero. Unsettled, failed, or
+partially sized idle requests invalidate the evidence and fail the run.
 
-Budget misses are report-only during the initial observation window. Endpoint,
-release, browser, or evidence-generation failures still fail the workflow
-because the monitor did not produce valid evidence. After 7–14 stable days,
-enable `enforce_budgets` only after reviewing the distributions and recording
-the decision.
+Route, acknowledgement, idle-request-count, and idle-byte budget misses are
+report-only during the initial observation window. Endpoint, release, browser,
+runtime, network, policy-contract, sample-count, or evidence-validity failures
+still fail the workflow because the monitor did not produce trustworthy
+evidence. After 7–14 stable days, enable `enforce_budgets` only after reviewing
+the distributions and recording the decision.
 
 ## GitHub Actions
 
@@ -77,7 +86,7 @@ Manual inputs:
 - `expected_release_sha`: optional exact production SHA; otherwise the checked
   out commit is required;
 - `samples`: 1–50 measured samples per group, normally 20; and
-- `enforce_budgets`: defaults to false.
+- `enforce_budgets`: defaults to false and requires at least 20 samples.
 
 Every run adds a Markdown summary and retains JSON/Markdown evidence for 30
 days. Scheduled work is single-flight and never cancels an in-progress run.

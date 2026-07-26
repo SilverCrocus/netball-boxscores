@@ -38,6 +38,8 @@ export interface NavigationSample {
   intentPrefetchWaitMs: number;
   intentTargetRscRequests: number;
   intentTargetRscSettled: number;
+  intentTargetRscCompleted: number;
+  intentTargetRscSized: number;
   postClickTargetRscRequests: number;
   consoleErrors: number;
   ignoredKnownConsoleErrors: number;
@@ -58,6 +60,8 @@ export interface NavigationSummary {
   acknowledgementP95Ms: number;
   intentTargetRscRequests: number;
   intentTargetRscSettled: number;
+  intentTargetRscCompleted: number;
+  intentTargetRscSized: number;
   consumedIntentSamples: number;
   postClickTargetRscRequests: number;
   consoleErrors: number;
@@ -94,6 +98,29 @@ export interface GateResult {
   id: string;
   status: GateStatus;
   message: string;
+}
+
+const REPORT_ONLY_PERFORMANCE_BUDGET_GATES = new Set([
+  'idle-prefetch-requests',
+  'idle-prefetch-bytes',
+]);
+
+function isPerformanceBudgetGate(gate: GateResult): boolean {
+  return (
+    gate.id.startsWith('route-p95:')
+    || gate.id.startsWith('acknowledgement-p95:')
+    || REPORT_ONLY_PERFORMANCE_BUDGET_GATES.has(gate.id)
+  );
+}
+
+export function shouldFailNavigationMonitor(
+  gates: readonly GateResult[],
+  budgetsEnforced: boolean,
+): boolean {
+  return gates.some((gate) => (
+    gate.status === 'fail'
+    && (budgetsEnforced || !isPerformanceBudgetGate(gate))
+  ));
 }
 
 export interface ProductionEndpointEvidence {
@@ -285,9 +312,18 @@ export function summarizeNavigationSamples(
           (total, sample) => total + sample.intentTargetRscSettled,
           0,
         ),
+        intentTargetRscCompleted: group.reduce(
+          (total, sample) => total + sample.intentTargetRscCompleted,
+          0,
+        ),
+        intentTargetRscSized: group.reduce(
+          (total, sample) => total + sample.intentTargetRscSized,
+          0,
+        ),
         consumedIntentSamples: group.filter((sample) => (
           sample.intentTargetRscRequests > 0
-          && sample.intentTargetRscSettled === sample.intentTargetRscRequests
+          && sample.intentTargetRscCompleted === sample.intentTargetRscRequests
+          && sample.intentTargetRscSized === sample.intentTargetRscRequests
         )).length,
         postClickTargetRscRequests: group.reduce(
           (total, sample) => total + sample.postClickTargetRscRequests,
@@ -409,7 +445,7 @@ export function evaluateNavigationPerformance({
       gates.push({
         id: `intent-prefetch:${label}`,
         status: summary.consumedIntentSamples === summary.count ? 'pass' : 'fail',
-        message: `${label} consumed a settled target intent prefetch in ${summary.consumedIntentSamples}/${summary.count} sample(s)`,
+        message: `${label} consumed a completed and sized target intent prefetch in ${summary.consumedIntentSamples}/${summary.count} sample(s)`,
       });
       gates.push({
         id: `post-click-rsc:${label}`,
@@ -487,8 +523,8 @@ export function renderNavigationPerformanceMarkdown(
     '',
     '## Navigation samples',
     '',
-    '| Profile | Interaction | Transition | Samples | Route p50 | Route p95 | Ack p95 | Post-click target RSC | Runtime/network errors | Known CSP noise |',
-    '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Profile | Interaction | Transition | Samples | Route p50 | Route p95 | Ack p95 | Intent RSC req/done/sized | Post-click target RSC | Runtime/network errors | Known CSP noise |',
+    '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
   ];
 
   for (const summary of report.summaries) {
@@ -499,7 +535,7 @@ export function renderNavigationPerformanceMarkdown(
       + summary.serverErrors
     );
     lines.push(
-      `| ${summary.profile} | ${summary.interaction} | ${summary.transitionId} | ${summary.count} | ${summary.durationP50Ms}ms | ${summary.durationP95Ms}ms | ${summary.acknowledgementP95Ms}ms | ${summary.postClickTargetRscRequests} | ${errors} | ${summary.ignoredKnownConsoleErrors} |`,
+      `| ${summary.profile} | ${summary.interaction} | ${summary.transitionId} | ${summary.count} | ${summary.durationP50Ms}ms | ${summary.durationP95Ms}ms | ${summary.acknowledgementP95Ms}ms | ${summary.intentTargetRscRequests}/${summary.intentTargetRscCompleted}/${summary.intentTargetRscSized} | ${summary.postClickTargetRscRequests} | ${errors} | ${summary.ignoredKnownConsoleErrors} |`,
     );
   }
 

@@ -17,6 +17,7 @@ import {
   countPreClickTargetRscRequests,
   evaluateNavigationPerformance,
   renderNavigationPerformanceMarkdown,
+  shouldFailNavigationMonitor,
   summarizeNavigationSamples,
   validateNavigationPerformanceSamplePolicy,
   type IdlePrefetchMeasurement,
@@ -38,6 +39,7 @@ const INTENT_NO_REQUEST_GRACE_MS = 500;
 const IDLE_OBSERVATION_MS = 3_000;
 const IDLE_SETTLEMENT_TIMEOUT_MS = 2_000;
 const POLICY_OBSERVATION_MS = 750;
+const POST_READY_OBSERVATION_MS = 250;
 const MAX_ENDPOINT_BODY_BYTES = 1_000_000;
 
 type LogicalDestination = 'live' | 'standings' | 'rankings' | 'records';
@@ -72,6 +74,8 @@ interface PageCounters {
   sourceTargetRscRequests: number;
   intentTargetRscRequests: number;
   intentTargetRscSettled: number;
+  intentTargetRscCompleted: number;
+  intentTargetRscSized: number;
   postClickTargetRscRequests: number;
   ignoredKnownConsoleErrors: number;
   emittedRscRequests: number;
@@ -218,6 +222,7 @@ function createPageObserver(
 ): PageObserver {
   let phase: NetworkPhase = 'source';
   const requestPhases = new WeakMap<Request, NetworkPhase>();
+  const successfulIntentTargetRscRequests = new WeakSet<Request>();
   const pendingRscRequests = new Set<Request>();
   const settlementWaiters = new Set<() => void>();
   const pending: Promise<void>[] = [];
@@ -230,6 +235,8 @@ function createPageObserver(
     sourceTargetRscRequests: 0,
     intentTargetRscRequests: 0,
     intentTargetRscSettled: 0,
+    intentTargetRscCompleted: 0,
+    intentTargetRscSized: 0,
     postClickTargetRscRequests: 0,
     ignoredKnownConsoleErrors: 0,
     emittedRscRequests: 0,
@@ -269,6 +276,14 @@ function createPageObserver(
   });
   page.on('response', (response) => {
     const request = response.request();
+    if (
+      response.ok()
+      && requestPhases.get(request) === 'intent'
+      && targetDestination
+      && isTargetRscRequest(request, baseUrl, targetDestination)
+    ) {
+      successfulIntentTargetRscRequests.add(request);
+    }
     if (
       isSameOriginRequest(request, baseUrl)
       && response.status() >= 500
@@ -320,12 +335,23 @@ function createPageObserver(
         && isTargetRscRequest(request, baseUrl, targetDestination)
       ) {
         counters.intentTargetRscSettled += 1;
+        if (successfulIntentTargetRscRequests.has(request)) {
+          counters.intentTargetRscCompleted += 1;
+        }
       }
       const sizePromise = request.sizes()
         .then((sizes) => {
           if (requestPhase === 'idle') {
             counters.completedRscBytes += Math.max(0, sizes.responseBodySize);
             counters.sizedRscRequests += 1;
+          }
+          if (
+            requestPhase === 'intent'
+            && targetDestination
+            && isTargetRscRequest(request, baseUrl, targetDestination)
+            && successfulIntentTargetRscRequests.has(request)
+          ) {
+            counters.intentTargetRscSized += 1;
           }
         })
         .catch(() => {
@@ -666,6 +692,10 @@ async function performInteraction(
   intentPrefetchWaitMs: number;
   durationMs: number;
   acknowledgementMs: number | null;
+  intentTargetRscRequests: number;
+  intentTargetRscSettled: number;
+  intentTargetRscCompleted: number;
+  intentTargetRscSized: number;
 }> {
   const link = await findVisibleNavigationLink(
     page,
@@ -692,6 +722,12 @@ async function performInteraction(
   );
   await startAcknowledgementProbe(page);
   const navigationStartedAt = nodePerformance.now();
+  const intentEvidence = {
+    intentTargetRscRequests: observer.counters.intentTargetRscRequests,
+    intentTargetRscSettled: observer.counters.intentTargetRscSettled,
+    intentTargetRscCompleted: observer.counters.intentTargetRscCompleted,
+    intentTargetRscSized: observer.counters.intentTargetRscSized,
+  };
   observer.setPhase('post-click');
   if (interaction === 'pointer') {
     await link.click({ timeout: PAGE_TIMEOUT_MS });
@@ -703,14 +739,20 @@ async function performInteraction(
 
   const destinationReadyAt = await destinationReady;
   const acknowledgementMs = await readAcknowledgementTiming(page);
+  const timings = calculateNavigationTiming(
+    navigationStartedAt,
+    destinationReadyAt,
+    acknowledgementMs,
+  );
+  // Keep observing briefly after readiness for hydration failures and late
+  // network activity without adding this window to route or acknowledgement
+  // timing.
+  await page.waitForTimeout(POST_READY_OBSERVATION_MS);
   observer.setPhase('done');
   return {
     intentPrefetchWaitMs,
-    ...calculateNavigationTiming(
-      navigationStartedAt,
-      destinationReadyAt,
-      acknowledgementMs,
-    ),
+    ...timings,
+    ...intentEvidence,
   };
 }
 
@@ -751,8 +793,10 @@ async function runNavigationSample(
       durationMs: interactionResult.durationMs,
       acknowledgementMs: interactionResult.acknowledgementMs,
       intentPrefetchWaitMs: interactionResult.intentPrefetchWaitMs,
-      intentTargetRscRequests: observer.counters.intentTargetRscRequests,
-      intentTargetRscSettled: observer.counters.intentTargetRscSettled,
+      intentTargetRscRequests: interactionResult.intentTargetRscRequests,
+      intentTargetRscSettled: interactionResult.intentTargetRscSettled,
+      intentTargetRscCompleted: interactionResult.intentTargetRscCompleted,
+      intentTargetRscSized: interactionResult.intentTargetRscSized,
       postClickTargetRscRequests: observer.counters.postClickTargetRscRequests,
       consoleErrors: observer.counters.consoleErrors,
       ignoredKnownConsoleErrors: observer.counters.ignoredKnownConsoleErrors,
@@ -1090,7 +1134,9 @@ async function main(): Promise<void> {
     };
     await writeReport(configuration, report);
     process.stdout.write(renderNavigationPerformanceMarkdown(report));
-    if (!passed && configuration.enforceBudgets) process.exitCode = 2;
+    if (shouldFailNavigationMonitor(gates, configuration.enforceBudgets)) {
+      process.exitCode = 2;
+    }
   } catch (error) {
     await writeMonitorError(configuration, startedAt, error);
     throw error;
