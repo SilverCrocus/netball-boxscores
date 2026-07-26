@@ -322,6 +322,15 @@ describe('Glasgow results input validation', () => {
       expect.objectContaining({ code: 'INVALID_SOURCE_MANIFEST' }),
     ]));
   });
+
+  it('requires a persisted normalized artifact checksum to be reproducible', () => {
+    const input = resultInput();
+    input.sourceManifest.normalizedArtifact = [{ providerMatchCode: 'match-1' }];
+
+    expect(validateGlasgowResultsInput(input)).toContainEqual(
+      expect.objectContaining({ code: 'SOURCE_MANIFEST_CHECKSUM_MISMATCH' }),
+    );
+  });
 });
 
 describe('Glasgow guarded results import', () => {
@@ -460,5 +469,60 @@ describe('Glasgow guarded results import', () => {
     });
     expect(correctionReceipt).toMatchObject({ inserted: 0, skipped: 0 });
     expect(correctionReceipt.updated).toBeGreaterThan(0);
+  });
+
+  it('applies a validated scheduled feed update without a manual dry-run receipt', async () => {
+    const { prisma, state } = fakeResultsPrisma();
+    const service = new GlasgowResultsImportService(prisma);
+    const input = resultInput();
+
+    const receipt = await service.applyScheduled(input);
+
+    expect(state.matches.get('match-pool-1')).toMatchObject({
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+      homeScore: 60,
+      awayScore: 50,
+    });
+    expect(state.runs).not.toContainEqual(expect.objectContaining({ dryRun: true }));
+    expect(state.runs.find((run) => run.id === receipt.importRunId)).toMatchObject({
+      trigger: 'SCHEDULED',
+      status: 'SUCCEEDED',
+      dryRun: false,
+      metadata: expect.objectContaining({
+        importKind: 'GLASGOW_RESULTS',
+        automated: true,
+        recordedPreviewImportRunId: null,
+      }),
+    });
+  });
+
+  it('promotes a confirmed scheduled final without treating quality-only change as a correction', async () => {
+    const { prisma, state } = fakeResultsPrisma();
+    const service = new GlasgowResultsImportService(prisma);
+    const first = resultInput();
+    first.results[0].resultQuality = 'UNOFFICIAL_FINAL';
+
+    await service.applyScheduled(first);
+
+    const confirmed = structuredClone(first);
+    confirmed.retrievedAt = '2026-07-25T11:00:30.000Z';
+    confirmed.sourceManifest.checksum = 'b'.repeat(64);
+    confirmed.sourceManifest.sources[0].retrievedAt = confirmed.retrievedAt;
+    confirmed.results[0].resultQuality = 'OFFICIAL_FINAL';
+    confirmed.results[0].sourceUpdatedAt = confirmed.retrievedAt;
+    const receipt = await service.applyScheduled(confirmed);
+
+    expect(state.matches.get('match-pool-1')).toMatchObject({
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+      homeScore: 60,
+      awayScore: 50,
+    });
+    expect(receipt.replayOfImportRunId).toBeNull();
+    expect(state.runs.find((run) => run.id === receipt.importRunId)).toMatchObject({
+      trigger: 'SCHEDULED',
+      status: 'SUCCEEDED',
+    });
   });
 });

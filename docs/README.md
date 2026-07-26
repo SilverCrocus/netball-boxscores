@@ -31,7 +31,8 @@ monitor was introduced alongside this audit.
 | Recovery | [Production rollback](runbooks/production-rollback.md) | Application and feature containment |
 | Glasgow | [Source provenance](runbooks/glasgow-2026-source-provenance.md) | Source and receipt evidence |
 | Glasgow | [Launch](runbooks/glasgow-2026-launch.md) | Governed DRAFT-to-PUBLISHED flow |
-| Glasgow | [Results](runbooks/glasgow-2026-results.md) | Manual published-results imports |
+| Glasgow | [Automatic live results](runbooks/glasgow-2026-live-feed.md) | Official-feed polling, audit, monitoring, and containment |
+| Glasgow | [Results fallback](runbooks/glasgow-2026-results.md) | Emergency guarded manual imports |
 | Glasgow | [Correction](runbooks/glasgow-2026-compensating-correction.md) | Immutable compensating corrections |
 | Glasgow | [Rollback](runbooks/glasgow-2026-rollback.md) | Data-preserving emergency unpublish |
 

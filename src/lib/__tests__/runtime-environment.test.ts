@@ -50,18 +50,42 @@ describe('runtime environment validation', () => {
     ]));
   });
 
+  it('requires the worker and an explicit source URL when the Glasgow feed is enabled', () => {
+    expect(validateRuntimeEnvironment({
+      ...productionEnvironment,
+      WORKER_ENABLED: 'false',
+      GLASGOW_LIVE_FEED_ENABLED: 'true',
+    })).toEqual(expect.arrayContaining([
+      'GLASGOW_LIVE_FEED_ENABLED requires WORKER_ENABLED=true',
+      'GLASGOW_LIVE_FEED_BASE_URL is required when the Glasgow live feed is enabled',
+    ]));
+  });
+
+  it('pins an enabled production feed to the reviewed Commonwealth Sport origin', () => {
+    expect(validateRuntimeEnvironment({
+      ...productionEnvironment,
+      GLASGOW_LIVE_FEED_ENABLED: 'true',
+      GLASGOW_LIVE_FEED_BASE_URL: 'https://unreviewed.example.test/results',
+    })).toContain(
+      'GLASGOW_LIVE_FEED_BASE_URL must equal the reviewed Commonwealth Sport production URL',
+    );
+  });
+
   it('rejects credential-bearing upstream URLs without echoing credentials', () => {
     const errors = validateRuntimeEnvironment({
       ...productionEnvironment,
       CHAMPION_DATA_BASE_URL: 'https://worker:not-a-real-secret@upstream.example/data',
       THESPORTSDB_BASE_URL: 'https://api:not-a-real-key@upstream.example/data',
+      GLASGOW_LIVE_FEED_BASE_URL: 'https://feed:not-a-real-token@upstream.example/data',
     });
 
     expect(errors).toEqual(expect.arrayContaining([
       'CHAMPION_DATA_BASE_URL must not include URL credentials',
       'THESPORTSDB_BASE_URL must not include URL credentials',
+      'GLASGOW_LIVE_FEED_BASE_URL must not include URL credentials',
     ]));
     expect(errors.join(' ')).not.toContain('not-a-real-secret');
     expect(errors.join(' ')).not.toContain('not-a-real-key');
+    expect(errors.join(' ')).not.toContain('not-a-real-token');
   });
 });

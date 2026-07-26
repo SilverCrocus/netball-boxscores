@@ -59,6 +59,7 @@ export interface GlasgowResultsSourceManifest {
   schemaVersion: 1;
   version: string;
   checksum: string;
+  normalizedArtifact?: unknown;
   sources: Array<{
     id: string;
     url: string;
@@ -150,6 +151,9 @@ interface DatabasePreview extends GlasgowResultsPreview {
 }
 
 type ResultsTransaction = Prisma.TransactionClient;
+type ResultsApplyMode =
+  | { kind: 'manual'; confirmationToken: string }
+  | { kind: 'scheduled' };
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -243,6 +247,28 @@ export function validateGlasgowResultsInput(
         code: 'INVALID_SOURCE_MANIFEST',
         message: 'sourceManifest.checksum must be a SHA-256 digest',
       });
+    }
+    if (input.sourceManifest.normalizedArtifact !== undefined) {
+      const artifact = input.sourceManifest.normalizedArtifact;
+      if (
+        !Array.isArray(artifact)
+        || artifact.length === 0
+        || artifact.length > 100
+        || artifact.some((item) => !isObject(item))
+      ) {
+        issues.push({
+          code: 'INVALID_SOURCE_MANIFEST',
+          message: 'sourceManifest.normalizedArtifact must contain 1 to 100 objects',
+        });
+      } else if (
+        isSha256(input.sourceManifest.checksum ?? '')
+        && sourcePayloadChecksum(artifact) !== input.sourceManifest.checksum
+      ) {
+        issues.push({
+          code: 'SOURCE_MANIFEST_CHECKSUM_MISMATCH',
+          message: 'sourceManifest.checksum must match normalizedArtifact',
+        });
+      }
     }
     if (!Array.isArray(input.sourceManifest.sources) || input.sourceManifest.sources.length === 0) {
       issues.push({
@@ -477,13 +503,12 @@ export function validateGlasgowResultsInput(
   return issues;
 }
 
-function sameResult(
+function sameResultData(
   current: ResolvedResult['match'],
   incoming: GlasgowMatchResultInput,
 ): boolean {
   if (
     current.status !== incoming.status
-    || current.resultQuality !== incoming.resultQuality
     || current.homeScore !== incoming.sideAScore
     || current.awayScore !== incoming.sideBScore
   ) return false;
@@ -494,6 +519,14 @@ function sameResult(
       && quarter.homeScore === period.sideAScore
       && quarter.awayScore === period.sideBScore
     )));
+}
+
+function sameResult(
+  current: ResolvedResult['match'],
+  incoming: GlasgowMatchResultInput,
+): boolean {
+  return current.resultQuality === incoming.resultQuality
+    && sameResultData(current, incoming);
 }
 
 function validQualityTransition(
@@ -520,6 +553,9 @@ function sourceManifestReceipt(input: GlasgowResultsImportInput): Prisma.InputJs
     checksum: input.sourceManifest.checksum,
     sourceCount: input.sourceManifest.sources.length,
     sources: jsonValue(input.sourceManifest.sources),
+    ...(input.sourceManifest.normalizedArtifact !== undefined
+      ? { normalizedArtifact: jsonValue(input.sourceManifest.normalizedArtifact) }
+      : {}),
   };
 }
 
@@ -755,6 +791,7 @@ async function buildDatabasePreview(
       continue;
     }
     const dataChanged = !sameResult(match, result);
+    const canonicalResultChanged = !sameResultData(match, result);
     if (!validQualityTransition(match.resultQuality, result.resultQuality, dataChanged)) {
       issues.push({
         code: 'INVALID_QUALITY_TRANSITION',
@@ -764,7 +801,7 @@ async function buildDatabasePreview(
     }
     if (
       match.status === 'COMPLETED'
-      && dataChanged
+      && canonicalResultChanged
       && result.resultQuality !== 'CORRECTED'
     ) {
       issues.push({
@@ -918,6 +955,22 @@ export class GlasgowResultsImportService {
     input: GlasgowResultsImportInput,
     suppliedConfirmationToken: string,
   ): Promise<GlasgowResultsImportReceipt> {
+    return this.applyWithMode(input, {
+      kind: 'manual',
+      confirmationToken: suppliedConfirmationToken,
+    });
+  }
+
+  async applyScheduled(
+    input: GlasgowResultsImportInput,
+  ): Promise<GlasgowResultsImportReceipt> {
+    return this.applyWithMode(input, { kind: 'scheduled' });
+  }
+
+  private async applyWithMode(
+    input: GlasgowResultsImportInput,
+    mode: ResultsApplyMode,
+  ): Promise<GlasgowResultsImportReceipt> {
     const importRunId = randomUUID();
     const importStartedAt = new Date();
     try {
@@ -926,30 +979,36 @@ export class GlasgowResultsImportService {
         if (!preview.valid) {
           throw new Error(`Results preview is not clean: ${preview.issues.map((issue) => issue.message).join('; ')}`);
         }
-        if (!preview.confirmationToken || suppliedConfirmationToken !== preview.confirmationToken) {
-          throw new Error('Results apply confirmation token does not match the current dry-run state');
-        }
-        const recordedPreviews = await transaction.importRun.findMany({
-          where: {
-            competitionId: preview.editionId,
-            sourceSystemId: preview.sourceSystemId,
-            status: 'SUCCEEDED',
-            dryRun: true,
-            checksum: preview.checksum,
-            issueCount: 0,
-          },
-          orderBy: { completedAt: 'desc' },
-          take: 20,
-          select: { id: true, metadata: true },
-        });
-        const matchingDryRun = recordedPreviews.find((run) => {
-          if (receiptKind(run.metadata) !== 'GLASGOW_RESULTS' || !isObject(run.metadata)) return false;
-          const storedPreview = run.metadata.preview;
-          return isObject(storedPreview)
-            && storedPreview.confirmationToken === suppliedConfirmationToken;
-        });
-        if (!matchingDryRun) {
-          throw new Error('Results apply requires a recorded clean dry-run with the same confirmation token');
+        let matchingDryRun: { id: string; metadata: Prisma.JsonValue } | null = null;
+        if (mode.kind === 'manual') {
+          if (
+            !preview.confirmationToken
+            || mode.confirmationToken !== preview.confirmationToken
+          ) {
+            throw new Error('Results apply confirmation token does not match the current dry-run state');
+          }
+          const recordedPreviews = await transaction.importRun.findMany({
+            where: {
+              competitionId: preview.editionId,
+              sourceSystemId: preview.sourceSystemId,
+              status: 'SUCCEEDED',
+              dryRun: true,
+              checksum: preview.checksum,
+              issueCount: 0,
+            },
+            orderBy: { completedAt: 'desc' },
+            take: 20,
+            select: { id: true, metadata: true },
+          });
+          matchingDryRun = recordedPreviews.find((run) => {
+            if (receiptKind(run.metadata) !== 'GLASGOW_RESULTS' || !isObject(run.metadata)) return false;
+            const storedPreview = run.metadata.preview;
+            return isObject(storedPreview)
+              && storedPreview.confirmationToken === mode.confirmationToken;
+          }) ?? null;
+          if (!matchingDryRun) {
+            throw new Error('Results apply requires a recorded clean dry-run with the same confirmation token');
+          }
         }
 
         const priorRuns = await transaction.importRun.findMany({
@@ -972,7 +1031,11 @@ export class GlasgowResultsImportService {
             sourceSystemId: preview.sourceSystemId,
             competitionId: preview.editionId,
             editionSourceId: preview.editionSourceId,
-            trigger: priorResultsRun ? 'REPLAY' : 'MANUAL',
+            trigger: priorResultsRun
+              ? 'REPLAY'
+              : mode.kind === 'scheduled'
+                ? 'SCHEDULED'
+                : 'MANUAL',
             status: 'RUNNING',
             dryRun: false,
             startedAt: importStartedAt,
@@ -980,7 +1043,8 @@ export class GlasgowResultsImportService {
             checksum: preview.checksum,
             issueCount: 0,
             metadata: receiptMetadata(input, preview, {
-              recordedPreviewImportRunId: matchingDryRun.id,
+              recordedPreviewImportRunId: matchingDryRun?.id ?? null,
+              automated: mode.kind === 'scheduled',
               replayOfImportRunId: priorResultsRun?.id ?? null,
             }),
           },
@@ -1331,7 +1395,8 @@ export class GlasgowResultsImportService {
             updatedCount: updated,
             skippedCount: 0,
             metadata: receiptMetadata(input, preview, {
-              recordedPreviewImportRunId: matchingDryRun.id,
+              recordedPreviewImportRunId: matchingDryRun?.id ?? null,
+              automated: mode.kind === 'scheduled',
               mutationOperations: operationCounts,
             }),
           },
@@ -1356,7 +1421,7 @@ export class GlasgowResultsImportService {
           data: {
             id: importRunId,
             sourceSystem: { connect: { key: GLASGOW_IDENTITY.sourceKey } },
-            trigger: 'MANUAL',
+            trigger: mode.kind === 'scheduled' ? 'SCHEDULED' : 'MANUAL',
             status: 'FAILED',
             dryRun: false,
             startedAt: importStartedAt,

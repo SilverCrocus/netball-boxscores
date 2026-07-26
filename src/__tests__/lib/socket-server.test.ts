@@ -209,7 +209,7 @@ describe('socket-server public safety', () => {
       'match-1',
       0,
       0,
-      4,
+      null,
       access.sourceUpdatedAt,
     );
   });
@@ -218,7 +218,6 @@ describe('socket-server public safety', () => {
     ['unpublished', null],
     ['scheduled', publicAccess(undefined, 'SCHEDULED')],
     ['missing final score', publicAccess(['PLAYER_BOX_SCORE'])],
-    ['missing realtime detail', publicAccess(['FINAL_SCORE'])],
   ])('refuses a %s subscription', async (_label, access) => {
     resolvePublicMatchMock.mockResolvedValue(access);
     const { handlers, socket } = connectFakeSocket();
@@ -226,6 +225,15 @@ describe('socket-server public safety', () => {
     await handlers.get('match:subscribe')?.({ matchId: 'match-1' });
 
     expect(socket.join).not.toHaveBeenCalled();
+  });
+
+  it('subscribes a public score-only match', async () => {
+    resolvePublicMatchMock.mockResolvedValue(publicAccess(['FINAL_SCORE']));
+    const { handlers, socket } = connectFakeSocket();
+
+    await handlers.get('match:subscribe')?.({ matchId: 'match-1' });
+
+    expect(socket.join).toHaveBeenCalledWith('match:match-1');
   });
 
   it('fails closed when public access resolution rejects', async () => {

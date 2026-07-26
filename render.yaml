@@ -18,6 +18,10 @@ services:
         value: 24.14.1
       - key: WORKER_ENABLED
         value: "true"
+      - key: GLASGOW_LIVE_FEED_ENABLED
+        value: "true"
+      - key: GLASGOW_LIVE_FEED_BASE_URL
+        value: https://api.commonwealthsport.com/cwg-schedule/v1/cwg
       - key: DATABASE_ENVIRONMENT
         value: production
       - key: DATABASE_URL

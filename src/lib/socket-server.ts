@@ -47,15 +47,11 @@ export function initSocketServer(httpServer: HttpServer) {
       requestedMatches.add(matchId);
 
       const access = await resolvePublicMatchAccess(matchId).catch(() => null);
-      const hasRealtimeDetail = access?.features.playerBoxScore.available
-        || access?.features.scoreFlow.available
-        || access?.features.matchEvents.available;
       if (
         !requestedMatches.has(matchId)
         || !access
         || !isPublicMatchLiveOrFinal(access)
         || !access.features.finalScore.available
-        || !hasRealtimeDetail
       ) return;
 
       socket.join(`match:${matchId}`);
@@ -70,7 +66,7 @@ export function initSocketServer(httpServer: HttpServer) {
           matchId,
           0,
           0,
-          4,
+          null,
           access.sourceUpdatedAt,
         );
       }

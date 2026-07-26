@@ -129,11 +129,14 @@ Restore only after the source/worker defect is fixed and reviewed:
 
 ## Glasgow results operations
 
-Use only the manual guarded flow in
-[`glasgow-2026-results.md`](glasgow-2026-results.md). Retain preview/applied
-receipt IDs, checksums, source artifacts and mutation counts. Corrections use
+The official automatic workflow in
+[`glasgow-2026-live-feed.md`](glasgow-2026-live-feed.md) is the normal path.
+Monitor its scheduled import receipts, checksums, source snapshots, mutation
+counts, worker freshness, and public score-only disclosure. The guarded manual
+flow in [`glasgow-2026-results.md`](glasgow-2026-results.md) is an emergency
+fallback after the automatic feed is disabled. Corrections use
 [`glasgow-2026-compensating-correction.md`](glasgow-2026-compensating-correction.md).
-Do not enable box scores, events, momentum or other capabilities without a
+Do not enable box scores, events, momentum, or other capabilities without a
 validated source contract.
 
 ## Evidence retention and escalation
