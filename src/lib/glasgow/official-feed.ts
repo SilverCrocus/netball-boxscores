@@ -39,6 +39,7 @@ const MAX_PHASES_PER_SESSION = 32;
 const MAX_PHASE_RESULTS = 64;
 
 export type OfficialFeedStatus = 'UPCOMING' | 'LIVE' | 'COMPLETE';
+export type OfficialFeedPhaseStatus = OfficialFeedStatus | null;
 export type NormalizedMatchStatus = 'LIVE' | 'COMPLETED';
 export type NormalizedResultQuality = 'PROVISIONAL' | 'OFFICIAL_FINAL';
 
@@ -53,7 +54,7 @@ export interface OfficialFeedSessionPhase {
   eventCode: string;
   phaseCode: string;
   genderCode: string;
-  status: OfficialFeedStatus;
+  status: OfficialFeedPhaseStatus;
   startDate: string;
   description: string | null;
   phaseDescription: string | null;
@@ -76,7 +77,7 @@ export interface OfficialFeedPhaseRequest {
   genderCode: string;
   disciplineCode: typeof GLASGOW_NETBALL_DISCIPLINE_CODE;
   sessionStatus: OfficialFeedStatus;
-  phaseStatus: OfficialFeedStatus;
+  phaseStatus: OfficialFeedPhaseStatus;
   sessionStartDate: string;
   sessionEndDate: string;
   phaseStartDate: string;
@@ -199,6 +200,11 @@ function statusAt(value: unknown, path: string): OfficialFeedStatus {
     invalid(path, 'must be UPCOMING, LIVE, or COMPLETE');
   }
   return value;
+}
+
+function phaseStatusAt(value: unknown, path: string): OfficialFeedPhaseStatus {
+  if (value === null) return null;
+  return statusAt(value, path);
 }
 
 function positiveIntegerAt(value: unknown, path: string): number {
@@ -418,7 +424,7 @@ export function parseOfficialSessionsPayload(
         eventCode: stringAt(phase.eventCode, `${phasePath}.eventCode`),
         phaseCode: stringAt(phase.phaseCode, `${phasePath}.phaseCode`),
         genderCode: stringAt(phase.genderCode, `${phasePath}.genderCode`),
-        status: statusAt(phase.status, `${phasePath}.status`),
+        status: phaseStatusAt(phase.status, `${phasePath}.status`),
         startDate: phaseStartDate,
         description: nullableStringAt(
           phase.description,
@@ -491,9 +497,12 @@ function parseCompetitor(
   path: string,
   request: OfficialFeedPhaseRequest,
   unitStatus: 'LIVE' | 'COMPLETE',
+  liveResultStatus: 'RUNNING' | 'SCHEDULED_BREAK' = 'RUNNING',
 ): ParsedCompetitor {
   const competitor = objectAt(rawCompetitor, path);
-  const expectedResultStatus = unitStatus === 'LIVE' ? 'RUNNING' : 'OFFICIAL';
+  const expectedResultStatus = unitStatus === 'LIVE'
+    ? liveResultStatus
+    : 'OFFICIAL';
 
   if (stringAt(competitor.disciplineCode, `${path}.disciplineCode`) !== request.disciplineCode) {
     invalid(`${path}.disciplineCode`, 'does not match the detail request');
@@ -572,10 +581,14 @@ export function parseOfficialDetailPayload(
   for (const [resultIndex, rawPhaseResult] of phaseResults.entries()) {
     const path = `payload.phaseResults[${resultIndex}]`;
     const phaseResult = objectAt(rawPhaseResult, path);
-    const unitStatus = stringAt(phaseResult.unitStatus, `${path}.unitStatus`);
+    const rawUnitStatus = phaseResult.unitStatus;
 
-    if (unitStatus === 'UPCOMING') continue;
-    if (unitStatus !== 'LIVE' && unitStatus !== 'COMPLETE') {
+    if (rawUnitStatus === 'UPCOMING') continue;
+    if (
+      rawUnitStatus !== 'LIVE'
+      && rawUnitStatus !== 'COMPLETE'
+      && rawUnitStatus !== null
+    ) {
       invalid(`${path}.unitStatus`, 'is not an authoritative result status');
     }
 
@@ -605,21 +618,50 @@ export function parseOfficialDetailPayload(
     if (teamResults.length !== 2) {
       invalid(`${path}.versus.teamResult`, 'must contain exactly two competitors');
     }
-    if (unitStatus === 'LIVE') {
-      const gettingReady = teamResults.map((competitor, competitorIndex) =>
-        isGettingReadyCompetitor(
-          competitor,
-          `${path}.versus.teamResult[${competitorIndex}]`,
-        ));
+
+    const gettingReady = teamResults.map((competitor, competitorIndex) =>
+      isGettingReadyCompetitor(
+        competitor,
+        `${path}.versus.teamResult[${competitorIndex}]`,
+      ));
+    let unitStatus: 'LIVE' | 'COMPLETE';
+    let liveResultStatus: 'RUNNING' | 'SCHEDULED_BREAK' = 'RUNNING';
+    if (rawUnitStatus === null) {
+      if (request.phaseStatus !== null) {
+        invalid(
+          `${path}.unitStatus`,
+          'may be null only when the selected phase status is also null',
+        );
+      }
       if (gettingReady.every(Boolean)) {
         gettingReadyRows += 1;
         continue;
       }
-      if (gettingReady.some(Boolean)) {
+      const scheduledBreak = teamResults.map((rawCompetitor) => (
+        objectAt(rawCompetitor, `${path}.versus.teamResult`).resultStatus
+          === 'SCHEDULED_BREAK'
+      ));
+      if (!scheduledBreak.every(Boolean)) {
         invalid(
           `${path}.versus.teamResult`,
-          'must not mix getting-ready and authoritative score states',
+          'must contain two SCHEDULED_BREAK results when unitStatus is null',
         );
+      }
+      unitStatus = 'LIVE';
+      liveResultStatus = 'SCHEDULED_BREAK';
+    } else {
+      unitStatus = rawUnitStatus;
+      if (unitStatus === 'LIVE') {
+        if (gettingReady.every(Boolean)) {
+          gettingReadyRows += 1;
+          continue;
+        }
+        if (gettingReady.some(Boolean)) {
+          invalid(
+            `${path}.versus.teamResult`,
+            'must not mix getting-ready and authoritative score states',
+          );
+        }
       }
     }
 
@@ -629,6 +671,7 @@ export function parseOfficialDetailPayload(
         `${path}.versus.teamResult[${competitorIndex}]`,
         request,
         unitStatus,
+        liveResultStatus,
       ))
       .sort((left, right) => left.startOrder - right.startOrder);
     const [sideA, sideB] = competitors;
@@ -682,7 +725,7 @@ export function parseOfficialDetailPayload(
   if (
     sorted.length === 0
     && gettingReadyRows === 0
-    && (request.phaseStatus === 'LIVE' || request.phaseStatus === 'COMPLETE')
+    && request.phaseStatus !== 'UPCOMING'
   ) {
     invalid(
       'payload.phaseResults',
@@ -868,7 +911,7 @@ export async function fetchOfficialObservationsForDate(
   const requests = buildOfficialPhaseRequests(sessions).filter(
     (request) => (
       request.phaseCode !== 'VICT'
-      && (request.phaseStatus === 'LIVE' || request.phaseStatus === 'COMPLETE')
+      && request.phaseStatus !== 'UPCOMING'
     ),
   );
   const results = await fetchPhaseResultsWithConcurrencyTwo(requests, options);
