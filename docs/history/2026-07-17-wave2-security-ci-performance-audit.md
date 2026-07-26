@@ -1,5 +1,10 @@
 # Wave 2 security, CI, and performance audit
 
+> Historical evidence snapshot. This records the state of the named baseline on
+> 2026-07-17; it is not a current security or release-readiness attestation.
+> Use the current runbooks and a fresh `npm run check`, build, dependency audit,
+> database advisor review, and exact-release production verification.
+
 Audit date: 2026-07-17
 Baseline: `883ce77ce0539b8c40fb14820017c33350bc48e1` (`codex/wave1-integration`)
 
