@@ -31,8 +31,9 @@ JSON and Markdown evidence. It checks:
 - `/api/readiness`: `200`; database `ok=true`; worker `ok=true`, `enabled=true`,
   `required=true`, `state=healthy`, `satisfiesReadiness=true`, `isHealthy=true`,
   `lastPollStatus=success|empty`, a positive `currentIntervalMs`, and a fresh
-  valid `lastPollAt`; plus the analytics/Ask boundaries in the state required
-  by the selected phase;
+  valid `lastPollAt` or a bounded active poll that began before that result
+  expired; plus the analytics/Ask boundaries in the state required by the
+  selected phase;
 - `/` plus `/api/matches?season=2026`: SSN renders and exposes a covered result;
 - in `baseline`, Glasgow, rankings, records, comparison and Ask all return 404
   while their publication/feature controls are off;

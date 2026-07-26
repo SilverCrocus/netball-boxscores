@@ -40,7 +40,9 @@ Critical conditions:
 - readiness non-200 twice one minute apart;
 - database `ok=false` or readiness database latency at/above 2,500 ms;
 - required worker disabled/unhealthy, `lastPollStatus` neither `success` nor
-  `empty`, or `lastPollAt` missing/at least two times `currentIntervalMs` old;
+  `empty`, or a missing/stale `lastPollAt` without a valid active poll. An
+  active poll is valid only when it began before the prior result expired and
+  remains below the reported three-minute deadman deadline;
 - analytics or stats-operations state not `healthy` while enabled;
 - any public DRAFT/unpublished data; or
 - covered final scores disappear or unavailable capabilities appear as zero.

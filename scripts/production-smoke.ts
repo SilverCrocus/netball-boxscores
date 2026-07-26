@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 const SMOKE_VERSION = 'centrepass-production-smoke.v1';
 const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_RETRIES = 2;
+const EXPECTED_MAX_ACTIVE_POLL_MS = 180_000;
 export const MAX_RESPONSE_BODY_BYTES = 1_048_576;
 
 export interface ProductionSmokeOptions {
@@ -520,8 +521,36 @@ export async function executeProductionSmoke(
       const readinessAt = Date.parse(String(body.timestamp));
       const lastPollAt = Date.parse(String(worker.lastPollAt));
       const freshnessMs = Number(worker.currentIntervalMs) * 2;
-      if (lastPollAt > readinessAt || readinessAt - lastPollAt >= freshnessMs) {
-        throw new Error('worker lastPollAt is stale or later than readiness time');
+      if (typeof worker.pollInProgress !== 'boolean') {
+        throw new Error('worker pollInProgress is not a boolean');
+      }
+      if (worker.maxActivePollMs !== EXPECTED_MAX_ACTIVE_POLL_MS) {
+        throw new Error('worker maxActivePollMs does not match the release policy');
+      }
+      if (worker.pollInProgress) {
+        if (!isoTimestamp(worker.pollStartedAt)) {
+          throw new Error('worker pollStartedAt is not a valid timestamp');
+        }
+        if (!Number.isSafeInteger(worker.pollElapsedMs) || Number(worker.pollElapsedMs) < 0) {
+          throw new Error('worker pollElapsedMs is not a non-negative integer');
+        }
+        const pollStartedAt = Date.parse(String(worker.pollStartedAt));
+        const activePollIsValid =
+          lastPollAt <= pollStartedAt &&
+          pollStartedAt < lastPollAt + freshnessMs &&
+          pollStartedAt <= readinessAt &&
+          readinessAt - pollStartedAt < EXPECTED_MAX_ACTIVE_POLL_MS &&
+          Number(worker.pollElapsedMs) < EXPECTED_MAX_ACTIVE_POLL_MS;
+        if (!activePollIsValid) {
+          throw new Error('worker active poll is stale or invalid');
+        }
+      } else {
+        if (worker.pollStartedAt !== null || worker.pollElapsedMs !== null) {
+          throw new Error('worker inactive poll state is inconsistent');
+        }
+        if (lastPollAt > readinessAt || readinessAt - lastPollAt >= freshnessMs) {
+          throw new Error('worker lastPollAt is stale or later than readiness time');
+        }
       }
       if (context.phase === 'published') {
         if (analytics.enabled !== true || analytics.state !== 'healthy' || analytics.satisfiesReadiness !== true) {

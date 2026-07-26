@@ -23,7 +23,7 @@ import {
   acquireStandingsSourceLock,
   rebuildStandingsInTransaction,
 } from '@/lib/standings';
-import { recordPoll, setCurrentInterval } from '@/lib/worker-health';
+import { beginPoll, recordPoll, setCurrentInterval } from '@/lib/worker-health';
 import { hasResolvedLegacyMatch } from '@/lib/edition-match';
 import { resolvePublicMatchAccess } from '@/lib/public-match';
 import { runSerializableTransaction } from '@/lib/serializable-transaction';
@@ -627,34 +627,58 @@ function aggregatePollOutcomes(
 }
 
 export async function pollAllSources(): Promise<WorkerPollOutcome> {
-  const outcomes: WorkerPollOutcome[] = [
-    await pollChampionData({ recordHealth: false }),
-  ];
+  beginPoll();
+  const sourcePolls: Array<{
+    name: string;
+    outcome: Promise<WorkerPollOutcome>;
+  }> = [{
+    name: 'Champion Data',
+    outcome: pollChampionData({ recordHealth: false }),
+  }];
 
   if (isOfficialGlasgowFeedEnabled()) {
-    try {
-      const glasgow = await syncOfficialGlasgowResults();
-      if (
-        (glasgow.status === 'partial' || glasgow.status === 'error')
-        && glasgow.issues.length > 0
-      ) {
-        console.error(
-          `[Worker] Glasgow official feed ${glasgow.status}:`,
-          glasgow.issues.map((issue) => safeErrorMessage(issue)).join('; '),
-        );
-      }
-      outcomes.push({
-        status: glasgow.status,
-        matchesProcessed: glasgow.matchesProcessed,
-      });
-    } catch (error) {
-      console.error(
-        '[Worker] Glasgow official feed sync failed:',
-        safeErrorMessage(error),
-      );
-      outcomes.push({ status: 'error', matchesProcessed: 0 });
-    }
+    sourcePolls.push({
+      name: 'Glasgow official feed',
+      outcome: (async () => {
+        try {
+          const glasgow = await syncOfficialGlasgowResults();
+          if (
+            (glasgow.status === 'partial' || glasgow.status === 'error')
+            && glasgow.issues.length > 0
+          ) {
+            console.error(
+              `[Worker] Glasgow official feed ${glasgow.status}:`,
+              glasgow.issues.map((issue) => safeErrorMessage(issue)).join('; '),
+            );
+          }
+          return {
+            status: glasgow.status,
+            matchesProcessed: glasgow.matchesProcessed,
+          };
+        } catch (error) {
+          console.error(
+            '[Worker] Glasgow official feed sync failed:',
+            safeErrorMessage(error),
+          );
+          return { status: 'error', matchesProcessed: 0 };
+        }
+      })(),
+    });
   }
+
+  const settledSources = await Promise.allSettled(
+    sourcePolls.map((source) => source.outcome),
+  );
+  const outcomes = settledSources.map((settled, index): WorkerPollOutcome => {
+    if (settled.status === 'fulfilled') {
+      return settled.value;
+    }
+    console.error(
+      `[Worker] ${sourcePolls[index]?.name ?? 'Unknown'} source poll rejected unexpectedly:`,
+      safeErrorMessage(settled.reason),
+    );
+    return { status: 'error', matchesProcessed: 0 };
+  });
 
   const outcome = aggregatePollOutcomes(outcomes);
   recordPoll(outcome.status, outcome.matchesProcessed);

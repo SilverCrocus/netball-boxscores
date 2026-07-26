@@ -91,6 +91,10 @@ describe('Readiness API', () => {
       matchesProcessed: 2,
       pollsSinceStartup: 3,
       uptimeMs: 60_000,
+      pollInProgress: false,
+      pollStartedAt: null,
+      pollElapsedMs: null,
+      maxActivePollMs: 180_000,
       isHealthy: true,
     });
     const { invalidateScopedDatabaseBoundaryCache } = await import(
@@ -127,6 +131,8 @@ describe('Readiness API', () => {
           required: true,
           isHealthy: true,
           lastPollStatus: 'success',
+          pollInProgress: false,
+          pollStartedAt: null,
         },
       },
     });
@@ -152,6 +158,10 @@ describe('Readiness API', () => {
       matchesProcessed: 0,
       pollsSinceStartup: 1,
       uptimeMs: 60_000,
+      pollInProgress: false,
+      pollStartedAt: null,
+      pollElapsedMs: null,
+      maxActivePollMs: 180_000,
       isHealthy: false,
     });
     const { GET } = await import('@/app/api/readiness/route');
@@ -179,6 +189,10 @@ describe('Readiness API', () => {
       matchesProcessed: 2,
       pollsSinceStartup: 3,
       uptimeMs: 60_000,
+      pollInProgress: false,
+      pollStartedAt: null,
+      pollElapsedMs: null,
+      maxActivePollMs: 180_000,
       isHealthy: true,
     });
     const { GET } = await import('@/app/api/readiness/route');

@@ -74,6 +74,7 @@ vi.mock('@/lib/standings', () => ({
 }));
 
 vi.mock('@/lib/worker-health', () => ({
+  beginPoll: vi.fn(),
   recordPoll: vi.fn(),
   setCurrentInterval: vi.fn(),
 }));
@@ -185,7 +186,7 @@ describe('Worker', () => {
   it('aggregates a successful enabled Glasgow sync into one health record', async () => {
     vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', 'true');
     const { ingestFromChampionData } = await import('@/lib/ingestion');
-    const { recordPoll } = await import('@/lib/worker-health');
+    const { beginPoll, recordPoll } = await import('@/lib/worker-health');
     const { pollAllSources } = await import('@/lib/worker');
     vi.mocked(ingestFromChampionData).mockResolvedValue({
       fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
@@ -203,6 +204,54 @@ describe('Worker', () => {
     const outcome = await pollAllSources();
 
     expect(outcome).toEqual({ status: 'success', matchesProcessed: 2 });
+    expect(beginPoll).toHaveBeenCalledOnce();
+    expect(recordPoll).toHaveBeenCalledOnce();
+    expect(recordPoll).toHaveBeenCalledWith('success', 2);
+    expect(vi.mocked(beginPoll).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(ingestFromChampionData).mock.invocationCallOrder[0]!,
+    );
+    expect(vi.mocked(beginPoll).mock.invocationCallOrder[0]).toBeLessThan(
+      glasgowFeedMocks.syncOfficialGlasgowResults.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('starts the Glasgow sync without waiting for Champion Data to finish', async () => {
+    vi.stubEnv('GLASGOW_LIVE_FEED_ENABLED', 'true');
+    const { ingestFromChampionData } = await import('@/lib/ingestion');
+    const { recordPoll } = await import('@/lib/worker-health');
+    const { pollAllSources } = await import('@/lib/worker');
+    let releaseChampionData!: () => void;
+    const championDataGate = new Promise<void>((resolve) => {
+      releaseChampionData = resolve;
+    });
+    vi.mocked(ingestFromChampionData).mockImplementationOnce(async () => {
+      await championDataGate;
+      return {
+        fixtureObservationAt: new Date('2026-06-01T00:00:00Z'),
+        fixture: [],
+        matchDetails: new Map(),
+        pollLogIds: [],
+        matchPollLogIds: new Map(),
+        detailFetchErrors: 0,
+      };
+    });
+    glasgowFeedMocks.syncOfficialGlasgowResults.mockResolvedValue({
+      status: 'success',
+      matchesProcessed: 2,
+    });
+
+    const pollPromise = pollAllSources();
+
+    await vi.waitFor(() => {
+      expect(glasgowFeedMocks.syncOfficialGlasgowResults).toHaveBeenCalledOnce();
+    });
+    expect(recordPoll).not.toHaveBeenCalled();
+
+    releaseChampionData();
+    await expect(pollPromise).resolves.toEqual({
+      status: 'success',
+      matchesProcessed: 2,
+    });
     expect(recordPoll).toHaveBeenCalledOnce();
     expect(recordPoll).toHaveBeenCalledWith('success', 2);
   });
