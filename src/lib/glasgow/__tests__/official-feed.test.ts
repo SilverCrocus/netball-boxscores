@@ -216,6 +216,65 @@ describe('Commonwealth Sport Glasgow 2026 official feed', () => {
     expect(observations[0].detailRequestUrl).toBe(officialPhaseDetailUrl(liveRequest!));
   });
 
+  it('keeps the provider LIVE + FINISHED hand-off provisional until it becomes official', async () => {
+    const transition = liveDetailPayload();
+    for (const team of transition.phaseResults[0].versus.teamResult) {
+      team.resultStatus = 'FINISHED';
+    }
+    transition.phaseResults[0].versus.teamResult[0].result = '48';
+    transition.phaseResults[0].versus.teamResult[1].result = '64';
+    const upcoming = structuredClone(transition.phaseResults[0]);
+    upcoming.unitStatus = 'UPCOMING';
+    transition.phaseResults.unshift(upcoming);
+    const transitionRequest = request({
+      sessionStatus: 'UPCOMING',
+      phaseStatus: null,
+    });
+
+    expect(parseOfficialDetailPayload(transition, transitionRequest)).toEqual([
+      expect.objectContaining({
+        status: 'LIVE',
+        resultQuality: 'PROVISIONAL',
+        sideAOrganisationCode: 'WAL',
+        sideBOrganisationCode: 'SCO',
+        sideAScore: 64,
+        sideBScore: 48,
+      }),
+    ]);
+
+    for (const otherStatus of ['RUNNING', 'OFFICIAL']) {
+      const mixed = structuredClone(transition);
+      mixed.phaseResults[1].versus.teamResult[0].resultStatus = otherStatus;
+      expect(() => parseOfficialDetailPayload(mixed, transitionRequest))
+        .toThrow('must contain two matching authoritative score states');
+    }
+
+    const falselyComplete = structuredClone(transition);
+    falselyComplete.phaseResults[1].unitStatus = 'COMPLETE';
+    expect(() => parseOfficialDetailPayload(falselyComplete, transitionRequest))
+      .toThrow('must be OFFICIAL for a COMPLETE result');
+
+    const transitionSessions = structuredClone(liveSessionsPayload);
+    transitionSessions.sessions[0].status = 'UPCOMING';
+    transitionSessions.sessions[0].sessionEventPhases[1].status =
+      null as unknown as string;
+    const fetchImpl = vi.fn(async (input: string) => new Response(JSON.stringify(
+      new URL(input).pathname.endsWith('/sessions')
+        ? transitionSessions
+        : transition,
+    )));
+    await expect(fetchOfficialObservationsForDate('2026-07-26', { fetchImpl }))
+      .resolves.toEqual([
+        expect.objectContaining({
+          status: 'LIVE',
+          resultQuality: 'PROVISIONAL',
+          sideAScore: 64,
+          sideBScore: 48,
+        }),
+      ]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps an official scheduled-break score live when discovery statuses are transiently null', async () => {
     const breakSessions = structuredClone(liveSessionsPayload);
     breakSessions.sessions[0].status = 'UPCOMING';

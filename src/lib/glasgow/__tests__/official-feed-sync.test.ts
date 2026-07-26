@@ -190,6 +190,31 @@ describe('official Glasgow feed sync planning', () => {
     expect(regression.issues[0]).toContain('live score regression');
   });
 
+  it('never reopens a completed fixture from a provisional provider hand-off', () => {
+    const plan = planOfficialGlasgowUpdates(
+      [observation({
+        status: 'LIVE',
+        resultQuality: 'PROVISIONAL',
+        sideAScore: 52,
+        sideBScore: 61,
+      })],
+      [mappedMatch({
+        status: 'COMPLETED',
+        resultQuality: 'OFFICIAL_FINAL',
+        homeScore: 52,
+        awayScore: 61,
+      })],
+      teamMappings,
+      new Date('2026-07-26T10:30:00Z'),
+      'a'.repeat(64),
+    );
+
+    expect(plan.updates).toEqual([]);
+    expect(plan.issues).toEqual([
+      expect.stringContaining('attempted to reopen a completed fixture'),
+    ]);
+  });
+
   it('quarantines every observation involved in provider or fixture collisions', () => {
     const duplicateProvider = planOfficialGlasgowUpdates(
       [observation(), observation({ sideAScore: 39 })],

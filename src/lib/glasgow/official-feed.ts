@@ -497,7 +497,7 @@ function parseCompetitor(
   path: string,
   request: OfficialFeedPhaseRequest,
   unitStatus: 'LIVE' | 'COMPLETE',
-  liveResultStatus: 'RUNNING' | 'SCHEDULED_BREAK' = 'RUNNING',
+  liveResultStatus: 'RUNNING' | 'SCHEDULED_BREAK' | 'FINISHED' = 'RUNNING',
 ): ParsedCompetitor {
   const competitor = objectAt(rawCompetitor, path);
   const expectedResultStatus = unitStatus === 'LIVE'
@@ -625,7 +625,7 @@ export function parseOfficialDetailPayload(
         `${path}.versus.teamResult[${competitorIndex}]`,
       ));
     let unitStatus: 'LIVE' | 'COMPLETE';
-    let liveResultStatus: 'RUNNING' | 'SCHEDULED_BREAK' = 'RUNNING';
+    let liveResultStatus: 'RUNNING' | 'SCHEDULED_BREAK' | 'FINISHED' = 'RUNNING';
     if (rawUnitStatus === null) {
       if (request.phaseStatus !== null) {
         invalid(
@@ -661,6 +661,23 @@ export function parseOfficialDetailPayload(
             `${path}.versus.teamResult`,
             'must not mix getting-ready and authoritative score states',
           );
+        }
+        const resultStatuses = teamResults.map((rawCompetitor, competitorIndex) =>
+          objectAt(
+            rawCompetitor,
+            `${path}.versus.teamResult[${competitorIndex}]`,
+          ).resultStatus);
+        if (resultStatuses[0] !== resultStatuses[1]) {
+          invalid(
+            `${path}.versus.teamResult`,
+            'must contain two matching authoritative score states',
+          );
+        }
+        // The provider briefly reports both competitors FINISHED while the unit
+        // remains LIVE. Preserve that score as provisional; only COMPLETE with
+        // OFFICIAL competitors can produce a final observation below.
+        if (resultStatuses[0] === 'FINISHED') {
+          liveResultStatus = 'FINISHED';
         }
       }
     }
