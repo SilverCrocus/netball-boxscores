@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { prisma } from '@/lib/db';
 import { notFound, redirect } from 'next/navigation';
 import { LiveGameClient } from './LiveGameClient';
@@ -13,6 +14,10 @@ import {
   resolvePublicMatchForRequest,
 } from '@/lib/public-match';
 import { rosterForMatch } from '@/lib/match-player-team';
+import {
+  OfficialLiveCentreResolver,
+} from '@/components/match/OfficialLiveCentreResolver';
+import { GLASGOW_2026_FOUNDATION } from '@/lib/glasgow/edition';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -66,6 +71,12 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
     where: { id: matchId },
     include: {
       stage: { select: { name: true } },
+      competition: {
+        select: {
+          slug: true,
+          series: { select: { slug: true } },
+        },
+      },
       homeTeam: {
         include: {
           editionEntries: {
@@ -193,9 +204,17 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
     };
   }
 
-  // Compute pre-match team strength prior from season results
+  const isOfficialGlasgowMatch = (
+    match.competition.slug === GLASGOW_2026_FOUNDATION.edition.slug
+    && match.competition.series?.slug === GLASGOW_2026_FOUNDATION.series.slug
+  );
+  // Compute pre-match team strength prior from season results.
   const preMatchPrior = features.scoreFlow.available
-    ? await computeTeamStrengthPrior(match.homeTeamId, match.awayTeamId, match.id)
+    ? await computeTeamStrengthPrior(
+      match.homeTeamId,
+      match.awayTeamId,
+      match.id,
+    )
     : null;
 
   const serialized = {
@@ -244,19 +263,33 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
     preMatchPrior,
   };
 
-  return <LiveGameClient
-    match={serialized}
-    capabilities={{
-      lineups: canExposeLineups,
-      matchEvents: features.matchEvents.available,
-      periodScores: features.periodScores.available,
-      playerBoxScore: features.playerBoxScore.available,
-      scoreFlow: features.scoreFlow.available,
-      superShots: features.superShots.available,
-    }}
-    // Completed public pages remain subscribed so a later official correction
-    // or inferred reopen can replace the SSR snapshot. The socket server still
-    // rechecks publication and score capability before joining/emitting.
-    realtimeEnabled={canRenderLiveSurface}
-  />;
+  return (
+    <>
+      <LiveGameClient
+        match={serialized}
+        capabilities={{
+          lineups: canExposeLineups,
+          matchEvents: features.matchEvents.available,
+          periodScores: features.periodScores.available,
+          playerBoxScore: features.playerBoxScore.available,
+          scoreFlow: features.scoreFlow.available,
+          superShots: features.superShots.available,
+        }}
+        // Completed public pages remain subscribed so a later official correction
+        // or inferred reopen can replace the SSR snapshot. The socket server still
+        // rechecks publication and score capability before joining/emitting.
+        realtimeEnabled={canRenderLiveSurface}
+      />
+      {isOfficialGlasgowMatch ? (
+        <Suspense fallback={null}>
+          <OfficialLiveCentreResolver
+            scheduledAt={match.scheduledAt}
+            homeTeamAbbreviation={match.homeTeam.abbreviation}
+            awayTeamAbbreviation={match.awayTeam.abbreviation}
+            isLive={isLiveMatch}
+          />
+        </Suspense>
+      ) : null}
+    </>
+  );
 }

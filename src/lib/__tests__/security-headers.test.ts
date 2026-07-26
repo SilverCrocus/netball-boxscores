@@ -11,6 +11,9 @@ describe('security response headers', () => {
 
     expect(headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     expect(headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
+    expect(headers.get('Content-Security-Policy')).toContain(
+      "frame-src 'self' https://crs-cg2026.glasgow2026.com",
+    );
     expect(headers.get('Content-Security-Policy')).not.toContain("'unsafe-eval'");
     expect(headers.get('Permissions-Policy')).toBe('camera=(), geolocation=(), microphone=()');
     expect(headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');

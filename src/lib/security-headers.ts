@@ -14,6 +14,7 @@ function buildContentSecurityPolicy(environment: string): string {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
+    "frame-src 'self' https://crs-cg2026.glasgow2026.com",
     "object-src 'none'",
     `script-src 'self' 'unsafe-inline'${developmentScriptSource}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
