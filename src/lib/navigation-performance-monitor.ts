@@ -1,5 +1,6 @@
 export const NAVIGATION_PERFORMANCE_SCHEMA =
   'centrepass-navigation-performance.v1' as const;
+export const MIN_ENFORCED_NAVIGATION_SAMPLES = 20;
 
 export type NavigationProfile = 'desktop' | 'mobile';
 export type NavigationInteraction = 'pointer' | 'touch' | 'keyboard';
@@ -57,6 +58,7 @@ export interface NavigationSummary {
   acknowledgementP95Ms: number;
   intentTargetRscRequests: number;
   intentTargetRscSettled: number;
+  consumedIntentSamples: number;
   postClickTargetRscRequests: number;
   consoleErrors: number;
   ignoredKnownConsoleErrors: number;
@@ -70,7 +72,9 @@ export interface IdlePrefetchMeasurement {
   route: string;
   observedForMs: number;
   emittedRscRequests: number;
+  settledRscRequests: number;
   completedRscRequests: number;
+  sizedRscRequests: number;
   completedRscBytes: number | null;
   benignAbortedRscRequests: number;
   unexpectedRequestFailures: number;
@@ -118,8 +122,112 @@ export interface NavigationPerformanceReport {
   budgetsEnforced: boolean;
 }
 
+export interface NavigationMonitorFailure {
+  code:
+    | 'invalid_configuration'
+    | 'production_prerequisite_failed'
+    | 'production_release_mismatch'
+    | 'route_discovery_failed'
+    | 'navigation_sample_failed'
+    | 'browser_monitor_failed'
+    | 'unknown_monitor_failure';
+  message: string;
+}
+
 function rounded(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+export function validateNavigationPerformanceSamplePolicy(
+  samples: number,
+  enforceBudgets: boolean,
+): void {
+  if (enforceBudgets && samples < MIN_ENFORCED_NAVIGATION_SAMPLES) {
+    throw new Error(
+      `Budget enforcement requires at least ${MIN_ENFORCED_NAVIGATION_SAMPLES} samples per transition`,
+    );
+  }
+}
+
+export function countPreClickTargetRscRequests(
+  sourceTargetRscRequests: number,
+  intentTargetRscRequests: number,
+): number {
+  return sourceTargetRscRequests + intentTargetRscRequests;
+}
+
+export function calculateNavigationTiming(
+  navigationStartedAtMs: number,
+  destinationObservedAtMs: number,
+  acknowledgementMs: number | null,
+): Pick<NavigationSample, 'durationMs' | 'acknowledgementMs'> {
+  if (destinationObservedAtMs < navigationStartedAtMs) {
+    throw new Error('Destination observation preceded navigation start');
+  }
+  return {
+    durationMs: rounded(destinationObservedAtMs - navigationStartedAtMs),
+    acknowledgementMs: acknowledgementMs === null
+      ? null
+      : rounded(acknowledgementMs),
+  };
+}
+
+export function classifyNavigationMonitorFailure(
+  error: unknown,
+): NavigationMonitorFailure {
+  const message = error instanceof Error ? error.message : '';
+  if (
+    message.startsWith('Samples must be ')
+    || message.startsWith('Expected a boolean value')
+    || message.startsWith('Performance base URL')
+    || message.startsWith('Budget enforcement requires')
+  ) {
+    return {
+      code: 'invalid_configuration',
+      message: 'The navigation monitor configuration is invalid.',
+    };
+  }
+  if (
+    message.startsWith('Production health prerequisite failed')
+    || message.startsWith('Production readiness prerequisite failed')
+  ) {
+    return {
+      code: 'production_prerequisite_failed',
+      message: 'Production health or readiness checks did not pass.',
+    };
+  }
+  if (message.startsWith('Production release mismatch')) {
+    return {
+      code: 'production_release_mismatch',
+      message: 'Production is not running the expected release.',
+    };
+  }
+  if (
+    message.startsWith('No visible navigation link found')
+    || message.startsWith('Standings link ')
+    || message.startsWith('Source route ')
+  ) {
+    return {
+      code: 'route_discovery_failed',
+      message: 'A required navigation route could not be verified.',
+    };
+  }
+  if (/^(desktop|mobile)\/(pointer|touch|keyboard)\//.test(message)) {
+    return {
+      code: 'navigation_sample_failed',
+      message: 'A navigation sample could not be completed.',
+    };
+  }
+  if (error instanceof Error) {
+    return {
+      code: 'browser_monitor_failed',
+      message: 'The browser performance monitor did not complete.',
+    };
+  }
+  return {
+    code: 'unknown_monitor_failure',
+    message: 'The navigation monitor ended unexpectedly.',
+  };
 }
 
 export function nearestRank(values: readonly number[], percentile: number): number {
@@ -177,6 +285,10 @@ export function summarizeNavigationSamples(
           (total, sample) => total + sample.intentTargetRscSettled,
           0,
         ),
+        consumedIntentSamples: group.filter((sample) => (
+          sample.intentTargetRscRequests > 0
+          && sample.intentTargetRscSettled === sample.intentTargetRscRequests
+        )).length,
         postClickTargetRscRequests: group.reduce(
           (total, sample) => total + sample.postClickTargetRscRequests,
           0,
@@ -220,6 +332,17 @@ interface GateInput {
   idlePrefetch: IdlePrefetchMeasurement;
   policyContracts: readonly PolicyContractMeasurement[];
   budgets?: NavigationPerformanceBudgets;
+  budgetsEnforced?: boolean;
+}
+
+function hasCompleteIdlePrefetchEvidence(
+  measurement: IdlePrefetchMeasurement,
+): boolean {
+  return (
+    measurement.settledRscRequests === measurement.emittedRscRequests
+    && measurement.completedRscRequests === measurement.emittedRscRequests
+    && measurement.sizedRscRequests === measurement.completedRscRequests
+  );
 }
 
 export function evaluateNavigationPerformance({
@@ -228,8 +351,19 @@ export function evaluateNavigationPerformance({
   idlePrefetch,
   policyContracts,
   budgets = DEFAULT_NAVIGATION_PERFORMANCE_BUDGETS,
+  budgetsEnforced = false,
 }: GateInput): GateResult[] {
   const gates: GateResult[] = [];
+
+  if (budgetsEnforced) {
+    gates.push({
+      id: 'minimum-enforced-samples',
+      status: configuredSamples >= MIN_ENFORCED_NAVIGATION_SAMPLES
+        ? 'pass'
+        : 'fail',
+      message: `budget enforcement configured ${configuredSamples}/${MIN_ENFORCED_NAVIGATION_SAMPLES} minimum samples per transition`,
+    });
+  }
 
   for (const summary of summaries) {
     const label = `${summary.profile}/${summary.interaction}/${summary.transitionId}`;
@@ -273,6 +407,11 @@ export function evaluateNavigationPerformance({
     );
     if (shouldRequireConsumedIntentPrefetch) {
       gates.push({
+        id: `intent-prefetch:${label}`,
+        status: summary.consumedIntentSamples === summary.count ? 'pass' : 'fail',
+        message: `${label} consumed a settled target intent prefetch in ${summary.consumedIntentSamples}/${summary.count} sample(s)`,
+      });
+      gates.push({
         id: `post-click-rsc:${label}`,
         status: summary.postClickTargetRscRequests === 0 ? 'pass' : 'fail',
         message: `${label} emitted ${summary.postClickTargetRscRequests} target RSC request(s) after click`,
@@ -280,6 +419,11 @@ export function evaluateNavigationPerformance({
     }
   }
 
+  gates.push({
+    id: 'idle-prefetch-evidence',
+    status: hasCompleteIdlePrefetchEvidence(idlePrefetch) ? 'pass' : 'fail',
+    message: `${idlePrefetch.route} settled ${idlePrefetch.settledRscRequests}/${idlePrefetch.emittedRscRequests}, completed ${idlePrefetch.completedRscRequests}/${idlePrefetch.emittedRscRequests}, and sized ${idlePrefetch.sizedRscRequests}/${idlePrefetch.completedRscRequests} idle RSC request(s)`,
+  });
   gates.push({
     id: 'idle-prefetch-requests',
     status: idlePrefetch.emittedRscRequests <= budgets.maxIdleRscRequests
@@ -291,11 +435,15 @@ export function evaluateNavigationPerformance({
     id: 'idle-prefetch-bytes',
     status: idlePrefetch.completedRscBytes === null
       ? 'observe'
+      : !hasCompleteIdlePrefetchEvidence(idlePrefetch)
+        ? 'fail'
       : idlePrefetch.completedRscBytes <= budgets.maxIdleRscBytes
         ? 'pass'
         : 'fail',
     message: idlePrefetch.completedRscBytes === null
       ? `${idlePrefetch.route} response-body byte sizes were unavailable`
+      : !hasCompleteIdlePrefetchEvidence(idlePrefetch)
+        ? `${idlePrefetch.route} response-body byte evidence is incomplete`
       : `${idlePrefetch.route} completed ${idlePrefetch.completedRscBytes} idle RSC response-body bytes (budget ${budgets.maxIdleRscBytes})`,
   });
   gates.push({
@@ -360,7 +508,8 @@ export function renderNavigationPerformanceMarkdown(
     '## Idle prefetch',
     '',
     `- Route: \`${report.idlePrefetch.route}\``,
-    `- Emitted/completed RSC requests: ${report.idlePrefetch.emittedRscRequests}/${report.idlePrefetch.completedRscRequests}`,
+    `- Emitted/settled RSC requests: ${report.idlePrefetch.emittedRscRequests}/${report.idlePrefetch.settledRscRequests}`,
+    `- Completed/sized RSC responses: ${report.idlePrefetch.completedRscRequests}/${report.idlePrefetch.sizedRscRequests}`,
     `- Completed response-body bytes: ${report.idlePrefetch.completedRscBytes ?? 'unavailable'}`,
     `- Benign aborted RSC requests: ${report.idlePrefetch.benignAbortedRscRequests}`,
     '',

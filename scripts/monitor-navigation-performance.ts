@@ -12,9 +12,13 @@ import {
 import {
   DEFAULT_NAVIGATION_PERFORMANCE_BUDGETS,
   NAVIGATION_PERFORMANCE_SCHEMA,
+  calculateNavigationTiming,
+  classifyNavigationMonitorFailure,
+  countPreClickTargetRscRequests,
   evaluateNavigationPerformance,
   renderNavigationPerformanceMarkdown,
   summarizeNavigationSamples,
+  validateNavigationPerformanceSamplePolicy,
   type IdlePrefetchMeasurement,
   type NavigationInteraction,
   type NavigationPerformanceReport,
@@ -32,6 +36,7 @@ const PAGE_TIMEOUT_MS = 45_000;
 const INTENT_PREFETCH_TIMEOUT_MS = 5_000;
 const INTENT_NO_REQUEST_GRACE_MS = 500;
 const IDLE_OBSERVATION_MS = 3_000;
+const IDLE_SETTLEMENT_TIMEOUT_MS = 2_000;
 const POLICY_OBSERVATION_MS = 750;
 const MAX_ENDPOINT_BODY_BYTES = 1_000_000;
 
@@ -64,12 +69,15 @@ interface PageCounters {
   unexpectedRequestFailures: number;
   benignAbortedRscRequests: number;
   serverErrors: number;
+  sourceTargetRscRequests: number;
   intentTargetRscRequests: number;
   intentTargetRscSettled: number;
   postClickTargetRscRequests: number;
   ignoredKnownConsoleErrors: number;
   emittedRscRequests: number;
+  settledRscRequests: number;
   completedRscRequests: number;
+  sizedRscRequests: number;
   completedRscBytes: number;
   completedRscBytesAvailable: boolean;
 }
@@ -78,6 +86,7 @@ interface PageObserver {
   counters: PageCounters;
   setPhase: (phase: NetworkPhase) => void;
   flush: () => Promise<void>;
+  waitForRscSettlement: (timeoutMs: number) => Promise<boolean>;
 }
 
 interface ProbeWindow extends Window {
@@ -125,7 +134,7 @@ function parseBaseUrl(value: string | undefined): URL {
 }
 
 function readConfiguration(): MonitorConfiguration {
-  return {
+  const configuration = {
     baseUrl: parseBaseUrl(
       argumentValue('base-url') ?? process.env.PERF_BASE_URL,
     ),
@@ -146,6 +155,11 @@ function readConfiguration(): MonitorConfiguration {
       ?? DEFAULT_OUTPUT_DIRECTORY,
     ),
   };
+  validateNavigationPerformanceSamplePolicy(
+    configuration.samples,
+    configuration.enforceBudgets,
+  );
+  return configuration;
 }
 
 function isLogicalDestination(
@@ -204,6 +218,8 @@ function createPageObserver(
 ): PageObserver {
   let phase: NetworkPhase = 'source';
   const requestPhases = new WeakMap<Request, NetworkPhase>();
+  const pendingRscRequests = new Set<Request>();
+  const settlementWaiters = new Set<() => void>();
   const pending: Promise<void>[] = [];
   const counters: PageCounters = {
     consoleErrors: 0,
@@ -211,12 +227,15 @@ function createPageObserver(
     unexpectedRequestFailures: 0,
     benignAbortedRscRequests: 0,
     serverErrors: 0,
+    sourceTargetRscRequests: 0,
     intentTargetRscRequests: 0,
     intentTargetRscSettled: 0,
     postClickTargetRscRequests: 0,
     ignoredKnownConsoleErrors: 0,
     emittedRscRequests: 0,
+    settledRscRequests: 0,
     completedRscRequests: 0,
+    sizedRscRequests: 0,
     completedRscBytes: 0,
     completedRscBytesAvailable: true,
   };
@@ -235,11 +254,15 @@ function createPageObserver(
   page.on('request', (request) => {
     if (!isSameOriginRequest(request, baseUrl)) return;
     requestPhases.set(request, phase);
-    if (isRscRequest(request)) counters.emittedRscRequests += 1;
+    if (isRscRequest(request) && phase === 'idle') {
+      counters.emittedRscRequests += 1;
+      pendingRscRequests.add(request);
+    }
     if (
       targetDestination
       && isTargetRscRequest(request, baseUrl, targetDestination)
     ) {
+      if (phase === 'source') counters.sourceTargetRscRequests += 1;
       if (phase === 'intent') counters.intentTargetRscRequests += 1;
       if (phase === 'post-click') counters.postClickTargetRscRequests += 1;
     }
@@ -256,6 +279,14 @@ function createPageObserver(
   page.on('requestfailed', (request) => {
     if (!isSameOriginRequest(request, baseUrl)) return;
     const requestPhase = requestPhases.get(request);
+    if (requestPhase === 'idle' && isRscRequest(request)) {
+      counters.settledRscRequests += 1;
+      pendingRscRequests.delete(request);
+      if (pendingRscRequests.size === 0) {
+        for (const notify of settlementWaiters) notify();
+        settlementWaiters.clear();
+      }
+    }
     if (
       requestPhase === 'intent'
       && targetDestination
@@ -274,7 +305,15 @@ function createPageObserver(
     if (!isSameOriginRequest(request, baseUrl)) return;
     const requestPhase = requestPhases.get(request);
     if (isRscRequest(request)) {
-      counters.completedRscRequests += 1;
+      if (requestPhase === 'idle') {
+        counters.settledRscRequests += 1;
+        counters.completedRscRequests += 1;
+        pendingRscRequests.delete(request);
+        if (pendingRscRequests.size === 0) {
+          for (const notify of settlementWaiters) notify();
+          settlementWaiters.clear();
+        }
+      }
       if (
         requestPhase === 'intent'
         && targetDestination
@@ -284,10 +323,15 @@ function createPageObserver(
       }
       const sizePromise = request.sizes()
         .then((sizes) => {
-          counters.completedRscBytes += Math.max(0, sizes.responseBodySize);
+          if (requestPhase === 'idle') {
+            counters.completedRscBytes += Math.max(0, sizes.responseBodySize);
+            counters.sizedRscRequests += 1;
+          }
         })
         .catch(() => {
-          counters.completedRscBytesAvailable = false;
+          if (requestPhase === 'idle') {
+            counters.completedRscBytesAvailable = false;
+          }
         });
       pending.push(sizePromise);
     }
@@ -300,6 +344,20 @@ function createPageObserver(
     },
     async flush() {
       await Promise.allSettled(pending);
+    },
+    async waitForRscSettlement(timeoutMs) {
+      if (pendingRscRequests.size === 0) return true;
+      let timeout: ReturnType<typeof setTimeout> | null = null;
+      await new Promise<void>((resolve) => {
+        const settle = () => {
+          if (timeout) clearTimeout(timeout);
+          settlementWaiters.delete(settle);
+          resolve();
+        };
+        settlementWaiters.add(settle);
+        timeout = setTimeout(settle, timeoutMs);
+      });
+      return pendingRscRequests.size === 0;
     },
   };
 }
@@ -417,11 +475,24 @@ function contextOptions(profile: NavigationProfile) {
   };
 }
 
-async function waitForHeading(page: Page): Promise<void> {
-  const heading = page.locator('main h1:visible').first();
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function waitForHeading(
+  page: Page,
+  previousHeading: string | null = null,
+): Promise<string> {
+  const visibleHeadings = page.locator('main h1:visible');
+  const heading = previousHeading
+    ? visibleHeadings.filter({
+      hasNotText: new RegExp(`^\\s*${escapeRegExp(previousHeading)}\\s*$`),
+    }).first()
+    : visibleHeadings.first();
   await heading.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MS });
   const text = (await heading.textContent())?.trim();
   if (!text) throw new Error('Page rendered without a meaningful main heading');
+  return text;
 }
 
 async function gotoSource(
@@ -526,35 +597,20 @@ async function startAcknowledgementProbe(page: Page): Promise<void> {
   });
 }
 
-async function readNavigationTimings(
-  page: Page,
-  fallbackDurationMs: number,
-): Promise<{
-  durationMs: number;
-  acknowledgementMs: number | null;
-}> {
+async function readAcknowledgementTiming(page: Page): Promise<number | null> {
   try {
     return await page.evaluate(() => {
       const state = (window as ProbeWindow).__centrepassPerformanceProbe;
       if (!state || state.startedAt === null) {
         throw new Error('Acknowledgement probe did not survive navigation');
       }
-      const durationMs = performance.now() - state.startedAt;
-      return {
-        durationMs: Math.round(durationMs * 10) / 10,
-        acknowledgementMs: state.acknowledgementMs === null
-          ? null
-          : Math.round(state.acknowledgementMs * 10) / 10,
-      };
+      return state.acknowledgementMs;
     });
   } catch {
     // A full-document transition replaces the source window. Preserve a
-    // monotonic click-to-ready measurement and let the acknowledgement gate
-    // treat the completed navigation itself as the first acknowledgement.
-    return {
-      durationMs: Math.round(fallbackDurationMs * 10) / 10,
-      acknowledgementMs: null,
-    };
+    // monotonic event-to-event route measurement and let the acknowledgement
+    // gate treat the completed navigation itself as the first acknowledgement.
+    return null;
   }
 }
 
@@ -580,15 +636,24 @@ async function waitForIntentPrefetch(observer: PageObserver): Promise<number> {
   return Math.round((nodePerformance.now() - startedAt) * 10) / 10;
 }
 
-async function waitForDestination(
+function waitForDestinationReady(
   page: Page,
   destination: LogicalDestination,
-): Promise<void> {
-  await page.waitForURL(
-    (url) => isLogicalDestination(url.pathname, destination),
-    { timeout: PAGE_TIMEOUT_MS },
-  );
-  await waitForHeading(page);
+  sourceHeading: string,
+): Promise<number> {
+  const ready = (async () => {
+    await page.waitForURL(
+      (url) => isLogicalDestination(url.pathname, destination),
+      { timeout: PAGE_TIMEOUT_MS },
+    );
+    await waitForHeading(page, sourceHeading);
+    return nodePerformance.now();
+  })();
+  // If the interaction itself fails before this promise is awaited, the page
+  // close in the sample's finally block will reject the bounded Playwright
+  // waits. Attach a side handler so that rejection is still observed safely.
+  void ready.catch(() => undefined);
+  return ready;
 }
 
 async function performInteraction(
@@ -599,7 +664,8 @@ async function performInteraction(
   destination: LogicalDestination,
 ): Promise<{
   intentPrefetchWaitMs: number;
-  navigationStartedAt: number;
+  durationMs: number;
+  acknowledgementMs: number | null;
 }> {
   const link = await findVisibleNavigationLink(
     page,
@@ -607,35 +673,45 @@ async function performInteraction(
     destination,
   );
   let intentPrefetchWaitMs = 0;
-  let navigationStartedAt = 0;
 
   if (interaction === 'pointer') {
     observer.setPhase('intent');
     await link.hover({ timeout: PAGE_TIMEOUT_MS });
     intentPrefetchWaitMs = await waitForIntentPrefetch(observer);
-    await startAcknowledgementProbe(page);
-    navigationStartedAt = nodePerformance.now();
-    observer.setPhase('post-click');
-    await link.click({ timeout: PAGE_TIMEOUT_MS });
   } else if (interaction === 'keyboard') {
     observer.setPhase('intent');
     await link.focus();
     intentPrefetchWaitMs = await waitForIntentPrefetch(observer);
-    await startAcknowledgementProbe(page);
-    navigationStartedAt = nodePerformance.now();
-    observer.setPhase('post-click');
+  }
+
+  const sourceHeading = await waitForHeading(page);
+  const destinationReady = waitForDestinationReady(
+    page,
+    destination,
+    sourceHeading,
+  );
+  await startAcknowledgementProbe(page);
+  const navigationStartedAt = nodePerformance.now();
+  observer.setPhase('post-click');
+  if (interaction === 'pointer') {
+    await link.click({ timeout: PAGE_TIMEOUT_MS });
+  } else if (interaction === 'keyboard') {
     await link.press('Enter', { timeout: PAGE_TIMEOUT_MS });
   } else {
-    await startAcknowledgementProbe(page);
-    navigationStartedAt = nodePerformance.now();
-    observer.setPhase('post-click');
     await link.tap({ timeout: PAGE_TIMEOUT_MS });
   }
 
-  await waitForDestination(page, destination);
+  const destinationReadyAt = await destinationReady;
+  const acknowledgementMs = await readAcknowledgementTiming(page);
   observer.setPhase('done');
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  return { intentPrefetchWaitMs, navigationStartedAt };
+  return {
+    intentPrefetchWaitMs,
+    ...calculateNavigationTiming(
+      navigationStartedAt,
+      destinationReadyAt,
+      acknowledgementMs,
+    ),
+  };
 }
 
 async function runNavigationSample(
@@ -663,10 +739,6 @@ async function runNavigationSample(
       observer,
       transition.targetDestination,
     );
-    const fallbackDurationMs = (
-      nodePerformance.now() - interactionResult.navigationStartedAt
-    );
-    const timings = await readNavigationTimings(page, fallbackDurationMs);
     await observer.flush();
 
     return {
@@ -676,8 +748,8 @@ async function runNavigationSample(
       sample: sampleNumber,
       sourcePath: transition.sourcePath.split('?')[0] ?? transition.sourcePath,
       targetPath: `/${transition.targetDestination}`,
-      durationMs: timings.durationMs,
-      acknowledgementMs: timings.acknowledgementMs,
+      durationMs: interactionResult.durationMs,
+      acknowledgementMs: interactionResult.acknowledgementMs,
       intentPrefetchWaitMs: interactionResult.intentPrefetchWaitMs,
       intentTargetRscRequests: observer.counters.intentTargetRscRequests,
       intentTargetRscSettled: observer.counters.intentTargetRscSettled,
@@ -781,12 +853,15 @@ async function measureIdlePrefetch(
     await gotoSource(page, baseUrl, '/records', 'records');
     await new Promise((resolve) => setTimeout(resolve, IDLE_OBSERVATION_MS));
     observer.setPhase('done');
+    await observer.waitForRscSettlement(IDLE_SETTLEMENT_TIMEOUT_MS);
     await observer.flush();
     return {
       route: '/records',
       observedForMs: IDLE_OBSERVATION_MS,
       emittedRscRequests: observer.counters.emittedRscRequests,
+      settledRscRequests: observer.counters.settledRscRequests,
       completedRscRequests: observer.counters.completedRscRequests,
+      sizedRscRequests: observer.counters.sizedRscRequests,
       completedRscBytes: observer.counters.completedRscBytesAvailable
         ? observer.counters.completedRscBytes
         : null,
@@ -845,7 +920,10 @@ async function measureConstrainedPolicyContract(
       profile: 'desktop',
       sourcePath: input.sourcePath,
       targetPath: `/${input.targetDestination}`,
-      preClickTargetRscRequests: observer.counters.intentTargetRscRequests,
+      preClickTargetRscRequests: countPreClickTargetRscRequests(
+        observer.counters.sourceTargetRscRequests,
+        observer.counters.intentTargetRscRequests,
+      ),
       observationMs: POLICY_OBSERVATION_MS,
     };
   } finally {
@@ -904,13 +982,14 @@ async function writeMonitorError(
   const outputDirectory = configuration?.outputDirectory
     ?? path.resolve(DEFAULT_OUTPUT_DIRECTORY);
   await mkdir(outputDirectory, { recursive: true });
-  const message = error instanceof Error ? error.message.slice(0, 500) : 'Unknown monitor error';
+  const failure = classifyNavigationMonitorFailure(error);
   const payload = {
     schema: NAVIGATION_PERFORMANCE_SCHEMA,
     status: 'error',
     startedAt,
     completedAt: new Date().toISOString(),
-    message,
+    reason: failure.code,
+    message: failure.message,
   };
   await Promise.all([
     writeFile(
@@ -920,7 +999,7 @@ async function writeMonitorError(
     ),
     writeFile(
       path.join(outputDirectory, 'navigation-performance-error.md'),
-      `# CentrePass navigation performance\n\n**MONITOR ERROR** — ${message}\n`,
+      `# CentrePass navigation performance\n\n**MONITOR ERROR** — ${failure.message}\n\nReason: \`${failure.code}\`\n`,
       'utf8',
     ),
   ]);
@@ -987,6 +1066,7 @@ async function main(): Promise<void> {
       idlePrefetch,
       policyContracts,
       budgets: DEFAULT_NAVIGATION_PERFORMANCE_BUDGETS,
+      budgetsEnforced: configuration.enforceBudgets,
     });
     const passed = gates.every((gate) => gate.status !== 'fail');
     const report: NavigationPerformanceReport = {
@@ -1020,7 +1100,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : 'Unknown monitor error';
-  process.stderr.write(`Navigation performance monitor failed: ${message}\n`);
+  const failure = classifyNavigationMonitorFailure(error);
+  process.stderr.write(
+    `Navigation performance monitor failed (${failure.code}): ${failure.message}\n`,
+  );
   process.exitCode = 1;
 });

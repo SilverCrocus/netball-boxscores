@@ -53,6 +53,18 @@ jobs:
           node-version: 24.14.1
           cache: npm
 
+      - name: Validate monitor sample policy
+        shell: bash
+        run: |
+          if [[ ! "$PERF_SAMPLES" =~ ^[0-9]+$ ]] || (( PERF_SAMPLES < 1 || PERF_SAMPLES > 50 )); then
+            echo "Samples must be an integer between 1 and 50."
+            exit 1
+          fi
+          if [[ "$PERF_ENFORCE_BUDGETS" == "true" ]] && (( PERF_SAMPLES < 20 )); then
+            echo "Budget enforcement requires at least 20 samples per transition."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: npm ci
 

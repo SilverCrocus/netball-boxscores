@@ -1,14 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_NAVIGATION_PERFORMANCE_BUDGETS,
+  MIN_ENFORCED_NAVIGATION_SAMPLES,
   NAVIGATION_PERFORMANCE_SCHEMA,
+  calculateNavigationTiming,
+  classifyNavigationMonitorFailure,
+  countPreClickTargetRscRequests,
   evaluateNavigationPerformance,
   nearestRank,
   renderNavigationPerformanceMarkdown,
   summarizeNavigationSamples,
+  validateNavigationPerformanceSamplePolicy,
+  type IdlePrefetchMeasurement,
   type NavigationPerformanceReport,
   type NavigationSample,
 } from '@/lib/navigation-performance-monitor';
+
+function idle(
+  overrides: Partial<IdlePrefetchMeasurement> = {},
+): IdlePrefetchMeasurement {
+  return {
+    route: '/records',
+    observedForMs: 3_000,
+    emittedRscRequests: 1,
+    settledRscRequests: 1,
+    completedRscRequests: 1,
+    sizedRscRequests: 1,
+    completedRscBytes: 1_000,
+    benignAbortedRscRequests: 0,
+    unexpectedRequestFailures: 0,
+    serverErrors: 0,
+    ...overrides,
+  };
+}
 
 function sample(
   overrides: Partial<NavigationSample> = {},
@@ -62,6 +86,18 @@ describe('navigation performance monitor policy', () => {
     });
   });
 
+  it('measures route duration at destination readiness without later read delay', () => {
+    expect(calculateNavigationTiming(1_000, 1_040, 12.34)).toEqual({
+      durationMs: 40,
+      acknowledgementMs: 12.3,
+    });
+  });
+
+  it('counts target RSC emitted during source render in pre-click policy evidence', () => {
+    expect(countPreClickTargetRscRequests(1, 0)).toBe(1);
+    expect(countPreClickTargetRscRequests(1, 2)).toBe(3);
+  });
+
   it('fails slow navigation, missing samples, and post-click target RSC traffic', () => {
     const summaries = summarizeNavigationSamples([
       sample({
@@ -73,16 +109,13 @@ describe('navigation performance monitor policy', () => {
     const gates = evaluateNavigationPerformance({
       summaries,
       configuredSamples: 20,
-      idlePrefetch: {
-        route: '/records',
-        observedForMs: 3_000,
+      idlePrefetch: idle({
         emittedRscRequests: 9,
+        settledRscRequests: 9,
         completedRscRequests: 9,
+        sizedRscRequests: 9,
         completedRscBytes: 21_000,
-        benignAbortedRscRequests: 0,
-        unexpectedRequestFailures: 0,
-        serverErrors: 0,
-      },
+      }),
       policyContracts: [{
         id: 'save-data-records-to-rankings',
         profile: 'mobile',
@@ -110,21 +143,129 @@ describe('navigation performance monitor policy', () => {
     const gates = evaluateNavigationPerformance({
       summaries,
       configuredSamples: 1,
-      idlePrefetch: {
-        route: '/records',
-        observedForMs: 3_000,
-        emittedRscRequests: 1,
-        completedRscRequests: 1,
+      idlePrefetch: idle({
         completedRscBytes: null,
-        benignAbortedRscRequests: 0,
-        unexpectedRequestFailures: 0,
-        serverErrors: 0,
-      },
+      }),
       policyContracts: [],
     });
 
     expect(gates.find((gate) => gate.id === 'idle-prefetch-bytes')?.status)
       .toBe('observe');
+  });
+
+  it('fails incomplete idle evidence while emitted RSC requests remain unsettled', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: 1,
+      idlePrefetch: idle({
+        emittedRscRequests: 2,
+        settledRscRequests: 1,
+        completedRscRequests: 1,
+        sizedRscRequests: 1,
+        completedRscBytes: 0,
+      }),
+      policyContracts: [],
+    });
+
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence')?.status)
+      .toBe('fail');
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-bytes')?.status)
+      .toBe('fail');
+  });
+
+  it('fails idle evidence when a completed RSC response was not sized', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: 1,
+      idlePrefetch: idle({
+        emittedRscRequests: 2,
+        settledRscRequests: 2,
+        completedRscRequests: 2,
+        sizedRscRequests: 1,
+      }),
+      policyContracts: [],
+    });
+
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence')?.status)
+      .toBe('fail');
+  });
+
+  it('fails idle byte evidence when an emitted RSC settles without completing', () => {
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: 1,
+      idlePrefetch: idle({
+        emittedRscRequests: 2,
+        settledRscRequests: 2,
+        completedRscRequests: 1,
+        sizedRscRequests: 1,
+        completedRscBytes: 0,
+      }),
+      policyContracts: [],
+    });
+
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-evidence')?.status)
+      .toBe('fail');
+    expect(gates.find((gate) => gate.id === 'idle-prefetch-bytes')?.status)
+      .toBe('fail');
+  });
+
+  it('requires a settled target intent prefetch in every consumed-intent sample', () => {
+    const missingIntent = summarizeNavigationSamples([
+      sample({ intentTargetRscRequests: 0, intentTargetRscSettled: 0 }),
+      sample({
+        sample: 2,
+        intentTargetRscRequests: 2,
+        intentTargetRscSettled: 2,
+      }),
+    ]);
+    const unsettledIntent = summarizeNavigationSamples([
+      sample({ intentTargetRscRequests: 1, intentTargetRscSettled: 0 }),
+    ]);
+
+    for (const summaries of [missingIntent, unsettledIntent]) {
+      const gates = evaluateNavigationPerformance({
+        summaries,
+        configuredSamples: summaries[0]?.count ?? 1,
+        idlePrefetch: idle(),
+        policyContracts: [],
+      });
+      expect(gates.find((gate) => gate.id.startsWith('intent-prefetch:'))?.status)
+        .toBe('fail');
+    }
+  });
+
+  it('allows one-sample report-only diagnostics but rejects undersized enforcement', () => {
+    expect(() => validateNavigationPerformanceSamplePolicy(1, false))
+      .not.toThrow();
+    expect(() => validateNavigationPerformanceSamplePolicy(
+      MIN_ENFORCED_NAVIGATION_SAMPLES - 1,
+      true,
+    )).toThrow(`at least ${MIN_ENFORCED_NAVIGATION_SAMPLES} samples`);
+
+    const gates = evaluateNavigationPerformance({
+      summaries: summarizeNavigationSamples([sample()]),
+      configuredSamples: MIN_ENFORCED_NAVIGATION_SAMPLES - 1,
+      idlePrefetch: idle(),
+      policyContracts: [],
+      budgetsEnforced: true,
+    });
+    expect(gates.find((gate) => gate.id === 'minimum-enforced-samples')?.status)
+      .toBe('fail');
+  });
+
+  it('maps raw failures to stable retained evidence without URLs or identifiers', () => {
+    const raw = new Error(
+      'desktop/pointer/records-to-rankings sample 1: https://example.test/match/private-id?_rsc=secret',
+    );
+    const failure = classifyNavigationMonitorFailure(raw);
+
+    expect(failure).toEqual({
+      code: 'navigation_sample_failed',
+      message: 'A navigation sample could not be completed.',
+    });
+    expect(JSON.stringify(failure)).not.toContain('private-id');
+    expect(JSON.stringify(failure)).not.toContain('_rsc');
   });
 
   it('reports the known analytics CSP message without treating it as a regression', () => {
@@ -134,16 +275,7 @@ describe('navigation performance monitor policy', () => {
     const gates = evaluateNavigationPerformance({
       summaries,
       configuredSamples: 1,
-      idlePrefetch: {
-        route: '/records',
-        observedForMs: 3_000,
-        emittedRscRequests: 1,
-        completedRscRequests: 1,
-        completedRscBytes: 1_000,
-        benignAbortedRscRequests: 0,
-        unexpectedRequestFailures: 0,
-        serverErrors: 0,
-      },
+      idlePrefetch: idle(),
       policyContracts: [],
     });
 
@@ -158,16 +290,7 @@ describe('navigation performance monitor policy', () => {
     const gates = evaluateNavigationPerformance({
       summaries,
       configuredSamples: 1,
-      idlePrefetch: {
-        route: '/records',
-        observedForMs: 3_000,
-        emittedRscRequests: 1,
-        completedRscRequests: 1,
-        completedRscBytes: 1_000,
-        benignAbortedRscRequests: 0,
-        unexpectedRequestFailures: 0,
-        serverErrors: 0,
-      },
+      idlePrefetch: idle(),
       policyContracts: [],
     });
     const report: NavigationPerformanceReport = {
@@ -183,16 +306,7 @@ describe('navigation performance monitor policy', () => {
       budgets: DEFAULT_NAVIGATION_PERFORMANCE_BUDGETS,
       summaries,
       samples,
-      idlePrefetch: {
-        route: '/records',
-        observedForMs: 3_000,
-        emittedRscRequests: 1,
-        completedRscRequests: 1,
-        completedRscBytes: 1_000,
-        benignAbortedRscRequests: 0,
-        unexpectedRequestFailures: 0,
-        serverErrors: 0,
-      },
+      idlePrefetch: idle(),
       policyContracts: [],
       gates,
       passed: true,
