@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { prisma } from '@/lib/db';
 import { notFound, redirect } from 'next/navigation';
 import { LiveGameClient } from './LiveGameClient';
@@ -13,11 +14,10 @@ import {
   resolvePublicMatchForRequest,
 } from '@/lib/public-match';
 import { rosterForMatch } from '@/lib/match-player-team';
-import { OfficialLiveCentre } from '@/components/match/OfficialLiveCentre';
-import { GLASGOW_2026_FOUNDATION } from '@/lib/glasgow/edition';
 import {
-  resolveOfficialGlasgowLiveCentreUrl,
-} from '@/lib/glasgow/official-results-link';
+  OfficialLiveCentreResolver,
+} from '@/components/match/OfficialLiveCentreResolver';
+import { GLASGOW_2026_FOUNDATION } from '@/lib/glasgow/edition';
 
 interface Props {
   params: Promise<{ matchId: string }>;
@@ -208,19 +208,14 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
     match.competition.slug === GLASGOW_2026_FOUNDATION.edition.slug
     && match.competition.series?.slug === GLASGOW_2026_FOUNDATION.series.slug
   );
-  const [preMatchPrior, officialLiveCentreUrl] = await Promise.all([
-    // Compute pre-match team strength prior from season results.
-    features.scoreFlow.available
-      ? computeTeamStrengthPrior(match.homeTeamId, match.awayTeamId, match.id)
-      : Promise.resolve(null),
-    isOfficialGlasgowMatch
-      ? resolveOfficialGlasgowLiveCentreUrl({
-        scheduledAt: match.scheduledAt,
-        homeTeamAbbreviation: match.homeTeam.abbreviation,
-        awayTeamAbbreviation: match.awayTeam.abbreviation,
-      })
-      : Promise.resolve(null),
-  ]);
+  // Compute pre-match team strength prior from season results.
+  const preMatchPrior = features.scoreFlow.available
+    ? await computeTeamStrengthPrior(
+      match.homeTeamId,
+      match.awayTeamId,
+      match.id,
+    )
+    : null;
 
   const serialized = {
     id: match.id,
@@ -285,9 +280,16 @@ export default async function LiveGamePage({ params, searchParams }: Props) {
         // rechecks publication and score capability before joining/emitting.
         realtimeEnabled={canRenderLiveSurface}
       />
-      {officialLiveCentreUrl !== null
-        ? <OfficialLiveCentre src={officialLiveCentreUrl} isLive={isLiveMatch} />
-        : null}
+      {isOfficialGlasgowMatch ? (
+        <Suspense fallback={null}>
+          <OfficialLiveCentreResolver
+            scheduledAt={match.scheduledAt}
+            homeTeamAbbreviation={match.homeTeam.abbreviation}
+            awayTeamAbbreviation={match.awayTeam.abbreviation}
+            isLive={isLiveMatch}
+          />
+        </Suspense>
+      ) : null}
     </>
   );
 }

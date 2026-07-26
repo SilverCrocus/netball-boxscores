@@ -27,9 +27,19 @@ interface OfficialLiveCentreDependencies {
 }
 
 const fetchCachedOfficialObservations = unstable_cache(
-  (localDate: string) => fetchOfficialObservationsForDate(localDate, {
-    timeoutMs: OFFICIAL_RESULTS_TIMEOUT_MS,
-  }),
+  async (
+    localDate: string,
+  ): Promise<readonly OfficialFeedObservation[]> => {
+    try {
+      return await fetchOfficialObservationsForDate(localDate, {
+        timeoutMs: OFFICIAL_RESULTS_TIMEOUT_MS,
+      });
+    } catch {
+      // Cache provider outages briefly as an empty result so a retired or
+      // unavailable official service cannot trigger a new crawl per request.
+      return [];
+    }
+  },
   ['glasgow-2026-detailed-results-observations-v1'],
   { revalidate: 15 },
 );
