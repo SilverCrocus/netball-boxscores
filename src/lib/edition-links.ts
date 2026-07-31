@@ -13,7 +13,10 @@ const EDITION_AWARE_LEGACY_DESTINATIONS: Record<string, EditionDestination> = {
 };
 
 export function editionBasePath(context: EditionContextValue): string {
-  return `/competitions/${encodeURIComponent(context.competitionSlug)}/${encodeURIComponent(context.editionSlug)}`;
+  const path = `/competitions/${encodeURIComponent(context.competitionSlug)}/${encodeURIComponent(context.editionSlug)}`;
+  return context.navigationOrigin
+    ? new URL(path, context.navigationOrigin).toString()
+    : path;
 }
 
 export function editionHref(

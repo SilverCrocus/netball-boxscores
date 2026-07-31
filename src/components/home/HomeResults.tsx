@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ScoreCard } from '@/components/ui/ScoreCard';
+import { HomeResultRow } from '@/components/home/landing/HomeResultRow';
 import type { HomeResultGroup } from '@/lib/home-feed';
 
 interface HomeResultsProps {
@@ -9,6 +9,7 @@ interface HomeResultsProps {
   initialNextCursor: string | null;
   season: number;
   editionId: string;
+  timezone?: string;
 }
 
 function mergeGroups(current: HomeResultGroup[], incoming: HomeResultGroup[]): HomeResultGroup[] {
@@ -30,7 +31,13 @@ function mergeGroups(current: HomeResultGroup[], incoming: HomeResultGroup[]): H
   return merged;
 }
 
-export function HomeResults({ initialGroups, initialNextCursor, season, editionId }: HomeResultsProps) {
+export function HomeResults({
+  initialGroups,
+  initialNextCursor,
+  season,
+  editionId,
+  timezone,
+}: HomeResultsProps) {
   const [groups, setGroups] = useState(initialGroups);
   const [nextCursor, setNextCursor] = useState(initialNextCursor);
   const [loading, setLoading] = useState(false);
@@ -77,48 +84,68 @@ export function HomeResults({ initialGroups, initialNextCursor, season, editionI
   if (groups.length === 0 && !nextCursor) return null;
 
   return (
-    <section className="mb-16" aria-labelledby="results-heading">
-      <h2 id="results-heading" className="text-xl font-bold font-headline text-primary mb-6">
-        RESULTS
-      </h2>
-      {groups.map((group) => (
-        <div key={group.label} className="mb-8 [content-visibility:auto] [contain-intrinsic-size:0_320px]">
-          <h3 className="text-sm font-semibold text-on-surface-variant mb-3 pb-2 border-b border-outline-variant">
-            {group.label}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {group.matches.map((match) => (
-              <ScoreCard
-                key={match.id}
-                match={{
-                  ...match,
-                  round: undefined,
-                  roundLabel: undefined,
-                  stageName: undefined,
-                  finalCode: undefined,
-                }}
-                showFinalBadge={false}
-              />
-            ))}
+    <section aria-labelledby="results-heading">
+      <div className="mb-3 flex min-h-11 items-center justify-between gap-4">
+        <h2
+          id="results-heading"
+          className="font-headline text-lg font-extrabold uppercase tracking-[-0.02em] text-primary sm:text-xl"
+        >
+          RESULTS
+        </h2>
+        <span className="font-label text-[0.65rem] font-bold uppercase tracking-[0.05em] text-secondary">
+          Matchday archive
+        </span>
+      </div>
+
+      <div className="space-y-8">
+        {groups.map((group) => (
+          <div
+            key={group.label}
+            className="[content-visibility:auto] [contain-intrinsic-size:0_240px]"
+          >
+            <div className="flex min-h-10 items-center justify-between gap-4 border-b border-outline-variant/70">
+              <h3 className="font-headline text-sm font-extrabold uppercase tracking-[-0.01em] text-primary">
+                {group.label}
+              </h3>
+              <span className="font-label text-[0.62rem] font-semibold uppercase tracking-[0.05em] text-on-surface-variant">
+                {group.matches.length} {group.matches.length === 1 ? 'match' : 'matches'}
+              </span>
+            </div>
+            <ul
+              aria-label={`${group.label} results`}
+              className="divide-y divide-outline-variant/60 border-b border-outline-variant/60"
+            >
+              {group.matches.map((match) => (
+                <li key={match.id}>
+                  <HomeResultRow match={match} timezone={timezone} />
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
       <div aria-live="polite" className="sr-only">{announcement}</div>
       {error && (
-        <p role="alert" className="mb-3 text-center font-label text-sm text-error">
+        <p role="alert" className="mt-6 text-center font-label text-sm text-error">
           {error}
         </p>
       )}
       {nextCursor && (
-        <div className="flex justify-center">
+        <div className="mt-8 flex justify-center">
           <button
             type="button"
             onClick={loadEarlierResults}
             disabled={loading}
-            className="rounded-xl border border-primary-container px-5 py-3 font-headline text-sm font-bold uppercase tracking-wider text-primary-container transition-colors hover:bg-primary-container hover:text-white disabled:cursor-wait disabled:opacity-60"
+            className="group inline-flex min-h-11 items-center gap-2 rounded-md border border-primary-container px-5 py-2.5 font-headline text-xs font-bold uppercase tracking-[0.06em] text-primary-container transition-colors hover:bg-primary-container hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary disabled:cursor-wait disabled:opacity-60"
           >
             {loading ? 'Loading earlier results…' : error ? 'Try earlier results again' : 'View previous rounds'}
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base transition-transform group-hover:translate-y-0.5"
+            >
+              expand_more
+            </span>
           </button>
         </div>
       )}

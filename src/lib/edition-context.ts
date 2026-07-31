@@ -5,6 +5,11 @@ export interface EditionContextValue {
   editionSlug: string;
   editionLabel: string;
   sourceTimezone: string;
+  /**
+   * Optional origin for read-only local preview navigation. Database-backed
+   * public editions omit this so normal production links remain relative.
+   */
+  navigationOrigin?: string;
 }
 
 export interface EditionContextSource {

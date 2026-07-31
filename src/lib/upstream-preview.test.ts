@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  glasgowUpstreamResultsParams,
   isUpstreamPreviewMode,
   loadUpstreamCompletedMatches,
   loadUpstreamLiveStatus,
+  upstreamPreviewOrigin,
 } from './upstream-preview';
 
 const originalMode = process.env.CENTREPASS_PREVIEW_DATA_MODE;
@@ -22,7 +24,58 @@ describe('upstream preview data', () => {
     expect(isUpstreamPreviewMode()).toBe(false);
   });
 
+  it('normalizes the configured navigation origin and rejects unsafe schemes', () => {
+    process.env.CENTREPASS_UPSTREAM_ORIGIN = 'https://centrepass.example/some/path?ignored=true';
+    expect(upstreamPreviewOrigin()).toBe('https://centrepass.example');
+
+    process.env.CENTREPASS_UPSTREAM_ORIGIN = 'javascript:alert(1)';
+    expect(upstreamPreviewOrigin()).toBeNull();
+  });
+
   it('normalizes public results and gives them working hosted links', async () => {
+    process.env.CENTREPASS_PREVIEW_DATA_MODE = 'upstream';
+    process.env.CENTREPASS_UPSTREAM_ORIGIN = 'https://centrepass.example';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        groups: [{
+          label: 'Pool A — 2026-07-30',
+          matches: [{
+            id: 'match-1',
+            status: 'COMPLETED',
+            scoreAvailable: true,
+            scheduledAt: '2026-07-30T20:00:00.000Z',
+            homeScore: 58,
+            awayScore: 54,
+            venue: 'The Hydro',
+            round: null,
+            homeTeam: { name: 'England', abbreviation: 'ENG', logoUrl: null },
+            awayTeam: { name: 'South Africa', abbreviation: 'RSA', logoUrl: null },
+            homeBreakdown: null,
+            awayBreakdown: null,
+          }],
+        }],
+        nextCursor: 'older-results',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await loadUpstreamCompletedMatches(glasgowUpstreamResultsParams());
+
+    expect(result).toMatchObject({
+      groups: [{
+        label: 'Pool A — 2026-07-30',
+        matches: [{ href: 'https://centrepass.example/match/match-1', homeScore: 58, awayScore: 54 }],
+      }],
+      nextCursor: 'older-results',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://centrepass.example/api/matches?competitionSlug=commonwealth-games-netball&editionSlug=glasgow-2026',
+      expect.any(Object),
+    );
+  });
+
+  it('filters hosted results that do not belong to the Glasgow team set', async () => {
     process.env.CENTREPASS_PREVIEW_DATA_MODE = 'upstream';
     process.env.CENTREPASS_UPSTREAM_ORIGIN = 'https://centrepass.example';
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -31,7 +84,7 @@ describe('upstream preview data', () => {
         groups: [{
           label: 'Grand Final',
           matches: [{
-            id: 'match-1',
+            id: 'ssn-grand-final',
             status: 'COMPLETED',
             scoreAvailable: true,
             scheduledAt: '2026-07-04T09:30:00.000Z',
@@ -40,24 +93,17 @@ describe('upstream preview data', () => {
             venue: 'John Cain Arena',
             round: 3,
             finalCode: 'GRAND',
-            homeTeam: { name: 'Thunderbirds', abbreviation: 'THU', logoUrl: null },
-            awayTeam: { name: 'Vixens', abbreviation: 'VIX', logoUrl: null },
-            homeBreakdown: null,
-            awayBreakdown: null,
+            homeTeam: { name: 'Adelaide Thunderbirds', abbreviation: 'THU', logoUrl: null },
+            awayTeam: { name: 'Melbourne Vixens', abbreviation: 'VIX', logoUrl: null },
           }],
         }],
-        nextCursor: 'older-results',
+        nextCursor: 'older-ssn-results',
       }),
     }));
 
-    const result = await loadUpstreamCompletedMatches();
-
-    expect(result).toMatchObject({
-      groups: [{
-        label: 'Grand Final',
-        matches: [{ href: 'https://centrepass.example/match/match-1', homeScore: 61, awayScore: 40 }],
-      }],
-      nextCursor: 'older-results',
+    await expect(loadUpstreamCompletedMatches(glasgowUpstreamResultsParams())).resolves.toEqual({
+      groups: [],
+      nextCursor: null,
     });
   });
 

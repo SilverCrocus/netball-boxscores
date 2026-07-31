@@ -43,4 +43,23 @@ describe('AuthButton', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(signOutMock).toHaveBeenCalledWith({ callbackUrl: '/' });
   });
+
+  it('renders the compact signed-out header control', () => {
+    useSessionMock.mockReturnValue({ data: null, status: 'unauthenticated' });
+    render(<AuthButton dark compact />);
+
+    expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', '/auth/signin');
+    expect(screen.getByRole('link', { name: 'Sign In' })).not.toHaveClass('w-full');
+  });
+
+  it('links compact signed-in users directly to account settings', () => {
+    useSessionMock.mockReturnValue({
+      data: { user: { name: 'Maya', email: 'maya@example.com' } },
+      status: 'authenticated',
+    });
+    render(<AuthButton dark compact />);
+
+    expect(screen.getByRole('link', { name: /Maya/ })).toHaveAttribute('href', '/settings');
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
+  });
 });

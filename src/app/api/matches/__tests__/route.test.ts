@@ -4,17 +4,20 @@ const {
   loadPageMock,
   resolveCompetitionMock,
   resolveCompetitionByIdMock,
+  resolveEditionMock,
   resolveLegacyLeagueCompetitionMock,
 } = vi.hoisted(() => ({
   loadPageMock: vi.fn(),
   resolveCompetitionMock: vi.fn(),
   resolveCompetitionByIdMock: vi.fn(),
+  resolveEditionMock: vi.fn(),
   resolveLegacyLeagueCompetitionMock: vi.fn(),
 }));
 
 vi.mock('@/lib/competitions', () => ({
   resolveCompetition: resolveCompetitionMock,
   resolveCompetitionById: resolveCompetitionByIdMock,
+  resolveEdition: resolveEditionMock,
   resolveLegacyLeagueCompetition: resolveLegacyLeagueCompetitionMock,
 }));
 vi.mock('@/lib/home-feed', () => ({ getCompletedMatchesPage: loadPageMock }));
@@ -28,6 +31,9 @@ describe('GET /api/matches', () => {
     });
     resolveCompetitionByIdMock.mockReset().mockResolvedValue({
       competition: { id: 'glasgow-2026', season: 2026 },
+    });
+    resolveEditionMock.mockReset().mockResolvedValue({
+      edition: { id: 'glasgow-2026', season: 2026 },
     });
     resolveLegacyLeagueCompetitionMock.mockReset().mockResolvedValue({
       competition: { id: 'competition-2026', season: 2026 },
@@ -46,6 +52,39 @@ describe('GET /api/matches', () => {
       undefined,
       [{ id: 'glasgow-2026', season: 2026 }],
     );
+  });
+
+  it('resolves an exact canonical competition and edition slug pair', async () => {
+    const response = await GET(new Request(
+      'https://centrepass.test/api/matches?competitionSlug=commonwealth-games-netball&editionSlug=glasgow-2026&edition=other-id&season=2026',
+    ));
+
+    expect(response.status).toBe(200);
+    expect(resolveEditionMock).toHaveBeenCalledWith({
+      competitionSlug: 'commonwealth-games-netball',
+      editionSlug: 'glasgow-2026',
+    });
+    expect(resolveCompetitionByIdMock).not.toHaveBeenCalled();
+    expect(resolveLegacyLeagueCompetitionMock).not.toHaveBeenCalled();
+    expect(loadPageMock).toHaveBeenCalledWith(
+      'glasgow-2026',
+      undefined,
+      [{ id: 'glasgow-2026', season: 2026 }],
+    );
+  });
+
+  it.each([
+    'competitionSlug=commonwealth-games-netball',
+    'editionSlug=glasgow-2026',
+  ])('rejects an incomplete canonical edition identity: %s', async (query) => {
+    const response = await GET(new Request(`https://centrepass.test/api/matches?${query}`));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'INVALID_EDITION_IDENTITY', retryable: false },
+    });
+    expect(resolveEditionMock).not.toHaveBeenCalled();
+    expect(loadPageMock).not.toHaveBeenCalled();
   });
 
   it('resolves the requested season and forwards the cursor', async () => {

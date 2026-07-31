@@ -1,62 +1,271 @@
-import { prisma, excludeSimData } from '@/lib/db';
-import { ScoreCard } from '@/components/ui/ScoreCard';
-import { TeamBadge } from '@/components/ui/TeamBadge';
-import { formatMatchDateTime } from '@/lib/format';
-import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
-import { Countdown } from '@/components/ui/Countdown';
-import { formatMatchStage } from '@/lib/match-label';
-import { HomeResults } from '@/components/home/HomeResults';
 import { MyTeams } from '@/components/home/MyTeams';
 import {
-  computeBreakdown,
-  deriveHomeHeader,
+  HomeScoreStrip,
+  type HomeScoreStripItem,
+} from '@/components/home/landing/HomeScoreStrip';
+import { HomeRecentResults } from '@/components/home/landing/HomeRecentResults';
+import {
+  HomeStandingsPreview,
+  type HomeStandingRow,
+} from '@/components/home/landing/HomeStandingsPreview';
+import {
+  HomeUpcomingFixtures,
+  type HomeUpcomingFixture,
+} from '@/components/home/landing/HomeUpcomingFixtures';
+import { LandingHero } from '@/components/home/landing/LandingHero';
+import { getStandingsForCompetition } from '@/lib/cached-queries';
+import {
+  resolveCompetition,
+  type CompetitionOption,
+} from '@/lib/competitions';
+import { prisma, excludeSimData } from '@/lib/db';
+import { hasResolvedMatchTeams } from '@/lib/edition-match';
+import { toEditionContext, type EditionContextValue } from '@/lib/edition-context';
+import { editionHref, matchHref } from '@/lib/edition-links';
+import {
   getCompletedMatchesPage,
   homepageMatchSelect,
   isHomepageScoreAvailable,
+  type HomeResultCard,
   type ResolvedHomepageMatch,
 } from '@/lib/home-feed';
-import { hasResolvedMatchTeams } from '@/lib/edition-match';
-import { resolveCompetition } from '@/lib/competitions';
+import { formatMatchStage } from '@/lib/match-label';
+import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { timedQuery } from '@/lib/server-timing';
-import Link from 'next/link';
-import Image from 'next/image';
 import {
+  buildGlasgowHomepagePreview,
+  type GlasgowHomepagePreview,
+} from '@/lib/glasgow/home-preview';
+import {
+  glasgowUpstreamResultsParams,
   isUpstreamPreviewMode,
   loadUpstreamCompletedMatches,
 } from '@/lib/upstream-preview';
-import { matchHref } from '@/lib/edition-links';
 
 export const dynamic = 'force-dynamic';
+
 const HOME_LIVE_MATCH_LIMIT = 16;
+const HOME_UPCOMING_MATCH_LIMIT = 5;
+const DEFAULT_TIMEZONE = 'Australia/Sydney';
+
+type LeagueStanding = Awaited<ReturnType<typeof getStandingsForCompetition>>[number];
+
+function editionTimezone(competition: CompetitionOption | null): string {
+  return competition?.sourceTimezone || DEFAULT_TIMEZONE;
+}
+
+function formatDateLabel(value: Date | string, timezone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    timeZone: timezone,
+  }).format(new Date(value)).replace(',', '').toUpperCase();
+}
+
+function formatTimeLabel(value: Date | string, timezone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: timezone,
+  }).format(new Date(value)).toUpperCase();
+}
+
+function formatScoreDate(value: Date | string, timezone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: timezone,
+  }).format(new Date(value)).replace(',', '').toUpperCase();
+}
+
+function compactStageLabel(label: string): string {
+  return label.split(' — ')[0]?.trim() || label;
+}
+
+function timezoneNote(value: Date | string | undefined, timezone: string): string {
+  if (!value) return `Times shown in ${timezone}`;
+  const zoneName = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    timeZoneName: 'short',
+  }).formatToParts(new Date(value)).find((part) => part.type === 'timeZoneName')?.value;
+  return `All times shown in ${zoneName ?? timezone}`;
+}
+
+function liveScoreItem(
+  match: ResolvedHomepageMatch,
+  timezone: string,
+): HomeScoreStripItem {
+  const scoreAvailable = isHomepageScoreAvailable(match);
+  const stage = compactStageLabel(formatMatchStage(
+    match.round,
+    match.finalCode,
+    match.roundLabel,
+    match.stage?.name,
+  ));
+  const clock = [
+    match.currentQuarter ? `Q${match.currentQuarter}` : null,
+    match.currentTime,
+  ].filter(Boolean).join(' ');
+
+  return {
+    id: match.id,
+    href: matchHref(match.id, match.competitionId),
+    meta: ['LIVE', clock || formatScoreDate(match.scheduledAt, timezone), stage]
+      .filter(Boolean)
+      .join(' · '),
+    homeTeam: match.homeTeam,
+    awayTeam: match.awayTeam,
+    homeScore: scoreAvailable ? match.homeScore : null,
+    awayScore: scoreAvailable ? match.awayScore : null,
+  };
+}
+
+function completedScoreItem(
+  match: HomeResultCard,
+  timezone: string,
+): HomeScoreStripItem {
+  const stage = compactStageLabel(formatMatchStage(
+    match.round,
+    match.finalCode,
+    match.roundLabel,
+    match.stageName,
+  ));
+
+  return {
+    id: match.id,
+    href: match.href
+      ?? (match.competitionId
+        ? matchHref(match.id, match.competitionId)
+        : `/match/${encodeURIComponent(match.id)}`),
+    meta: `${formatScoreDate(match.scheduledAt, timezone)} · ${stage}`,
+    homeTeam: match.homeTeam,
+    awayTeam: match.awayTeam,
+    homeScore: match.scoreAvailable ? match.homeScore : null,
+    awayScore: match.scoreAvailable ? match.awayScore : null,
+  };
+}
+
+function buildScoreStripItems(
+  liveMatches: ResolvedHomepageMatch[],
+  completedGroups: Awaited<ReturnType<typeof getCompletedMatchesPage>>['groups'],
+  timezone: string,
+): HomeScoreStripItem[] {
+  const latestCompleted = completedGroups
+    .flatMap((group) => group.matches)
+    .sort(
+      (left, right) =>
+        new Date(right.scheduledAt).getTime() - new Date(left.scheduledAt).getTime(),
+    );
+  const seen = new Set<string>();
+  const items = [
+    ...liveMatches.map((match) => liveScoreItem(match, timezone)),
+    ...latestCompleted.map((match) => completedScoreItem(match, timezone)),
+  ];
+
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  }).slice(0, 3);
+}
+
+function buildFixtures(
+  matches: ResolvedHomepageMatch[],
+  timezone: string,
+): HomeUpcomingFixture[] {
+  return matches.map((match) => ({
+    id: match.id,
+    href: matchHref(match.id, match.competitionId),
+    dateLabel: formatDateLabel(match.scheduledAt, timezone),
+    timeLabel: formatTimeLabel(match.scheduledAt, timezone),
+    venueLabel: match.venue || null,
+    homeTeam: match.homeTeam,
+    awayTeam: match.awayTeam,
+  }));
+}
+
+function buildLeagueStandings(rows: LeagueStanding[]): HomeStandingRow[] {
+  return rows.map((row) => ({
+    id: row.id,
+    position: row.rank,
+    team: row.team,
+    played: row.played,
+    won: row.wins,
+    lost: row.losses,
+    goalDifference: row.goalsFor - row.goalsAgainst,
+    points: row.points,
+  }));
+}
+
+function heroDetails(
+  competition: CompetitionOption | null,
+  edition: EditionContextValue | null,
+  liveHref: string,
+) {
+  const editionLabel = competition?.label
+    ?? (competition ? String(competition.season) : edition?.editionLabel ?? '');
+  const competitionName = competition?.series?.name
+    ?? competition?.name
+    ?? edition?.competitionName;
+  const eyebrow = competitionName
+    ? `${competitionName} · ${editionLabel}`
+    : 'Netball scores, fixtures and stories';
+
+  return {
+    eyebrow,
+    primaryAction: {
+      label: edition ? `Explore ${edition.editionLabel}` : 'Explore CentrePass',
+      href: edition ? editionHref(edition) : '/live',
+    },
+    secondaryAction: {
+      label: "See today's matches",
+      href: liveHref,
+    },
+  };
+}
 
 export default async function HomePage() {
   let liveMatches: ResolvedHomepageMatch[] = [];
   let upcomingMatches: ResolvedHomepageMatch[] = [];
-  let completedPage = { groups: [], nextCursor: null } as Awaited<ReturnType<typeof getCompletedMatchesPage>>;
-  let season: number | null = null;
-  let editionId: string | null = null;
+  let completedPage = {
+    groups: [],
+    nextCursor: null,
+  } as Awaited<ReturnType<typeof getCompletedMatchesPage>>;
+  let competition: CompetitionOption | null = null;
+  let leagueStandings: LeagueStanding[] = [];
+  let leagueStandingsUnavailable = false;
+  let preview: GlasgowHomepagePreview | null = null;
   let databaseUnavailable = false;
   let usingUpstreamPreview = false;
 
   if (isUpstreamPreviewMode()) {
-    const previewPage = await loadUpstreamCompletedMatches();
+    const previewPage = await loadUpstreamCompletedMatches(glasgowUpstreamResultsParams());
     if (previewPage) {
       completedPage = previewPage;
-      season = new Date().getFullYear();
-      editionId = 'upstream-preview';
+      preview = buildGlasgowHomepagePreview();
       usingUpstreamPreview = true;
     } else {
       databaseUnavailable = true;
     }
   } else {
     try {
-      const { competition } = await timedQuery('competition_lookup', () => resolveCompetition());
+      const resolved = await timedQuery('competition_lookup', () => resolveCompetition());
+      competition = resolved.competition;
 
       if (competition) {
-        season = competition.season;
-        editionId = competition.id;
-        const baseWhere = { ...excludeSimData, competitionId: competition.id };
-        const [live, upcoming, history] = await Promise.all([
+        const activeCompetition = competition;
+        const baseWhere = { ...excludeSimData, competitionId: activeCompetition.id };
+        const standingsPromise = activeCompetition.series?.kind === 'LEAGUE'
+          ? getStandingsForCompetition(activeCompetition.id)
+            .then((rows) => ({ rows, unavailable: false }))
+            .catch(() => ({ rows: [] as LeagueStanding[], unavailable: true }))
+          : Promise.resolve({ rows: [] as LeagueStanding[], unavailable: false });
+
+        const [live, upcoming, history, standings] = await Promise.all([
           timedQuery('home_live_matches', () => prisma.match.findMany({
             where: {
               ...baseWhere,
@@ -74,6 +283,9 @@ export default async function HomePage() {
             where: {
               ...baseWhere,
               status: 'SCHEDULED',
+              scheduledAt: { gte: new Date() },
+              homeTeamId: { not: null },
+              awayTeamId: { not: null },
               OR: [
                 { stageId: null },
                 { stage: { is: { isPublished: true } } },
@@ -81,225 +293,168 @@ export default async function HomePage() {
             },
             select: homepageMatchSelect,
             orderBy: { scheduledAt: 'asc' },
-            take: 4,
+            take: HOME_UPCOMING_MATCH_LIMIT,
           })),
           timedQuery('home_completed_history', () => getCompletedMatchesPage(
-            competition.id,
+            activeCompetition.id,
             undefined,
-            [competition],
+            [activeCompetition],
           )),
+          standingsPromise,
         ]);
+
         liveMatches = live.filter(hasResolvedMatchTeams);
         upcomingMatches = upcoming.filter(hasResolvedMatchTeams);
         completedPage = history;
+        leagueStandings = standings.rows;
+        leagueStandingsUnavailable = standings.unavailable;
       }
     } catch {
       databaseUnavailable = true;
     }
   }
 
-  const featured = upcomingMatches[0];
-  const header = deriveHomeHeader(season, liveMatches, upcomingMatches, completedPage.groups);
+  const edition = competition?.series && competition.slug
+    ? toEditionContext(competition)
+    : preview?.edition ?? null;
+  const timezone = preview?.edition.sourceTimezone ?? editionTimezone(competition);
+  const hero = heroDetails(competition, edition, preview?.liveHref ?? '/live');
+  const scores = buildScoreStripItems(liveMatches, completedPage.groups, timezone);
+  const fixtures = preview
+    ? preview.fixtures.map((fixture): HomeUpcomingFixture => ({
+        id: fixture.id,
+        href: preview.fixturesHref,
+        dateLabel: formatDateLabel(fixture.scheduledAt, timezone),
+        timeLabel: formatTimeLabel(fixture.scheduledAt, timezone),
+        venueLabel: fixture.venue,
+        homeTeam: fixture.homeTeam,
+        awayTeam: fixture.awayTeam,
+      }))
+    : buildFixtures(upcomingMatches, timezone);
+  const isTournamentEdition = preview !== null
+    || competition?.series?.kind === 'TOURNAMENT';
+  const fixturesHref = preview?.fixturesHref
+    ?? (edition ? editionHref(edition) : '/');
+  const standingsHref = edition ? editionHref(edition, 'standings') : '/standings';
+  const hasRecentResults = completedPage.groups.some((group) => group.matches.length > 0);
+  const firstVisibleFixtureAt = preview
+    ? preview.fixtures[0]?.scheduledAt
+    : upcomingMatches[0]?.scheduledAt;
   const hasMatches = liveMatches.length > 0
-    || upcomingMatches.length > 0
-    || completedPage.groups.length > 0
+    || fixtures.length > 0
+    || hasRecentResults
     || completedPage.nextCursor !== null;
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div>
       <JsonLd data={websiteJsonLd()} />
       <JsonLd data={breadcrumbJsonLd([
         { name: 'Home', url: '/' },
       ])} />
-      {/* Hero Header */}
-      <section className="mb-12">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <span className="text-secondary font-bold font-label text-sm uppercase tracking-widest">
-              {header.eyebrow}
-            </span>
-            <h1 className="text-4xl md:text-6xl font-black font-headline tracking-tighter text-primary mt-2">
-              {header.heading}
-            </h1>
-            {header.description && (
-              <p className="mt-3 max-w-2xl font-body text-on-surface-variant">
-                {header.description}
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
 
-      {databaseUnavailable && (
-        <section
-          role="alert"
-          className="mb-16 rounded-2xl border border-error/30 bg-error/5 px-6 py-10 text-center"
-        >
-          <span className="material-symbols-outlined mb-3 text-4xl text-error" aria-hidden="true">
-            cloud_off
-          </span>
-          <h2 className="font-headline text-2xl font-bold text-primary">Scores temporarily unavailable</h2>
-          <p className="mx-auto mt-2 max-w-lg font-label text-sm text-on-surface-variant">
-            CentrePass could not reach the match database. Please try again in a few minutes.
-          </p>
-        </section>
-      )}
+      <LandingHero
+        editionEyebrow={hero.eyebrow}
+        headline={'Every match.\nEvery team.\nEvery story.'}
+        description="Live scores, player stats and the history behind the game."
+        imageSrc="/landing/centrepass-matchday-hero.png"
+        imageAlt="International netball players contesting the ball beneath the goal post"
+        primaryAction={hero.primaryAction}
+        secondaryAction={hero.secondaryAction}
+      />
 
-      {!databaseUnavailable && !hasMatches && (
-        <section className="mb-16 rounded-2xl bg-surface-container-lowest px-6 py-12 text-center shadow-sm">
-          <span className="material-symbols-outlined mb-3 text-4xl text-secondary" aria-hidden="true">
-            event_upcoming
-          </span>
-          <h2 className="font-headline text-2xl font-bold text-primary">No fixtures yet</h2>
-          <p className="mx-auto mt-2 max-w-lg font-label text-sm text-on-surface-variant">
-            The latest season is set up, but its match schedule has not been published.
-          </p>
-        </section>
-      )}
+      <HomeScoreStrip items={scores} />
 
-      {usingUpstreamPreview && (
-        <p className="mb-8 rounded-xl border border-secondary/20 bg-secondary/5 px-4 py-3 font-label text-xs text-on-surface-variant">
-          Local preview: showing current CentrePass results through the hosted read-only API.
-        </p>
-      )}
-
-      {/* Live Matches */}
-      {liveMatches.length > 0 && (
-        <section className="mb-16">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-3 h-3 rounded-full bg-secondary animate-pulse" />
-            <h2 className="text-xl font-bold font-headline text-primary">LIVE ACTION</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {liveMatches.map((match) => (
-              <ScoreCard key={match.id} match={{
-                ...match,
-                scoreAvailable: isHomepageScoreAvailable(match),
-                ...computeBreakdown(match),
-              }} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Upcoming Fixtures */}
-      {upcomingMatches.length > 0 && (
-      <section className="mb-20">
-        <h2 className="text-xl font-bold font-headline text-primary mb-6">UPCOMING FIXTURES</h2>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          {/* Featured Match */}
-          {featured && (
-            <Link
-              href={matchHref(featured.id, featured.competitionId)}
-              prefetch={false}
-              className="md:col-span-3 relative overflow-hidden bg-gradient-to-br from-primary via-primary-container to-primary rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center gap-6 shadow-2xl transition-all duration-300 hover:shadow-[0_0_40px_rgba(163,230,53,0.15)] hover:scale-[1.01]"
+      <section className="bg-[#f8f8f9] px-5 py-7 sm:px-8 lg:px-16 lg:py-8">
+        <div className="mx-auto max-w-[1360px]">
+          {databaseUnavailable && (
+            <div
+              role="alert"
+              className="mb-7 rounded-xl border border-error/30 bg-error/5 px-5 py-4 text-center"
             >
-              {/* Decorative background elements */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-20 -right-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-                <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-lime-400/10 rounded-full blur-2xl" />
-                <Image
-                  src="/netball-cleaned-white.png"
-                  alt=""
-                  width={500}
-                  height={453}
-                  className="absolute right-[-10%] top-1/2 h-auto w-[96%] max-w-[700px] -translate-y-1/2 opacity-[0.04]"
-                  style={{ height: 'auto' }}
-                />
-              </div>
-              <div className="relative flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-lime-400 font-black font-label text-xs uppercase tracking-widest">
-                      Next Match &middot; {formatMatchStage(
-                        featured.round,
-                        featured.finalCode,
-                        featured.roundLabel,
-                        featured.stage?.name,
-                      )}
-                    </span>
-                    <Countdown scheduledAt={featured.scheduledAt.toISOString()} />
-                  </div>
-                  <h3 className="text-2xl font-black font-headline leading-tight tracking-tighter italic uppercase break-words [overflow-wrap:anywhere] md:text-4xl">
-                    {featured.homeTeam.name} <span className="text-lime-400">vs</span><br />
-                    {featured.awayTeam.name}
-                  </h3>
-                </div>
-                <div className="shrink-0 text-left sm:mt-6 sm:pl-4 sm:text-right">
-                  <span className="block text-lg font-bold font-headline sm:text-xl sm:whitespace-nowrap">
-                    {formatMatchDateTime(featured.scheduledAt)}
-                  </span>
-                  {featured.venue && (
-                    <span className="text-xs uppercase font-label text-slate-300 block mt-1">
-                      {featured.venue}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="relative flex items-center py-4">
-                <div className="flex-1 flex flex-col items-center text-center">
-                  <div className="w-28 h-28 rounded-full flex items-center justify-center backdrop-blur-md mb-2 overflow-hidden">
-                    <TeamBadge team={featured.homeTeam} size={96} variant="home" />
-                  </div>
-                  <span className="w-full font-bold font-headline text-xs leading-tight uppercase break-words [overflow-wrap:anywhere] sm:text-sm">
-                    {featured.homeTeam.name}
-                  </span>
-                </div>
-                <div className="text-lime-400 font-black text-4xl italic px-4">VS</div>
-                <div className="flex-1 flex flex-col items-center text-center">
-                  <div className="w-28 h-28 rounded-full flex items-center justify-center backdrop-blur-md mb-2 overflow-hidden">
-                    <TeamBadge team={featured.awayTeam} size={96} variant="away" />
-                  </div>
-                  <span className="w-full font-bold font-headline text-xs leading-tight uppercase break-words [overflow-wrap:anywhere] sm:text-sm">
-                    {featured.awayTeam.name}
-                  </span>
-                </div>
-              </div>
-            </Link>
+              <p className="font-headline text-lg font-bold text-primary">
+                Scores temporarily unavailable
+              </p>
+              <p className="mt-1 font-label text-xs text-on-surface-variant">
+                CentrePass could not reach the match database. Please try again in a few minutes.
+              </p>
+            </div>
           )}
 
-          {/* Side Fixtures */}
-          <div className="md:col-span-2 flex flex-col gap-4">
-            {upcomingMatches.slice(featured ? 1 : 0, 4).map((match) => (
-              <Link
-                key={match.id}
-                href={matchHref(match.id, match.competitionId)}
-                prefetch={false}
-                className="bg-surface-container rounded-xl p-4 group hover:bg-surface-container-high transition-all flex-1 flex flex-col justify-center"
-              >
-                <div className="text-base font-bold font-headline text-primary break-words [overflow-wrap:anywhere]">
-                  {match.homeTeam.name} v {match.awayTeam.name}
+          {!databaseUnavailable && !hasMatches && (
+            <div className="mb-7 rounded-xl border border-outline-variant/50 bg-white px-5 py-4 text-center">
+              <p className="font-headline text-lg font-bold text-primary">No fixtures yet</p>
+              <p className="mt-1 font-label text-xs text-on-surface-variant">
+                The latest edition is ready, but its match schedule has not been published.
+              </p>
+            </div>
+          )}
+
+          {usingUpstreamPreview && (
+            <p className="sr-only">
+              Local preview: showing current CentrePass results through the hosted read-only API.
+            </p>
+          )}
+
+          {isTournamentEdition ? (
+            <div className="space-y-10">
+              <HomeUpcomingFixtures
+                title="Upcoming fixtures"
+                fixtures={fixtures}
+                allFixturesLink={{ label: 'View all fixtures', href: fixturesHref }}
+                emptyMessage="Knockout fixtures will appear here as soon as both teams are confirmed."
+                timezoneNote={fixtures.length > 0
+                  ? timezoneNote(firstVisibleFixtureAt, timezone)
+                  : undefined}
+              />
+              {hasRecentResults && (
+                <div className="border-t border-outline-variant/70 pt-8">
+                  <HomeRecentResults groups={completedPage.groups} timezone={timezone} />
                 </div>
-                <div className="flex items-center justify-between mt-1">
-                  <div className="text-sm font-bold text-on-surface-variant uppercase font-label">
-                    {formatMatchDateTime(match.scheduledAt)}
-                  </div>
-                  <div className="text-xs text-on-surface-variant font-label">
-                    {match.venue}
-                  </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-10 lg:grid-cols-2 lg:gap-0">
+                <div className="lg:pr-10">
+                  <HomeUpcomingFixtures
+                    title="Upcoming fixtures"
+                    fixtures={fixtures}
+                    allFixturesLink={{ label: 'View all fixtures', href: fixturesHref }}
+                    timezoneNote={timezoneNote(firstVisibleFixtureAt, timezone)}
+                  />
                 </div>
-                <div className="flex items-center justify-between mt-2 px-6">
-                  <TeamBadge team={match.homeTeam} size={60} variant="home" />
-                  <span className="text-base font-bold text-outline-variant italic">VS</span>
-                  <TeamBadge team={match.awayTeam} size={60} variant="away" />
+                <div className="lg:border-l lg:border-outline-variant/70 lg:pl-10">
+                  <HomeStandingsPreview
+                    title="Standings"
+                    rows={buildLeagueStandings(leagueStandings)}
+                    fullStandingsLink={{
+                      label: 'View full standings',
+                      href: standingsHref,
+                    }}
+                    note={leagueStandingsUnavailable
+                      ? 'Standings are temporarily unavailable. Please try again shortly.'
+                      : leagueStandings.length > 0
+                        ? 'Official competition standings.'
+                        : 'Standings will appear once the competition table is published.'}
+                  />
                 </div>
-              </Link>
-            ))}
-          </div>
+              </div>
+
+              {hasRecentResults && (
+                <div className="mt-10 border-t border-outline-variant/70 pt-8">
+                  <HomeRecentResults groups={completedPage.groups} timezone={timezone} />
+                </div>
+              )}
+            </>
+          )}
         </div>
       </section>
-      )}
 
-      <MyTeams />
-
-      {season !== null && editionId !== null && (
-        <HomeResults
-          initialGroups={completedPage.groups}
-          initialNextCursor={completedPage.nextCursor}
-          season={season}
-          editionId={editionId}
-        />
-      )}
+      <section className="bg-[#f8f8f9] px-5 pb-16 pt-8 sm:px-8 lg:px-16 lg:pb-20 lg:pt-10">
+        <div className="mx-auto max-w-[1360px]">
+          <MyTeams />
+        </div>
+      </section>
     </div>
   );
 }

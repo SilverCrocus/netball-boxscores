@@ -9,12 +9,14 @@ interface GlobalEditionSelectorProps {
   editions: EditionContextValue[];
   surface?: 'desktop' | 'mobile';
   appearance?: 'surface' | 'dark';
+  compact?: boolean;
 }
 
 export function GlobalEditionSelector({
   editions,
   surface = 'desktop',
   appearance = 'surface',
+  compact = false,
 }: GlobalEditionSelectorProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -27,6 +29,7 @@ export function GlobalEditionSelector({
       editions={editions}
       surface={surface}
       appearance={appearance}
+      compact={compact}
     />
   );
 }

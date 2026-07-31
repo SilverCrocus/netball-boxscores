@@ -12,8 +12,12 @@ const editions: EditionContextValue[] = [{
   sourceTimezone: 'Europe/London',
 }];
 
+const { pathnameMock } = vi.hoisted(() => ({
+  pathnameMock: vi.fn(() => '/'),
+}));
+
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/',
+  usePathname: pathnameMock,
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }));
@@ -32,6 +36,7 @@ vi.mock('next/link', () => ({
 
 describe('AppShell', () => {
   afterEach(() => {
+    pathnameMock.mockReturnValue('/');
     vi.unstubAllGlobals();
   });
 
@@ -40,9 +45,18 @@ describe('AppShell', () => {
     expect(screen.getByTestId('child')).toBeInTheDocument();
   });
 
-  it('renders sidebar on desktop', () => {
+  it('uses landing chrome without the desktop sidebar on the root route', () => {
     render(<AppShell><div>Content</div></AppShell>);
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+  });
+
+  it('preserves the standard sidebar shell away from the root route', () => {
+    pathnameMock.mockReturnValue('/live');
+    render(<AppShell><div>Content</div></AppShell>);
+
     expect(screen.getByRole('complementary')).toBeInTheDocument();
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument();
   });
 
   it('renders navigation elements', () => {
@@ -51,7 +65,14 @@ describe('AppShell', () => {
     expect(navElements.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders competition selection on desktop and mobile surfaces', () => {
+  it('renders one compact competition selector in the landing header', () => {
+    render(<AppShell editions={editions}><div>Content</div></AppShell>);
+
+    expect(screen.getAllByLabelText('Competition edition')).toHaveLength(1);
+  });
+
+  it('renders competition selection on desktop and mobile standard surfaces', () => {
+    pathnameMock.mockReturnValue('/live');
     render(<AppShell editions={editions}><div>Content</div></AppShell>);
 
     expect(screen.getAllByLabelText('Competition edition')).toHaveLength(2);

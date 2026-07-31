@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   resolveCompetition,
   resolveCompetitionById,
+  resolveEdition,
   resolveLegacyLeagueCompetition,
 } from '@/lib/competitions';
 import { getCompletedMatchesPage } from '@/lib/home-feed';
@@ -17,6 +18,21 @@ export async function GET(request: Request) {
   const season = searchParams.get('season') ?? undefined;
   const edition = searchParams.get('edition') ?? undefined;
   const cursor = searchParams.get('cursor') ?? undefined;
+  const competitionSlug = searchParams.get('competitionSlug')?.trim() || undefined;
+  const editionSlug = searchParams.get('editionSlug')?.trim() || undefined;
+
+  if (Boolean(competitionSlug) !== Boolean(editionSlug)) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'INVALID_EDITION_IDENTITY',
+          message: 'competitionSlug and editionSlug must be provided together.',
+          retryable: false,
+        },
+      },
+      { status: 400 },
+    );
+  }
 
   if (isUpstreamPreviewMode()) {
     const previewPage = await loadUpstreamCompletedMatches(searchParams);
@@ -24,11 +40,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { competition } = edition
-      ? await resolveCompetitionById(edition)
-      : season
-        ? await resolveLegacyLeagueCompetition(season)
-        : await resolveCompetition();
+    const competition = competitionSlug && editionSlug
+      ? (await resolveEdition({ competitionSlug, editionSlug })).edition
+      : edition
+        ? (await resolveCompetitionById(edition)).competition
+        : season
+          ? (await resolveLegacyLeagueCompetition(season)).competition
+          : (await resolveCompetition()).competition;
 
     if (!competition) {
       return NextResponse.json(

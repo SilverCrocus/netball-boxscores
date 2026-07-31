@@ -1,10 +1,18 @@
+import glasgowBundle from '../../data/glasgow-2026/v1/bundle.json';
 import type { CompletedMatchesPage, HomeResultCard } from '@/lib/home-feed';
 import { matchHref } from '@/lib/edition-links';
 import { fetchJsonWithinLimits } from '@/lib/bounded-fetch';
+import {
+  GLASGOW_2026_IDENTITY,
+  isGlasgow2026Identity,
+} from '@/lib/edition-publication-readiness';
 
 const DEFAULT_UPSTREAM_ORIGIN = 'https://www.centrepass.io';
 const UPSTREAM_TIMEOUT_MS = 5_000;
 const UPSTREAM_MAX_BYTES = 2 * 1024 * 1024;
+const GLASGOW_TEAM_NAMES = new Set(
+  glasgowBundle.teams.map((team) => team.name.trim().toLocaleLowerCase()),
+);
 
 export interface PreviewLiveStatus {
   hasLive: boolean;
@@ -16,9 +24,15 @@ export function isUpstreamPreviewMode(): boolean {
     && process.env.CENTREPASS_PREVIEW_DATA_MODE === 'upstream';
 }
 
-function upstreamOrigin(): string | null {
-  if (!isUpstreamPreviewMode()) return null;
+export function glasgowUpstreamResultsParams(): URLSearchParams {
+  return new URLSearchParams([
+    ['competitionSlug', GLASGOW_2026_IDENTITY.competitionSlug],
+    ['editionSlug', GLASGOW_2026_IDENTITY.editionSlug],
+  ]);
+}
 
+/** Normalize the configured hosted origin shared by preview data and links. */
+export function upstreamPreviewOrigin(): string | null {
   const configured = process.env.CENTREPASS_UPSTREAM_ORIGIN?.trim()
     || DEFAULT_UPSTREAM_ORIGIN;
 
@@ -31,8 +45,12 @@ function upstreamOrigin(): string | null {
   }
 }
 
+function activeUpstreamOrigin(): string | null {
+  return isUpstreamPreviewMode() ? upstreamPreviewOrigin() : null;
+}
+
 async function fetchUpstreamJson(path: string): Promise<unknown | null> {
-  const origin = upstreamOrigin();
+  const origin = activeUpstreamOrigin();
   if (!origin) return null;
 
   try {
@@ -74,6 +92,15 @@ function team(value: unknown): HomeResultCard['homeTeam'] | null {
     abbreviation: item.abbreviation,
     logoUrl: optionalString(item.logoUrl),
   };
+}
+
+function isGlasgowTeamName(value: string): boolean {
+  return GLASGOW_TEAM_NAMES.has(value.trim().toLocaleLowerCase());
+}
+
+function isGlasgowResult(match: HomeResultCard): boolean {
+  return isGlasgowTeamName(match.homeTeam.name)
+    && isGlasgowTeamName(match.awayTeam.name);
 }
 
 function completedMatch(value: unknown, origin: string): HomeResultCard | null {
@@ -125,12 +152,16 @@ function completedMatch(value: unknown, origin: string): HomeResultCard | null {
 export async function loadUpstreamCompletedMatches(
   params = new URLSearchParams(),
 ): Promise<CompletedMatchesPage | null> {
-  const origin = upstreamOrigin();
+  const origin = activeUpstreamOrigin();
   if (!origin) return null;
 
   const query = params.toString();
   const payload = record(await fetchUpstreamJson(`/api/matches${query ? `?${query}` : ''}`));
   if (!payload || !Array.isArray(payload.groups)) return null;
+  const requireGlasgowTeams = isGlasgow2026Identity({
+    competitionSlug: params.get('competitionSlug'),
+    editionSlug: params.get('editionSlug'),
+  });
 
   const groups = payload.groups.flatMap((value) => {
     const group = record(value);
@@ -138,7 +169,9 @@ export async function loadUpstreamCompletedMatches(
 
     const matches = group.matches.flatMap((match) => {
       const normalized = completedMatch(match, origin);
-      return normalized ? [normalized] : [];
+      return normalized && (!requireGlasgowTeams || isGlasgowResult(normalized))
+        ? [normalized]
+        : [];
     });
 
     return matches.length > 0 ? [{ label: group.label, matches }] : [];
@@ -146,7 +179,12 @@ export async function loadUpstreamCompletedMatches(
 
   return {
     groups,
-    nextCursor: optionalString(payload.nextCursor),
+    // A cursor from a mismatched hosted edition must not make the filtered
+    // Glasgow preview look non-empty. Keep pagination only once at least one
+    // governed Glasgow result has survived validation.
+    nextCursor: requireGlasgowTeams && groups.length === 0
+      ? null
+      : optionalString(payload.nextCursor),
   };
 }
 
