@@ -103,4 +103,26 @@ describe('LandingHeader', () => {
       'true',
     );
   });
+
+  it('keeps primary desktop navigation available when editions are unavailable', () => {
+    render(
+      <LandingHeader
+        editions={[]}
+        analyticsEnabled
+        askCentrePassEnabled
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Matches' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Standings' })).toHaveAttribute(
+      'href',
+      '/standings',
+    );
+    expect(screen.getByRole('link', { name: 'Teams' })).toHaveAttribute('href', '/teams');
+    expect(screen.getByRole('link', { name: 'Stats' })).toHaveAttribute('href', '/rankings');
+    expect(screen.getByRole('link', { name: 'Compare' })).toHaveAttribute(
+      'href',
+      '/compare/players',
+    );
+  });
 });

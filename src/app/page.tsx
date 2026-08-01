@@ -400,7 +400,7 @@ export default async function HomePage() {
             </p>
           )}
 
-          {isTournamentEdition ? (
+          {!databaseUnavailable && (isTournamentEdition ? (
             <div className="space-y-10">
               <HomeUpcomingFixtures
                 title="Upcoming fixtures"
@@ -451,7 +451,7 @@ export default async function HomePage() {
                 </div>
               )}
             </>
-          )}
+          ))}
         </div>
       </section>
 

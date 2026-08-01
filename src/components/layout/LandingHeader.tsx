@@ -33,31 +33,35 @@ export function LandingHeader({
     searchParams.get('edition'),
   );
 
-  const navItems = currentEdition
-    ? [
-        { label: 'Matches', href: editionHref(currentEdition), policyHref: '/' },
-        {
-          label: 'Standings',
-          href: editionHref(currentEdition, 'standings'),
-          policyHref: '/standings',
-        },
-        {
-          label: 'Teams',
-          href: editionHref(currentEdition, 'teams'),
-          policyHref: '/teams',
-        },
-        ...(analyticsEnabled
-          ? [
-              { label: 'Stats', href: '/rankings', policyHref: '/rankings' },
-              {
-                label: 'Compare',
-                href: '/compare/players',
-                policyHref: '/compare/players',
-              },
-            ]
-          : []),
-      ]
-    : [];
+  const navItems = [
+    {
+      label: 'Matches',
+      href: currentEdition ? editionHref(currentEdition) : '/',
+      policyHref: '/',
+    },
+    {
+      label: 'Standings',
+      href: currentEdition
+        ? editionHref(currentEdition, 'standings')
+        : '/standings',
+      policyHref: '/standings',
+    },
+    {
+      label: 'Teams',
+      href: currentEdition ? editionHref(currentEdition, 'teams') : '/teams',
+      policyHref: '/teams',
+    },
+    ...(analyticsEnabled
+      ? [
+          { label: 'Stats', href: '/rankings', policyHref: '/rankings' },
+          {
+            label: 'Compare',
+            href: '/compare/players',
+            policyHref: '/compare/players',
+          },
+        ]
+      : []),
+  ];
 
   return (
     <header className="relative z-50 border-b border-white/10 bg-[#020b18] text-white">

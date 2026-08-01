@@ -410,6 +410,12 @@ describe('HomePage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Scores temporarily unavailable');
     expect(screen.queryByText('No fixtures yet')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Upcoming fixtures' }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Standings' })).not.toBeInTheDocument();
+    expect(screen.queryByText(
+      'Standings will appear once the competition table is published.',
+    )).not.toBeInTheDocument();
   });
 
   it('distinguishes unavailable league standings from an unpublished table', async () => {
