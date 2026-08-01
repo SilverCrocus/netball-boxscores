@@ -8,6 +8,12 @@ import { toEditionContexts } from "@/lib/edition-context";
 import { unstable_rethrow } from "next/navigation";
 import { resolveRuntimeFeatureState } from "@/lib/server-feature-flags";
 import { measureServerOperation } from "@/lib/server-timing";
+import {
+  isUpstreamPreviewMode,
+} from "@/lib/upstream-preview";
+import {
+  UPSTREAM_PREVIEW_EDITIONS,
+} from "@/lib/glasgow/home-preview";
 import "./globals.css";
 
 const lexend = Lexend({
@@ -31,11 +37,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL("https://centrepass.io"),
   title: {
-    default: "CentrePass - Suncorp Super Netball Scores",
+    default: "CentrePass - Netball Scores, Fixtures & Stats",
     template: "%s | CentrePass",
   },
   description:
-    "Live scores, box scores, standings, fixtures, and player stats for Suncorp Super Netball.",
+    "Follow live netball scores, fixtures, standings, teams, and player statistics across every CentrePass competition.",
   openGraph: {
     siteName: "CentrePass",
     type: "website",
@@ -50,7 +56,11 @@ export const metadata: Metadata = {
   },
 };
 
-async function loadNavigationEditions() {
+export async function loadNavigationEditions() {
+  if (isUpstreamPreviewMode()) {
+    return [...UPSTREAM_PREVIEW_EDITIONS];
+  }
+
   try {
     return await measureServerOperation('/', 'competition-navigation', async () => (
       toEditionContexts(await getPublicCompetitionNavigationDirectory())

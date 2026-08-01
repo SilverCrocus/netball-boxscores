@@ -3,13 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HomeResults } from '../HomeResults';
 import type { HomeResultCard } from '@/lib/home-feed';
 
-vi.mock('@/components/ui/ScoreCard', () => ({
-  ScoreCard: ({ match }: { match: { id: string } }) => <div>{match.id}</div>,
-}));
-
 function result(id: string, round: number): HomeResultCard {
   return {
     id,
+    competitionId: 'ssn-2026',
     status: 'COMPLETED',
     scoreAvailable: true,
     scheduledAt: '2026-06-01T04:00:00.000Z',
@@ -20,8 +17,8 @@ function result(id: string, round: number): HomeResultCard {
     roundLabel: null,
     stageName: null,
     finalCode: null,
-    homeTeam: { name: 'Vipers', abbreviation: 'VIP', logoUrl: null },
-    awayTeam: { name: 'Stars', abbreviation: 'STA', logoUrl: null },
+    homeTeam: { name: `Vipers ${id}`, abbreviation: 'VIP', logoUrl: null },
+    awayTeam: { name: `Stars ${id}`, abbreviation: 'STA', logoUrl: null },
     homeBreakdown: null,
     awayBreakdown: null,
   };
@@ -51,8 +48,12 @@ describe('HomeResults', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'View previous rounds' }));
 
-    expect(await screen.findByText('earlier-match')).toBeInTheDocument();
-    expect(screen.getByText('latest-match')).toBeInTheDocument();
+    expect(await screen.findByRole('link', {
+      name: /Vipers earlier-match 62, Stars earlier-match 58.*View match stats/i,
+    })).toHaveAttribute('href', '/match/earlier-match?edition=ssn-2026');
+    expect(screen.getByRole('link', {
+      name: /Vipers latest-match 62, Stars latest-match 58.*View match stats/i,
+    })).toHaveAttribute('href', '/match/latest-match?edition=ssn-2026');
     expect(screen.getByText('1 earlier result added.')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/matches?edition=ssn-2026&season=2026&cursor=cursor-1');
     await waitFor(() => expect(screen.queryByRole('button')).not.toBeInTheDocument());
@@ -96,9 +97,39 @@ describe('HomeResults', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'View previous rounds' }));
 
-    expect(await screen.findByText('older-public-match')).toBeInTheDocument();
+    expect(await screen.findByRole('link', {
+      name: /Vipers older-public-match 62, Stars older-public-match 58.*View match stats/i,
+    })).toHaveAttribute('href', '/match/older-public-match?edition=ssn-2026');
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/matches?edition=ssn-2026&season=2026&cursor=denied-scan-cursor',
     );
+  });
+
+  it('renders compact result rows with canonical and explicit match links', () => {
+    const hosted = {
+      ...result('hosted-match', 10),
+      competitionId: undefined,
+      href: '/match/hosted-match?edition=glasgow-2026',
+    };
+
+    render(
+      <HomeResults
+        initialGroups={[{
+          label: 'Round 10',
+          matches: [result('local-match', 10), hosted],
+        }]}
+        initialNextCursor={null}
+        season={2026}
+        editionId="ssn-2026"
+      />,
+    );
+
+    expect(screen.getByRole('list', { name: 'Round 10 results' })).toBeInTheDocument();
+    expect(screen.getByRole('link', {
+      name: /Vipers local-match 62, Stars local-match 58.*View match stats/i,
+    })).toHaveAttribute('href', '/match/local-match?edition=ssn-2026');
+    expect(screen.getByRole('link', {
+      name: /Vipers hosted-match 62, Stars hosted-match 58.*View match stats/i,
+    })).toHaveAttribute('href', '/match/hosted-match?edition=glasgow-2026');
   });
 });

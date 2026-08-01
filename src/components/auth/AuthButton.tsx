@@ -6,9 +6,10 @@ import Link from 'next/link';
 interface AuthButtonProps {
   dark?: boolean;
   onNavigate?: () => void;
+  compact?: boolean;
 }
 
-export function AuthButton({ dark = false, onNavigate }: AuthButtonProps) {
+export function AuthButton({ dark = false, onNavigate, compact = false }: AuthButtonProps) {
   const { data: session, status } = useSession();
   const mutedText = dark ? 'text-slate-400' : 'text-on-surface-variant';
   const strongText = dark ? 'text-white' : 'text-on-surface';
@@ -16,13 +17,39 @@ export function AuthButton({ dark = false, onNavigate }: AuthButtonProps) {
   if (status === 'loading') {
     return (
       <div role="status" className="flex items-center gap-3">
-        <div aria-hidden="true" className="h-9 w-9 animate-pulse rounded-full bg-surface-container-high" />
+        <div
+          aria-hidden="true"
+          className={`${compact ? 'h-10 w-20 rounded-lg' : 'h-9 w-9 rounded-full'} animate-pulse bg-surface-container-high`}
+        />
         <span className="sr-only">Loading account</span>
       </div>
     );
   }
 
   if (session?.user) {
+    if (compact) {
+      return (
+        <Link
+          href="/settings"
+          prefetch={false}
+          onClick={onNavigate}
+          className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 font-label text-xs font-bold ${
+            dark
+              ? 'border-slate-600 text-white hover:border-secondary-fixed hover:text-secondary-fixed'
+              : 'border-outline-variant text-on-surface hover:border-secondary'
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary-fixed text-[10px] text-on-secondary-fixed"
+          >
+            {session.user.name?.charAt(0).toUpperCase() || session.user.email?.charAt(0).toUpperCase() || 'U'}
+          </span>
+          <span className="max-w-24 truncate">{session.user.name || 'Account'}</span>
+        </Link>
+      );
+    }
+
     return (
       <div className="space-y-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -60,7 +87,13 @@ export function AuthButton({ dark = false, onNavigate }: AuthButtonProps) {
       href="/auth/signin"
       prefetch={false}
       onClick={onNavigate}
-      className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-secondary-fixed px-4 font-label text-xs font-bold uppercase tracking-wider text-on-secondary-fixed transition-colors hover:bg-secondary-fixed-dim"
+      className={compact
+        ? `inline-flex min-h-10 items-center justify-center rounded-lg border px-5 font-label text-xs font-bold uppercase tracking-wider transition-colors ${
+            dark
+              ? 'border-secondary-fixed/70 text-secondary-fixed hover:bg-secondary-fixed hover:text-on-secondary-fixed'
+              : 'border-secondary text-secondary hover:bg-secondary hover:text-white'
+          }`
+        : 'inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-secondary-fixed px-4 font-label text-xs font-bold uppercase tracking-wider text-on-secondary-fixed transition-colors hover:bg-secondary-fixed-dim'}
     >
       Sign In
     </Link>

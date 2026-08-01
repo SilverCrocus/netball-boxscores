@@ -31,7 +31,25 @@ const glasgow: EditionContextValue = {
   sourceTimezone: 'Europe/London',
 };
 
+const hostedPreview: EditionContextValue = {
+  ...glasgow,
+  id: 'glasgow-preview',
+  navigationOrigin: 'https://www.centrepass.io',
+};
+
 describe('edition links', () => {
+  it('uses a hosted origin only for an explicit preview edition', () => {
+    expect(editionHref(hostedPreview)).toBe(
+      'https://www.centrepass.io/competitions/commonwealth-games/glasgow-2026',
+    );
+    expect(editionHref(hostedPreview, 'standings')).toBe(
+      'https://www.centrepass.io/competitions/commonwealth-games/glasgow-2026/standings',
+    );
+    expect(editionHref(glasgow)).toBe(
+      '/competitions/commonwealth-games/glasgow-2026',
+    );
+  });
+
   it('builds canonical links for edition destinations', () => {
     expect(editionHref(ssn, 'standings')).toBe(
       '/competitions/suncorp-super-netball/2026/standings'
@@ -74,6 +92,15 @@ describe('edition links', () => {
       glasgow,
       '/competitions/suncorp-super-netball/2026/standings'
     )).toBe('/competitions/commonwealth-games/glasgow-2026/standings');
+  });
+
+  it('switches a preview edition to its hosted route while preserving the section', () => {
+    expect(editionSwitchHref(
+      hostedPreview,
+      '/competitions/suncorp-super-netball/2026/teams',
+    )).toBe(
+      'https://www.centrepass.io/competitions/commonwealth-games/glasgow-2026/teams',
+    );
   });
 
   it('preserves supported legacy sections when switching editions', () => {

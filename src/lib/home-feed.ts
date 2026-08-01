@@ -4,6 +4,8 @@ import { prisma, excludeSimData } from '@/lib/db';
 import { formatMatchStage } from '@/lib/match-label';
 import { hasResolvedMatchTeams, type ResolvedMatchTeams } from '@/lib/edition-match';
 import { isFinalFixture, resolveEditionFeatures } from '@/lib/edition-capabilities';
+import type { EditionSchedule } from '@/lib/edition-schedule';
+import { matchHref } from '@/lib/edition-links';
 import {
   canExposePublicMatchScore,
   resolvePublicMatchAccessBatch,
@@ -12,6 +14,7 @@ import {
 import type { CompetitionOption } from '@/lib/competitions';
 
 export const HOME_RESULTS_PAGE_SIZE = 8;
+export const HOME_UPCOMING_FIXTURE_LIMIT = 5;
 const COMPLETED_RESULTS_MAX_SCAN_BATCHES = 8;
 const COMPLETED_RESULTS_SCAN_LIMIT = (
   HOME_RESULTS_PAGE_SIZE + 1
@@ -99,6 +102,18 @@ export interface HomeResultGroup {
 export interface CompletedMatchesPage {
   groups: HomeResultGroup[];
   nextCursor: string | null;
+  upcomingFixtures?: HomeUpcomingFixtureCard[];
+}
+
+export interface HomeUpcomingFixtureCard {
+  id: string;
+  competitionId: string;
+  href: string;
+  status: 'SCHEDULED';
+  scheduledAt: string;
+  venue: string;
+  homeTeam: NonNullable<HomepageMatch['homeTeam']>;
+  awayTeam: NonNullable<HomepageMatch['awayTeam']>;
 }
 
 interface CompletedCursor {
@@ -208,6 +223,48 @@ export function groupCompletedMatches(
       (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
     ),
   }));
+}
+
+/**
+ * Project the small public fixture slice needed by the homepage. The edition
+ * schedule remains the source of truth for slot resolution and publication;
+ * unresolved bracket slots are never presented as named teams.
+ */
+export function buildHomeUpcomingFixtures(
+  schedule: EditionSchedule,
+  now = new Date(),
+): HomeUpcomingFixtureCard[] {
+  return schedule.stages
+    .flatMap((stage) => stage.dates.flatMap((date) => date.fixtures))
+    .filter((fixture) => fixture.status === 'SCHEDULED'
+      && fixture.scheduledAt.getTime() >= now.getTime()
+      && fixture.sideA.resolved
+      && fixture.sideA.team !== null
+      && fixture.sideB.resolved
+      && fixture.sideB.team !== null)
+    .toSorted((left, right) =>
+      left.scheduledAt.getTime() - right.scheduledAt.getTime()
+        || left.id.localeCompare(right.id)
+    )
+    .slice(0, HOME_UPCOMING_FIXTURE_LIMIT)
+    .map((fixture) => ({
+      id: fixture.id,
+      competitionId: schedule.editionId,
+      href: matchHref(fixture.id, schedule.editionId),
+      status: 'SCHEDULED',
+      scheduledAt: fixture.scheduledAt.toISOString(),
+      venue: fixture.venue,
+      homeTeam: {
+        name: fixture.sideA.team!.name,
+        abbreviation: fixture.sideA.team!.abbreviation,
+        logoUrl: fixture.sideA.team!.logoUrl,
+      },
+      awayTeam: {
+        name: fixture.sideB.team!.name,
+        abbreviation: fixture.sideB.team!.abbreviation,
+        logoUrl: fixture.sideB.team!.logoUrl,
+      },
+    }));
 }
 
 export function encodeCompletedCursor(match: Pick<HomepageMatch, 'scheduledAt' | 'id'>): string {

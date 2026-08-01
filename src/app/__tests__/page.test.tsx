@@ -1,12 +1,16 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import HomePage from '../page';
 
 vi.mock('@/components/home/MyTeams', () => ({ MyTeams: () => null }));
+vi.mock('@/components/home/HomeResults', () => ({
+  HomeResults: () => <section>Long results archive</section>,
+}));
 
-const { findCompetitionsMock, findMatchesMock } = vi.hoisted(() => ({
+const { findCompetitionsMock, findMatchesMock, findStandingsMock } = vi.hoisted(() => ({
   findCompetitionsMock: vi.fn(),
   findMatchesMock: vi.fn(),
+  findStandingsMock: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -15,6 +19,9 @@ vi.mock('@/lib/db', () => ({
     competition: { findMany: findCompetitionsMock },
     match: {
       findMany: findMatchesMock,
+    },
+    standing: {
+      findMany: findStandingsMock,
     },
   },
 }));
@@ -45,7 +52,7 @@ const MATCHES = [
           homeScore: 42,
           awayScore: 38,
           currentQuarter: 3,
-          currentTime: '04:12',
+          currentTime: '312',
           round: 12,
           venue: 'Arena',
           scheduledAt: new Date(),
@@ -166,110 +173,164 @@ describe('HomePage', () => {
           ? MATCHES.filter((match) => where.id?.in.includes(match.id))
           : [],
     ));
+    findStandingsMock.mockReset().mockResolvedValue([{
+      id: 'standing-vixens',
+      rank: 1,
+      played: 14,
+      wins: 12,
+      losses: 2,
+      goalsFor: 850,
+      goalsAgainst: 720,
+      points: 48,
+      team: {
+        name: 'Melbourne Vixens',
+        abbreviation: 'VIX',
+        logoUrl: null,
+      },
+    }]);
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     delete process.env.CENTREPASS_PREVIEW_DATA_MODE;
     delete process.env.CENTREPASS_UPSTREAM_ORIGIN;
   });
 
-  it('renders a state-aware live heading', async () => {
+  it('renders the branded landing hero for the current edition', async () => {
     const page = await HomePage();
     render(page);
-    expect(screen.getByText('LIVE NOW')).toBeInTheDocument();
+    expect(screen.getByRole('heading', {
+      name: /Every match[\s\S]*Every team[\s\S]*Every story/i,
+    })).toBeInTheDocument();
+    expect(screen.getByText('Suncorp Super Netball · 2026')).toBeInTheDocument();
   });
 
-  it('renders LIVE ACTION section when live matches exist', async () => {
+  it('promotes live matches into the latest score strip', async () => {
     const page = await HomePage();
     render(page);
-    expect(screen.getByText('LIVE ACTION')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Latest scores' })).toBeInTheDocument();
+    expect(screen.getByRole('link', {
+      name: /Marlins 42, Inferno 38.*LIVE.*Q3 9:48/i,
+    })).toHaveAttribute('href', '/match/1?edition=competition-2026');
   });
 
-  it('renders UPCOMING FIXTURES section', async () => {
-    const page = await HomePage();
-    render(page);
-    expect(screen.getByText('UPCOMING FIXTURES')).toBeInTheDocument();
-  });
-
-  it('renders "Next Match" label instead of "Match of the Day"', async () => {
-    const page = await HomePage();
-    render(page);
-    expect(screen.getByText(/Next Match/)).toBeInTheDocument();
-    expect(screen.queryByText(/Match of the Day/)).not.toBeInTheDocument();
-  });
-
-  it('renders full team names in side fixtures', async () => {
-    const page = await HomePage();
-    render(page);
-    // Second scheduled match appears in side fixtures with full names
-    expect(screen.getByText(/Titans v Rockets/)).toBeInTheDocument();
-    expect(screen.queryByText(/TIT v ROC/)).not.toBeInTheDocument();
-  });
-
-  it('renders RESULTS section with round headings', async () => {
-    const page = await HomePage();
-    render(page);
-    expect(screen.getByText('RESULTS')).toBeInTheDocument();
-    expect(screen.getByText('Round 5')).toBeInTheDocument();
-    expect(screen.getByText('Round 4')).toBeInTheDocument();
-  });
-
-  it('renders results grouped by round in descending order', async () => {
-    const page = await HomePage();
-    render(page);
-    const round5 = screen.getByText('Round 5');
-    const round4 = screen.getByText('Round 4');
-    // Round 5 should appear before Round 4 in the DOM
-    expect(round5.compareDocumentPosition(round4) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it('shows finals stages ahead of the regular-season rounds', async () => {
-    const grandFinal = {
-      ...MATCHES[3],
-      id: 'grand-final',
-      round: 3,
-      finalCode: 'GRAND',
-      scheduledAt: new Date('2026-07-04T09:30:00Z'),
+  it('labels and formats overtime clocks in the latest score strip', async () => {
+    const overtimeMatch = {
+      ...MATCHES[0],
+      currentQuarter: 5,
+      currentTime: '75',
     };
-    const round14 = {
-      ...MATCHES[4],
-      id: 'round-14',
-      round: 14,
-      finalCode: null,
-      scheduledAt: new Date('2026-06-14T06:00:00Z'),
-    };
-    const finalsMatches = [grandFinal, round14];
     findMatchesMock.mockImplementation(({ where }: {
       where: { status?: string; id?: { in: string[] } };
     }) => Promise.resolve(
-      where.status === 'COMPLETED'
-        ? finalsMatches
-        : where.id?.in
-          ? finalsMatches.filter((match) => where.id?.in.includes(match.id))
-          : [],
+      where.status === 'LIVE'
+        ? [overtimeMatch]
+        : where.status
+          ? MATCHES.filter((match) => match.status === where.status)
+          : where.id?.in
+            ? MATCHES.filter((match) => where.id?.in.includes(match.id))
+            : [],
     ));
 
     render(await HomePage());
 
-    const grandFinalHeading = screen.getByText('Grand Final');
-    const round14Heading = screen.getByText('Round 14');
-    expect(
-      grandFinalHeading.compareDocumentPosition(round14Heading) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(screen.getByRole('link', {
+      name: /Marlins 42, Inferno 38.*LIVE.*ET 3:45/i,
+    })).toHaveAttribute('href', '/match/1?edition=competition-2026');
   });
 
-  it('does not show Final badge in results', async () => {
+  it('renders the upcoming fixtures preview', async () => {
     const page = await HomePage();
     render(page);
-    expect(screen.queryByText('Final')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Upcoming fixtures' })).toBeInTheDocument();
   });
 
-  it('derives one-point goals by excluding super shots from total made goals', async () => {
+  it('renders the primary edition action and today matches action', async () => {
+    const page = await HomePage();
+    render(page);
+    expect(screen.getByRole('link', { name: 'Explore 2026' })).toHaveAttribute(
+      'href',
+      '/competitions/ssn/2026',
+    );
+    expect(screen.getByRole('link', { name: /See today's matches/i })).toHaveAttribute(
+      'href',
+      '/live',
+    );
+  });
+
+  it('renders full team names in fixture links', async () => {
+    const page = await HomePage();
+    render(page);
+    expect(screen.getByRole('link', {
+      name: /Titans versus Rockets/i,
+    })).toBeInTheDocument();
+    expect(screen.queryByText(/TIT v ROC/)).not.toBeInTheDocument();
+  });
+
+  it('keeps completed scores in the score strip and a compact recent-results section', async () => {
     render(await HomePage());
 
-    expect(screen.getByText('(60.2)')).toBeInTheDocument();
-    expect(screen.queryByText('(62.2)')).not.toBeInTheDocument();
+    const scoreStrip = screen.getByRole('region', { name: 'Latest scores' });
+    expect(scoreStrip).toHaveTextContent('Vixens');
+    expect(scoreStrip).toHaveTextContent('Fever');
+    expect(screen.getByRole('heading', { name: 'Recent results' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Recent results' })).toBeInTheDocument();
+    expect(screen.queryByText('Long results archive')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'RESULTS' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the compact standings table for league editions', async () => {
+    render(await HomePage());
+
+    expect(screen.getByRole('table', { name: 'Standings' })).toBeInTheDocument();
+    expect(screen.getByRole('rowheader', { name: /Melbourne Vixens/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /View full standings/i })).toHaveAttribute(
+      'href',
+      '/competitions/ssn/2026/standings',
+    );
+  });
+
+  it('stacks confirmed tournament fixtures above recent results', async () => {
+    findCompetitionsMock.mockResolvedValue([{
+      id: 'world-cup-2027',
+      name: 'Netball World Cup — Sydney 2027',
+      label: 'Sydney 2027',
+      season: 2027,
+      slug: 'sydney-2027',
+      publicationStatus: 'PUBLISHED',
+      series: {
+        id: 'netball-world-cup',
+        slug: 'netball-world-cup',
+        name: 'Netball World Cup',
+        kind: 'TOURNAMENT',
+      },
+      ruleset: null,
+      dataCoverage: PUBLIC_COVERAGE,
+      _count: { entries: 12, matches: MATCHES.length },
+      stages: [],
+      matches: [],
+      importRuns: [],
+      seasonStart: new Date('2027-08-25T00:00:00Z'),
+      seasonEnd: new Date('2027-09-05T00:00:00Z'),
+      sourceTimezone: 'Australia/Sydney',
+    }]);
+
+    render(await HomePage());
+
+    const upcomingHeading = screen.getByRole('heading', { name: 'Upcoming fixtures' });
+    const recentHeading = screen.getByRole('heading', { name: 'Recent results' });
+    expect(
+      upcomingHeading.compareDocumentPosition(recentHeading)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(upcomingHeading.closest('section')?.parentElement).toHaveClass('space-y-10');
+    expect(upcomingHeading.closest('section')?.parentElement).not.toHaveClass('grid');
+    expect(screen.getByRole('link', { name: /Titans versus Rockets/i })).toBeInTheDocument();
+    expect(screen.queryByText('TBD')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pool A & Pool B standings')).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(findStandingsMock).not.toHaveBeenCalled();
   });
 
   it('limits fixture and initial results loading', async () => {
@@ -288,7 +349,10 @@ describe('HomePage', () => {
       ([query]) => query.where.id?.in,
     )?.[0];
 
-    expect(scheduledQuery.take).toBe(4);
+    expect(scheduledQuery.take).toBe(5);
+    expect(scheduledQuery.where.scheduledAt.gte).toBeInstanceOf(Date);
+    expect(scheduledQuery.where.homeTeamId).toEqual({ not: null });
+    expect(scheduledQuery.where.awayTeamId).toEqual({ not: null });
     expect(liveQuery.take).toBe(16);
     expect(liveQuery.where.OR).toEqual([
       { stageId: null },
@@ -320,6 +384,25 @@ describe('HomePage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('treats an invisible completed-results cursor as an empty homepage', async () => {
+    const filteredCompletedCandidates = Array.from({ length: 73 }, (_, index) => ({
+      id: `filtered-completed-${index}`,
+      scheduledAt: new Date(Date.UTC(2026, 6, 30, 12, 0, index)),
+    }));
+    findMatchesMock.mockImplementation(({ where }: {
+      where: { status?: string; id?: { in: string[] } };
+    }) => Promise.resolve(
+      where.status === 'COMPLETED'
+        ? filteredCompletedCandidates
+        : [],
+    ));
+
+    render(await HomePage());
+
+    expect(screen.getByText('No fixtures yet')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recent results' })).not.toBeInTheDocument();
+  });
+
   it('distinguishes database failures from a true empty season', async () => {
     findCompetitionsMock.mockRejectedValue(new Error('database unavailable'));
 
@@ -327,39 +410,98 @@ describe('HomePage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Scores temporarily unavailable');
     expect(screen.queryByText('No fixtures yet')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Upcoming fixtures' }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Standings' })).not.toBeInTheDocument();
+    expect(screen.queryByText(
+      'Standings will appear once the competition table is published.',
+    )).not.toBeInTheDocument();
   });
 
-  it('renders hosted results in explicit localhost preview mode without querying the database', async () => {
-    process.env.CENTREPASS_PREVIEW_DATA_MODE = 'upstream';
-    process.env.CENTREPASS_UPSTREAM_ORIGIN = 'https://centrepass.example';
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        groups: [{
-          label: 'Grand Final',
-          matches: [{
-            id: 'hosted-grand-final',
-            status: 'COMPLETED',
-            scoreAvailable: true,
-            scheduledAt: '2026-07-04T09:30:00.000Z',
-            homeScore: 61,
-            awayScore: 40,
-            venue: 'John Cain Arena',
-            round: 3,
-            finalCode: 'GRAND',
-            homeTeam: { name: 'Adelaide Thunderbirds', abbreviation: 'THU', logoUrl: null },
-            awayTeam: { name: 'Melbourne Vixens', abbreviation: 'VIX', logoUrl: null },
-          }],
-        }],
-        nextCursor: null,
-      }),
-    }));
+  it('distinguishes unavailable league standings from an unpublished table', async () => {
+    findStandingsMock.mockRejectedValue(new Error('standings unavailable'));
 
     render(await HomePage());
 
-    expect(screen.getByText('RESULTS')).toBeInTheDocument();
-    expect(screen.getByText('Adelaide Thunderbirds')).toBeInTheDocument();
+    expect(screen.getByText(
+      'Standings are temporarily unavailable. Please try again shortly.',
+    )).toBeInTheDocument();
+    expect(screen.queryByText(
+      'Standings will appear once the competition table is published.',
+    )).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('renders hosted results and fixtures in preview mode without querying the database', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-02T07:30:00.000Z'));
+    process.env.CENTREPASS_PREVIEW_DATA_MODE = 'upstream';
+    process.env.CENTREPASS_UPSTREAM_ORIGIN = 'https://centrepass.example';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        groups: [{
+          label: 'Pool A — 2026-07-30',
+          matches: [{
+            id: 'hosted-england-south-africa',
+            status: 'COMPLETED',
+            scoreAvailable: true,
+            scheduledAt: '2026-07-30T20:00:00.000Z',
+            homeScore: 58,
+            awayScore: 54,
+            venue: 'The Hydro',
+            round: null,
+            homeTeam: { name: 'England', abbreviation: 'ENG', logoUrl: null },
+            awayTeam: { name: 'South Africa', abbreviation: 'RSA', logoUrl: null },
+          }],
+        }],
+        upcomingFixtures: [{
+          id: 'hosted-england-australia-semi',
+          competitionId: 'glasgow-2026',
+          href: 'javascript:alert(1)',
+          status: 'SCHEDULED',
+          scheduledAt: '2026-08-03T12:00:00.000Z',
+          venue: 'The Hydro',
+          homeTeam: { name: 'England', abbreviation: 'ENG', logoUrl: null },
+          awayTeam: { name: 'Australia', abbreviation: 'AUS', logoUrl: null },
+        }],
+        nextCursor: null,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(await HomePage());
+
+    expect(screen.getAllByText('England').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Recent results' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Upcoming fixtures' })).toBeInTheDocument();
+    expect(screen.queryByText(
+      'Knockout fixtures will appear here as soon as both teams are confirmed.',
+    )).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /England versus Australia at The Hydro/i }))
+      .toHaveAttribute(
+        'href',
+        'https://centrepass.example/match/hosted-england-australia-semi?edition=glasgow-2026',
+      );
+    expect(screen.getByRole('link', { name: 'View all fixtures' })).toHaveAttribute(
+      'href',
+      'https://centrepass.example/competitions/commonwealth-games-netball/glasgow-2026',
+    );
+    expect(screen.queryByText('TBD')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pool A & Pool B standings')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('list', { name: 'Recent results' })).getByRole('link', {
+      name: /England 58, South Africa 54/i,
+    })).toHaveAttribute('href', 'https://centrepass.example/match/hosted-england-south-africa');
+    expect(screen.getByRole('link', { name: /See today's matches/i })).toHaveAttribute(
+      'href',
+      'https://centrepass.example/live',
+    );
+    expect(screen.queryByText('Long results archive')).not.toBeInTheDocument();
     expect(screen.getByText(/Local preview: showing current CentrePass results/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://centrepass.example/api/matches?competitionSlug=commonwealth-games-netball&editionSlug=glasgow-2026&includeUpcoming=true',
+      expect.any(Object),
+    );
     expect(findCompetitionsMock).not.toHaveBeenCalled();
   });
 });

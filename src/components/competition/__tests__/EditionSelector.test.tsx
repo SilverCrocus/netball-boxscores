@@ -72,4 +72,49 @@ describe('EditionSelector', () => {
     expect(screen.getByLabelText('Competition edition')).toHaveValue('');
     expect(screen.getByRole('option', { name: 'Select competition' })).toBeDisabled();
   });
+
+  it('keeps canonical switching behavior in the compact header appearance', () => {
+    pathname = '/';
+    render(
+      <EditionSelector
+        current={editions[0]}
+        editions={editions}
+        appearance="dark"
+        compact
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Competition edition'), {
+      target: { value: 'glasgow' },
+    });
+
+    expect(push).toHaveBeenCalledWith(
+      '/competitions/commonwealth-games/glasgow-2026'
+    );
+  });
+
+  it('sends an upstream-preview edition to its hosted page instead of a local database route', () => {
+    pathname = '/';
+    const previewEditions: EditionContextValue[] = editions.map((edition) => ({
+      ...edition,
+      id: `${edition.id}-preview`,
+      navigationOrigin: 'https://www.centrepass.io',
+    }));
+    render(
+      <EditionSelector
+        current={previewEditions[1]}
+        editions={previewEditions}
+        appearance="dark"
+        compact
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Competition edition'), {
+      target: { value: 'ssn-preview' },
+    });
+
+    expect(push).toHaveBeenCalledWith(
+      'https://www.centrepass.io/competitions/suncorp-super-netball/2026'
+    );
+  });
 });

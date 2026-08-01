@@ -51,10 +51,12 @@ export function BottomNav({
   editions = [],
   analyticsEnabled = false,
   askCentrePassEnabled = false,
+  hideAt = 'lg',
 }: {
   editions?: EditionContextValue[];
   analyticsEnabled?: boolean;
   askCentrePassEnabled?: boolean;
+  hideAt?: 'lg' | 'xl';
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -84,6 +86,7 @@ export function BottomNav({
       editionAwareNavigationHref(currentEdition, item.href),
     )
   );
+  const responsiveHiddenClass = hideAt === 'xl' ? 'xl:hidden' : 'lg:hidden';
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -160,6 +163,21 @@ export function BottomNav({
     };
   }, [moreOpen, pathname]);
 
+  useEffect(() => {
+    if (!moreOpen || typeof window.matchMedia !== 'function') return;
+    const mediaQuery = window.matchMedia(
+      hideAt === 'xl' ? '(min-width: 1280px)' : '(min-width: 1024px)',
+    );
+    const closeAtDesktop = (event: MediaQueryListEvent) => {
+      if (!event.matches) return;
+      restoreFocusOnCloseRef.current = false;
+      setMoreState({ pathname, open: false });
+    };
+
+    mediaQuery.addEventListener('change', closeAtDesktop);
+    return () => mediaQuery.removeEventListener('change', closeAtDesktop);
+  }, [hideAt, moreOpen, pathname]);
+
   function closeMore() {
     restoreFocusOnCloseRef.current = true;
     setMoreState({ pathname, open: false });
@@ -171,7 +189,7 @@ export function BottomNav({
         <div
           ref={modalLayerRef}
           data-testid="mobile-more-modal-layer"
-          className="fixed inset-0 z-[55] lg:hidden"
+          className={`fixed inset-0 z-[55] ${responsiveHiddenClass}`}
         >
           <div aria-hidden="true" className="absolute inset-0 bg-slate-950/60" />
           <div
@@ -208,9 +226,11 @@ export function BottomNav({
                     onClick={closeMore}
                     className="flex min-h-11 items-center gap-3 rounded-xl bg-surface-container-low px-4 font-headline text-sm font-bold"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
-                    {label}
-                    <NavigationPendingIndicator label={label} className="ml-auto" />
+                    <>
+                      <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span>
+                      {label}
+                      <NavigationPendingIndicator label={label} className="ml-auto" />
+                    </>
                   </Link>
                 );
               })}
@@ -221,7 +241,10 @@ export function BottomNav({
           </div>
         </div>
       )}
-      <nav className="fixed bottom-0 left-0 z-50 flex w-full items-center rounded-t-2xl border-t border-slate-800/50 bg-slate-950 px-1 pb-6 pt-2 shadow-[0_-8px_24px_rgba(0,0,0,0.6)] lg:hidden">
+      <nav
+        aria-label="Primary navigation"
+        className={`fixed bottom-0 left-0 z-50 flex w-full items-center rounded-t-2xl border-t border-slate-800/50 bg-slate-950 px-1 pb-6 pt-2 shadow-[0_-8px_24px_rgba(0,0,0,0.6)] ${responsiveHiddenClass}`}
+      >
       {primaryItems.map((item) => {
         const href = editionAwareNavigationHref(currentEdition, item.href);
         const active = isResolvedNavigationActive(pathname, item.href, href);

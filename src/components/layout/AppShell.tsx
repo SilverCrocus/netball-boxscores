@@ -1,7 +1,11 @@
+'use client';
+
 import { Suspense } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { ClientNavigationTiming } from './ClientNavigationTiming';
+import { LandingHeader } from './LandingHeader';
 import { GlobalEditionSelector } from '@/components/competition/GlobalEditionSelector';
 import type { EditionContextValue } from '@/lib/edition-context';
 
@@ -18,6 +22,37 @@ export function AppShell({
   analyticsEnabled = false,
   askCentrePassEnabled = false,
 }: AppShellProps) {
+  const pathname = usePathname();
+  const isLandingPage = pathname === '/';
+
+  if (isLandingPage) {
+    return (
+      <div className="min-h-screen bg-[#f8f8f9] text-on-surface">
+        <Suspense fallback={null}>
+          <ClientNavigationTiming />
+        </Suspense>
+        <Suspense fallback={null}>
+          <LandingHeader
+            editions={editions}
+            analyticsEnabled={analyticsEnabled}
+            askCentrePassEnabled={askCentrePassEnabled}
+          />
+        </Suspense>
+        <main className="pb-24 xl:pb-0">
+          {children}
+        </main>
+        <Suspense fallback={null}>
+          <BottomNav
+            editions={editions}
+            analyticsEnabled={analyticsEnabled}
+            askCentrePassEnabled={askCentrePassEnabled}
+            hideAt="xl"
+          />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-surface text-on-surface">
       <Suspense fallback={null}>

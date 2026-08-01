@@ -1,10 +1,22 @@
-import type { CompletedMatchesPage, HomeResultCard } from '@/lib/home-feed';
+import glasgowBundle from '../../data/glasgow-2026/v1/bundle.json';
+import type {
+  CompletedMatchesPage,
+  HomeResultCard,
+  HomeUpcomingFixtureCard,
+} from '@/lib/home-feed';
 import { matchHref } from '@/lib/edition-links';
 import { fetchJsonWithinLimits } from '@/lib/bounded-fetch';
+import {
+  GLASGOW_2026_IDENTITY,
+  isGlasgow2026Identity,
+} from '@/lib/edition-publication-readiness';
 
 const DEFAULT_UPSTREAM_ORIGIN = 'https://www.centrepass.io';
 const UPSTREAM_TIMEOUT_MS = 5_000;
 const UPSTREAM_MAX_BYTES = 2 * 1024 * 1024;
+const GLASGOW_TEAM_NAMES = new Set(
+  glasgowBundle.teams.map((team) => team.name.trim().toLocaleLowerCase()),
+);
 
 export interface PreviewLiveStatus {
   hasLive: boolean;
@@ -16,9 +28,16 @@ export function isUpstreamPreviewMode(): boolean {
     && process.env.CENTREPASS_PREVIEW_DATA_MODE === 'upstream';
 }
 
-function upstreamOrigin(): string | null {
-  if (!isUpstreamPreviewMode()) return null;
+export function glasgowUpstreamResultsParams(): URLSearchParams {
+  return new URLSearchParams([
+    ['competitionSlug', GLASGOW_2026_IDENTITY.competitionSlug],
+    ['editionSlug', GLASGOW_2026_IDENTITY.editionSlug],
+    ['includeUpcoming', 'true'],
+  ]);
+}
 
+/** Normalize the configured hosted origin shared by preview data and links. */
+export function upstreamPreviewOrigin(): string | null {
   const configured = process.env.CENTREPASS_UPSTREAM_ORIGIN?.trim()
     || DEFAULT_UPSTREAM_ORIGIN;
 
@@ -31,8 +50,12 @@ function upstreamOrigin(): string | null {
   }
 }
 
+function activeUpstreamOrigin(): string | null {
+  return isUpstreamPreviewMode() ? upstreamPreviewOrigin() : null;
+}
+
 async function fetchUpstreamJson(path: string): Promise<unknown | null> {
-  const origin = upstreamOrigin();
+  const origin = activeUpstreamOrigin();
   if (!origin) return null;
 
   try {
@@ -74,6 +97,17 @@ function team(value: unknown): HomeResultCard['homeTeam'] | null {
     abbreviation: item.abbreviation,
     logoUrl: optionalString(item.logoUrl),
   };
+}
+
+function isGlasgowTeamName(value: string): boolean {
+  return GLASGOW_TEAM_NAMES.has(value.trim().toLocaleLowerCase());
+}
+
+function isGlasgowMatch(
+  match: Pick<HomeResultCard, 'homeTeam' | 'awayTeam'>,
+): boolean {
+  return isGlasgowTeamName(match.homeTeam.name)
+    && isGlasgowTeamName(match.awayTeam.name);
 }
 
 function completedMatch(value: unknown, origin: string): HomeResultCard | null {
@@ -122,15 +156,83 @@ function completedMatch(value: unknown, origin: string): HomeResultCard | null {
   };
 }
 
+function upcomingFixture(
+  value: unknown,
+  origin: string,
+): HomeUpcomingFixtureCard | null {
+  const item = record(value);
+  const homeTeam = team(item?.homeTeam);
+  const awayTeam = team(item?.awayTeam);
+  const scheduledAt = optionalString(item?.scheduledAt);
+  const competitionId = optionalString(item?.competitionId);
+
+  if (
+    !item
+    || typeof item.id !== 'string'
+    || item.status !== 'SCHEDULED'
+    || !competitionId
+    || !scheduledAt
+    || Number.isNaN(new Date(scheduledAt).getTime())
+    || typeof item.venue !== 'string'
+    || !homeTeam
+    || !awayTeam
+  ) {
+    return null;
+  }
+
+  return {
+    id: item.id,
+    competitionId,
+    href: new URL(matchHref(item.id, competitionId), origin).toString(),
+    status: 'SCHEDULED',
+    scheduledAt,
+    venue: item.venue,
+    homeTeam,
+    awayTeam,
+  };
+}
+
+function upcomingFixtures(
+  value: unknown,
+  origin: string,
+  requireGlasgowTeams: boolean,
+): HomeUpcomingFixtureCard[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const normalized = value.map((fixture) => upcomingFixture(fixture, origin));
+  if (normalized.some((fixture) => fixture === null)) return undefined;
+  const validFixtures = normalized.filter(
+    (fixture): fixture is HomeUpcomingFixtureCard => fixture !== null,
+  );
+  const governedFixtures = requireGlasgowTeams
+    ? validFixtures.filter(isGlasgowMatch)
+    : validFixtures;
+
+  return governedFixtures
+    .toSorted((left, right) =>
+      new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
+        || left.id.localeCompare(right.id)
+    )
+    .slice(0, 5);
+}
+
 export async function loadUpstreamCompletedMatches(
   params = new URLSearchParams(),
 ): Promise<CompletedMatchesPage | null> {
-  const origin = upstreamOrigin();
+  const origin = activeUpstreamOrigin();
   if (!origin) return null;
 
   const query = params.toString();
   const payload = record(await fetchUpstreamJson(`/api/matches${query ? `?${query}` : ''}`));
   if (!payload || !Array.isArray(payload.groups)) return null;
+  const requireGlasgowTeams = isGlasgow2026Identity({
+    competitionSlug: params.get('competitionSlug'),
+    editionSlug: params.get('editionSlug'),
+  });
+  const acceptsUpcomingFixtures = params.get('includeUpcoming') === 'true'
+    && Boolean(params.get('competitionSlug')?.trim())
+    && Boolean(params.get('editionSlug')?.trim())
+    && params.get('cursor') === null;
 
   const groups = payload.groups.flatMap((value) => {
     const group = record(value);
@@ -138,15 +240,29 @@ export async function loadUpstreamCompletedMatches(
 
     const matches = group.matches.flatMap((match) => {
       const normalized = completedMatch(match, origin);
-      return normalized ? [normalized] : [];
+      return normalized && (!requireGlasgowTeams || isGlasgowMatch(normalized))
+        ? [normalized]
+        : [];
     });
 
     return matches.length > 0 ? [{ label: group.label, matches }] : [];
   });
 
+  const normalizedUpcomingFixtures = acceptsUpcomingFixtures
+    ? upcomingFixtures(payload.upcomingFixtures, origin, requireGlasgowTeams)
+    : undefined;
+
   return {
     groups,
-    nextCursor: optionalString(payload.nextCursor),
+    // A cursor from a mismatched hosted edition must not make the filtered
+    // Glasgow preview look non-empty. Keep pagination only once at least one
+    // governed Glasgow result has survived validation.
+    nextCursor: requireGlasgowTeams && groups.length === 0
+      ? null
+      : optionalString(payload.nextCursor),
+    ...(normalizedUpcomingFixtures === undefined
+      ? {}
+      : { upcomingFixtures: normalizedUpcomingFixtures }),
   };
 }
 

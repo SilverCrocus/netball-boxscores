@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { BottomNav } from '../BottomNav';
 import type { EditionContextValue } from '@/lib/edition-context';
 
@@ -38,9 +38,16 @@ describe('BottomNav', () => {
     document.body.style.overflow = '';
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('renders as nav element', () => {
     render(<BottomNav />);
-    expect(screen.getByRole('navigation')).toBeInTheDocument();
+    const navigation = screen.getByRole('navigation');
+    expect(navigation).toBeInTheDocument();
+    expect(navigation).toHaveClass('lg:hidden');
+    expect(navigation).not.toHaveClass('xl:hidden');
   });
 
   it('renders navigation links', () => {
@@ -201,6 +208,45 @@ describe('BottomNav', () => {
     });
     expect(dialog).toHaveClass('overflow-y-auto');
     expect(headingRow).toHaveClass('sticky', 'top-0');
+  });
+
+  it('closes and releases the page when the configured desktop breakpoint activates', () => {
+    let changeListener: ((event: MediaQueryListEvent) => void) | undefined;
+    const mediaQuery = {
+      matches: false,
+      media: '(min-width: 1280px)',
+      addEventListener: vi.fn((event: string, listener: (event: MediaQueryListEvent) => void) => {
+        if (event === 'change') changeListener = listener;
+      }),
+      removeEventListener: vi.fn(),
+    };
+    vi.stubGlobal('matchMedia', vi.fn(() => mediaQuery));
+
+    render(
+      <div>
+        <main>Page content</main>
+        <BottomNav hideAt="xl" />
+      </div>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+
+    const main = screen.getByRole('main', { hidden: true });
+    expect(document.body).toHaveStyle({ overflow: 'hidden' });
+    expect(main).toHaveAttribute('inert');
+    expect(main).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByRole('button', { name: 'Close more menu' })).toHaveFocus();
+
+    act(() => {
+      mediaQuery.matches = true;
+      changeListener?.({ matches: true } as MediaQueryListEvent);
+    });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+    expect(main).not.toHaveAttribute('inert');
+    expect(main).not.toHaveAttribute('aria-hidden');
+    expect(document.body).toHaveFocus();
+    expect(mediaQuery.removeEventListener).toHaveBeenCalledWith('change', changeListener);
   });
 
   it('scopes fixtures, standings, and teams to the selected edition', () => {
