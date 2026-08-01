@@ -130,13 +130,15 @@ describe('tournament surfaces', () => {
       },
     ];
 
-    render(<TournamentBracket stages={stages} sourceTimezone="Europe/London" />);
+    render(<TournamentBracket stages={stages} displayTimezone="Australia/Sydney" />);
 
     expect(screen.getByText('11th place after pool stage')).toBeInTheDocument();
     expect(screen.getByText('Loser of Semi-final 1')).toBeInTheDocument();
     expect(screen.getByText('Loser of Semi-final 2')).toBeInTheDocument();
     expect(screen.getByText('Winner of Semi-final 1')).toBeInTheDocument();
     expect(screen.getByText('Winner of Semi-final 2')).toBeInTheDocument();
+    expect(screen.getAllByText(/6:00 pm AEST/)).toHaveLength(3);
+    expect(screen.getByText(/10:00 pm AEST/)).toBeInTheDocument();
     expect(screen.queryByText(/^TBC$/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/goals$/)).not.toBeInTheDocument();
   });

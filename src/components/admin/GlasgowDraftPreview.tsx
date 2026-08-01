@@ -58,7 +58,7 @@ export function GlasgowDraftPreview({ data }: GlasgowDraftPreviewProps) {
           <h2 id="draft-preview-bracket-heading" className="mb-6 font-headline text-3xl font-black uppercase text-primary">
             Bracket
           </h2>
-          <TournamentBracket stages={data.bracket} sourceTimezone={data.schedule.sourceTimezone} />
+          <TournamentBracket stages={data.bracket} displayTimezone={data.schedule.displayTimezone} />
         </section>
       ) : null}
 

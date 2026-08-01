@@ -7,7 +7,7 @@ import type {
 
 interface TournamentBracketProps {
   stages: TournamentBracketStage[];
-  sourceTimezone: string;
+  displayTimezone: string;
 }
 const STAGE_STYLES: Record<TournamentBracketStage['type'], {
   eyebrow: string;
@@ -85,10 +85,10 @@ function BracketSide({ side }: { side: TournamentBracketSide }) {
 
 function BracketMatchCard({
   match,
-  sourceTimezone,
+  displayTimezone,
 }: {
   match: TournamentBracketMatch;
-  sourceTimezone: string;
+  displayTimezone: string;
 }) {
   const headingId = `${match.id}-heading`;
   return (
@@ -99,7 +99,7 @@ function BracketMatchCard({
             {match.label}
           </h4>
           <p className="mt-1 font-label text-[10px] font-semibold text-on-surface-variant">
-            {formatVenueDateTime(match.scheduledAt, sourceTimezone)} · {match.venue}
+            {formatVenueDateTime(match.scheduledAt, displayTimezone)} · {match.venue}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-surface-container px-2.5 py-1 font-label text-[9px] font-bold uppercase tracking-wider text-on-surface-variant">
@@ -119,7 +119,7 @@ function BracketMatchCard({
   );
 }
 
-export function TournamentBracket({ stages, sourceTimezone }: TournamentBracketProps) {
+export function TournamentBracket({ stages, displayTimezone }: TournamentBracketProps) {
   return (
     <div className="grid items-start gap-6 lg:grid-cols-3">
       {stages.map((stage) => {
@@ -150,7 +150,7 @@ export function TournamentBracket({ stages, sourceTimezone }: TournamentBracketP
                 <BracketMatchCard
                   key={match.id}
                   match={match}
-                  sourceTimezone={sourceTimezone}
+                  displayTimezone={displayTimezone}
                 />
               ))}
             </div>

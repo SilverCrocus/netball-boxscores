@@ -475,6 +475,9 @@ describe('HomePage', () => {
     expect(screen.getAllByText('England').length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: 'Recent results' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Upcoming fixtures' })).toBeInTheDocument();
+    expect(screen.getByText('10:00 PM')).toBeInTheDocument();
+    expect(screen.getByText('All times shown in AEST')).toBeInTheDocument();
+    expect(screen.queryByText('1:00 PM')).not.toBeInTheDocument();
     expect(screen.queryByText(
       'Knockout fixtures will appear here as soon as both teams are confirmed.',
     )).not.toBeInTheDocument();

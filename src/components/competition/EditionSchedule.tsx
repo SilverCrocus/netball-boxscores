@@ -28,9 +28,9 @@ export function EditionSchedule({ schedule, presentationMode = 'public' }: Editi
     );
   }
 
-  const timezoneDescription = schedule.timezoneLabel === schedule.sourceTimezone
-    ? schedule.sourceTimezone
-    : `${schedule.timezoneLabel}, ${schedule.sourceTimezone}`;
+  const timezoneDescription = schedule.timezoneLabel === schedule.displayTimezone
+    ? schedule.displayTimezone
+    : `${schedule.timezoneLabel}, ${schedule.displayTimezone}`;
 
   return (
     <section aria-labelledby="edition-schedule-heading">
@@ -43,7 +43,7 @@ export function EditionSchedule({ schedule, presentationMode = 'public' }: Editi
             Full schedule
           </h2>
           <p className="mt-2 max-w-2xl font-body text-sm leading-6 text-on-surface-variant">
-            All times are shown in venue time ({timezoneDescription}).
+            All times are shown in Sydney time ({timezoneDescription}).
             Scheduled fixtures do not display a score until play begins.
           </p>
         </div>

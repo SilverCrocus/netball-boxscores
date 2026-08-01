@@ -1,4 +1,4 @@
-const SYDNEY_TIME_ZONE = 'Australia/Sydney';
+export const SYDNEY_TIME_ZONE = 'Australia/Sydney';
 
 interface CalendarDate {
   year: number;

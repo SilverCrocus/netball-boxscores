@@ -9,6 +9,7 @@ import { prisma } from '@/lib/db';
 import type { CompetitionOption } from '@/lib/competitions';
 import { matchHref } from '@/lib/edition-links';
 import { formatMatchStage } from '@/lib/match-label';
+import { SYDNEY_TIME_ZONE } from '@/lib/time-zone';
 import {
   isFinalFixture,
   resolveCapability,
@@ -145,6 +146,7 @@ export interface EditionSchedule {
   editionLabel: string;
   competitionKind: 'LEAGUE' | 'TOURNAMENT';
   sourceTimezone: string;
+  displayTimezone: string;
   timezoneLabel: string;
   summary: EditionScheduleSummary;
   stages: EditionScheduleStage[];
@@ -196,7 +198,7 @@ function dateParts(date: Date, timeZone: string) {
 }
 
 function localTimeLabel(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('en-AU', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
@@ -209,7 +211,7 @@ function timezoneLabel(dates: Date[], timeZone: string): string {
   if (dates.length === 0) return timeZone;
 
   const labels = new Set(dates.map((date) =>
-    new Intl.DateTimeFormat('en-GB', {
+    new Intl.DateTimeFormat('en-AU', {
       timeZone,
       timeZoneName: 'short',
     }).formatToParts(date).find((item) => item.type === 'timeZoneName')?.value ?? timeZone
@@ -326,6 +328,7 @@ export function buildEditionSchedule(
   edition: EditionScheduleIdentity,
   records: EditionScheduleMatchInput[],
 ): EditionSchedule {
+  const displayTimezone = SYDNEY_TIME_ZONE;
   const matches = records.map((record): EditionScheduleMatchRecord => {
     const scheduledAt = record.scheduledAt instanceof Date
       ? record.scheduledAt
@@ -361,7 +364,7 @@ export function buildEditionSchedule(
     };
     bucket.fixtures.push(projectFixture(
       match,
-      edition.sourceTimezone,
+      displayTimezone,
       edition.id,
       edition.editionCoverage,
     ));
@@ -373,7 +376,7 @@ export function buildEditionSchedule(
     .map((stage): EditionScheduleStage => {
       const dates = new Map<string, EditionScheduleDateGroup>();
       for (const fixture of stage.fixtures) {
-        const date = dateParts(fixture.scheduledAt, edition.sourceTimezone);
+        const date = dateParts(fixture.scheduledAt, displayTimezone);
         const group = dates.get(date.key) ?? { key: date.key, label: date.label, fixtures: [] };
         group.fixtures.push(fixture);
         dates.set(date.key, group);
@@ -396,9 +399,10 @@ export function buildEditionSchedule(
     editionLabel: edition.editionLabel,
     competitionKind: edition.competitionKind,
     sourceTimezone: edition.sourceTimezone,
+    displayTimezone,
     timezoneLabel: timezoneLabel(
       matches.map((match) => match.scheduledAt),
-      edition.sourceTimezone,
+      displayTimezone,
     ),
     summary: {
       fixtureCount: matches.length,
@@ -410,7 +414,7 @@ export function buildEditionSchedule(
       dateRangeLabel: dateRangeLabel(
         matches[0]?.scheduledAt,
         matches.at(-1)?.scheduledAt,
-        edition.sourceTimezone,
+        displayTimezone,
       ),
     },
     stages,

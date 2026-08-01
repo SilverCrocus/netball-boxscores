@@ -6,6 +6,7 @@ import { TournamentPageHero } from '@/components/tournament/TournamentPageHero';
 import { TournamentSectionNav } from '@/components/tournament/TournamentSectionNav';
 import { resolveEdition } from '@/lib/competitions';
 import { toEditionContext } from '@/lib/edition-context';
+import { SYDNEY_TIME_ZONE } from '@/lib/time-zone';
 import { getTournamentBracket } from '@/lib/tournament';
 
 interface BracketPageProps {
@@ -55,9 +56,9 @@ export default async function BracketPage({ params }: BracketPageProps) {
         <>
           <div className="mb-5 flex items-center gap-2 font-label text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">
             <span aria-hidden="true" className="material-symbols-outlined text-[17px] text-secondary">schedule</span>
-            Times shown in the edition&apos;s venue timezone
+            Times shown in Sydney time
           </div>
-          <TournamentBracket stages={stages} sourceTimezone={edition.sourceTimezone} />
+          <TournamentBracket stages={stages} displayTimezone={SYDNEY_TIME_ZONE} />
         </>
       ) : (
         <TournamentEmptyState

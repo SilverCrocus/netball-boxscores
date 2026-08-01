@@ -133,6 +133,12 @@ describe('loadGlasgowDraftPreview', () => {
 
     expect(preview?.edition).toMatchObject({ publicationStatus: 'DRAFT', unpublishedStageCount: 4 });
     expect(preview?.schedule.summary).toMatchObject({ fixtureCount: 38, teamCount: 12, stageCount: 4 });
+    expect(preview?.schedule).toMatchObject({
+      sourceTimezone: 'Europe/London',
+      displayTimezone: 'Australia/Sydney',
+      timezoneLabel: 'AEST',
+    });
+    expect(preview?.schedule.stages[0].dates[0].fixtures[0].localTimeLabel).toBe('18:00 AEST');
     expect(preview?.schedule.stages.flatMap((stage) => stage.dates.flatMap((date) => date.fixtures))).toHaveLength(38);
     expect(preview?.pools?.pools).toHaveLength(2);
     expect(preview?.bracket.flatMap((stage) => stage.matches)).toHaveLength(8);

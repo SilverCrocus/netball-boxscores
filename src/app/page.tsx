@@ -33,6 +33,7 @@ import {
 import { formatMatchStage } from '@/lib/match-label';
 import { JsonLd, websiteJsonLd, breadcrumbJsonLd } from '@/lib/seo';
 import { timedQuery } from '@/lib/server-timing';
+import { SYDNEY_TIME_ZONE } from '@/lib/time-zone';
 import {
   buildGlasgowHomepagePreview,
   type GlasgowHomepagePreview,
@@ -47,13 +48,7 @@ export const dynamic = 'force-dynamic';
 
 const HOME_LIVE_MATCH_LIMIT = 16;
 const HOME_UPCOMING_MATCH_LIMIT = 5;
-const DEFAULT_TIMEZONE = 'Australia/Sydney';
-
 type LeagueStanding = Awaited<ReturnType<typeof getStandingsForCompetition>>[number];
-
-function editionTimezone(competition: CompetitionOption | null): string {
-  return competition?.sourceTimezone || DEFAULT_TIMEZONE;
-}
 
 function formatDateLabel(value: Date | string, timezone: string): string {
   return new Intl.DateTimeFormat('en-GB', {
@@ -89,7 +84,7 @@ function compactStageLabel(label: string): string {
 
 function timezoneNote(value: Date | string | undefined, timezone: string): string {
   if (!value) return `Times shown in ${timezone}`;
-  const zoneName = new Intl.DateTimeFormat('en-GB', {
+  const zoneName = new Intl.DateTimeFormat('en-AU', {
     timeZone: timezone,
     timeZoneName: 'short',
   }).formatToParts(new Date(value)).find((part) => part.type === 'timeZoneName')?.value;
@@ -323,7 +318,7 @@ export default async function HomePage() {
   const edition = competition?.series && competition.slug
     ? toEditionContext(competition)
     : preview?.edition ?? null;
-  const timezone = preview?.edition.sourceTimezone ?? editionTimezone(competition);
+  const timezone = SYDNEY_TIME_ZONE;
   const hero = heroDetails(competition, edition, preview?.liveHref ?? '/live');
   const scores = buildScoreStripItems(liveMatches, completedPage.groups, timezone);
   const fixtures = preview
