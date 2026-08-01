@@ -20,7 +20,8 @@ describe('GlasgowDraftPreview', () => {
         editionLabel: 'Glasgow 2026',
         competitionKind: 'TOURNAMENT',
         sourceTimezone: 'Europe/London',
-        timezoneLabel: 'BST',
+        displayTimezone: 'Australia/Sydney',
+        timezoneLabel: 'AEST',
         summary: {
           fixtureCount: 38,
           teamCount: 12,
@@ -44,7 +45,7 @@ describe('GlasgowDraftPreview', () => {
               id: 'match-1',
               scheduledAt: new Date('2026-07-25T08:00:00Z'),
               localDateLabel: 'Saturday, 25 July 2026',
-              localTimeLabel: '09:00 BST',
+              localTimeLabel: '18:00 AEST',
               status: 'SCHEDULED',
               statusLabel: 'Scheduled',
               resultQuality: 'UNKNOWN',
@@ -83,6 +84,7 @@ describe('GlasgowDraftPreview', () => {
     expect(screen.getByText('96')).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.queryByText('0')).not.toBeInTheDocument();
+    expect(screen.getByText('18:00 AEST')).toBeInTheDocument();
     expect(screen.getByText('Private preview only')).toBeInTheDocument();
   });
 });

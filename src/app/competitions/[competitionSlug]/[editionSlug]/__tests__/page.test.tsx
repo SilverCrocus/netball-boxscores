@@ -25,7 +25,8 @@ const schedule: EditionSchedule = {
   editionLabel: 'Glasgow 2026',
   competitionKind: 'TOURNAMENT',
   sourceTimezone: 'Europe/London',
-  timezoneLabel: 'BST',
+  displayTimezone: 'Australia/Sydney',
+  timezoneLabel: 'AEST',
   summary: {
     fixtureCount: 38,
     teamCount: 12,

@@ -106,7 +106,7 @@ const GLASGOW_EDITION = {
 };
 
 describe('buildEditionSchedule', () => {
-  it('renders Glasgow times in Europe/London and keeps unresolved source labels', () => {
+  it('renders Glasgow times in Sydney while preserving the source timezone and unresolved labels', () => {
     const schedule = buildEditionSchedule(GLASGOW_EDITION, [matchRecord({
       id: 'classification-11-12',
       resolved: false,
@@ -123,8 +123,10 @@ describe('buildEditionSchedule', () => {
     })]);
 
     const fixture = schedule.stages[0].dates[0].fixtures[0];
-    expect(schedule.timezoneLabel).toBe('BST');
-    expect(fixture.localTimeLabel).toBe('09:00 BST');
+    expect(schedule.sourceTimezone).toBe('Europe/London');
+    expect(schedule.displayTimezone).toBe('Australia/Sydney');
+    expect(schedule.timezoneLabel).toBe('AEST');
+    expect(fixture.localTimeLabel).toBe('18:00 AEST');
     expect(fixture.localDateLabel).toBe('Saturday, 25 July 2026');
     expect(fixture.sideA.displayName).toBe('11th place after pool stage');
     expect(fixture.sideB.displayName).toBe('12th place after pool stage');
@@ -143,7 +145,21 @@ describe('buildEditionSchedule', () => {
     const fixture = schedule.stages[0].dates[0].fixtures[0];
 
     expect(fixture.scheduledAt).toBeInstanceOf(Date);
-    expect(fixture.localTimeLabel).toBe('09:00 BST');
+    expect(fixture.localTimeLabel).toBe('18:00 AEST');
+  });
+
+  it('groups late Glasgow fixtures by the following Sydney calendar date', () => {
+    const schedule = buildEditionSchedule(GLASGOW_EDITION, [matchRecord({
+      id: 'late-glasgow-fixture',
+      scheduledAt: '2026-08-02T20:00:00.000Z',
+    })]);
+
+    expect(schedule.summary.dateRangeLabel).toBe('3 Aug 2026');
+    expect(schedule.stages[0].dates[0]).toMatchObject({
+      key: '2026-08-03',
+      label: 'Monday, 3 August 2026',
+    });
+    expect(schedule.stages[0].dates[0].fixtures[0].localTimeLabel).toBe('06:00 AEST');
   });
 
   it('expands a source TBC marker without creating a dummy team identity', () => {

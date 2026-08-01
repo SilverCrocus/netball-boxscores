@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import BracketPage from '../page';
 
@@ -37,16 +38,34 @@ describe('BracketPage', () => {
       },
     };
     mocks.resolveEdition.mockResolvedValue({ edition, editions: [edition] });
-    mocks.getTournamentBracket.mockResolvedValue([]);
+    mocks.getTournamentBracket.mockResolvedValue([{
+      id: 'semi-finals',
+      slug: 'semi-finals',
+      name: 'Semi-finals',
+      type: 'SEMI_FINALS',
+      sequence: 1,
+      matches: [{
+        id: 'semi-final-1',
+        label: 'Semi-final 1',
+        scheduledAt: '2026-08-01T08:00:00.000Z',
+        venue: 'The Hydro',
+        status: 'SCHEDULED',
+        sideA: { side: 'A', label: 'Qualifier A', resolved: false, team: null, score: null },
+        sideB: { side: 'B', label: 'Qualifier B', resolved: false, team: null, score: null },
+      }],
+    }]);
 
-    await BracketPage({
+    const page = await BracketPage({
       params: Promise.resolve({
         competitionSlug: 'commonwealth-games-netball',
         editionSlug: 'glasgow-2026',
       }),
     });
+    render(page);
 
     expect(mocks.getTournamentBracket).toHaveBeenCalledOnce();
     expect(mocks.getTournamentBracket).toHaveBeenCalledWith('glasgow-2026', edition);
+    expect(screen.getByText('Times shown in Sydney time')).toBeInTheDocument();
+    expect(screen.getByText(/6:00 pm AEST/)).toBeInTheDocument();
   });
 });

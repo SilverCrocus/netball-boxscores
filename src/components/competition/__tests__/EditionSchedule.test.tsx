@@ -37,11 +37,11 @@ const schedule = buildEditionSchedule({
 }, [unresolvedMatch]);
 
 describe('EditionSchedule', () => {
-  it('explains the venue timezone and exposes schedule structure to assistive technology', () => {
+  it('explains the Sydney display timezone and exposes schedule structure to assistive technology', () => {
     render(<EditionSchedule schedule={schedule} />);
 
     expect(screen.getByRole('heading', { name: 'Full schedule' })).toBeInTheDocument();
-    expect(screen.getByText(/BST, Europe\/London/)).toBeInTheDocument();
+    expect(screen.getByText(/Sydney time \(AEST, Australia\/Sydney\)/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Semi-finals' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Saturday, 1 August 2026' })).toBeInTheDocument();
   });
@@ -53,7 +53,7 @@ describe('EditionSchedule', () => {
     expect(card.tagName).toBe('ARTICLE');
     expect(within(card).getByText('Semi-finalist from Pool A')).toBeInTheDocument();
     expect(within(card).getByText('Semi-finalist from Pool B')).toBeInTheDocument();
-    expect(within(card).getByText('09:00 BST')).toBeInTheDocument();
+    expect(within(card).getByText('18:00 AEST')).toBeInTheDocument();
     expect(card).toHaveTextContent('Awaiting qualification');
     expect(card.textContent).not.toMatch(/0\s*[–-]\s*0/);
     expect(card.textContent).not.toContain('TBC');
