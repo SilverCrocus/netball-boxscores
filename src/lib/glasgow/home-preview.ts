@@ -3,6 +3,7 @@ import 'server-only';
 import glasgowBundle from '../../../data/glasgow-2026/v1/bundle.json';
 import type { EditionContextValue } from '@/lib/edition-context';
 import { editionHref } from '@/lib/edition-links';
+import type { HomeUpcomingFixtureCard } from '@/lib/home-feed';
 import { upstreamPreviewOrigin } from '@/lib/upstream-preview';
 
 export const GLASGOW_UPSTREAM_PREVIEW_EDITION: EditionContextValue = {
@@ -40,14 +41,15 @@ export const UPSTREAM_PREVIEW_EDITIONS: EditionContextValue[] = [
 ];
 
 interface PreviewTeam {
-  externalId: string;
+  externalId?: string;
   name: string;
   abbreviation: string;
-  logoUrl: null;
+  logoUrl: string | null;
 }
 
 interface PreviewFixture {
   id: string;
+  href: string;
   scheduledAt: string;
   venue: string;
   homeTeam: PreviewTeam;
@@ -82,8 +84,10 @@ function resolveFutureFixtureTeams(
 
 export function buildGlasgowHomepagePreview(
   now = new Date(),
+  hostedFixtures?: readonly HomeUpcomingFixtureCard[],
 ): GlasgowHomepagePreview {
   const previewOrigin = upstreamPreviewOrigin();
+  const fixturesHref = editionHref(GLASGOW_UPSTREAM_PREVIEW_EDITION);
   const teamById = new Map(
     glasgowBundle.teams.map((team): [string, PreviewTeam] => [
       team.externalId,
@@ -95,30 +99,40 @@ export function buildGlasgowHomepagePreview(
       },
     ]),
   );
-  const fixtures = glasgowBundle.matches
-    .filter((match) => new Date(match.scheduledAt).getTime() >= now.getTime())
-    .flatMap((match): PreviewFixture[] => {
-      const teams = resolveFutureFixtureTeams(
-        match.sideA,
-        match.sideB,
-        teamById,
-      );
-      if (!teams) return [];
+  const fixtures = hostedFixtures === undefined
+    ? glasgowBundle.matches
+      .filter((match) => new Date(match.scheduledAt).getTime() >= now.getTime())
+      .flatMap((match): PreviewFixture[] => {
+        const teams = resolveFutureFixtureTeams(
+          match.sideA,
+          match.sideB,
+          teamById,
+        );
+        if (!teams) return [];
 
-      return [{
-        id: match.externalId,
-        scheduledAt: match.scheduledAt,
-        venue: match.venue,
-        homeTeam: teams[0],
-        awayTeam: teams[1],
-      }];
-    })
-    .slice(0, 5);
+        return [{
+          id: match.externalId,
+          href: fixturesHref,
+          scheduledAt: match.scheduledAt,
+          venue: match.venue,
+          homeTeam: teams[0],
+          awayTeam: teams[1],
+        }];
+      })
+      .slice(0, 5)
+    : hostedFixtures.map((fixture): PreviewFixture => ({
+        id: fixture.id,
+        href: fixture.href,
+        scheduledAt: fixture.scheduledAt,
+        venue: fixture.venue,
+        homeTeam: fixture.homeTeam,
+        awayTeam: fixture.awayTeam,
+      }));
 
   return {
     edition: GLASGOW_UPSTREAM_PREVIEW_EDITION,
     fixtures,
-    fixturesHref: editionHref(GLASGOW_UPSTREAM_PREVIEW_EDITION),
+    fixturesHref,
     liveHref: previewOrigin ? `${previewOrigin}/live` : '/live',
   };
 }

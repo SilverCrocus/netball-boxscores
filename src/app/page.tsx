@@ -252,7 +252,7 @@ export default async function HomePage() {
     const previewPage = await loadUpstreamCompletedMatches(glasgowUpstreamResultsParams());
     if (previewPage) {
       completedPage = previewPage;
-      preview = buildGlasgowHomepagePreview();
+      preview = buildGlasgowHomepagePreview(new Date(), previewPage.upcomingFixtures);
       usingUpstreamPreview = true;
     } else {
       databaseUnavailable = true;
@@ -329,7 +329,7 @@ export default async function HomePage() {
   const fixtures = preview
     ? preview.fixtures.map((fixture): HomeUpcomingFixture => ({
         id: fixture.id,
-        href: preview.fixturesHref,
+        href: fixture.href,
         dateLabel: formatDateLabel(fixture.scheduledAt, timezone),
         timeLabel: formatTimeLabel(fixture.scheduledAt, timezone),
         venueLabel: fixture.venue,
@@ -348,8 +348,7 @@ export default async function HomePage() {
     : upcomingMatches[0]?.scheduledAt;
   const hasMatches = liveMatches.length > 0
     || fixtures.length > 0
-    || hasRecentResults
-    || completedPage.nextCursor !== null;
+    || hasRecentResults;
 
   return (
     <div>

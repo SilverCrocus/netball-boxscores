@@ -1,5 +1,9 @@
 import glasgowBundle from '../../data/glasgow-2026/v1/bundle.json';
-import type { CompletedMatchesPage, HomeResultCard } from '@/lib/home-feed';
+import type {
+  CompletedMatchesPage,
+  HomeResultCard,
+  HomeUpcomingFixtureCard,
+} from '@/lib/home-feed';
 import { matchHref } from '@/lib/edition-links';
 import { fetchJsonWithinLimits } from '@/lib/bounded-fetch';
 import {
@@ -28,6 +32,7 @@ export function glasgowUpstreamResultsParams(): URLSearchParams {
   return new URLSearchParams([
     ['competitionSlug', GLASGOW_2026_IDENTITY.competitionSlug],
     ['editionSlug', GLASGOW_2026_IDENTITY.editionSlug],
+    ['includeUpcoming', 'true'],
   ]);
 }
 
@@ -98,7 +103,9 @@ function isGlasgowTeamName(value: string): boolean {
   return GLASGOW_TEAM_NAMES.has(value.trim().toLocaleLowerCase());
 }
 
-function isGlasgowResult(match: HomeResultCard): boolean {
+function isGlasgowMatch(
+  match: Pick<HomeResultCard, 'homeTeam' | 'awayTeam'>,
+): boolean {
   return isGlasgowTeamName(match.homeTeam.name)
     && isGlasgowTeamName(match.awayTeam.name);
 }
@@ -149,6 +156,66 @@ function completedMatch(value: unknown, origin: string): HomeResultCard | null {
   };
 }
 
+function upcomingFixture(
+  value: unknown,
+  origin: string,
+): HomeUpcomingFixtureCard | null {
+  const item = record(value);
+  const homeTeam = team(item?.homeTeam);
+  const awayTeam = team(item?.awayTeam);
+  const scheduledAt = optionalString(item?.scheduledAt);
+  const competitionId = optionalString(item?.competitionId);
+
+  if (
+    !item
+    || typeof item.id !== 'string'
+    || item.status !== 'SCHEDULED'
+    || !competitionId
+    || !scheduledAt
+    || Number.isNaN(new Date(scheduledAt).getTime())
+    || typeof item.venue !== 'string'
+    || !homeTeam
+    || !awayTeam
+  ) {
+    return null;
+  }
+
+  return {
+    id: item.id,
+    competitionId,
+    href: new URL(matchHref(item.id, competitionId), origin).toString(),
+    status: 'SCHEDULED',
+    scheduledAt,
+    venue: item.venue,
+    homeTeam,
+    awayTeam,
+  };
+}
+
+function upcomingFixtures(
+  value: unknown,
+  origin: string,
+  requireGlasgowTeams: boolean,
+): HomeUpcomingFixtureCard[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const normalized = value.map((fixture) => upcomingFixture(fixture, origin));
+  if (normalized.some((fixture) => fixture === null)) return undefined;
+  const validFixtures = normalized.filter(
+    (fixture): fixture is HomeUpcomingFixtureCard => fixture !== null,
+  );
+  const governedFixtures = requireGlasgowTeams
+    ? validFixtures.filter(isGlasgowMatch)
+    : validFixtures;
+
+  return governedFixtures
+    .toSorted((left, right) =>
+      new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
+        || left.id.localeCompare(right.id)
+    )
+    .slice(0, 5);
+}
+
 export async function loadUpstreamCompletedMatches(
   params = new URLSearchParams(),
 ): Promise<CompletedMatchesPage | null> {
@@ -162,6 +229,10 @@ export async function loadUpstreamCompletedMatches(
     competitionSlug: params.get('competitionSlug'),
     editionSlug: params.get('editionSlug'),
   });
+  const acceptsUpcomingFixtures = params.get('includeUpcoming') === 'true'
+    && Boolean(params.get('competitionSlug')?.trim())
+    && Boolean(params.get('editionSlug')?.trim())
+    && params.get('cursor') === null;
 
   const groups = payload.groups.flatMap((value) => {
     const group = record(value);
@@ -169,13 +240,17 @@ export async function loadUpstreamCompletedMatches(
 
     const matches = group.matches.flatMap((match) => {
       const normalized = completedMatch(match, origin);
-      return normalized && (!requireGlasgowTeams || isGlasgowResult(normalized))
+      return normalized && (!requireGlasgowTeams || isGlasgowMatch(normalized))
         ? [normalized]
         : [];
     });
 
     return matches.length > 0 ? [{ label: group.label, matches }] : [];
   });
+
+  const normalizedUpcomingFixtures = acceptsUpcomingFixtures
+    ? upcomingFixtures(payload.upcomingFixtures, origin, requireGlasgowTeams)
+    : undefined;
 
   return {
     groups,
@@ -185,6 +260,9 @@ export async function loadUpstreamCompletedMatches(
     nextCursor: requireGlasgowTeams && groups.length === 0
       ? null
       : optionalString(payload.nextCursor),
+    ...(normalizedUpcomingFixtures === undefined
+      ? {}
+      : { upcomingFixtures: normalizedUpcomingFixtures }),
   };
 }
 

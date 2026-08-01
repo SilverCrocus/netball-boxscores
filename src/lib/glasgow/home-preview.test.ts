@@ -51,6 +51,39 @@ describe('buildGlasgowHomepagePreview', () => {
     });
   });
 
+  it('falls back to static fixtures only when hosted fixtures are omitted', () => {
+    const now = new Date('2026-07-25T07:30:00.000Z');
+
+    expect(buildGlasgowHomepagePreview(now, undefined).fixtures[0]?.id)
+      .toBe('2026-07-25-0900-nzl-sco');
+    expect(buildGlasgowHomepagePreview(now, []).fixtures).toEqual([]);
+  });
+
+  it('uses hosted fixtures and their canonical match links instead of the static schedule', () => {
+    const preview = buildGlasgowHomepagePreview(
+      new Date('2026-07-25T07:30:00.000Z'),
+      [{
+        id: 'hosted-semi-final',
+        competitionId: 'glasgow-2026',
+        href: 'https://centrepass.example/match/hosted-semi-final?edition=glasgow-2026',
+        status: 'SCHEDULED',
+        scheduledAt: '2026-08-01T12:00:00.000Z',
+        venue: 'The Hydro',
+        homeTeam: { name: 'England', abbreviation: 'ENG', logoUrl: null },
+        awayTeam: { name: 'Scotland', abbreviation: 'SCO', logoUrl: null },
+      }],
+    );
+
+    expect(preview.fixtures).toEqual([expect.objectContaining({
+      id: 'hosted-semi-final',
+      href: 'https://centrepass.example/match/hosted-semi-final?edition=glasgow-2026',
+      homeTeam: { name: 'England', abbreviation: 'ENG', logoUrl: null },
+      awayTeam: { name: 'Scotland', abbreviation: 'SCO', logoUrl: null },
+    })]);
+    expect(preview.fixtures.map((fixture) => fixture.id))
+      .not.toContain('2026-07-25-0900-nzl-sco');
+  });
+
   it('omits unresolved medal fixtures instead of showing placeholder teams', () => {
     const preview = buildGlasgowHomepagePreview(new Date('2026-08-02T07:30:00.000Z'));
 

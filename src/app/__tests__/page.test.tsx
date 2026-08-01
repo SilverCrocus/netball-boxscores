@@ -384,6 +384,25 @@ describe('HomePage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('treats an invisible completed-results cursor as an empty homepage', async () => {
+    const filteredCompletedCandidates = Array.from({ length: 73 }, (_, index) => ({
+      id: `filtered-completed-${index}`,
+      scheduledAt: new Date(Date.UTC(2026, 6, 30, 12, 0, index)),
+    }));
+    findMatchesMock.mockImplementation(({ where }: {
+      where: { status?: string; id?: { in: string[] } };
+    }) => Promise.resolve(
+      where.status === 'COMPLETED'
+        ? filteredCompletedCandidates
+        : [],
+    ));
+
+    render(await HomePage());
+
+    expect(screen.getByText('No fixtures yet')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recent results' })).not.toBeInTheDocument();
+  });
+
   it('distinguishes database failures from a true empty season', async () => {
     findCompetitionsMock.mockRejectedValue(new Error('database unavailable'));
 
@@ -407,7 +426,7 @@ describe('HomePage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('renders hosted results in explicit localhost preview mode without querying the database', async () => {
+  it('renders hosted results and fixtures in preview mode without querying the database', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-02T07:30:00.000Z'));
     process.env.CENTREPASS_PREVIEW_DATA_MODE = 'upstream';
@@ -430,6 +449,16 @@ describe('HomePage', () => {
             awayTeam: { name: 'South Africa', abbreviation: 'RSA', logoUrl: null },
           }],
         }],
+        upcomingFixtures: [{
+          id: 'hosted-england-australia-semi',
+          competitionId: 'glasgow-2026',
+          href: 'javascript:alert(1)',
+          status: 'SCHEDULED',
+          scheduledAt: '2026-08-03T12:00:00.000Z',
+          venue: 'The Hydro',
+          homeTeam: { name: 'England', abbreviation: 'ENG', logoUrl: null },
+          awayTeam: { name: 'Australia', abbreviation: 'AUS', logoUrl: null },
+        }],
         nextCursor: null,
       }),
     });
@@ -440,9 +469,14 @@ describe('HomePage', () => {
     expect(screen.getAllByText('England').length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: 'Recent results' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Upcoming fixtures' })).toBeInTheDocument();
-    expect(screen.getByText(
+    expect(screen.queryByText(
       'Knockout fixtures will appear here as soon as both teams are confirmed.',
-    )).toBeInTheDocument();
+    )).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /England versus Australia at The Hydro/i }))
+      .toHaveAttribute(
+        'href',
+        'https://centrepass.example/match/hosted-england-australia-semi?edition=glasgow-2026',
+      );
     expect(screen.getByRole('link', { name: 'View all fixtures' })).toHaveAttribute(
       'href',
       'https://centrepass.example/competitions/commonwealth-games-netball/glasgow-2026',
@@ -459,7 +493,7 @@ describe('HomePage', () => {
     expect(screen.queryByText('Long results archive')).not.toBeInTheDocument();
     expect(screen.getByText(/Local preview: showing current CentrePass results/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://centrepass.example/api/matches?competitionSlug=commonwealth-games-netball&editionSlug=glasgow-2026',
+      'https://centrepass.example/api/matches?competitionSlug=commonwealth-games-netball&editionSlug=glasgow-2026&includeUpcoming=true',
       expect.any(Object),
     );
     expect(findCompetitionsMock).not.toHaveBeenCalled();
