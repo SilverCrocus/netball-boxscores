@@ -497,6 +497,48 @@ describe('Glasgow guarded results import', () => {
     });
   });
 
+  it('promotes an unresolved slot to a direct team source when the official feed resolves it', async () => {
+    const { prisma, state } = fakeResultsPrisma();
+    state.slots.set('slot-pool-a', {
+      ...state.slots.get('slot-pool-a')!,
+      sourceType: 'UNRESOLVED',
+      resolvedEntryId: null,
+      sourceGroupId: null,
+      sourceRank: null,
+      sourceMatchId: null,
+      sourceLabel: '11th place after pool stage',
+      resolvedAt: null,
+    });
+    state.matches.set('match-pool-1', {
+      ...state.matches.get('match-pool-1')!,
+      homeTeamId: null,
+      awayTeamId: null,
+    });
+    state.slots.set('slot-pool-b', {
+      ...state.slots.get('slot-pool-b')!,
+      sourceType: 'MATCH_WINNER',
+      resolvedEntryId: null,
+      sourceMatchId: 'prior-match',
+    });
+
+    await new GlasgowResultsImportService(prisma).applyScheduled(resultInput());
+
+    expect(state.slots.get('slot-pool-a')).toMatchObject({
+      sourceType: 'TEAM',
+      resolvedEntryId: 'entry-aus',
+      sourceGroupId: null,
+      sourceRank: null,
+      sourceMatchId: null,
+      sourceLabel: '11th place after pool stage',
+    });
+    expect(state.slots.get('slot-pool-b')).toMatchObject({
+      sourceType: 'MATCH_WINNER',
+      resolvedEntryId: 'entry-nzl',
+      sourceMatchId: 'prior-match',
+    });
+    expect(state.matches.get('match-pool-1')).toMatchObject({ homeTeamId: 'team-aus' });
+  });
+
   it('promotes a confirmed scheduled final without treating quality-only change as a correction', async () => {
     const { prisma, state } = fakeResultsPrisma();
     const service = new GlasgowResultsImportService(prisma);

@@ -1114,7 +1114,18 @@ export class GlasgowResultsImportService {
             if (slot.resolvedEntryId === entryId) continue;
             const after = await transaction.matchSlot.update({
               where: { id: slot.id },
-              data: { resolvedEntryId: entryId, resolvedAt: new Date(input.retrievedAt) },
+              data: {
+                ...(slot.sourceType === 'UNRESOLVED'
+                  ? {
+                      sourceType: 'TEAM' as const,
+                      sourceGroupId: null,
+                      sourceRank: null,
+                      sourceMatchId: null,
+                    }
+                  : {}),
+                resolvedEntryId: entryId,
+                resolvedAt: new Date(input.retrievedAt),
+              },
             });
             await recordMutation('MATCH_SLOT', slot.id, 'UPDATE', slot, after);
           }
