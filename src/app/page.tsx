@@ -22,6 +22,7 @@ import { prisma, excludeSimData } from '@/lib/db';
 import { hasResolvedMatchTeams } from '@/lib/edition-match';
 import { toEditionContext, type EditionContextValue } from '@/lib/edition-context';
 import { editionHref, matchHref } from '@/lib/edition-links';
+import { formatGameClock } from '@/lib/format';
 import {
   getCompletedMatchesPage,
   homepageMatchSelect,
@@ -106,9 +107,14 @@ function liveScoreItem(
     match.roundLabel,
     match.stage?.name,
   ));
+  const periodLabel = match.currentQuarter
+    ? match.currentQuarter > 4
+      ? 'ET'
+      : `Q${match.currentQuarter}`
+    : null;
   const clock = [
-    match.currentQuarter ? `Q${match.currentQuarter}` : null,
-    match.currentTime,
+    periodLabel,
+    formatGameClock(match.currentTime, match.currentQuarter),
   ].filter(Boolean).join(' ');
 
   return {

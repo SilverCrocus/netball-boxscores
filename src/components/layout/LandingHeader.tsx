@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { GlobalEditionSelector } from '@/components/competition/GlobalEditionSelector';
+import { IntentPrefetchLink } from '@/components/layout/IntentPrefetchLink';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import type { EditionContextValue } from '@/lib/edition-context';
 import {
   editionHref,
   navigationEditionFromLocation,
 } from '@/lib/edition-links';
+import { getNavigationPrefetchPolicy } from '@/lib/navigation';
 
 interface LandingHeaderProps {
   editions: EditionContextValue[];
@@ -33,13 +35,25 @@ export function LandingHeader({
 
   const navItems = currentEdition
     ? [
-        { label: 'Matches', href: editionHref(currentEdition) },
-        { label: 'Standings', href: editionHref(currentEdition, 'standings') },
-        { label: 'Teams', href: editionHref(currentEdition, 'teams') },
+        { label: 'Matches', href: editionHref(currentEdition), policyHref: '/' },
+        {
+          label: 'Standings',
+          href: editionHref(currentEdition, 'standings'),
+          policyHref: '/standings',
+        },
+        {
+          label: 'Teams',
+          href: editionHref(currentEdition, 'teams'),
+          policyHref: '/teams',
+        },
         ...(analyticsEnabled
           ? [
-              { label: 'Stats', href: '/rankings' },
-              { label: 'Compare', href: '/compare/players' },
+              { label: 'Stats', href: '/rankings', policyHref: '/rankings' },
+              {
+                label: 'Compare',
+                href: '/compare/players',
+                policyHref: '/compare/players',
+              },
             ]
           : []),
       ]
@@ -78,19 +92,37 @@ export function LandingHeader({
         )}
 
         <nav
-          className="hidden items-center gap-7 px-4 lg:flex"
+          className="hidden items-center gap-7 px-4 xl:flex"
           aria-label="Landing page navigation"
         >
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              prefetch={item.href.startsWith('/compare') ? false : undefined}
-              className="inline-flex min-h-11 items-center font-label text-[12px] font-bold text-white/80 transition-colors hover:text-secondary-fixed"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const policy = getNavigationPrefetchPolicy(item.policyHref);
+            const className = 'inline-flex min-h-11 items-center font-label text-[12px] font-bold text-white/80 transition-colors hover:text-secondary-fixed';
+
+            if (policy === 'intent-full') {
+              return (
+                <IntentPrefetchLink
+                  key={item.label}
+                  href={item.href}
+                  policy={policy}
+                  className={className}
+                >
+                  {item.label}
+                </IntentPrefetchLink>
+              );
+            }
+
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                prefetch={policy === 'off' ? false : undefined}
+                className={className}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="ml-auto hidden w-[190px] shrink-0 xl:block">
@@ -100,7 +132,7 @@ export function LandingHeader({
         {askCentrePassEnabled && (
           <Link
             href="/explore"
-            prefetch={false}
+            prefetch={getNavigationPrefetchPolicy('/explore') === 'off' ? false : undefined}
             className="hidden min-h-11 shrink-0 items-center gap-2 px-1 font-label text-[11px] font-bold uppercase tracking-wide text-secondary-fixed transition-colors hover:text-secondary-fixed-dim xl:flex"
           >
             <span className="material-symbols-outlined text-xl" aria-hidden="true">

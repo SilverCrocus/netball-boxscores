@@ -52,7 +52,7 @@ const MATCHES = [
           homeScore: 42,
           awayScore: 38,
           currentQuarter: 3,
-          currentTime: '04:12',
+          currentTime: '312',
           round: 12,
           venue: 'Arena',
           scheduledAt: new Date(),
@@ -211,7 +211,32 @@ describe('HomePage', () => {
     render(page);
     expect(screen.getByRole('region', { name: 'Latest scores' })).toBeInTheDocument();
     expect(screen.getByRole('link', {
-      name: /Marlins 42, Inferno 38.*LIVE.*Q3 04:12/i,
+      name: /Marlins 42, Inferno 38.*LIVE.*Q3 9:48/i,
+    })).toHaveAttribute('href', '/match/1?edition=competition-2026');
+  });
+
+  it('labels and formats overtime clocks in the latest score strip', async () => {
+    const overtimeMatch = {
+      ...MATCHES[0],
+      currentQuarter: 5,
+      currentTime: '75',
+    };
+    findMatchesMock.mockImplementation(({ where }: {
+      where: { status?: string; id?: { in: string[] } };
+    }) => Promise.resolve(
+      where.status === 'LIVE'
+        ? [overtimeMatch]
+        : where.status
+          ? MATCHES.filter((match) => match.status === where.status)
+          : where.id?.in
+            ? MATCHES.filter((match) => where.id?.in.includes(match.id))
+            : [],
+    ));
+
+    render(await HomePage());
+
+    expect(screen.getByRole('link', {
+      name: /Marlins 42, Inferno 38.*LIVE.*ET 3:45/i,
     })).toHaveAttribute('href', '/match/1?edition=competition-2026');
   });
 

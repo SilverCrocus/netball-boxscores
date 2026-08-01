@@ -38,7 +38,7 @@ export function AppShell({
             askCentrePassEnabled={askCentrePassEnabled}
           />
         </Suspense>
-        <main className="pb-24 lg:pb-0">
+        <main className="pb-24 xl:pb-0">
           {children}
         </main>
         <Suspense fallback={null}>
@@ -46,6 +46,7 @@ export function AppShell({
             editions={editions}
             analyticsEnabled={analyticsEnabled}
             askCentrePassEnabled={askCentrePassEnabled}
+            hideAt="xl"
           />
         </Suspense>
       </div>
