@@ -58,6 +58,10 @@ begins with its Europe/London start-time prefix, `YYYY-MM-DD-HHmm-`. Both
 official organisation codes must resolve through the existing team mappings
 and agree with any participants already assigned to the match. Duplicate,
 missing, or conflicting mappings are quarantined rather than guessed.
+Provider start order is not treated as CentrePass home/away identity. When the
+exact mapped two-team set arrives in the reverse of already resolved bracket
+slots, the adapter transposes the governed result and scores into canonical
+home/away order while retaining the provider order in the source receipt.
 The only reviewed code translations are the provider's `MAW` to the bundle's
 `MWI` for Malawi and `TGA` to `TON` for Tonga; all other codes must match
 exactly.
