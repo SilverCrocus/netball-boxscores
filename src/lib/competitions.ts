@@ -257,8 +257,70 @@ export function isEditionPubliclyReady(edition: PublicEditionReadinessOption): b
   }).ready;
 }
 
+interface DatedEdition {
+  seasonStart?: Date | string | null;
+  seasonEnd?: Date | string | null;
+}
+
+type EditionActivityOrder = {
+  group: 0 | 1 | 2 | 3;
+  timestamp: number;
+};
+
+function validTimestamp(value: Date | string | null | undefined): number | null {
+  const timestamp =
+    value instanceof Date
+      ? value.getTime()
+      : typeof value === "string"
+        ? Date.parse(value)
+        : Number.NaN;
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function editionActivityOrder(edition: DatedEdition, now: number): EditionActivityOrder {
+  const start = validTimestamp(edition.seasonStart);
+  const end = validTimestamp(edition.seasonEnd);
+  const hasValidRange = start === null || end === null || start <= end;
+
+  if (hasValidRange && start !== null && end !== null && start <= now && now <= end) {
+    return { group: 0, timestamp: -start };
+  }
+  if (hasValidRange && start !== null && start > now) {
+    return { group: 1, timestamp: start };
+  }
+  if (hasValidRange && end !== null && end < now) {
+    return { group: 2, timestamp: -end };
+  }
+  return { group: 3, timestamp: 0 };
+}
+
+/**
+ * Prefer the edition that is relevant now without losing the database's
+ * deterministic ordering when dates are incomplete or equivalent.
+ */
+function orderPublicEditionsByActivity<T extends DatedEdition>(
+  editions: readonly T[],
+  now: Date = new Date(),
+): T[] {
+  const nowTimestamp = now.getTime();
+  return editions
+    .map((edition, index) => ({
+      edition,
+      index,
+      order: editionActivityOrder(edition, nowTimestamp),
+    }))
+    .sort((left, right) => (
+      left.order.group - right.order.group
+      || left.order.timestamp - right.order.timestamp
+      || left.index - right.index
+    ))
+    .map(({ edition }) => edition);
+}
+
 export async function getPublicCompetitions(): Promise<CompetitionOption[]> {
-  return (await getCompetitions()).filter(isEditionPubliclyReady);
+  return orderPublicEditionsByActivity(
+    (await getCompetitions()).filter(isEditionPubliclyReady),
+  );
 }
 
 /**
@@ -318,6 +380,8 @@ export const competitionNavigationSelect = {
   name: true,
   slug: true,
   label: true,
+  seasonStart: true,
+  seasonEnd: true,
   sourceTimezone: true,
   publicationStatus: true,
   series: {
@@ -523,9 +587,10 @@ const getCachedPublicCompetitionNavigationDirectory = process.env.NODE_ENV === '
 export async function getPublicCompetitionNavigationDirectory(options: {
   cache?: boolean;
 } = {}): Promise<CompetitionNavigationOption[]> {
-  return options.cache === false
+  const editions = options.cache === false
     ? loadFreshStandingsCompetitionDirectory()
     : getCachedPublicCompetitionNavigationDirectory();
+  return orderPublicEditionsByActivity(await editions);
 }
 
 export interface EditionRouteIdentity {

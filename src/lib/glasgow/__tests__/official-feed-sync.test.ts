@@ -82,6 +82,169 @@ describe('official Glasgow feed sync planning', () => {
     });
   });
 
+  it.each([
+    {
+      label: 'bronze medal match',
+      providerMatchCode: 'NBLWTEAM7-------------FNL-000200--',
+      startDate: '2026-08-02T08:00:00Z',
+      endDate: '2026-08-02T09:45:00Z',
+      providerSideA: 'AUS',
+      providerSideB: 'ENG',
+      providerSideAScore: 68,
+      providerSideBScore: 50,
+      canonicalSideA: 'ENG',
+      canonicalSideB: 'AUS',
+      canonicalSideAScore: 50,
+      canonicalSideBScore: 68,
+      externalId: '2026-08-02-0900-bronze-medal',
+    },
+    {
+      label: 'gold medal match',
+      providerMatchCode: 'NBLWTEAM7-------------FNL-000100--',
+      startDate: '2026-08-02T12:00:00Z',
+      endDate: '2026-08-02T13:45:00Z',
+      providerSideA: 'JAM',
+      providerSideB: 'NZL',
+      providerSideAScore: 48,
+      providerSideBScore: 56,
+      canonicalSideA: 'NZL',
+      canonicalSideB: 'JAM',
+      canonicalSideAScore: 56,
+      canonicalSideBScore: 48,
+      externalId: '2026-08-02-1300-gold-medal',
+    },
+  ])('normalizes reversed provider participants for the $label', ({
+    providerMatchCode,
+    startDate,
+    endDate,
+    providerSideA,
+    providerSideB,
+    providerSideAScore,
+    providerSideBScore,
+    canonicalSideA,
+    canonicalSideB,
+    canonicalSideAScore,
+    canonicalSideBScore,
+    externalId,
+  }) => {
+    const plan = planOfficialGlasgowUpdates(
+      [observation({
+        providerMatchCode,
+        providerPhaseCode: 'FNL-',
+        startDate,
+        endDate,
+        status: 'COMPLETED',
+        resultQuality: 'OFFICIAL_FINAL',
+        sideAOrganisationCode: providerSideA,
+        sideBOrganisationCode: providerSideB,
+        sideAScore: providerSideAScore,
+        sideBScore: providerSideBScore,
+      })],
+      [{
+        ...mappedMatch({
+          scheduledAt: new Date(startDate),
+          homeTeamId: `team-${canonicalSideA.toLowerCase()}`,
+          awayTeamId: `team-${canonicalSideB.toLowerCase()}`,
+        }),
+        externalId,
+      }],
+      new Map([
+        [providerSideA, `team-${providerSideA.toLowerCase()}`],
+        [providerSideB, `team-${providerSideB.toLowerCase()}`],
+      ]),
+      new Date(endDate),
+      null,
+    );
+
+    expect(plan.issues).toEqual([]);
+    expect(plan.updates).toHaveLength(1);
+    expect(plan.updates[0]).toMatchObject({
+      observation: {
+        sideAOrganisationCode: providerSideA,
+        sideBOrganisationCode: providerSideB,
+        sideAScore: providerSideAScore,
+        sideBScore: providerSideBScore,
+      },
+      result: {
+        matchExternalId: externalId,
+        sideAExternalId: canonicalSideA,
+        sideBExternalId: canonicalSideB,
+        status: 'COMPLETED',
+        resultQuality: 'UNOFFICIAL_FINAL',
+        sideAScore: canonicalSideAScore,
+        sideBScore: canonicalSideBScore,
+      },
+    });
+  });
+
+  it('quarantines an observation when neither scheduled side establishes canonical order', () => {
+    const plan = planOfficialGlasgowUpdates(
+      [observation()],
+      [mappedMatch({ homeTeamId: null, awayTeamId: null })],
+      teamMappings,
+      new Date('2026-07-26T09:30:00Z'),
+      null,
+    );
+
+    expect(plan.updates).toEqual([]);
+    expect(plan.issues).toEqual([
+      expect.stringContaining('has no resolved scheduled participant order'),
+    ]);
+  });
+
+  it('uses canonicalized reversed scores for final promotion and live regression checks', () => {
+    const reversedFinal = observation({
+      status: 'COMPLETED',
+      resultQuality: 'OFFICIAL_FINAL',
+      sideAOrganisationCode: 'SCO',
+      sideBOrganisationCode: 'WAL',
+      sideAScore: 48,
+      sideBScore: 38,
+    });
+    const promotion = planOfficialGlasgowUpdates(
+      [reversedFinal],
+      [mappedMatch({
+        status: 'COMPLETED',
+        resultQuality: 'UNOFFICIAL_FINAL',
+        homeScore: 38,
+        awayScore: 48,
+      })],
+      teamMappings,
+      new Date('2026-07-26T10:00:30Z'),
+      'a'.repeat(64),
+    );
+    const regression = planOfficialGlasgowUpdates(
+      [observation({
+        sideAOrganisationCode: 'SCO',
+        sideBOrganisationCode: 'WAL',
+        sideAScore: 47,
+        sideBScore: 37,
+      })],
+      [mappedMatch({
+        status: 'LIVE',
+        resultQuality: 'PROVISIONAL',
+        homeScore: 38,
+        awayScore: 48,
+      })],
+      teamMappings,
+      new Date('2026-07-26T09:30:00Z'),
+      null,
+    );
+
+    expect(promotion.issues).toEqual([]);
+    expect(promotion.updates[0]?.result).toMatchObject({
+      sideAExternalId: 'WAL',
+      sideBExternalId: 'SCO',
+      sideAScore: 38,
+      sideBScore: 48,
+      resultQuality: 'OFFICIAL_FINAL',
+    });
+    expect(regression.updates).toEqual([]);
+    expect(regression.issues).toEqual([
+      expect.stringContaining('reported a live score regression'),
+    ]);
+  });
+
   it('requires two identical completed snapshots before official promotion', () => {
     const final = observation({
       status: 'COMPLETED',

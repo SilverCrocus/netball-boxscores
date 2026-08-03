@@ -245,28 +245,49 @@ export function planOfficialGlasgowUpdates(
       continue;
     }
 
-    const sideAExternalId = canonicalGlasgowTeamCode(
+    let sideAExternalId = canonicalGlasgowTeamCode(
       observation.sideAOrganisationCode,
     );
-    const sideBExternalId = canonicalGlasgowTeamCode(
+    let sideBExternalId = canonicalGlasgowTeamCode(
       observation.sideBOrganisationCode,
     );
     const sideATeamId = teamIdByExternalId.get(sideAExternalId);
     const sideBTeamId = teamIdByExternalId.get(sideBExternalId);
+    let sideAScore = observation.sideAScore;
+    let sideBScore = observation.sideBScore;
     if (!sideATeamId || !sideBTeamId || sideATeamId === sideBTeamId) {
       issues.push(
         `Provider match ${observation.providerMatchCode} has unmapped or duplicate teams`,
       );
       continue;
     }
-    if (
-      (mapping.match.homeTeamId && mapping.match.homeTeamId !== sideATeamId)
-      || (mapping.match.awayTeamId && mapping.match.awayTeamId !== sideBTeamId)
-    ) {
+    if (!mapping.match.homeTeamId && !mapping.match.awayTeamId) {
+      issues.push(
+        `Provider match ${observation.providerMatchCode} has no resolved scheduled participant order`,
+      );
+      continue;
+    }
+    const matchesScheduledOrder = (
+      (!mapping.match.homeTeamId || mapping.match.homeTeamId === sideATeamId)
+      && (!mapping.match.awayTeamId || mapping.match.awayTeamId === sideBTeamId)
+    );
+    const matchesReversedOrder = (
+      (!mapping.match.homeTeamId || mapping.match.homeTeamId === sideBTeamId)
+      && (!mapping.match.awayTeamId || mapping.match.awayTeamId === sideATeamId)
+    );
+    if (!matchesScheduledOrder && !matchesReversedOrder) {
       issues.push(
         `Provider match ${observation.providerMatchCode} conflicts with the scheduled participants`,
       );
       continue;
+    }
+    if (!matchesScheduledOrder && matchesReversedOrder) {
+      // Provider start order is not a stable home/away contract. Medal matches,
+      // for example, arrived in the opposite order to the resolved bracket
+      // slots. Preserve the raw observation for provenance, but normalize the
+      // governed result into CentrePass's scheduled home/away order.
+      [sideAExternalId, sideBExternalId] = [sideBExternalId, sideAExternalId];
+      [sideAScore, sideBScore] = [sideBScore, sideAScore];
     }
     if (!['SCHEDULED', 'LIVE', 'COMPLETED'].includes(mapping.match.status)) {
       issues.push(
@@ -283,8 +304,8 @@ export function planOfficialGlasgowUpdates(
     if (
       mapping.match.status === 'LIVE'
       && (
-        observation.sideAScore < mapping.match.homeScore
-        || observation.sideBScore < mapping.match.awayScore
+        sideAScore < mapping.match.homeScore
+        || sideBScore < mapping.match.awayScore
       )
     ) {
       issues.push(
@@ -301,8 +322,8 @@ export function planOfficialGlasgowUpdates(
       // successful poll before promoting it to OFFICIAL_FINAL.
       resultQuality = 'UNOFFICIAL_FINAL';
     } else {
-      const scoreChanged = mapping.match.homeScore !== observation.sideAScore
-        || mapping.match.awayScore !== observation.sideBScore;
+      const scoreChanged = mapping.match.homeScore !== sideAScore
+        || mapping.match.awayScore !== sideBScore;
       if (scoreChanged) {
         resultQuality = 'CORRECTED';
       } else if (mapping.match.resultQuality === 'UNOFFICIAL_FINAL') {
@@ -320,8 +341,8 @@ export function planOfficialGlasgowUpdates(
     const status = observation.status;
     const unchanged = mapping.match.status === status
       && mapping.match.resultQuality === resultQuality
-      && mapping.match.homeScore === observation.sideAScore
-      && mapping.match.awayScore === observation.sideBScore;
+      && mapping.match.homeScore === sideAScore
+      && mapping.match.awayScore === sideBScore;
     if (unchanged) continue;
 
     updates.push({
@@ -333,8 +354,8 @@ export function planOfficialGlasgowUpdates(
         sideBExternalId,
         status,
         resultQuality,
-        sideAScore: observation.sideAScore,
-        sideBScore: observation.sideBScore,
+        sideAScore,
+        sideBScore,
         sourceUpdatedAt: retrievedAt.toISOString(),
       },
     });

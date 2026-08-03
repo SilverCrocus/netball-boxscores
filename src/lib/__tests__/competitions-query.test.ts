@@ -30,12 +30,16 @@ import {
   competitionNavigationSelect,
   competitionOptionSelect,
   getCompetitions,
+  getPublicCompetitions,
   getPublicCompetitionNavigationDirectory,
+  selectEditionBySlugs,
   standingsDirectorySelect,
 } from '@/lib/competitions';
 
 describe('competition directory query', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-03T00:00:00.000Z'));
     mocks.connection.mockClear();
     mocks.findMany.mockReset().mockResolvedValue([]);
     mocks.transaction.mockReset().mockImplementation(async (callback: (transaction: unknown) => unknown) => callback({
@@ -44,6 +48,7 @@ describe('competition directory query', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
   });
 
@@ -74,8 +79,76 @@ describe('competition directory query', () => {
     }));
     expect(competitionNavigationSelect).not.toHaveProperty('ruleset');
     expect(competitionNavigationSelect).not.toHaveProperty('dataCoverage');
+    expect(competitionNavigationSelect.seasonStart).toBe(true);
+    expect(competitionNavigationSelect.seasonEnd).toBe(true);
     expect(competitionOptionSelect.stages).not.toHaveProperty('take');
     expect(competitionOptionSelect.matches).not.toHaveProperty('take');
+  });
+
+  it('defaults to active SSN after Glasgow ends while retaining exact edition identity', async () => {
+    const glasgow = navigationCandidate({
+      id: 'glasgow',
+      seriesSlug: 'commonwealth-games',
+      slug: 'glasgow-2026',
+      seasonStart: new Date('2026-07-25T00:00:00.000Z'),
+      seasonEnd: new Date('2026-08-02T23:59:59.999Z'),
+    });
+    const ssn = navigationCandidate({
+      id: 'ssn',
+      slug: '2026',
+      seasonStart: new Date('2026-03-14T00:00:00.000Z'),
+      seasonEnd: new Date('2026-08-09T23:59:59.999Z'),
+    });
+
+    mocks.findMany.mockResolvedValueOnce([glasgow, ssn]);
+    const afterGlasgow = await getPublicCompetitions();
+
+    expect(afterGlasgow.map((edition) => edition.id)).toEqual(['ssn', 'glasgow']);
+    expect(selectEditionBySlugs(afterGlasgow, {
+      competitionSlug: 'commonwealth-games',
+      editionSlug: 'glasgow-2026',
+    })?.id).toBe('glasgow');
+
+    vi.setSystemTime(new Date('2026-07-30T00:00:00.000Z'));
+    mocks.findMany.mockResolvedValueOnce([ssn, glasgow]);
+
+    const duringGlasgow = await getPublicCompetitions();
+    expect(duringGlasgow.map((edition) => edition.id)).toEqual(['glasgow', 'ssn']);
+  });
+
+  it('uses the same current ordering for cached and fresh navigation directories', async () => {
+    const unknownFirst = navigationCandidate({ id: 'unknown-first', slug: 'unknown-first' });
+    const glasgow = navigationCandidate({
+      id: 'glasgow',
+      seriesSlug: 'commonwealth-games',
+      slug: 'glasgow-2026',
+      seasonStart: new Date('2026-07-25T00:00:00.000Z'),
+      seasonEnd: new Date('2026-08-02T23:59:59.999Z'),
+    });
+    const ssn = navigationCandidate({
+      id: 'ssn',
+      slug: '2026',
+      seasonStart: new Date('2026-03-14T00:00:00.000Z'),
+      seasonEnd: new Date('2026-08-09T23:59:59.999Z'),
+    });
+    const upcoming = navigationCandidate({
+      id: 'upcoming',
+      slug: '2027',
+      seasonStart: new Date('2027-03-01T00:00:00.000Z'),
+      seasonEnd: new Date('2027-08-01T00:00:00.000Z'),
+    });
+    const unknownSecond = navigationCandidate({ id: 'unknown-second', slug: 'unknown-second' });
+    const candidates = [unknownFirst, glasgow, upcoming, ssn, unknownSecond];
+    const expected = ['ssn', 'upcoming', 'glasgow', 'unknown-first', 'unknown-second'];
+
+    const cachedCandidates = JSON.parse(JSON.stringify(candidates));
+    mocks.findMany.mockResolvedValueOnce(cachedCandidates);
+    const cached = await getPublicCompetitionNavigationDirectory();
+    expect(cached.map((edition) => edition.id)).toEqual(expected);
+
+    mocks.findMany.mockResolvedValueOnce(candidates);
+    const fresh = await getPublicCompetitionNavigationDirectory({ cache: false });
+    expect(fresh.map((edition) => edition.id)).toEqual(expected);
   });
 
   it('keeps generic publication gates and Glasgow readiness semantics in the directory', async () => {
@@ -306,6 +379,8 @@ function navigationCandidate(overrides: {
   seriesSlug?: string;
   countEntries?: number;
   countMatches?: number;
+  seasonStart?: Date | null;
+  seasonEnd?: Date | null;
 } = {}) {
   return {
     id: overrides.id ?? 'edition-1',
@@ -313,6 +388,8 @@ function navigationCandidate(overrides: {
     name: 'SSN 2026',
     slug: overrides.slug ?? '2026',
     label: null,
+    seasonStart: overrides.seasonStart ?? null,
+    seasonEnd: overrides.seasonEnd ?? null,
     sourceTimezone: 'Australia/Sydney',
     publicationStatus: 'PUBLISHED',
     series: {
